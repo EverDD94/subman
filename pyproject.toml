@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "subman"
+version = "0.1.0"
+description = "Gestor de subtítulos con sincronización verificada contra el audio"
+requires-python = ">=3.11"
+dependencies = ["numpy>=1.24", "onnxruntime>=1.16", "requests>=2.28"]
+
+[project.scripts]
+subman = "subman.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["subman*"]
+
+[tool.setuptools.package-data]
+subman = ["models/*.onnx"]

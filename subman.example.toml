@@ -1,0 +1,16 @@
+# Copiar a /config/subman.toml (en el Synology: la carpeta que montes como /config)
+
+# Carpetas de la biblioteca, tal como se ven DENTRO del contenedor
+library = ["/media/Series", "/media/Peliculas"]
+languages = ["es"]
+database = "/config/subman.db"
+
+candidates = 5          # máximo de subtítulos a probar por episodio (cada uno gasta una descarga)
+keep_review = true      # guardar también los que salen "revisar" (dudosos), marcados en la base de datos
+sync_existing = true    # sincronizar los .srt que ya tengas junto a los videos (se guarda copia .orig)
+reference = "auto"      # auto | audio | embedded
+
+[providers.opensubtitles]
+api_key = ""            # https://www.opensubtitles.com/consumers
+username = ""
+password = ""

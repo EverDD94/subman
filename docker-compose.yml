@@ -1,0 +1,9 @@
+services:
+  subman:
+    build: .
+    container_name: subman
+    restart: unless-stopped
+    volumes:
+      - /volume1/docker/subman:/config
+      - /volume1/media:/media      # la misma carpeta que usa Jellyfin
+    command: ["run", "--watch", "60"]

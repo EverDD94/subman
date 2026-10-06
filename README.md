@@ -1,0 +1,110 @@
+# subman
+
+Gestor de subtítulos para una biblioteca de Jellyfin: indexa series y películas, descarga
+subtítulos de proveedores enchufables (OpenSubtitles para empezar), **los sincroniza contra
+la voz del episodio completo** y **comprueba que la sincronización funcionó** antes de
+dejarlos junto al video.
+
+## Por qué fallan las herramientas que ya probaste
+
+| Herramienta | Qué hace | Dónde se rompe |
+|---|---|---|
+| Plugin OpenSubtitles de Jellyfin, Bazarr | Descargan el subtítulo más votado | Si es de otra *release* (otra intro, 25 fps, escena de más) llega desfasado y nadie lo comprueba |
+| ffsubsync | Busca **un único desfase** (+ fps) | Si hay una intro de distinta duración, arregla una mitad y rompe la otra |
+| alass | Permite cortes, pero decide con heurísticas y su VAD trata la música como voz | Con intros/música de fondo se equivoca en tramos, y no te dice que se equivocó |
+| Whisper / transcribir y traducir | Genera subtítulos nuevos | Tiempos imprecisos, frases cortadas y errores de traducción; muy lento en un NAS |
+
+El problema de fondo es que ninguna **verifica** el resultado: te devuelven un archivo
+y das por hecho que está bien hasta que lo ves.
+
+## Cómo lo resuelve subman
+
+1. **Huella de voz del episodio entero.** Se extrae el audio con ffmpeg y se pasa por
+   [Silero VAD](https://github.com/snakers4/silero-vad), un detector de voz neuronal que
+   distingue voz de música y efectos (las intros y la música de fondo no confunden).
+   Si el video ya trae un subtítulo de texto incrustado, se puede usar como referencia exacta.
+2. **Alineación global por tramos.** Un solo cálculo de programación dinámica sobre todas las
+   líneas decide: el factor de fps (23.976 / 24 / 25), y un desfase por tramo. Cambiar de
+   desfase entre dos líneas tiene un coste, así que sólo se acepta si el resto del
+   episodio encaja claramente mejor (una intro distinta, un "previously on", una escena de
+   más). Las líneas nunca se reordenan ni se pisan. Después cada tramo se afina a 10 ms.
+3. **Verificación con nivel de azar.** Se mide qué porcentaje de líneas cae sobre voz real y
+   se compara con lo que el mismo alineador consigue con subtítulos *señuelo* (el mismo
+   subtítulo invertido o barajado). Así un subtítulo de otro episodio, que siempre "encaja
+   un poco", no pasa por bueno. Veredicto: `ok`, `revisar` o `falla`, con el detalle por tramo.
+4. **Varios candidatos.** Para cada episodio se prueban los mejores subtítulos del proveedor
+   en orden; se para en el primero que sale `ok`. Si ninguno, se guarda el mejor `revisar`
+   (configurable) o nada, y queda anotado para reintentar.
+
+## Resultados en las pruebas
+
+Episodios sintéticos (voz real con espeak-ng, intro musical de 45 s, música de fondo y
+escenas de acción sin diálogo), de 10 y 45 minutos:
+
+| Caso | Antes | Después |
+|---|---|---|
+| Desfase constante de 2.7 s | 2.7 s de error | 0.03 s, 100 % de líneas a ≤0.2 s, `ok` |
+| Release a 25 fps + intro 30 s más corta | 41–83 s de error | 0.03 s, 100 %, `ok` (detecta x1.04271 y 2 tramos) |
+| Lo mismo con tiempos "humanos" imprecisos | 41–83 s | 0.03–0.05 s, 96–100 %, `ok` |
+| "Previously on" de 20 s + escena de 15 s que el subtítulo no tiene | 5–20 s | 0.03 s, 99.7–100 %, `ok` |
+| Subtítulo de **otro episodio** | — | `falla` (encaja como un señuelo) |
+
+Análisis de un episodio de 45 min: ~7 s de detección de voz + ~2 s de alineación en CPU.
+En un Synology con Celeron/ARM espera unas 5–10 veces más.
+
+Límite conocido: en el borde de una escena que sobra, una o dos líneas pueden caer en el
+lado equivocado si ambas posiciones tienen voz (en el caso de 45 min, 2 de 603 líneas).
+
+Reproducir: `python tests/make_episode.py /tmp/ep && python tests/evaluate.py /tmp/ep`
+(necesita `espeak-ng`).
+
+## Uso
+
+```bash
+pip install -e .            # Python ≥3.11 y ffmpeg en el PATH
+
+# Un archivo suelto (semiautomático)
+subman sync "Serie - S01E02.mkv" "Serie - S01E02.es.srt" -o "Serie - S01E02.es.srt"
+subman check "Serie - S01E02.mkv" "Serie - S01E02.es.srt"   # sólo verificar
+
+# Biblioteca completa (automático)
+subman scan -c subman.toml
+subman run  -c subman.toml               # una pasada
+subman run  -c subman.toml --watch 60    # vigilando cada hora
+subman list -c subman.toml               # estado por episodio
+```
+
+Configuración: copiar `subman.example.toml`. Los subtítulos se escriben como
+`<video>.<idioma>.srt`, que Jellyfin detecta solo. Si ya había uno, se guarda una copia
+`.orig`.
+
+## Synology (Container Manager)
+
+`docker-compose.yml` monta `/volume1/docker/subman` como `/config` y la carpeta de medios de
+Jellyfin como `/media`. Por defecto se queda vigilando la biblioteca cada 60 minutos.
+
+## Estructura
+
+```
+subman/
+  audio.py       ffmpeg: audio a 16 kHz y subtítulos incrustados
+  vad.py         Silero VAD (ONNX, incluido) -> probabilidad de voz cada 10 ms
+  aligner.py     alineación global: fps + desfase por tramo (programación dinámica)
+  verify.py      métricas, señuelos y veredicto
+  sync.py        video + subtítulo -> subtítulo sincronizado + informe
+  library.py     escaneo de la biblioteca, hash de OpenSubtitles, índice SQLite
+  manager.py     buscar candidatos -> sincronizar -> verificar -> elegir y escribir
+  providers/     proveedores enchufables (opensubtitles.py)
+  cli.py
+tests/           generador de episodios sintéticos y evaluación
+```
+
+## Próximos pasos
+
+- Probarlo con episodios reales que hayan fallado antes (lo más importante).
+- Pequeña interfaz web para la parte semiautomática: ver los `revisar`, escuchar un trozo
+  y aceptar/rechazar.
+- Verificación extra por texto con Whisper cuando el subtítulo está en el idioma del audio.
+- Más proveedores (Subdivx, Addic7ed, Podnapisi) y aviso a Jellyfin para refrescar.
+
+El modelo Silero VAD (`subman/models/`) es MIT, © Silero Team.

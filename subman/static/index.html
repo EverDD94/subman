@@ -211,7 +211,9 @@ async function loadStatus() {
   $("#enabledHome").checked = s.enabled;
   $("#enabledText").textContent = s.enabled ? "Encendido: revisa la biblioteca sola." : "Apagado: no toca ningún archivo.";
   let html;
-  if (st.running) {
+  if (st.running && !st.total) {
+    html = `<b>${esc(st.message === "escaneando" ? "buscando videos..." : st.message)}</b><div class="muted">Primero hace la lista de todos los videos; luego empieza con los subtítulos.</div>`;
+  } else if (st.running) {
     const p = st.total ? st.done / st.total : 0;
     html = `<b>Trabajando</b> · ${st.done} de ${st.total}<div class="muted">${esc(st.current)}</div><div class="bar"><i style="width:${p*100}%"></i></div>`;
   } else {

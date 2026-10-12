@@ -149,7 +149,7 @@ class Library:
         self.db.execute("PRAGMA foreign_keys = ON")
         self.db.executescript(SCHEMA)
 
-    def scan(self, roots: list[str | Path], hash_files: bool = True) -> dict:
+    def scan(self, roots: list[str | Path], hash_files: bool = True, progress=None) -> dict:
         now = time.time()
         stats = {"nuevos": 0, "cambiados": 0, "borrados": 0, "total": 0}
         for root in roots:
@@ -162,6 +162,8 @@ class Library:
                     st = p.stat()
                     row = self.db.execute("SELECT id, size, mtime FROM media WHERE path=?", (str(p),)).fetchone()
                     stats["total"] += 1
+                    if progress and stats["total"] % 25 == 0:
+                        progress(stats["total"])
                     if row and row["size"] == st.st_size and row["mtime"] == st.st_mtime:
                         self.db.execute("UPDATE media SET seen=? WHERE id=?", (now, row["id"]))
                         continue

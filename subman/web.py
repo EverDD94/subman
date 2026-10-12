@@ -78,7 +78,10 @@ class App:
             settings = config.settings(cfg, self.config_path)
             provs = providers.load(config.active_providers(cfg))
             lib = self.library(cfg)
-            log.info("escaneo: %s", lib.scan(cfg["library"]))
+            log.info("buscando videos en %s", ", ".join(cfg["library"]))
+            stats = lib.scan(cfg["library"], progress=lambda n: self.state.update(
+                message=f"buscando videos: {n} encontrados"))
+            log.info("escaneo: %s", stats)
             items = lib.media()
             self.state.update(total=len(items), message="trabajando")
             for n, m in enumerate(items):

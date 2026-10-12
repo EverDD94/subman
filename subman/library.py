@@ -45,6 +45,12 @@ CREATE TABLE IF NOT EXISTS subtitle (
     updated REAL,
     UNIQUE (media_id, lang)
 );
+CREATE TABLE IF NOT EXISTS rejected (  -- subtítulos que el usuario descartó desde la web
+    media_id INTEGER NOT NULL REFERENCES media(id) ON DELETE CASCADE,
+    lang TEXT NOT NULL,
+    source TEXT NOT NULL,
+    PRIMARY KEY (media_id, lang, source)
+);
 """
 
 
@@ -138,8 +144,9 @@ def glob_escape(s: str) -> str:
 
 class Library:
     def __init__(self, db_path: str | Path):
-        self.db = sqlite3.connect(str(db_path))
+        self.db = sqlite3.connect(str(db_path), timeout=30)
         self.db.row_factory = sqlite3.Row
+        self.db.execute("PRAGMA foreign_keys = ON")
         self.db.executescript(SCHEMA)
 
     def scan(self, roots: list[str | Path], hash_files: bool = True) -> dict:
@@ -190,3 +197,24 @@ class Library:
                  status=excluded.status, detail=excluded.detail, updated=excluded.updated""",
             (media_id, lang, path, source, status, detail, time.time()))
         self.db.commit()
+
+    def statuses(self) -> dict[int, dict[str, sqlite3.Row]]:
+        out: dict[int, dict[str, sqlite3.Row]] = {}
+        for r in self.db.execute("SELECT * FROM subtitle"):
+            out.setdefault(r["media_id"], {})[r["lang"]] = r
+        return out
+
+    def reset(self, media_id: int, lang: str | None = None) -> None:
+        if lang:
+            self.db.execute("DELETE FROM subtitle WHERE media_id=? AND lang=?", (media_id, lang))
+        else:
+            self.db.execute("DELETE FROM subtitle WHERE media_id=?", (media_id,))
+        self.db.commit()
+
+    def reject(self, media_id: int, lang: str, source: str) -> None:
+        self.db.execute("INSERT OR IGNORE INTO rejected VALUES (?,?,?)", (media_id, lang, source))
+        self.db.commit()
+
+    def rejected(self, media_id: int, lang: str) -> set[str]:
+        return {r[0] for r in self.db.execute(
+            "SELECT source FROM rejected WHERE media_id=? AND lang=?", (media_id, lang))}

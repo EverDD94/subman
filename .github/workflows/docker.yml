@@ -51,3 +51,8 @@ jobs:
           # 0 = ok, 2 = no verificado (normal con un tono); cualquier otro código es un error real
           [ "$code" = 0 ] || [ "$code" = 2 ]
           test -s prueba/out.srt
+          # interfaz web: arranca con el compose de siempre (run --watch) y responde
+          docker run -d --name web -p 8787:8787 -v "$PWD/prueba:/config" "$IMG" run --watch 60
+          for i in $(seq 1 20); do curl -fs localhost:8787/api/status && break; sleep 1; done
+          curl -fs localhost:8787/ | grep -q '<title>subman</title>'
+          docker rm -f web

@@ -5,7 +5,8 @@ services:
     image: ghcr.io/everdd94/subman:latest
     container_name: subman
     restart: unless-stopped
+    ports:
+      - "8787:8787"                        # la interfaz web: http://IP-DEL-NAS:8787
     volumes:
       - /volume1/docker/subman:/config     # aquí va subman.toml y la base de datos
       - /volume1/MEDIOS:/media             # la carpeta compartida de medios que usa Jellyfin
-    command: ["run", "--watch", "60"]      # revisa la biblioteca cada 60 minutos

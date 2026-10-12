@@ -1,0 +1,115 @@
+"""Configuración (subman.toml): valores por defecto, lectura y escritura."""
+from __future__ import annotations
+
+import copy
+import tomllib
+from pathlib import Path
+
+from . import manager
+
+DEFAULTS: dict = {
+    "enabled": False,       # el trabajo automático sólo arranca cuando se activa (desde la web)
+    "library": [],
+    "languages": ["es"],
+    "candidates": 5,
+    "keep_review": True,
+    "sync_existing": True,
+    "reference": "auto",
+    "retry_hours": 24,
+    "archive_languages": ["en"],
+    "dry_run": False,
+    "interval_minutes": 60,
+    "web_port": 8787,
+    "providers": {"opensubtitles": {"api_key": "", "username": "", "password": ""}},
+}
+
+HEADER = """# Configuración de subman. Se puede editar a mano o desde la web (puerto 8787).
+# Rutas de la biblioteca tal como se ven DENTRO del contenedor (/media/...).
+"""
+
+
+def _merge(base: dict, over: dict) -> dict:
+    out = copy.deepcopy(base)
+    for k, v in over.items():
+        out[k] = _merge(out[k], v) if isinstance(v, dict) and isinstance(out.get(k), dict) else v
+    return out
+
+
+def load(path: str | Path) -> dict:
+    p = Path(path)
+    if not p.exists():
+        p.parent.mkdir(parents=True, exist_ok=True)
+        save(p, DEFAULTS)
+    with open(p, "rb") as f:
+        cfg = _merge(DEFAULTS, tomllib.load(f))
+    cfg.setdefault("database", str(p.parent / "subman.db"))
+    return cfg
+
+
+def _value(v) -> str:
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, (int, float)):
+        return repr(v)
+    if isinstance(v, list):
+        return "[" + ", ".join(_value(x) for x in v) + "]"
+    s = str(v).replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+    return f'"{s}"'
+
+
+def dumps(cfg: dict) -> str:
+    lines = [HEADER]
+    tables = []
+    for k, v in cfg.items():
+        if isinstance(v, dict):
+            tables.append((k, v))
+        else:
+            lines.append(f"{k} = {_value(v)}")
+    for name, table in tables:
+        for sub, values in table.items():
+            if isinstance(values, dict):
+                lines.append(f"\n[{name}.{sub}]")
+                lines += [f"{k} = {_value(v)}" for k, v in values.items()]
+    return "\n".join(lines) + "\n"
+
+
+def save(path: str | Path, cfg: dict) -> None:
+    p = Path(path)
+    tmp = p.with_suffix(".tmp")
+    tmp.write_text(dumps(cfg), encoding="utf-8")
+    tmp.replace(p)
+
+
+def problems(cfg: dict) -> list[str]:
+    """Lo que falta para poder trabajar (vacío = listo)."""
+    out = []
+    if not cfg.get("library"):
+        out.append("elige al menos una carpeta de la biblioteca")
+    else:
+        missing = [d for d in cfg["library"] if not Path(d).is_dir()]
+        if missing:
+            out.append("no existen: " + ", ".join(missing))
+    if not cfg.get("providers", {}).get("opensubtitles", {}).get("api_key"):
+        out.append("falta la API key de OpenSubtitles (sin ella sólo se corrigen los subtítulos que ya tienes)")
+    return out
+
+
+def blocking(cfg: dict) -> list[str]:
+    """Problemas que impiden trabajar del todo (la API key es opcional)."""
+    return [p for p in problems(cfg) if not p.startswith("falta la API key")]
+
+
+def settings(cfg: dict, config_path: str | Path, dry_run: bool = False) -> manager.Settings:
+    base = Path(config_path).parent
+    return manager.Settings(
+        languages=cfg["languages"], candidates=cfg["candidates"], keep_review=cfg["keep_review"],
+        sync_existing=cfg["sync_existing"], reference=cfg["reference"], retry_hours=cfg["retry_hours"],
+        archive_languages=cfg["archive_languages"],
+        trash_dir=cfg.get("trash_dir", str(base / "papelera")),
+        archive_dir=cfg.get("archive_dir", str(base / "archivo")),
+        roots=list(cfg["library"]), dry_run=dry_run or cfg["dry_run"])
+
+
+def active_providers(cfg: dict) -> dict:
+    """Sólo los proveedores con credenciales puestas."""
+    return {"providers": {k: v for k, v in cfg.get("providers", {}).items() if v.get("api_key")}}

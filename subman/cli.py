@@ -4,13 +4,10 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import shutil
 import sys
-import time
-import tomllib
 from pathlib import Path
 
-from . import aligner, manager, providers, subtitles, sync, verify
+from . import aligner, config, manager, providers, subtitles, sync, verify
 from .library import Library
 
 DEFAULT_CONFIG = "/config/subman.toml"
@@ -58,32 +55,12 @@ def cmd_check(a) -> int:
     return 0 if ok else 2
 
 
-EXAMPLE_CONFIG = Path("/app/subman.example.toml")
-
-
-def _config(path: str, wait: bool = False) -> dict:
-    """Lee la configuración. En Docker, si aún no existe, deja una plantilla y espera a que
-    se rellene (así el contenedor no se reinicia en bucle el primer día)."""
-    p = Path(path)
-    while True:
-        if not p.exists() and EXAMPLE_CONFIG.exists():
-            p.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy(EXAMPLE_CONFIG, p)
-            logging.warning("creada %s: rellénala (rutas y OpenSubtitles) y el programa arrancará solo", p)
-        if p.exists():
-            with open(p, "rb") as f:
-                cfg = tomllib.load(f)
-            opensub = cfg.get("providers", {}).get("opensubtitles", {})
-            if not wait or opensub.get("api_key") or not opensub:
-                return cfg
-            logging.warning("falta api_key de OpenSubtitles en %s; esperando...", p)
-        elif not wait:
-            raise SystemExit(f"no existe la configuración {p}")
-        time.sleep(60)
+def _config(path: str) -> dict:
+    return config.load(path)  # si no existe, la crea con los valores por defecto
 
 
 def _library(cfg: dict) -> Library:
-    return Library(cfg.get("database", str(Path(DEFAULT_CONFIG).with_name("subman.db"))))
+    return Library(cfg["database"])
 
 
 def cmd_scan(a) -> int:
@@ -97,38 +74,38 @@ def cmd_list(a) -> int:
     lib = _library(cfg)
     for m in lib.media():
         states = []
-        for lang in cfg.get("languages", ["es"]):
+        for lang in cfg["languages"]:
             row = lib.subtitle_status(m.id, lang)
             states.append(f"{lang}:{row['status'] if row else '-'}")
         print(f"{m.id:>5}  {' '.join(states):<20} {m.label}")
     return 0
 
 
+def cmd_serve(a) -> int:
+    from . import web
+    web.serve(a.config, a.port)
+    return 0
+
+
 def cmd_run(a) -> int:
-    cfg = _config(a.config, wait=True)
-    settings = manager.Settings(
-        languages=cfg.get("languages", ["es"]), candidates=cfg.get("candidates", 5),
-        keep_review=cfg.get("keep_review", True), sync_existing=cfg.get("sync_existing", True),
-        reference=cfg.get("reference", "auto"), retry_hours=cfg.get("retry_hours", 24),
-        archive_languages=cfg.get("archive_languages", ["en"]),
-        trash_dir=cfg.get("trash_dir", str(Path(a.config).parent / "papelera")),
-        archive_dir=cfg.get("archive_dir", str(Path(a.config).parent / "archivo")),
-        roots=list(cfg["library"]), dry_run=a.dry_run or cfg.get("dry_run", False))
-    provs = providers.load(cfg)
-    while True:
-        lib = _library(cfg)
-        logging.info("escaneo: %s", lib.scan(cfg["library"]))
-        items = lib.media("path LIKE ?", (f"%{a.only}%",)) if a.only else lib.media()
-        for m in items:
-            try:
-                res = manager.process(m, lib, provs, settings)
-                if res:
-                    logging.info("%s: %s", m.label, res)
-            except Exception:
-                logging.exception("%s: error", m.label)
-        if not a.watch:
-            return 0
-        time.sleep(a.watch * 60)
+    if a.watch:  # modo contenedor: interfaz web + trabajo automático según los ajustes
+        return cmd_serve(argparse.Namespace(config=a.config, port=None))
+    cfg = _config(a.config)
+    if config.blocking(cfg):
+        raise SystemExit("; ".join(config.blocking(cfg)))
+    settings = config.settings(cfg, a.config, a.dry_run)
+    provs = providers.load(config.active_providers(cfg))
+    lib = _library(cfg)
+    logging.info("escaneo: %s", lib.scan(cfg["library"]))
+    items = lib.media("path LIKE ?", (f"%{a.only}%",)) if a.only else lib.media()
+    for m in items:
+        try:
+            res = manager.process(m, lib, provs, settings)
+            if res:
+                logging.info("%s: %s", m.label, res)
+        except Exception:
+            logging.exception("%s: error", m.label)
+    return 0
 
 
 def main(argv=None) -> int:
@@ -153,14 +130,18 @@ def main(argv=None) -> int:
 
     for name, fn, hlp in (("scan", cmd_scan, "indexa la biblioteca"),
                           ("list", cmd_list, "lista la biblioteca y el estado de sus subtítulos"),
-                          ("run", cmd_run, "escanea, descarga, sincroniza y verifica lo que falte")):
+                          ("run", cmd_run, "escanea, descarga, sincroniza y verifica lo que falte"),
+                          ("serve", cmd_serve, "interfaz web (puerto 8787) + trabajo automático")):
         p = sub.add_parser(name, help=hlp)
         p.add_argument("-c", "--config", default=DEFAULT_CONFIG)
         if name == "run":
-            p.add_argument("--watch", type=float, metavar="MIN", help="repetir cada MIN minutos")
+            p.add_argument("--watch", type=float, metavar="MIN",
+                           help="modo contenedor: igual que 'serve' (el intervalo se elige en la web)")
             p.add_argument("--only", help="procesar sólo rutas que contengan este texto")
             p.add_argument("--dry-run", "--ensayo", action="store_true",
                            help="no toca nada: sólo dice qué haría con cada archivo")
+        if name == "serve":
+            p.add_argument("--port", type=int, help="puerto (por defecto 8787 o web_port de la configuración)")
         p.set_defaults(fn=fn)
 
     a = ap.parse_args(argv)

@@ -92,18 +92,32 @@ subman check "Serie - S01E02.mkv" "Serie - S01E02.es.srt"   # sólo verificar
 # Biblioteca completa (automático)
 subman scan -c subman.toml
 subman run  -c subman.toml               # una pasada
-subman run  -c subman.toml --watch 60    # vigilando cada hora
+subman serve -c subman.toml              # interfaz web en :8787 + trabajo automático
 subman list -c subman.toml               # estado por episodio
 ```
 
-Configuración: copiar `subman.example.toml`. Los subtítulos se escriben como
-`<video>.<idioma>.srt`, que Jellyfin detecta solo. Si ya había uno, se guarda una copia
-`.orig`.
+Los subtítulos se escriben como `<video>.<idioma>.srt`, que Jellyfin detecta solo. Los
+originales se apartan a `papelera/` y los de inglés a `archivo/en/` (junto a `subman.toml`).
+
+## Interfaz web
+
+`subman serve` (lo que arranca el contenedor) abre una página en el puerto 8787:
+
+- **Inicio:** encender o pausar el trabajo automático, procesar ahora, progreso y recuento.
+- **Biblioteca:** cada video con su estado; al abrirlo se ve de dónde salió el subtítulo,
+  los tramos corregidos y la verificación, con botones para aceptarlo, rechazarlo (va a la
+  papelera y se busca otro) o volver a procesarlo.
+- **Ajustes:** carpetas de la biblioteca (navegando por `/media`), credenciales de
+  OpenSubtitles con "Probar conexión", idiomas y demás opciones. Se guardan en `subman.toml`.
+- **Registro** y **Papelera** (con "Recuperar").
+
+No tiene contraseña: está pensada para la red de casa. Hasta que se activa en la web,
+no toca ningún archivo.
 
 ## Synology (Container Manager)
 
 `docker-compose.yml` monta `/volume1/docker/subman` como `/config` y la carpeta de medios de
-Jellyfin como `/media`. Por defecto se queda vigilando la biblioteca cada 60 minutos.
+Jellyfin como `/media`, y publica la interfaz web en el puerto 8787.
 
 ## Estructura
 
@@ -117,6 +131,9 @@ subman/
   library.py     escaneo de la biblioteca, hash de OpenSubtitles, índice SQLite
   manager.py     buscar candidatos -> sincronizar -> verificar -> elegir y escribir
   providers/     proveedores enchufables (opensubtitles.py)
+  config.py      subman.toml: valores por defecto, lectura y escritura
+  web.py         interfaz web + trabajador en segundo plano
+  static/        la página de la interfaz
   cli.py
 tests/           generador de episodios sintéticos y evaluación
 ```
@@ -124,8 +141,7 @@ tests/           generador de episodios sintéticos y evaluación
 ## Próximos pasos
 
 - Probarlo con episodios reales que hayan fallado antes (lo más importante).
-- Pequeña interfaz web para la parte semiautomática: ver los `revisar`, escuchar un trozo
-  y aceptar/rechazar.
+- Escuchar un trozo del video con el subtítulo desde la interfaz web antes de aceptar.
 - Verificación extra por texto con Whisper cuando el subtítulo está en el idioma del audio.
 - Más proveedores (Subdivx, Addic7ed, Podnapisi) y aviso a Jellyfin para refrescar.
 

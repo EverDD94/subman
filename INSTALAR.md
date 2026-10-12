@@ -10,29 +10,30 @@ de otros contenedores, crea solo `subman` dentro de ella.
 1. Abre Container Manager, ve a **Proyecto** y pulsa **Crear**.
 2. Nombre: `subman`. Ruta: `/volume1/docker/subman`. Origen: **Crear docker-compose.yml**.
 3. Pega el contenido de `docker-compose.yml` y cambia `/volume1/MEDIOS` por la carpeta
-   compartida donde tienes `Series` (la misma que ve Jellyfin).
+   compartida donde tienes `Series` (la misma que ve Jellyfin; en tu caso `/volume1/Plex Srver`).
 4. Pulsa **Siguiente** y luego **Hecho**. Se descarga la imagen y arranca.
 
-La primera vez el contenedor crea `/volume1/docker/subman/subman.toml` y se queda esperando.
+## 3. Abrir la interfaz
 
-## 3. Rellenar `subman.toml`
+En el navegador: **http://192.168.1.121:8787** (la IP de tu Synology).
 
-Ábrelo con el Editor de texto de DSM, o desde Windows en `\\192.168.1.121\docker\subman`.
+1. **Ajustes, Carpetas de la biblioteca:** marca las carpetas que quieres (por ejemplo
+   `Series`, `Peliculas`, `Peliculas Animadas`). Con "abrir ›" entras en una carpeta para
+   elegir solo una parte (por ejemplo solo `2 Broke Girls` para empezar).
+2. **OpenSubtitles:** pon tu API key, usuario y contraseña y pulsa **Probar conexión**.
+   La API key se crea en opensubtitles.com, en tu perfil, **API consumers**.
+3. Opcional: activa **Modo ensayo** si primero quieres ver en el **Registro** qué haría sin
+   que mueva nada.
+4. Activa **Activar el trabajo automático** y pulsa **Guardar ajustes**. En **Inicio** se ve
+   el progreso.
 
-```toml
-library = ["/media/Series", "/media/Peliculas"]   # rutas DENTRO del contenedor
-languages = ["es"]
+Los ajustes se guardan en `docker/subman/subman.toml`; no hace falta tocarlo a mano.
 
-[providers.opensubtitles]
-api_key = "..."     # opensubtitles.com, sección API consumers
-username = "..."
-password = "..."
-```
+## Actualizar a una versión nueva
 
-- `library`: con el compose de arriba, `S:\Series` se ve como `/media/Series`. Ajusta el
-  nombre de la carpeta de películas al tuyo.
-- Al guardar, en menos de un minuto empieza a trabajar. El progreso se ve en Container
-  Manager, en **Contenedor**, `subman`, **Registro**.
+Container Manager, **Proyecto**, `subman`: **Detener**, luego **Acción**, **Compilar**
+(descarga la imagen nueva) y **Iniciar**. Si tu compose aún no tiene la parte `ports`,
+añádela antes (ver `docker-compose.yml`).
 
 ## Qué hace con tus archivos
 
@@ -48,8 +49,11 @@ Para cada capítulo:
   `docker/subman/papelera/`, con la misma estructura. Nada se borra.
 - **Lo que vuelva a aparecer:** si más adelante otro programa deja otro subtítulo en español
   junto a un capítulo que ya está bien, también se aparta a la papelera.
-- **Ensayo:** para ver qué haría sin tocar nada, pon `dry_run = true` en `subman.toml` y mira
-  el registro.
+- **Ensayo:** para ver qué haría sin tocar nada, activa **Modo ensayo** en Ajustes y mira el
+  Registro.
+- **Revisar:** en **Biblioteca** puedes abrir cualquier capítulo, ver cómo se corrigió y
+  rechazarlo si está mal (va a la papelera y se busca otro). En **Papelera** puedes
+  recuperar cualquier archivo.
 
 ## Comandos útiles
 

@@ -24,6 +24,7 @@ class OpenSubtitles(Provider):
         self.timeout = timeout
         self.username, self.password = username, password
         self.token: str | None = None
+        self.user: dict = {}
         self.http = requests.Session()
         self.http.headers.update({
             "Api-Key": api_key,
@@ -47,10 +48,20 @@ class OpenSubtitles(Provider):
             return
         data = self._request("POST", "/login", json={"username": self.username, "password": self.password})
         self.token = data["token"]
+        self.user = data.get("user", {})
         self.http.headers["Authorization"] = f"Bearer {self.token}"
         if data.get("base_url"):  # las cuentas VIP reciben su propio servidor
             self.base = f"https://{data['base_url']}/api/v1"
         log.info("OpenSubtitles: sesión iniciada (%s)", data.get("user", {}).get("level", ""))
+
+    def test(self) -> dict:
+        """Comprueba la API key y la cuenta. Devuelve nivel y descargas disponibles."""
+        self.login()
+        info = self._request("GET", "/infos/user").get("data", {}) if self.token else {}
+        return {"level": info.get("level") or self.user.get("level", ""),
+                "vip": bool(info.get("vip", self.user.get("vip", False))),
+                "allowed_downloads": info.get("allowed_downloads", self.user.get("allowed_downloads")),
+                "remaining_downloads": info.get("remaining_downloads")}
 
     def search(self, media: Media, languages: list[str]) -> list[Candidate]:
         self.login()

@@ -139,6 +139,7 @@ def process(media: Media, lib: Library, providers: list[Provider], cfg: Settings
         def best():
             return max(tried, key=lambda t: t[0]) if tried else None
 
+        rejected = lib.rejected(media.id, lang)
         if not best() or best()[3].verdict != verify.OK:
             for prov in providers:
                 try:
@@ -146,6 +147,7 @@ def process(media: Media, lib: Library, providers: list[Provider], cfg: Settings
                 except Exception as e:  # un proveedor caído no debe parar la biblioteca
                     log.warning("%s: fallo buscando en %s: %s", media.label, prov.name, e)
                     continue
+                cands = [c for c in cands if f"{prov.name}:{c.release}" not in rejected]
                 for cand in cands[: cfg.candidates]:
                     if cfg.dry_run:
                         log.info("[ensayo] descargaría %s:%s", prov.name, cand.release)

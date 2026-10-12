@@ -6,5 +6,6 @@ COPY pyproject.toml subman.example.toml ./
 COPY subman ./subman
 RUN pip install --no-cache-dir .
 VOLUME ["/config", "/media"]
+EXPOSE 8787
 ENTRYPOINT ["subman"]
-CMD ["run", "--watch", "60"]
+CMD ["serve"]

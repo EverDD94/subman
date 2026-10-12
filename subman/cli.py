@@ -17,16 +17,16 @@ DEFAULT_CONFIG = "/config/subman.toml"
 
 def _print_report(rep: verify.Report) -> None:
     print(f"Veredicto: {rep.verdict.upper()}")
-    print(f"  líneas sobre voz: antes {rep.before.cues_on_speech:.0%} -> después {rep.after.cues_on_speech:.0%}"
-          f" (azar {rep.chance:.0%})")
-    print(f"  voz con subtítulo: {rep.after.speech_covered:.0%}")
+    print(f"  es de este video: {rep.identity:.0%} de las ventanas lo confirman")
+    print(f"  a tiempo: antes {rep.on_time_before:.0%} -> después {rep.on_time_after:.0%}"
+          f" de las ventanas con diálogo claro ({rep.clear_windows:.0%} del episodio)")
     for n in rep.notes:
         print(f"  - {n}")
     for s in rep.segments:
         print(f"    líneas {s['lines'][0]}-{s['lines'][1]}  {_hms(s['from'])}-{_hms(s['to'])}"
-              f"  desfase {s['offset']:+.2f} s  sobre voz {s['on_speech']:.0%}")
-    if rep.suspicious_lines:
-        print(f"  líneas sin voz debajo (canciones, carteles o error): {len(rep.suspicious_lines)}")
+              f"  desfase {s['offset']:+.2f} s")
+    if rep.review:
+        print("  tramos a revisar: " + ", ".join(f"{_hms(a)}-{_hms(b)}" for a, b in rep.review))
 
 
 def _hms(t: float) -> str:
@@ -49,10 +49,12 @@ def cmd_sync(a) -> int:
 def cmd_check(a) -> int:
     cues = subtitles.load(a.subtitle)
     ref = sync.build_reference(a.video, a.ref, a.audio_lang, len(cues))
-    decoys = [verify.fit(aligner.align(d, ref.prob).cues, ref.prob).cues_on_speech for d in verify.decoys(cues)]
-    rep = verify.report(cues, cues, ref.prob, None, max(decoys))
+    rep = verify.report(cues, aligner.align(cues, ref.prob), ref.prob)
+    ok = rep.identity >= 0.35 and rep.on_time_before >= 0.75
+    print(f"Ya sincronizado: {'SÍ' if ok else 'NO'}  (ventanas a tiempo: {rep.on_time_before:.0%};"
+          f" tras corregir quedaría en {rep.on_time_after:.0%})")
     _print_report(rep)
-    return 0 if rep.verdict == verify.OK else 2
+    return 0 if ok else 2
 
 
 def _config(path: str) -> dict:

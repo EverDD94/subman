@@ -35,8 +35,10 @@ DEFAULT_RATIOS = (
 class Params:
     max_offset: float = 300.0     # s, desfase máximo buscado en cualquier tramo
     coarse_step: float = 0.1      # s, resolución de la búsqueda global
-    split_penalty: float = 4.0    # s de voz "equivalente" que debe ganar un corte para aceptarse
+    split_penalty: float = 3.0    # cuántas líneas "bien encajadas" debe ganar un corte para aceptarse
     silence_weight: float = 0.5   # cuánto penaliza que una línea caiga sobre silencio/música
+    onset_weight: float = 1.0     # peso de que la línea empiece/acabe donde empieza/acaba la voz
+    overlap_weight: float = 0.5   # peso de que la línea caiga, en conjunto, sobre voz
     ratios: tuple = DEFAULT_RATIOS
 
 
@@ -68,12 +70,40 @@ def _prefix(sig: np.ndarray, pad: int) -> np.ndarray:
     return np.concatenate([[0.0], np.cumsum(padded)])
 
 
-def _cue_scores(prefix: np.ndarray, starts: np.ndarray, ends: np.ndarray,
-                offsets: np.ndarray, pad: int) -> np.ndarray:
-    hi = len(prefix) - 1
-    s = np.clip(starts[:, None] + offsets[None, :] + pad, 0, hi)
-    e = np.clip(ends[:, None] + offsets[None, :] + pad, 0, hi)
-    return prefix[e] - prefix[s]
+def _edges(prob: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Dónde arranca y dónde se corta la voz, suavizado ±0.1 s.
+
+    Con diálogo denso (sitcoms, risas grabadas) "hay voz debajo" es casi siempre cierto
+    con cualquier desfase; los arranques de frase, en cambio, marcan el tiempo con precisión.
+    Una arrancada limpia vale ~1.
+    """
+    q = np.convolve(prob, np.ones(5) / 5, mode="same")
+    d = np.diff(q, prepend=q[:1])
+    g = np.exp(-0.5 * (np.arange(-30, 31) / 10) ** 2)
+    on = np.convolve(np.clip(d, 0, None), g, mode="same")
+    off = np.convolve(np.clip(-d, 0, None), g, mode="same")
+    return on, off
+
+
+class _Scorer:
+    """Puntuación de cada línea con cada desfase candidato."""
+
+    def __init__(self, prob: np.ndarray, p: "Params", pad: int):
+        self.p, self.pad = p, pad
+        self.prefix = _prefix(_signal(prob, p.silence_weight), pad)
+        on, off = _edges(prob)
+        z = np.zeros(pad)
+        self.on = np.concatenate([z, on, z, [0.0]])
+        self.off = np.concatenate([z, off, z, [0.0]])
+
+    def __call__(self, starts: np.ndarray, ends: np.ndarray, offsets: np.ndarray) -> np.ndarray:
+        hi = len(self.prefix) - 1
+        s = np.clip(starts[:, None] + offsets[None, :] + self.pad, 0, hi)
+        e = np.clip(ends[:, None] + offsets[None, :] + self.pad, 0, hi)
+        dur = np.maximum(ends - starts, 1)[:, None]
+        overlap = (self.prefix[e] - self.prefix[s]) / dur
+        edges = self.on[s] + 0.5 * self.off[e]
+        return self.p.onset_weight * edges + self.p.overlap_weight * overlap
 
 
 def _dp(scores: np.ndarray, gaps: np.ndarray, penalty: float):
@@ -112,11 +142,11 @@ def align(cues: list[Cue], prob: np.ndarray, params: Params | None = None) -> Al
     if not cues:
         raise ValueError("el subtítulo no tiene líneas")
     pad = int(p.max_offset * FPS) + 1
-    prefix = _prefix(_signal(prob, p.silence_weight), pad)
+    scorer = _Scorer(prob, p, pad)
     step = max(1, int(round(p.coarse_step * FPS)))
     k = int(p.max_offset * FPS) // step
     coarse = np.arange(-k, k + 1) * step  # desfases candidatos, en tramas
-    penalty = p.split_penalty * FPS
+    penalty = p.split_penalty
 
     orig_start = np.array([c.start for c in cues])
     orig_end = np.array([c.end for c in cues])
@@ -125,7 +155,7 @@ def align(cues: list[Cue], prob: np.ndarray, params: Params | None = None) -> Al
     for ratio in p.ratios:
         starts = np.round(orig_start * ratio * FPS).astype(np.int64)
         ends = np.round(orig_end * ratio * FPS).astype(np.int64)
-        scores = _cue_scores(prefix, starts, ends, coarse, pad)
+        scores = scorer(starts, ends, coarse)
         gap_frames = np.zeros(len(cues), dtype=np.int64)
         gap_frames[1:] = starts[1:] - ends[:-1]
         gaps = np.floor((gap_frames + 5) / step).astype(np.int64)  # 50 ms de tolerancia
@@ -147,7 +177,7 @@ def align(cues: list[Cue], prob: np.ndarray, params: Params | None = None) -> Al
             j += 1
         center = coarse[path[i]]
         fine = np.arange(center - step, center + step + 1)
-        seg_scores = _cue_scores(prefix, starts[i:j + 1], ends[i:j + 1], fine, pad).sum(axis=0)
+        seg_scores = scorer(starts[i:j + 1], ends[i:j + 1], fine).sum(axis=0)
         off = int(fine[int(np.argmax(seg_scores))])
         frame_offsets[i:j + 1] = off
         segments.append(Segment(first=i, last=j, offset=off / FPS))

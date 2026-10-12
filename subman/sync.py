@@ -45,9 +45,7 @@ def build_reference(video: str | Path, mode: str = "auto", audio_language: str |
 
 def sync(cues: list[subtitles.Cue], ref: Reference, params: aligner.Params | None = None):
     result = aligner.align(cues, ref.prob, params)
-    chance = max(verify.fit(aligner.align(d, ref.prob, params).cues, ref.prob).cues_on_speech
-                 for d in verify.decoys(cues))
-    rep = verify.report(cues, result.cues, ref.prob, result, chance)
+    rep = verify.report(cues, result, ref.prob)
     rep.notes.insert(0, f"referencia: {ref.source}")
     return result.cues, rep
 

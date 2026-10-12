@@ -28,7 +28,7 @@ class Settings:
 
 
 def _quality(rep: verify.Report) -> tuple:
-    return (_RANK[rep.verdict], rep.after.cues_on_speech - rep.chance)
+    return (_RANK[rep.verdict], rep.identity, rep.on_time_after)
 
 
 def _write(media: Media, lang: str, cues, original: Path | None = None) -> Path:

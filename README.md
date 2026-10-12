@@ -58,6 +58,28 @@ lado equivocado si ambas posiciones tienen voz (en el caso de 45 min, 2 de 603 l
 Reproducir: `python tests/make_episode.py /tmp/ep && python tests/evaluate.py /tmp/ep`
 (necesita `espeak-ng`).
 
+## Prueba con episodios reales (2 Broke Girls S01E01 y S01E02, 12/10/2026)
+
+Subtítulos `.spa` descargados, audio en inglés. No tenían un desfase constante: entre +1 y
++3 s, con 5–6 saltos a lo largo del episodio (cortes de anuncios de otra versión).
+
+| | Ventanas a tiempo antes | Después | ¿Es de este video? | Veredicto |
+|---|---|---|---|---|
+| E01 .spa | 0 % | 92 % | 59 % de ventanas lo confirman | ok |
+| E02 .spa | 0 % | 82 % | 57 % | ok |
+| E01 con el .spa del E02 (equivocado) | — | — | 7 % | falla |
+| E02 con el .spa del E01 (equivocado) | — | — | 4 % | falla |
+
+Lo que se aprendió y se cambió:
+- En una sitcom (diálogo continuo y risas grabadas) "hay voz debajo de la línea" es cierto con
+  casi cualquier desfase. Ahora el alineador se guía por **dónde arranca y se corta la voz**,
+  que marca el tiempo con un pico nítido de ~0,5 s.
+- La verificación antigua (comparar con subtítulos señuelo) no distinguía un episodio
+  equivocado. Ahora se trocea el episodio en ventanas de 90 s, cada una busca su desfase por
+  su cuenta y se comprueba que confirma el de la alineación global.
+- Contraste independiente: el `.spa` corregido y el `.en` corregido quedan en el mismo sitio
+  (diferencia ~0,1 s), aunque se alinearon por separado contra el audio.
+
 ## Uso
 
 ```bash

@@ -109,7 +109,11 @@ def cmd_run(a) -> int:
     settings = manager.Settings(
         languages=cfg.get("languages", ["es"]), candidates=cfg.get("candidates", 5),
         keep_review=cfg.get("keep_review", True), sync_existing=cfg.get("sync_existing", True),
-        reference=cfg.get("reference", "auto"), retry_hours=cfg.get("retry_hours", 24))
+        reference=cfg.get("reference", "auto"), retry_hours=cfg.get("retry_hours", 24),
+        archive_languages=cfg.get("archive_languages", ["en"]),
+        trash_dir=cfg.get("trash_dir", str(Path(a.config).parent / "papelera")),
+        archive_dir=cfg.get("archive_dir", str(Path(a.config).parent / "archivo")),
+        roots=list(cfg["library"]), dry_run=a.dry_run or cfg.get("dry_run", False))
     provs = providers.load(cfg)
     while True:
         lib = _library(cfg)
@@ -155,6 +159,8 @@ def main(argv=None) -> int:
         if name == "run":
             p.add_argument("--watch", type=float, metavar="MIN", help="repetir cada MIN minutos")
             p.add_argument("--only", help="procesar sólo rutas que contengan este texto")
+            p.add_argument("--dry-run", "--ensayo", action="store_true",
+                           help="no toca nada: sólo dice qué haría con cada archivo")
         p.set_defaults(fn=fn)
 
     a = ap.parse_args(argv)

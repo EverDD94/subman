@@ -36,13 +36,20 @@ password = "..."
 
 ## Qué hace con tus archivos
 
-- Si ya hay un `.spa.srt` o `.es.srt` junto al capítulo, lo sincroniza y lo **sustituye**.
-  El original queda como `.srt.orig`, que Jellyfin ignora.
-- Si no hay ninguno o el que hay no pasa la verificación, prueba hasta 5 de OpenSubtitles y
-  se queda con el primero que salga **ok**.
-- Lo que sale **falla** no se toca. Lo que sale **revisar** se guarda igualmente; si no lo
-  quieres, cambia `keep_review = false`.
-- Cuando todo está **ok**, no vuelve a tocarlo. Lo que falla lo reintenta cada 24 horas.
+Para cada capítulo:
+
+- **Inglés:** los subtítulos en inglés se mueven a `docker/subman/archivo/en/`, con la misma
+  estructura de carpetas. El idioma se reconoce por el texto, no solo por el nombre del archivo.
+- **Español:** se prueban **todos** los subtítulos en español que haya, se llamen `.spa`,
+  `.spa.0`, `.es` o no tengan etiqueta. El mejor que salga **ok** se guarda corregido como
+  `capítulo.es.srt`.
+- **Si ninguno pasa:** se prueban hasta 5 subtítulos de OpenSubtitles.
+- **Los originales:** todos (los malos, las copias y el original del bueno) se mueven a
+  `docker/subman/papelera/`, con la misma estructura. Nada se borra.
+- **Lo que vuelva a aparecer:** si más adelante otro programa deja otro subtítulo en español
+  junto a un capítulo que ya está bien, también se aparta a la papelera.
+- **Ensayo:** para ver qué haría sin tocar nada, pon `dry_run = true` en `subman.toml` y mira
+  el registro.
 
 ## Comandos útiles
 

@@ -75,3 +75,24 @@ def dumps(cues: list[Cue]) -> str:
 
 def save(cues: list[Cue], path: str | Path) -> None:
     Path(path).write_text(dumps(cues), encoding="utf-8")
+
+
+_STOPWORDS = {
+    "es": {"que", "de", "no", "la", "el", "y", "en", "es", "lo", "por", "un", "una", "qué", "está", "eso",
+           "me", "te", "se", "los", "las", "con", "pero", "para", "sí", "bien", "como", "muy", "yo"},
+    "en": {"the", "you", "to", "and", "is", "it", "that", "of", "what", "i", "a", "in", "this", "me",
+           "my", "your", "are", "for", "on", "be", "have", "do", "don't", "i'm", "it's", "we", "just"},
+    "pt": {"que", "de", "não", "o", "a", "e", "é", "um", "uma", "você", "eu", "isso", "com", "para", "está"},
+    "fr": {"que", "de", "ne", "pas", "le", "la", "et", "est", "je", "vous", "tu", "les", "un", "une", "c'est"},
+}
+
+
+def detect_language(cues: list[Cue]) -> str | None:
+    """Idioma del texto por palabras frecuentes; None si no está claro."""
+    words = re.findall(r"[a-záéíóúüñçãõàèêâôœ']+", " ".join(c.text for c in cues[:400]).lower())
+    if len(words) < 50:
+        return None
+    scores = {lang: sum(w in sw for w in words) / len(words) for lang, sw in _STOPWORDS.items()}
+    best = max(scores, key=scores.get)
+    second = sorted(scores.values())[-2]
+    return best if scores[best] >= 0.15 and scores[best] >= 1.3 * second else None

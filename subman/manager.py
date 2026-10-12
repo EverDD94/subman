@@ -1,46 +1,98 @@
-"""Flujo completo para un video: buscar candidatos, sincronizar cada uno, verificar y
-quedarse con el mejor. Sólo se escribe junto al video lo que pasa la verificación."""
+"""Flujo completo para un video.
+
+1. Mira todos los subtítulos que ya hay junto al video. Los de los idiomas a archivar (inglés)
+   se mueven a ``/config/archivo``. Los del idioma buscado (según su texto, no sólo su
+   nombre) son candidatos.
+2. Sincroniza y verifica cada candidato local. Si ninguno sale ``ok``, prueba los de los
+   proveedores (OpenSubtitles).
+3. El mejor se guarda como ``<video>.<idioma>.srt``. Todos los originales que había (también
+   el del que salió el bueno) se mueven a ``/config/papelera``, con la misma estructura de
+   carpetas, para poder recuperarlos.
+"""
 from __future__ import annotations
 
 import json
 import logging
 import shutil
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import subtitles, sync, verify
-from .library import Library, Media, sidecar_for
+from .library import Library, Media, sidecars
 from .providers import Provider
 
 log = logging.getLogger(__name__)
 _RANK = {verify.OK: 2, verify.REVIEW: 1, verify.FAIL: 0}
+_READABLE = {".srt", ".vtt"}
 
 
 @dataclass
 class Settings:
     languages: list[str]
-    candidates: int = 5          # cuántos subtítulos probar como máximo por video e idioma
+    candidates: int = 5          # cuántos subtítulos de proveedores probar como máximo por video e idioma
     keep_review: bool = True     # guardar también los dudosos (marcados como 'revisar')
-    sync_existing: bool = True   # sincronizar subtítulos que ya estaban junto al video
+    sync_existing: bool = True   # usar los subtítulos que ya había junto al video como candidatos
     reference: str = "auto"
     retry_hours: float = 24      # cada cuánto reintentar lo que salió mal o no tenía candidatos
+    archive_languages: list[str] = field(default_factory=lambda: ["en"])  # se apartan a /config/archivo
+    trash_dir: str = "/config/papelera"
+    archive_dir: str = "/config/archivo"
+    roots: list[str] = field(default_factory=list)  # carpetas de la biblioteca (para rutas relativas)
+    dry_run: bool = False        # sólo contar lo que haría, sin tocar nada
 
 
 def _quality(rep: verify.Report) -> tuple:
     return (_RANK[rep.verdict], rep.identity, rep.on_time_after)
 
 
-def _write(media: Media, lang: str, cues, local: Path | None = None) -> Path:
-    """Si ya había un .srt de ese idioma junto al video se sustituye (para que Jellyfin no
-    muestre el viejo desfasado al lado del bueno); si no, se crea <video>.<idioma>.srt."""
+def _relative(path: Path, roots: list[str]) -> Path:
+    for r in roots:
+        try:
+            return Path(Path(r).name) / path.relative_to(r)
+        except ValueError:
+            continue
+    return Path(path.name)
+
+
+def _move(path: Path, dest_root: str, cfg: Settings, why: str) -> None:
+    dest = Path(dest_root) / _relative(path, cfg.roots)
+    if cfg.dry_run:
+        log.info("[ensayo] movería %s -> %s (%s)", path, dest, why)
+        return
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    base, n = dest, 1
+    while dest.exists():  # no pisar algo que ya estaba en la papelera
+        dest = base.with_name(f"{base.name[:-len(base.suffix)]}.{n}{base.suffix}")
+        n += 1
+    shutil.move(str(path), str(dest))
+    log.info("movido %s -> %s (%s)", path.name, dest, why)
+
+
+def _classify(media: Media, cfg: Settings) -> tuple[dict[str, list[tuple[Path, list]]], list[tuple[str, Path]]]:
+    """Reparte los subtítulos que hay junto al video: candidatos por idioma, y a archivar."""
+    candidates: dict[str, list[tuple[Path, list]]] = {lang: [] for lang in cfg.languages}
+    archive = []
+    for tag, path in sidecars(Path(media.path)):
+        cues = []
+        detected = None
+        if path.suffix.lower() in _READABLE:
+            try:
+                cues = subtitles.load(path)
+            except Exception:
+                cues = []
+            detected = subtitles.detect_language(cues) if cues else None
+        lang = detected or tag
+        if lang in cfg.languages and cues:
+            candidates[lang].append((path, cues))
+        elif lang in cfg.archive_languages:
+            archive.append((lang, path))
+    return candidates, archive
+
+
+def _target(media: Media, lang: str) -> Path:
     video = Path(media.path)
-    out = local if local is not None and local.suffix.lower() == ".srt" else video.with_name(f"{video.stem}.{lang}.srt")
-    backup = out.with_name(out.name + ".orig")  # Jellyfin ignora .orig
-    if out.exists() and not backup.exists():
-        shutil.copy2(out, backup)
-    subtitles.save(cues, out)
-    return out
+    return video.with_name(f"{video.stem}.{lang}.srt")
 
 
 def process(media: Media, lib: Library, providers: list[Provider], cfg: Settings) -> dict[str, str]:
@@ -53,20 +105,41 @@ def process(media: Media, lib: Library, providers: list[Provider], cfg: Settings
             cache["ref"] = sync.build_reference(media.path, cfg.reference)
         return cache["ref"]
 
+    candidates, archive = _classify(media, cfg)
+    for lang, path in archive:
+        _move(path, str(Path(cfg.archive_dir) / lang), cfg, f"idioma {lang}")
+
     for lang in cfg.languages:
+        target = _target(media, lang)
         row = lib.subtitle_status(media.id, lang)
-        if row and (row["status"] == verify.OK or time.time() - row["updated"] < cfg.retry_hours * 3600):
+        locals_ = candidates[lang]
+        if row and row["status"] == verify.OK and row["path"] and Path(row["path"]).exists():
+            # Ya está bien: sólo apartar lo que haya aparecido después (otro programa, Jellyfin...).
+            for path, _ in locals_:
+                if path != Path(row["path"]):
+                    _move(path, cfg.trash_dir, cfg, "sobra: ya hay uno verificado")
+            continue
+        if row and row["status"] != verify.OK and not locals_ and time.time() - row["updated"] < cfg.retry_hours * 3600:
             continue
 
-        tried: list[tuple[tuple, str, list, verify.Report, Path | None]] = []
-        local = sidecar_for(Path(media.path), lang)
-        if local and cfg.sync_existing and local.suffix.lower() in (".srt", ".vtt"):
-            cues = subtitles.load(local)
-            if cues:
+        tried: list[tuple[tuple, str, list, verify.Report]] = []
+        verdicts: dict[Path, str] = {}
+        if cfg.sync_existing:
+            seen: dict[tuple, str] = {}
+            for path, cues in locals_:
+                key = tuple((c.start, c.end, c.text) for c in cues)
+                if key in seen:  # copia idéntica de otro (.spa y .spa.0): no hace falta repetir
+                    verdicts[path] = seen[key]
+                    continue
                 synced, rep = sync.sync(cues, reference())
-                tried.append((_quality(rep), f"local:{local.name}", synced, rep, local))
+                log.info("%s [%s] local %s -> %s", media.label, lang, path.name, rep.verdict)
+                tried.append((_quality(rep), f"local:{path.name}", synced, rep))
+                verdicts[path] = seen[key] = rep.verdict
 
-        if not tried or tried[0][3].verdict != verify.OK:
+        def best():
+            return max(tried, key=lambda t: t[0]) if tried else None
+
+        if not best() or best()[3].verdict != verify.OK:
             for prov in providers:
                 try:
                     cands = prov.search(media, [lang])
@@ -74,6 +147,9 @@ def process(media: Media, lib: Library, providers: list[Provider], cfg: Settings
                     log.warning("%s: fallo buscando en %s: %s", media.label, prov.name, e)
                     continue
                 for cand in cands[: cfg.candidates]:
+                    if cfg.dry_run:
+                        log.info("[ensayo] descargaría %s:%s", prov.name, cand.release)
+                        break
                     try:
                         cues = subtitles.parse(subtitles.decode(prov.download(cand)))
                     except Exception as e:
@@ -82,23 +158,38 @@ def process(media: Media, lib: Library, providers: list[Provider], cfg: Settings
                     if not cues:
                         continue
                     synced, rep = sync.sync(cues, reference())
-                    log.info("%s [%s] %s -> %s", media.label, lang, cand.release, rep.verdict)
-                    tried.append((_quality(rep), f"{prov.name}:{cand.release}", synced, rep, None))
+                    log.info("%s [%s] %s:%s -> %s", media.label, lang, prov.name, cand.release, rep.verdict)
+                    tried.append((_quality(rep), f"{prov.name}:{cand.release}", synced, rep))
                     if rep.verdict == verify.OK:
                         break
-                if tried and max(tried, key=lambda t: t[0])[3].verdict == verify.OK:
+                if best() and best()[3].verdict == verify.OK:
                     break
 
         if not tried:
-            lib.set_subtitle(media.id, lang, None, "", "pendiente", "sin candidatos")
+            if not cfg.dry_run:
+                lib.set_subtitle(media.id, lang, None, "", "pendiente", "sin candidatos")
             results[lang] = "sin candidatos"
             continue
-        _, source, synced, rep, _ = max(tried, key=lambda t: t[0])
+
+        _, source, synced, rep = best()
+        keep = rep.verdict == verify.OK or (rep.verdict == verify.REVIEW and cfg.keep_review)
         detail = json.dumps({"source": source, **rep.to_dict(),
                              "tried": [(t[1], t[3].verdict) for t in tried]}, ensure_ascii=False)
-        if rep.verdict == verify.OK or (rep.verdict == verify.REVIEW and cfg.keep_review):
-            path = _write(media, lang, synced, local)
-            lib.set_subtitle(media.id, lang, str(path), source, rep.verdict, detail)
+        # Todo lo que había se aparta: los malos porque fallan, y el original del bueno
+        # porque se sustituye por su versión corregida.
+        for path, _ in locals_:
+            if keep and source == f"local:{path.name}":
+                why = "original del elegido (se guarda corregido como .%s.srt)" % lang
+            elif verdicts.get(path) == verify.FAIL:
+                why = "falla la verificación"
+            else:
+                why = "sobra: hay uno mejor o es una copia"
+            _move(path, cfg.trash_dir, cfg, why)
+        if cfg.dry_run:
+            log.info("[ensayo] %s [%s]: se quedaría %s (%s)", media.label, lang, source, rep.verdict)
+        elif keep:
+            subtitles.save(synced, target)
+            lib.set_subtitle(media.id, lang, str(target), source, rep.verdict, detail)
         else:
             lib.set_subtitle(media.id, lang, None, source, rep.verdict, detail)
         results[lang] = rep.verdict

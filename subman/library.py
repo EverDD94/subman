@@ -109,28 +109,27 @@ def opensubtitles_hash(path: str | Path) -> str:
     return f"{h:016x}"
 
 
-def sidecar_subtitles(video: Path) -> dict[str, Path]:
-    """Subtítulos externos que Jellyfin asociaría al video: Nombre.<idioma>[.forced].srt"""
-    found = {}
-    for p in video.parent.glob(f"{glob_escape(video.stem)}.*"):
-        if p.suffix.lower() in SUB_EXT:
-            parts = p.name[len(video.stem):].lower().split(".")[1:-1]
-            lang = next((x for x in parts if x not in ("forced", "sdh", "cc", "default", "hi")), "und")
-            found.setdefault(lang, p)
-    return found
+_FLAGS = {"forced", "sdh", "cc", "default", "hi", "orig"}
 
-
-LANG_ALIASES = {"es": ("es", "spa", "esp", "es-es", "es-419", "es-mx", "spanish", "español"),
+LANG_ALIASES = {"es": ("es", "spa", "esp", "es-es", "es-419", "es-mx", "spanish", "español", "espanol", "castellano"),
                 "en": ("en", "eng", "english"), "pt": ("pt", "por", "pt-br", "pob"),
                 "fr": ("fr", "fre", "fra"), "it": ("it", "ita"), "de": ("de", "ger", "deu")}
+_ALIAS_TO_LANG = {a: lang for lang, aliases in LANG_ALIASES.items() for a in aliases}
 
 
-def sidecar_for(video: Path, lang: str) -> Path | None:
-    found = sidecar_subtitles(video)
-    for alias in LANG_ALIASES.get(lang, (lang,)):
-        if alias in found:
-            return found[alias]
-    return None
+def sidecars(video: Path) -> list[tuple[str, Path]]:
+    """Todos los subtítulos externos de un video como (idioma de la etiqueta, ruta).
+
+    Nombre.spa.srt -> es, Nombre.en.hi.srt -> en, Nombre.spa.0.srt -> es, Nombre.srt -> und.
+    """
+    out = []
+    for p in sorted(video.parent.glob(f"{glob_escape(video.stem)}.*")):
+        if p.suffix.lower() not in SUB_EXT or not p.is_file():
+            continue
+        parts = p.name[len(video.stem):].lower().split(".")[1:-1]
+        tag = next((x for x in parts if x not in _FLAGS and not x.isdigit()), "und")
+        out.append((_ALIAS_TO_LANG.get(tag, tag), p))
+    return out
 
 
 def glob_escape(s: str) -> str:

@@ -44,7 +44,7 @@ class App:
         self.wake = threading.Event()
         self.lock = threading.Lock()
         self.state = {"running": False, "current": "", "done": 0, "total": 0,
-                      "last_start": None, "last_end": None, "next_run": None, "message": ""}
+                      "last_start": None, "last_end": None, "next_run": None, "message": "", "scan": None}
         self.logs = LogBuffer()
         logging.getLogger().addHandler(self.logs)
 
@@ -82,6 +82,7 @@ class App:
             stats = lib.scan(cfg["library"], progress=lambda n: self.state.update(
                 message=f"buscando videos: {n} encontrados"))
             log.info("escaneo: %s", stats)
+            self.state.update(scan={"por_carpeta": stats["por_carpeta"], "ignorados": stats["ignorados"]})
             items = lib.media()
             self.state.update(total=len(items), message="trabajando")
             for n, m in enumerate(items):

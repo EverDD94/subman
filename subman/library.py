@@ -14,7 +14,9 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-VIDEO_EXT = {".mkv", ".mp4", ".avi", ".m4v", ".mov", ".ts", ".wmv", ".webm"}
+VIDEO_EXT = {".mkv", ".mp4", ".avi", ".m4v", ".mov", ".ts", ".wmv", ".webm", ".mpg", ".mpeg", ".m2ts", ".flv",
+             ".divx", ".ogm", ".3gp"}
+OTHER_VIDEO_EXT = {".iso", ".vob", ".rmvb", ".rm", ".strm"}  # no se procesan, sólo se cuentan
 SUB_EXT = {".srt", ".vtt", ".ass", ".ssa", ".sub"}
 _EP = re.compile(r"[Ss](\d{1,2})[ ._-]*[Ee](\d{1,3})|\b(\d{1,2})x(\d{2,3})\b")
 _YEAR = re.compile(r"[(\[ ._-]((?:19|20)\d{2})[)\] ._-]?")
@@ -151,13 +153,17 @@ class Library:
 
     def scan(self, roots: list[str | Path], hash_files: bool = True, progress=None) -> dict:
         now = time.time()
-        stats = {"nuevos": 0, "cambiados": 0, "borrados": 0, "total": 0}
+        stats = {"nuevos": 0, "cambiados": 0, "borrados": 0, "total": 0, "por_carpeta": {}, "ignorados": {}}
         for root in roots:
+            before = stats["total"]
             for dirpath, dirnames, filenames in os.walk(root):
                 dirnames[:] = [d for d in dirnames if not d.startswith(("@", "."))]  # @eaDir de Synology
                 for fn in filenames:
                     p = Path(dirpath) / fn
-                    if p.suffix.lower() not in VIDEO_EXT or "sample" in fn.lower():
+                    ext = p.suffix.lower()
+                    if ext not in VIDEO_EXT or Path(fn).stem.lower() in ("sample", "muestra") or Path(fn).stem.lower().endswith(("-sample", ".sample")):
+                        if ext in OTHER_VIDEO_EXT:
+                            stats["ignorados"][ext] = stats["ignorados"].get(ext, 0) + 1
                         continue
                     st = p.stat()
                     row = self.db.execute("SELECT id, size, mtime FROM media WHERE path=?", (str(p),)).fetchone()
@@ -178,6 +184,7 @@ class Library:
                         (str(p), info["kind"], info["title"], info["year"], info["season"], info["episode"],
                          st.st_size, st.st_mtime, oshash, now))
                     stats["cambiados" if row else "nuevos"] += 1
+            stats["por_carpeta"][Path(root).name] = stats["total"] - before
         cur = self.db.execute("DELETE FROM media WHERE seen < ?", (now,))
         stats["borrados"] = cur.rowcount
         self.db.commit()

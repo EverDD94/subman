@@ -221,6 +221,11 @@ async function loadStatus() {
     if (st.last_end) html += `<div class="muted">Última pasada: ${when(st.last_end)}</div>`;
     if (st.next_run) html += `<div class="muted">Próxima: ${when(st.next_run)}</div>`;
   }
+  if (st.scan) {
+    html += `<div class="muted" style="margin-top:8px">Videos por carpeta: ${Object.entries(st.scan.por_carpeta).map(([k, v]) => esc(k) + " " + v).join(" · ")}</div>`;
+    const ig = Object.entries(st.scan.ignorados || {});
+    if (ig.length) html += `<div class="muted">No se procesan (formato no compatible): ${ig.map(([k, v]) => v + " " + esc(k)).join(", ")}</div>`;
+  }
   $("#stateBox").innerHTML = html;
   const c = s.counts;
   $("#counts").innerHTML = [["Videos", s.media], ["Bien", c.ok || 0], ["Revisar", c.revisar || 0], ["Fallan", c.falla || 0], ["Pendientes", c.pendiente || 0]]

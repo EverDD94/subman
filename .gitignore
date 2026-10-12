@@ -1,3 +1,6 @@
 __pycache__/
 *.egg-info/
 *.db
+build/
+*.egg-info/
+__pycache__/

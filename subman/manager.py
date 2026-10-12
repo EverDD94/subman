@@ -31,11 +31,14 @@ def _quality(rep: verify.Report) -> tuple:
     return (_RANK[rep.verdict], rep.identity, rep.on_time_after)
 
 
-def _write(media: Media, lang: str, cues, original: Path | None = None) -> Path:
+def _write(media: Media, lang: str, cues, local: Path | None = None) -> Path:
+    """Si ya había un .srt de ese idioma junto al video se sustituye (para que Jellyfin no
+    muestre el viejo desfasado al lado del bueno); si no, se crea <video>.<idioma>.srt."""
     video = Path(media.path)
-    out = video.with_name(f"{video.stem}.{lang}.srt")
-    if original is not None and original == out and not out.with_suffix(".srt.orig").exists():
-        shutil.copy2(out, out.with_suffix(".srt.orig"))  # Jellyfin ignora .orig
+    out = local if local is not None and local.suffix.lower() == ".srt" else video.with_name(f"{video.stem}.{lang}.srt")
+    backup = out.with_name(out.name + ".orig")  # Jellyfin ignora .orig
+    if out.exists() and not backup.exists():
+        shutil.copy2(out, backup)
     subtitles.save(cues, out)
     return out
 
@@ -90,11 +93,11 @@ def process(media: Media, lib: Library, providers: list[Provider], cfg: Settings
             lib.set_subtitle(media.id, lang, None, "", "pendiente", "sin candidatos")
             results[lang] = "sin candidatos"
             continue
-        _, source, synced, rep, original = max(tried, key=lambda t: t[0])
+        _, source, synced, rep, _ = max(tried, key=lambda t: t[0])
         detail = json.dumps({"source": source, **rep.to_dict(),
                              "tried": [(t[1], t[3].verdict) for t in tried]}, ensure_ascii=False)
         if rep.verdict == verify.OK or (rep.verdict == verify.REVIEW and cfg.keep_review):
-            path = _write(media, lang, synced, original)
+            path = _write(media, lang, synced, local)
             lib.set_subtitle(media.id, lang, str(path), source, rep.verdict, detail)
         else:
             lib.set_subtitle(media.id, lang, None, source, rep.verdict, detail)

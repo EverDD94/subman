@@ -1,9 +1,11 @@
+# Para Container Manager del Synology: Proyecto > Crear > pegar esto.
+# Cambia las dos rutas de la izquierda por las tuyas.
 services:
   subman:
-    build: .
+    image: ghcr.io/everdd94/subman:latest
     container_name: subman
     restart: unless-stopped
     volumes:
-      - /volume1/docker/subman:/config
-      - /volume1/media:/media      # la misma carpeta que usa Jellyfin
-    command: ["run", "--watch", "60"]
+      - /volume1/docker/subman:/config     # aquí va subman.toml y la base de datos
+      - /volume1/MEDIOS:/media             # la carpeta compartida de medios que usa Jellyfin
+    command: ["run", "--watch", "60"]      # revisa la biblioteca cada 60 minutos

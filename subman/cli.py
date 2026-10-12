@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import shutil
 import sys
 import time
 import tomllib
@@ -57,9 +58,28 @@ def cmd_check(a) -> int:
     return 0 if ok else 2
 
 
-def _config(path: str) -> dict:
-    with open(path, "rb") as f:
-        return tomllib.load(f)
+EXAMPLE_CONFIG = Path("/app/subman.example.toml")
+
+
+def _config(path: str, wait: bool = False) -> dict:
+    """Lee la configuración. En Docker, si aún no existe, deja una plantilla y espera a que
+    se rellene (así el contenedor no se reinicia en bucle el primer día)."""
+    p = Path(path)
+    while True:
+        if not p.exists() and EXAMPLE_CONFIG.exists():
+            p.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(EXAMPLE_CONFIG, p)
+            logging.warning("creada %s: rellénala (rutas y OpenSubtitles) y el programa arrancará solo", p)
+        if p.exists():
+            with open(p, "rb") as f:
+                cfg = tomllib.load(f)
+            opensub = cfg.get("providers", {}).get("opensubtitles", {})
+            if not wait or opensub.get("api_key") or not opensub:
+                return cfg
+            logging.warning("falta api_key de OpenSubtitles en %s; esperando...", p)
+        elif not wait:
+            raise SystemExit(f"no existe la configuración {p}")
+        time.sleep(60)
 
 
 def _library(cfg: dict) -> Library:
@@ -85,7 +105,7 @@ def cmd_list(a) -> int:
 
 
 def cmd_run(a) -> int:
-    cfg = _config(a.config)
+    cfg = _config(a.config, wait=True)
     settings = manager.Settings(
         languages=cfg.get("languages", ["es"]), candidates=cfg.get("candidates", 5),
         keep_review=cfg.get("keep_review", True), sync_existing=cfg.get("sync_existing", True),

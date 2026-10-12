@@ -22,9 +22,11 @@ En el navegador: **http://192.168.1.121:8787** (la IP de tu Synology).
    elegir solo una parte (por ejemplo solo `2 Broke Girls` para empezar).
 2. **OpenSubtitles:** pon tu API key, usuario y contraseña y pulsa **Probar conexión**.
    La API key se crea en opensubtitles.com, en tu perfil, **API consumers**.
-3. Opcional: activa **Modo ensayo** si primero quieres ver en el **Registro** qué haría sin
+3. Opcional, **Jellyfin**: pon `http://192.168.1.121:8096` y una API key (en Jellyfin: Panel de
+   control, **Claves de API**, **+**). Así Jellyfin ve los subtítulos nuevos al terminar cada pasada.
+4. Opcional: activa **Modo ensayo** si primero quieres ver en el **Registro** qué haría sin
    que mueva nada.
-4. Activa **Activar el trabajo automático** y pulsa **Guardar ajustes**. En **Inicio** se ve
+5. Activa **Activar el trabajo automático** y pulsa **Guardar ajustes**. En **Inicio** se ve
    el progreso.
 
 Los ajustes se guardan en `docker/subman/subman.toml`; no hace falta tocarlo a mano.
@@ -54,6 +56,13 @@ Para cada capítulo:
 - **Revisar:** en **Biblioteca** puedes abrir cualquier capítulo, ver cómo se corrigió y
   rechazarlo si está mal (va a la papelera y se busca otro). En **Papelera** puedes
   recuperar cualquier archivo.
+
+## Otros detalles
+
+- Empieza por lo más reciente (lo que acaba de bajar Sonarr) y sigue hacia atrás.
+- Si se acaban las descargas del día en OpenSubtitles, deja esos capítulos esperando y sigue al día
+  siguiente, sin marcarlos como fallidos.
+- El registro se guarda también en `docker/subman/subman.log`.
 
 ## Comandos útiles
 

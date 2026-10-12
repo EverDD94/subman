@@ -2,7 +2,7 @@
 
 Para añadir uno nuevo: crear una clase que herede de ``Provider`` y registrarla en ``REGISTRY``.
 """
-from .base import Candidate, Provider
+from .base import Candidate, Provider, QuotaExceeded
 from .opensubtitles import OpenSubtitles
 
 REGISTRY: dict[str, type[Provider]] = {
@@ -19,4 +19,4 @@ def load(config: dict) -> list[Provider]:
     return out
 
 
-__all__ = ["Candidate", "Provider", "REGISTRY", "load"]
+__all__ = ["Candidate", "Provider", "QuotaExceeded", "REGISTRY", "load"]

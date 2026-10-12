@@ -21,6 +21,7 @@ DEFAULTS: dict = {
     "interval_minutes": 60,
     "web_port": 8787,
     "providers": {"opensubtitles": {"api_key": "", "username": "", "password": ""}},
+    "jellyfin": {"url": "", "api_key": ""},  # opcional: avisar a Jellyfin para que vea los subtítulos nuevos
 }
 
 HEADER = """# Configuración de subman. Se puede editar a mano o desde la web (puerto 8787).
@@ -66,6 +67,10 @@ def dumps(cfg: dict) -> str:
         else:
             lines.append(f"{k} = {_value(v)}")
     for name, table in tables:
+        plain = {k: v for k, v in table.items() if not isinstance(v, dict)}
+        if plain:
+            lines.append(f"\n[{name}]")
+            lines += [f"{k} = {_value(v)}" for k, v in plain.items()]
         for sub, values in table.items():
             if isinstance(values, dict):
                 lines.append(f"\n[{name}.{sub}]")

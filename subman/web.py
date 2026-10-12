@@ -9,6 +9,7 @@ from __future__ import annotations
 import collections
 import json
 import logging
+import logging.handlers
 import os
 import shutil
 import threading
@@ -18,7 +19,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, config, manager, providers
+from . import __version__, config, jellyfin, manager, providers
 from .library import Library
 
 log = logging.getLogger(__name__)
@@ -47,6 +48,19 @@ class App:
                       "last_start": None, "last_end": None, "next_run": None, "message": "", "scan": None}
         self.logs = LogBuffer()
         logging.getLogger().addHandler(self.logs)
+        try:  # registro también en /config/subman.log (sobrevive a reinicios)
+            fh = logging.handlers.RotatingFileHandler(Path(config_path).parent / "subman.log",
+                                                      maxBytes=2_000_000, backupCount=3, encoding="utf-8")
+            fh.setFormatter(self.logs.formatter)
+            logging.getLogger().addHandler(fh)
+            self._load_log_tail(Path(config_path).parent / "subman.log")
+        except OSError as e:
+            log.warning("no se puede escribir el registro en disco: %s", e)
+
+    def _load_log_tail(self, path: Path) -> None:
+        if path.exists():
+            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()[-300:]
+            self.logs.lines.extend(lines)
 
     # --- configuración -------------------------------------------------------------
     def cfg(self) -> dict:
@@ -83,20 +97,33 @@ class App:
                 message=f"buscando videos: {n} encontrados"))
             log.info("escaneo: %s", stats)
             self.state.update(scan={"por_carpeta": stats["por_carpeta"], "ignorados": stats["ignorados"]})
-            items = lib.media()
+            items = lib.media(order="mtime DESC")  # lo más reciente primero (lo que acaba de llegar)
             self.state.update(total=len(items), message="trabajando")
+            changed = 0
             for n, m in enumerate(items):
                 self.state.update(current=m.label, done=n)
                 try:
                     res = manager.process(m, lib, provs, settings)
                     if res:
                         log.info("%s: %s", m.label, res)
-                except Exception:
+                        changed += sum(v in ("ok", "revisar") for v in res.values())
+                except Exception as e:
                     log.exception("%s: error", m.label)
+                    for lang in settings.languages:  # para no repetirlo en cada pasada
+                        row = lib.subtitle_status(m.id, lang)
+                        if not row or row["status"] != "ok":
+                            lib.set_subtitle(m.id, lang, row["path"] if row else None,
+                                             row["source"] if row else "", "error", str(e)[:500])
                 if not self.cfg()["enabled"]:
                     log.info("pausado desde la web")
                     break
             self.state.update(done=len(items), message="terminado")
+            jf = cfg.get("jellyfin", {})
+            if changed and jf.get("url") and jf.get("api_key") and not settings.dry_run:
+                try:
+                    jellyfin.refresh(jf["url"], jf["api_key"])
+                except Exception as e:
+                    log.warning("Jellyfin: no se pudo avisar: %s", e)
         except Exception as e:
             log.exception("fallo en la pasada")
             self.state.update(message=f"error: {e}")
@@ -107,9 +134,10 @@ class App:
     def api_config(self) -> dict:
         cfg = self.cfg()
         pub = json.loads(json.dumps(cfg))
-        for prov in pub.get("providers", {}).values():
+        for prov in [*pub.get("providers", {}).values(), pub.get("jellyfin", {})]:
             for f in SECRET_FIELDS:
-                prov[f] = MASK if prov.get(f) else ""
+                if f in prov:
+                    prov[f] = MASK if prov.get(f) else ""
         return {"config": pub, "problems": config.problems(cfg), "media_root": MEDIA_ROOT}
 
     def save_config(self, new: dict) -> dict:
@@ -119,8 +147,11 @@ class App:
                       "retry_hours", "archive_languages", "dry_run", "interval_minutes"):
                 if k in new:
                     cfg[k] = new[k]
-            for name, values in new.get("providers", {}).items():
-                cur = cfg.setdefault("providers", {}).setdefault(name, {})
+            sections = [(cfg.setdefault("providers", {}).setdefault(name, {}), values)
+                        for name, values in new.get("providers", {}).items()]
+            if "jellyfin" in new:
+                sections.append((cfg.setdefault("jellyfin", {}), new["jellyfin"]))
+            for cur, values in sections:
                 for k, v in values.items():
                     if k in SECRET_FIELDS and v == MASK:
                         continue  # sin cambios
@@ -142,6 +173,17 @@ class App:
         try:
             info = providers.OpenSubtitles(**creds).test()
             return {"ok": True, **info}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def test_jellyfin(self, values: dict) -> dict:
+        stored = self.cfg().get("jellyfin", {})
+        key = stored.get("api_key", "") if values.get("api_key") == MASK else values.get("api_key", "")
+        url = values.get("url", "").strip()
+        if not url or not key:
+            return {"ok": False, "error": "faltan la dirección o la API key"}
+        try:
+            return {"ok": True, **jellyfin.test(url, key)}
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
@@ -284,6 +326,7 @@ def make_handler(app: App):
     routes_post = {
         "/api/config": lambda b: app.save_config(b),
         "/api/test-opensubtitles": lambda b: app.test_opensubtitles(b),
+        "/api/test-jellyfin": lambda b: app.test_jellyfin(b),
         "/api/run": lambda b: (app.wake.set(), {"ok": True})[1],
         "/api/retry": lambda b: app.retry(int(b["id"])),
         "/api/accept": lambda b: app.accept(int(b["id"]), b["lang"]),

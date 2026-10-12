@@ -10,7 +10,7 @@ import requests
 
 from .. import __version__
 from ..library import Media
-from .base import Candidate, Provider
+from .base import Candidate, Provider, QuotaExceeded
 
 log = logging.getLogger(__name__)
 API = "https://api.opensubtitles.com/api/v1"
@@ -92,8 +92,15 @@ class OpenSubtitles(Provider):
 
     def download(self, candidate: Candidate) -> bytes:
         self.login()
-        data = self._request("POST", "/download", json={"file_id": int(candidate.id), "sub_format": "srt"})
+        try:
+            data = self._request("POST", "/download", json={"file_id": int(candidate.id), "sub_format": "srt"})
+        except requests.HTTPError as e:
+            if e.response is not None and e.response.status_code == 406:  # cupo diario agotado
+                raise QuotaExceeded(e.response.text[:200]) from e
+            raise
         log.info("OpenSubtitles: quedan %s descargas hoy", data.get("remaining"))
+        if not data.get("link"):
+            raise QuotaExceeded(data.get("message", "sin enlace de descarga"))
         r = requests.get(data["link"], timeout=self.timeout)
         r.raise_for_status()
         return r.content

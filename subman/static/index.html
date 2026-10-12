@@ -35,7 +35,7 @@ label.f{display:block;margin:10px 0 4px;font-weight:600}
 .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;background:var(--chip);color:var(--muted)}
 .pill.ok{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
 .pill.revisar{background:color-mix(in srgb,var(--warn) 20%,transparent);color:var(--warn)}
-.pill.falla{background:color-mix(in srgb,var(--bad) 18%,transparent);color:var(--bad)}
+.pill.falla,.pill.error{background:color-mix(in srgb,var(--bad) 18%,transparent);color:var(--bad)}
 table{width:100%;border-collapse:collapse}
 td,th{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
 th{font-size:13px;color:var(--muted);font-weight:600}
@@ -132,6 +132,17 @@ dialog::backdrop{background:#0007}
   </div>
 
   <div class="card">
+    <h2>Jellyfin <span class="muted" style="font-weight:400">(opcional)</span></h2>
+    <p class="muted" style="margin-top:0">Al terminar cada pasada, avisa a Jellyfin para que vea enseguida los subtítulos nuevos.</p>
+    <div class="two">
+      <div><label class="f">Dirección</label><input type="text" id="jf_url" placeholder="http://192.168.1.121:8096" autocomplete="off"></div>
+      <div><label class="f">API key</label><input type="password" id="jf_api_key" autocomplete="off">
+        <div class="hint">En Jellyfin: Panel de control, <i>Claves de API</i>, botón <b>+</b>, nombre <i>subman</i>.</div></div>
+    </div>
+    <div class="row" style="margin-top:12px"><button class="btn sec" id="testJF">Probar conexión</button><span id="jfResult"></span></div>
+  </div>
+
+  <div class="card">
     <h2>Cómo trabaja</h2>
     <div class="two">
       <div><label class="f">Idiomas que quieres</label><input type="text" id="languages">
@@ -180,7 +191,7 @@ dialog::backdrop{background:#0007}
 <script>
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const LABEL = {ok:"bien", revisar:"revisar", falla:"falla", pendiente:"pendiente"};
+const LABEL = {ok:"bien", revisar:"revisar", falla:"falla", pendiente:"pendiente", error:"error"};
 let cfg = null, chosen = [], libItems = [], filter = "", tab = "inicio";
 
 async function api(path, body) {
@@ -228,7 +239,7 @@ async function loadStatus() {
   }
   $("#stateBox").innerHTML = html;
   const c = s.counts;
-  $("#counts").innerHTML = [["Videos", s.media], ["Bien", c.ok || 0], ["Revisar", c.revisar || 0], ["Fallan", c.falla || 0], ["Pendientes", c.pendiente || 0]]
+  $("#counts").innerHTML = [["Videos", s.media], ["Bien", c.ok || 0], ["Revisar", c.revisar || 0], ["Fallan", (c.falla || 0) + (c.error || 0)], ["Pendientes", c.pendiente || 0]]
     .map(([k, v]) => `<div class="stat"><span class="muted">${k}</span><b>${v}</b></div>`).join("");
   $("#runNow").disabled = st.running || !s.enabled;
 }
@@ -248,7 +259,7 @@ async function loadLibrary() {
 function renderLibrary() {
   const q = $("#search").value.toLowerCase();
   const rows = libItems.filter(m => (!q || m.label.toLowerCase().includes(q) || m.path.toLowerCase().includes(q))
-    && (!filter || Object.values(m.langs).some(l => l.status === filter)));
+    && (!filter || Object.values(m.langs).some(l => l.status === filter || (filter === "falla" && l.status === "error"))));
   $("#libCount").textContent = `${rows.length} de ${libItems.length} videos` + (libItems.length ? "" : ". Aún no se ha escaneado la biblioteca.");
   $("#libBody").innerHTML = rows.slice(0, 1500).map(m => `<tr class="click" data-id="${m.id}"><td>${esc(m.label)}</td>
     <td>${Object.entries(m.langs).map(([l, v]) => pill(v.status) + (Object.keys(m.langs).length > 1 ? " " + esc(l) : "")).join(" ")}</td>
@@ -300,6 +311,7 @@ async function loadConfig() {
   cfg = r.config; chosen = [...cfg.library];
   const os = cfg.providers.opensubtitles || {};
   $("#os_api_key").value = os.api_key || ""; $("#os_username").value = os.username || ""; $("#os_password").value = os.password || "";
+  const jf = cfg.jellyfin || {}; $("#jf_url").value = jf.url || ""; $("#jf_api_key").value = jf.api_key || "";
   $("#languages").value = cfg.languages.join(", "); $("#archive_languages").value = cfg.archive_languages.join(", ");
   for (const k of ["interval_minutes", "candidates", "retry_hours"]) $("#" + k).value = cfg[k];
   for (const k of ["sync_existing", "keep_review", "dry_run", "enabled"]) $("#" + k).checked = cfg[k];
@@ -329,6 +341,7 @@ function formValues() {
     library: chosen, languages: list($("#languages").value), archive_languages: list($("#archive_languages").value),
     interval_minutes: +$("#interval_minutes").value, candidates: +$("#candidates").value, retry_hours: +$("#retry_hours").value,
     sync_existing: $("#sync_existing").checked, keep_review: $("#keep_review").checked, dry_run: $("#dry_run").checked, enabled: $("#enabled").checked,
+    jellyfin: {url: $("#jf_url").value, api_key: $("#jf_api_key").value},
     providers: {opensubtitles: {api_key: $("#os_api_key").value, username: $("#os_username").value, password: $("#os_password").value}},
   };
 }
@@ -346,6 +359,13 @@ $("#testOS").onclick = async () => {
   const r = await api("/api/test-opensubtitles", formValues().providers.opensubtitles);
   $("#osResult").innerHTML = r.ok
     ? `<span class="pill ok">conectado</span> ${esc(r.level || "")} ${r.vip ? "· VIP" : ""} ${r.remaining_downloads != null ? "· descargas que quedan hoy: " + esc(r.remaining_downloads) : r.allowed_downloads != null ? "· descargas al día: " + esc(r.allowed_downloads) : ""}`
+    : `<span class="pill falla">no conecta</span> ${esc(r.error)}`;
+};
+
+$("#testJF").onclick = async () => {
+  $("#jfResult").textContent = "Probando...";
+  const r = await api("/api/test-jellyfin", formValues().jellyfin);
+  $("#jfResult").innerHTML = r.ok ? `<span class="pill ok">conectado</span> ${esc(r.name)} ${esc(r.version)}`
     : `<span class="pill falla">no conecta</span> ${esc(r.error)}`;
 };
 

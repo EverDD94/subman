@@ -20,7 +20,7 @@ from pathlib import Path
 
 from . import subtitles, sync, verify
 from .library import Library, Media, sidecars
-from .providers import Provider
+from .providers import Provider, QuotaExceeded
 
 log = logging.getLogger(__name__)
 _RANK = {verify.OK: 2, verify.REVIEW: 1, verify.FAIL: 0}
@@ -119,7 +119,10 @@ def process(media: Media, lib: Library, providers: list[Provider], cfg: Settings
                 if path != Path(row["path"]):
                     _move(path, cfg.trash_dir, cfg, "sobra: ya hay uno verificado")
             continue
-        if row and row["status"] != verify.OK and not locals_ and time.time() - row["updated"] < cfg.retry_hours * 3600:
+        # Lo que ya se intentó (dudoso, falla, sin candidatos) se reintenta cada retry_hours, salvo
+        # que haya aparecido un subtítulo nuevo junto al video (el propio .es.srt guardado no cuenta).
+        new_locals = [l for l in locals_ if not (row and row["path"] and l[0] == Path(row["path"]))]
+        if row and row["status"] != verify.OK and not new_locals and time.time() - row["updated"] < cfg.retry_hours * 3600:
             continue
 
         tried: list[tuple[tuple, str, list, verify.Report]] = []
@@ -140,8 +143,12 @@ def process(media: Media, lib: Library, providers: list[Provider], cfg: Settings
             return max(tried, key=lambda t: t[0]) if tried else None
 
         rejected = lib.rejected(media.id, lang)
+        quota_hit = False
         if not best() or best()[3].verdict != verify.OK:
             for prov in providers:
+                if getattr(prov, "exhausted", False):
+                    quota_hit = True
+                    continue
                 try:
                     cands = prov.search(media, [lang])
                 except Exception as e:  # un proveedor caído no debe parar la biblioteca
@@ -154,6 +161,11 @@ def process(media: Media, lib: Library, providers: list[Provider], cfg: Settings
                         break
                     try:
                         cues = subtitles.parse(subtitles.decode(prov.download(cand)))
+                    except QuotaExceeded as e:
+                        log.warning("%s: se acabaron las descargas de hoy (%s); se sigue mañana", prov.name, e)
+                        prov.exhausted = True
+                        quota_hit = True
+                        break
                     except Exception as e:
                         log.warning("%s: fallo descargando %s: %s", media.label, cand.id, e)
                         continue
@@ -168,6 +180,9 @@ def process(media: Media, lib: Library, providers: list[Provider], cfg: Settings
                     break
 
         if not tried:
+            if quota_hit:  # no marcarlo: que lo intente en cuanto haya descargas
+                results[lang] = "esperando descargas"
+                continue
             if not cfg.dry_run:
                 lib.set_subtitle(media.id, lang, None, "", "pendiente", "sin candidatos")
             results[lang] = "sin candidatos"

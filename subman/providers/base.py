@@ -26,6 +26,10 @@ class Candidate:
                 not self.hearing_impaired, self.downloads)
 
 
+class QuotaExceeded(Exception):
+    """Se acabaron las descargas de hoy: no seguir pidiendo hasta mañana."""
+
+
 class Provider(ABC):
     name: str
 

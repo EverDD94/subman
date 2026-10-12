@@ -190,10 +190,10 @@ class Library:
         self.db.commit()
         return stats
 
-    def media(self, where: str = "1", args: tuple = ()) -> list[Media]:
+    def media(self, where: str = "1", args: tuple = (), order: str = "title, season, episode") -> list[Media]:
         rows = self.db.execute(
             f"SELECT id, path, kind, title, year, season, episode, size, oshash FROM media WHERE {where} "
-            "ORDER BY title, season, episode", args).fetchall()
+            f"ORDER BY {order}", args).fetchall()
         return [Media(**dict(r)) for r in rows]
 
     def subtitle_status(self, media_id: int, lang: str) -> sqlite3.Row | None:

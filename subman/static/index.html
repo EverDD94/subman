@@ -119,6 +119,16 @@ dialog::backdrop{background:#0007}
 .gchips button.no{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 15%,transparent)}
 .deckbtns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
 .deckbtns .btn{padding:12px;font-size:16px}
+.deckbtns.three{grid-template-columns:1fr 1fr 1fr}
+.pcard{display:grid;grid-template-columns:220px 1fr;gap:20px;align-items:start;transition:transform .2s,opacity .2s}
+.pcard img.face{width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:10px;background:var(--chip)}
+.pcard.out-r{transform:translateX(80px) rotate(3deg);opacity:0}
+.pcard.out-l{transform:translateX(-80px) rotate(-3deg);opacity:0}
+.pcard.out-d{transform:translateY(40px);opacity:0}
+.kf{display:grid;grid-template-columns:repeat(3,110px);gap:10px;margin:10px 0}
+.kf div{font-size:12px;display:flex;flex-direction:column;gap:3px}
+.kf img,.kf .noimg{width:110px;aspect-ratio:2/3;object-fit:cover;border-radius:6px;background:var(--chip)}
+@media (max-width:640px){.pcard{grid-template-columns:1fr}.pcard img.face{max-width:200px}.deckbtns.three{grid-template-columns:1fr}.kf{grid-template-columns:repeat(3,1fr)}.kf img,.kf .noimg{width:100%}}
 .swipe{transition:transform .2s,opacity .2s}
 .swipe.out-r{transform:translateX(80px) rotate(3deg);opacity:0}
 .swipe.out-l{transform:translateX(-80px) rotate(-3deg);opacity:0}
@@ -920,7 +930,8 @@ function renderTaste() {
     $("#dscBox").innerHTML = `<h2>Mis gustos</h2>
       <p><b>Te gustan:</b> ${g.length ? esc(g.join(", ")) : "<span class='muted'>ningún género marcado</span>"}</p>
       <p><b>No te gustan:</b> ${bad.length ? esc(bad.join(", ")) : "<span class='muted'>ninguno</span>"}</p>
-      <p><b>Actores y directores:</b> ${p.people.length ? esc(p.people.map(x => x.name).join(", ")) : "<span class='muted'>ninguno</span>"}</p>
+      <p><b>Actores y directores que te gustan:</b> ${p.people.length ? esc(p.people.map(x => x.name).join(", ")) : "<span class='muted'>ninguno</span>"}</p>
+      ${p.people_no.length ? `<p><b>Los que no te gustan:</b> ${esc(p.people_no.map(x => x.name).join(", "))}</p>` : ""}
       <p><b>Prefieres:</b> ${KIND[p.kinds]} · ${ERA[p.era]}</p>
       <p><b>Has calificado:</b> ${st["2"] || 0} me encanta · ${st["1"] || 0} me gusta · ${st["-1"] || 0} no me gusta · ${st["0"] || 0} no la has visto
         · <a href="#" onclick="dscGo('calificadas');return false">ver todas</a></p>
@@ -943,14 +954,30 @@ function renderTaste() {
         return `<button class="${v > 0 ? "yes" : v < 0 ? "no" : ""}" onclick="cycleGenre(${i})">${v > 0 ? "👍 " : v < 0 ? "👎 " : ""}${esc(g.name)}</button>`; }).join("")}</div>
       ${nav("", "quiz.step='people';renderTaste()", "Siguiente")}`;
   } else if (quiz.step === "people") {
-    $("#dscBox").innerHTML = `<h2>Actores y directores que te gustan</h2>
-      <p class="muted" style="margin-top:0">Busca por nombre y pulsa en la persona. Puedes saltarte este paso.</p>
-      <div class="row"><input type="text" id="pplQ" placeholder="p. ej. Tom Hanks, Christopher Nolan" style="flex:1;width:auto"><button class="btn sec" onclick="findPeople()">Buscar</button></div>
-      <div class="people">${quiz.people.map((x, i) => `<div class="person pick" onclick="addPerson(${i})">${x.photo ? `<img src="${esc(x.photo)}" alt="">` : `<div class="noimg"></div>`}<b>${esc(x.name)}</b><span>${esc(x.known)}</span></div>`).join("")}</div>
-      <div class="chips">${p.people.map((x, i) => `<span>${esc(x.name)}<b onclick="quiz.p.people.splice(${i},1);renderTaste()">✕</b></span>`).join("")}</div>
+    const pp = quiz.pp || (quiz.pp = {items: [], i: 0, page: 0, loading: false});
+    if (!pp.items.length && !pp.loading && !pp.empty) morePeople();
+    const x = pp.items[pp.i];
+    const card = x ? `<div class="pcard" id="pcard">
+        <img class="face" src="${esc(x.photo)}" alt="">
+        <div><h2 style="margin:0">${esc(x.name)}</h2><div class="hint">${esc(x.job)} · conocido por:</div>
+          <div class="kf">${x.titles.map(t => `<div>${t.poster ? `<img src="${esc(t.poster)}" alt="">` : `<div class="noimg"></div>`}<span>${esc(t.title)}</span></div>`).join("")}</div>
+          <div class="deckbtns three">
+            <button class="btn" onclick="personAnswer(1)">👍 Me gusta</button>
+            <button class="btn bad" onclick="personAnswer(-1)">👎 No me gusta</button>
+            <button class="btn sec" onclick="personAnswer(0)">🤷 Me da igual</button></div>
+          <p class="hint">Atajos de teclado: 1 me gusta · 2 no me gusta · 3 me da igual</p></div></div>`
+      : `<p class="muted">${pp.loading ? "Buscando gente famosa…" : "No quedan más por ahora."}</p>`;
+    $("#dscBox").innerHTML = `<h2>¿Te gustan estos actores y directores?</h2>
+      <p class="muted" style="margin-top:0">Te salen los más famosos, con sus películas o series más conocidas. Contesta y pasa al siguiente; cuando te canses, pulsa Siguiente.</p>
+      ${card}
+      ${p.people.length ? `<p style="margin-bottom:0"><b>Te gustan:</b></p><div class="chips">${p.people.map((y, i) => `<span>${esc(y.name)}<b onclick="quiz.p.people.splice(${i},1);renderTaste()">✕</b></span>`).join("")}</div>` : ""}
+      ${p.people_no.length ? `<p style="margin-bottom:0"><b>No te gustan:</b></p><div class="chips">${p.people_no.map((y, i) => `<span>${esc(y.name)}<b onclick="quiz.p.people_no.splice(${i},1);renderTaste()">✕</b></span>`).join("")}</div>` : ""}
+      <details style="margin-top:10px" ${quiz.people.length ? "open" : ""}><summary class="muted" style="cursor:pointer">¿Buscas a alguien concreto?</summary>
+        <div class="row" style="margin-top:8px"><input type="text" id="pplQ" placeholder="p. ej. Tom Hanks" style="flex:1;width:auto"><button class="btn sec" onclick="findPeople()">Buscar</button></div>
+        <div class="people">${quiz.people.map((y, i) => `<div class="person pick" onclick="addPerson(${i})">${y.photo ? `<img src="${esc(y.photo)}" alt="">` : `<div class="noimg"></div>`}<b>${esc(y.name)}</b><span>${esc(y.known)}</span></div>`).join("")}</div>
+      </details>
       ${nav("genres", "quiz.step='prefs';renderTaste()", "Siguiente")}`;
     $("#pplQ").onkeydown = e => { if (e.key === "Enter") findPeople(); };
-    $("#pplQ").focus();
   } else if (quiz.step === "prefs") {
     const opt = (field, v, label) => `<button class="${p[field] === v ? "on" : ""}" onclick="quiz.p.${field}='${v}';renderTaste()">${label}</button>`;
     $("#dscBox").innerHTML = `<h2>Un par de cosas más</h2>
@@ -958,6 +985,43 @@ function renderTaste() {
       <p><b>¿De qué época?</b></p><div class="filters">${opt("era", "new", "Sobre todo nuevas")}${opt("era", "all", "De todo")}${opt("era", "classic", "Sobre todo clásicas")}</div>
       ${nav("people", "saveTaste()", "Empezar a calificar")}`;
   }
+}
+async function morePeople() {
+  const pp = quiz.pp;
+  if (pp.loading) return;
+  pp.loading = true;
+  const skip = new Set([...quiz.p.people_seen, ...quiz.p.people.map(y => y.id), ...quiz.p.people_no.map(y => y.id), ...pp.items.map(y => y.id)]);
+  let got = 0;
+  try {
+    while (got < 5 && pp.page < 25) {  // salta páginas con gente ya contestada
+      pp.page++;
+      const r = await api("/api/discover/popular-people?page=" + pp.page);
+      if (!r.ok) throw new Error(r.error);
+      const fresh = r.people.filter(y => !skip.has(y.id));
+      fresh.forEach(y => skip.add(y.id));
+      pp.items.push(...fresh);
+      got += fresh.length;
+    }
+  } catch (e) { toast(e.message); }
+  pp.loading = false;
+  if (!got && pp.i >= pp.items.length) pp.empty = true;
+  if (quiz.step === "people") renderTaste();
+}
+function personAnswer(v) {
+  const pp = quiz.pp, x = pp.items[pp.i];
+  if (!x) return;
+  const p = quiz.p, slim = {id: x.id, name: x.name, photo: x.photo, known: x.known};
+  if (v > 0 && !p.people.some(y => y.id === x.id)) p.people.push(slim);
+  if (v < 0 && !p.people_no.some(y => y.id === x.id)) p.people_no.push(slim);
+  if (!p.people_seen.includes(x.id)) p.people_seen.push(x.id);
+  const box = $("#pcard");
+  if (box) box.classList.add(v > 0 ? "out-r" : v < 0 ? "out-l" : "out-d");
+  setTimeout(() => {
+    pp.i++;
+    if (pp.items.length - pp.i < 4) morePeople();
+    renderTaste();
+    api("/api/discover/taste", p).catch(() => {});  // se guarda sobre la marcha
+  }, 200);
 }
 function cycleGenre(i) {
   const g = taste.genres[i], v = quiz.p.genres[g.ids[0]] || 0, nv = v === 0 ? 1 : v > 0 ? -1 : 0;
@@ -1048,6 +1112,11 @@ document.addEventListener("keydown", e => {
   if (tab !== "descubrir" || !quiz || quiz.step !== "deck" || dsc.section !== "gustos" || dlg.open || e.target.tagName === "INPUT") return;
   const v = {"1": 2, "2": 1, "3": -1, "4": 0}[e.key];
   if (v !== undefined) deckAnswer(v);
+});
+document.addEventListener("keydown", e => {
+  if (tab !== "descubrir" || !quiz || quiz.step !== "people" || dsc.section !== "gustos" || dlg.open || e.target.tagName === "INPUT") return;
+  const v = {"1": 1, "2": -1, "3": 0}[e.key];
+  if (v !== undefined) personAnswer(v);
 });
 
 show("inicio");

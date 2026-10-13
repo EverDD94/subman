@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS taste (  -- respuestas de «Mis gustos» (una sola fi
     data TEXT NOT NULL
 );
 """
-PROFILE = {"done": False, "genres": {}, "people": [], "kinds": "both", "era": "all"}
+PROFILE = {"done": False, "genres": {}, "people": [], "people_no": [], "people_seen": [], "kinds": "both", "era": "all"}
 PROFILE_IMG = "https://image.tmdb.org/t/p/w185"
 TV_ALIAS = {10759: (28, 12), 10765: (878, 14), 10768: (10752,)}  # géneros de series con nombre en inglés
 TV_SKIP = {10763, 10767}  # noticias y programas de entrevistas
@@ -235,6 +235,11 @@ class Discover:
                 score[k] = score.get(k, 0) + v["rating"] * (1 - rank / 40)
                 cards[k] = c
                 why.setdefault(k, []).append(v["info"].get("title") or "")
+        for p in prof["people_no"][:20]:  # y la gente que no te gusta
+            for c in self._credits(p["id"]):
+                k = (c["kind"], c["tmdb"])
+                if k in score:
+                    score[k] -= 0.5
         for (kind, tid), v in marks.items():  # lo que no te gusta también aleja lo parecido
             if v["rating"] == -1:
                 for c in self._recommendations(kind, tid)[:10]:
@@ -294,8 +299,9 @@ class Discover:
     def save_profile(self, data: dict) -> dict:
         prof = {**PROFILE, **{k: data[k] for k in PROFILE if k in data}}
         prof["genres"] = {str(int(g)): (1 if v > 0 else -1) for g, v in (prof["genres"] or {}).items() if v}
-        prof["people"] = [{k: p.get(k) for k in ("id", "name", "photo", "known")} for p in prof["people"] or []
-                          if p.get("id")][:30]
+        for f in ("people", "people_no"):
+            prof[f] = [{k: p.get(k) for k in ("id", "name", "photo", "known")} for p in prof[f] or [] if p.get("id")][:60]
+        prof["people_seen"] = [int(x) for x in prof["people_seen"] or []][-3000:]
         if prof["kinds"] not in ("movie", "tv", "both"):
             prof["kinds"] = "both"
         if prof["era"] not in ("new", "all", "classic"):
@@ -336,6 +342,22 @@ class Discover:
                  "known": ", ".join(k.get("title") or k.get("name") or "" for k in p.get("known_for") or [])[:120],
                  "job": p.get("known_for_department", "")}
                 for p in res.get("results", [])[:8]]
+
+    def popular_people(self, page: int = 1) -> list[dict]:
+        """Actores y directores famosos para conocerlos por tarjetas (con sus títulos más conocidos)."""
+        res = self.api._get("/person/popular", page=page)
+        out = []
+        for p in res.get("results", []):
+            known = [k for k in p.get("known_for") or [] if k.get("media_type") in KINDS]
+            if (p.get("adult") or not p.get("profile_path") or p.get("known_for_department") not in ("Acting", "Directing")
+                    or not any((k.get("vote_count") or 0) >= 500 for k in known)):
+                continue  # sólo gente conocida por películas o series que mucha gente ha visto
+            out.append({"id": p["id"], "name": p.get("name", ""), "photo": PROFILE_IMG + p["profile_path"],
+                        "job": "Dirige" if p.get("known_for_department") == "Directing" else "Actúa",
+                        "known": ", ".join(k.get("title") or k.get("name") or "" for k in known)[:120],
+                        "titles": [{"title": k.get("title") or k.get("name") or "",
+                                    "poster": IMG + k["poster_path"] if k.get("poster_path") else ""} for k in known[:3]]})
+        return out
 
     def _dates(self, era: str, kind: str) -> dict:
         field = "primary_release_date" if kind == "movie" else "first_air_date"

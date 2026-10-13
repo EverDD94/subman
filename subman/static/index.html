@@ -80,6 +80,22 @@ dialog::backdrop{background:#0007}
 .nm{border-top:1px solid var(--line);padding:14px 0}
 .nm:first-child{border-top:0}
 .dup tr.go{background:color-mix(in srgb,var(--bad) 8%,transparent)}
+.dsc{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:12px}
+.dc{background:var(--bg);border:1px solid var(--line);border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
+.dc .poster{position:relative}
+.dc img,.dc .noimg{width:100%;aspect-ratio:2/3;object-fit:cover;display:block;background:var(--chip)}
+.dc .kind{position:absolute;top:6px;left:6px;background:#000a;color:#fff;font-size:11px;padding:1px 7px;border-radius:999px}
+.dc .own{position:absolute;top:6px;right:6px;background:var(--ok);color:#fff;font-size:11px;padding:1px 7px;border-radius:999px}
+.dc .body{padding:8px 10px;display:flex;flex-direction:column;gap:6px;flex:1}
+.dc .t{font-weight:600;line-height:1.25}
+.dc .ov{font-size:12px;color:var(--muted);display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
+.dc .ov.open{-webkit-line-clamp:unset}
+.rate{display:flex;gap:4px;margin-top:auto}
+.rate button,.havebtn{flex:1;background:var(--chip);border:1px solid transparent;border-radius:8px;padding:4px 0;cursor:pointer;font:inherit;font-size:14px;color:var(--text)}
+.rate button.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 22%,transparent)}
+.rate button.on.down{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 20%,transparent)}
+.havebtn{font-size:12px;padding:5px 0}
+.havebtn.yes{background:color-mix(in srgb,var(--ok) 20%,transparent);color:var(--ok);font-weight:600}
 </style>
 </head>
 <body>
@@ -90,6 +106,7 @@ dialog::backdrop{background:#0007}
     <button data-tab="biblioteca">Biblioteca</button>
     <button data-tab="nombres">Nombres</button>
     <button data-tab="duplicados">Duplicados</button>
+    <button data-tab="descubrir">Descubrir</button>
     <button data-tab="registro">Registro</button>
     <button data-tab="ajustes">Ajustes</button>
     <button data-tab="papelera" class="end"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>Papelera</button>
@@ -202,6 +219,26 @@ dialog::backdrop{background:#0007}
   <div class="row"><button class="btn" id="save">Guardar ajustes</button><span class="muted" id="saveMsg"></span></div>
 </section>
 
+<section id="descubrir" hidden>
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <div class="filters" id="dscTabs">
+        <button data-s="novedades" class="on">Novedades</button>
+        <button data-s="clasicos">Populares y clásicos</button>
+        <button data-s="para-ti">Para ti</button>
+        <button data-s="por-conseguir">Por conseguir</button>
+        <button data-s="calificadas">Mis calificaciones</button>
+      </div>
+      <div class="filters" id="dscKind">
+        <button data-k="" class="on">Todo</button><button data-k="movie">Películas</button><button data-k="tv">Series</button>
+      </div>
+    </div>
+    <div class="row" style="margin-top:12px"><input type="text" id="dscQ" placeholder="Buscar una película o serie para calificarla" style="flex:1;width:auto"><button class="btn sec" id="dscGo">Buscar</button></div>
+    <p class="muted" id="dscHelp" style="margin:12px 0 0"></p>
+  </div>
+  <div class="card"><div id="dscBox"></div>
+    <div class="row" style="justify-content:center;margin-top:14px"><button class="btn sec" id="dscMore" hidden>Ver más</button></div></div>
+</section>
 <section id="registro" hidden>
   <div class="card">
     <div class="row" style="justify-content:space-between;margin-bottom:10px"><h2 style="margin:0">Registro</h2>
@@ -283,7 +320,7 @@ function show(name) {
   tab = name;
   document.querySelectorAll("main > section").forEach(s => s.hidden = s.id !== name);
   document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === name));
-  ({inicio:loadStatus, biblioteca:loadLibrary, ajustes:loadConfig, registro:loadLog, papelera:loadTrash, duplicados:loadDupes, nombres:loadNames})[name]();
+  ({inicio:loadStatus, biblioteca:loadLibrary, ajustes:loadConfig, registro:loadLog, papelera:loadTrash, duplicados:loadDupes, nombres:loadNames, descubrir:loadDiscover})[name]();
 }
 document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => show(b.dataset.tab));
 
@@ -666,6 +703,79 @@ $("#dupMove").onclick = async () => {
 };
 
 setInterval(() => { if (tab === "inicio") loadStatus(); if (tab === "registro" && $("#follow").checked) loadLog(); }, 4000);
+// ---------- Descubrir ----------
+const DSC_HELP = {
+  "novedades": "Películas y series que acaban de salir o salen pronto. Califícalas para que «Para ti» aprenda lo que te gusta.",
+  "clasicos": "Lo más visto esta semana y lo mejor valorado de siempre.",
+  "para-ti": "Parecidas a lo que te encanta (cuenta doble) y te gusta. No salen las que ya tienes ni las que ya calificaste.",
+  "por-conseguir": "Lo que marcaste «No la tengo», y lo que te gusta y no está en tu biblioteca. Cuando la consigas, pulsa «La tengo».",
+  "calificadas": "Todo lo que has calificado. Puedes cambiarlo cuando quieras.",
+  "buscar": "Resultados de la búsqueda."};
+let dsc = {section: "novedades", kind: "", page: 1, items: [], q: ""};
+document.querySelectorAll("#dscTabs button").forEach(b => b.onclick = () => { dsc.section = b.dataset.s; dsc.q = ""; $("#dscQ").value = ""; loadDiscover(); });
+document.querySelectorAll("#dscKind button").forEach(b => b.onclick = () => {
+  dsc.kind = b.dataset.k; document.querySelectorAll("#dscKind button").forEach(x => x.classList.toggle("on", x === b)); renderDiscover(); });
+$("#dscGo").onclick = () => { const q = $("#dscQ").value.trim(); if (q) { dsc.q = q; dsc.section = "buscar"; loadDiscover(); } };
+$("#dscQ").onkeydown = e => { if (e.key === "Enter") $("#dscGo").click(); };
+$("#dscMore").onclick = async () => {
+  dsc.page++; $("#dscMore").disabled = true;
+  try {
+    const r = await api(`/api/discover?section=${dsc.section}&page=${dsc.page}`);
+    const seen = new Set(dsc.items.map(c => c.kind + c.tmdb));
+    dsc.items.push(...(r.items || []).filter(c => !seen.has(c.kind + c.tmdb)));
+    renderDiscover();
+  } catch (e) { toast(e.message); } finally { $("#dscMore").disabled = false; }
+};
+async function loadDiscover() {
+  document.querySelectorAll("#dscTabs button").forEach(x => x.classList.toggle("on", x.dataset.s === dsc.section));
+  $("#dscHelp").textContent = DSC_HELP[dsc.section];
+  $("#dscBox").innerHTML = `<p class="muted">Cargando…</p>`;
+  $("#dscMore").hidden = true;
+  dsc.page = 1;
+  try {
+    const r = dsc.section === "buscar" ? await api("/api/discover/search?q=" + encodeURIComponent(dsc.q))
+                                       : await api(`/api/discover?section=${dsc.section}&page=1`);
+    if (!r.ok) { $("#dscBox").innerHTML = `<p>${esc(r.error)}</p>` + (r.error.includes("Ajustes") ? `<button class="btn sec" onclick="show('ajustes')">Ir a Ajustes</button>` : ""); return; }
+    dsc.items = r.items;
+    renderDiscover();
+  } catch (e) { $("#dscBox").innerHTML = `<p>No se pudo hablar con TheMovieDB: ${esc(e.message)}</p>`; }
+}
+function renderDiscover() {
+  const items = dsc.items.filter(c => !dsc.kind || c.kind === dsc.kind);
+  $("#dscMore").hidden = !["novedades", "clasicos"].includes(dsc.section);
+  if (!items.length) {
+    const empty = {"para-ti": "Todavía no hay recomendaciones: califica con 👍 o 👍👍 algunas películas o series en Novedades, Populares o con el buscador.",
+                   "por-conseguir": "Nada por conseguir.", "calificadas": "Aún no has calificado nada."}[dsc.section] || "No hay nada aquí.";
+    $("#dscBox").innerHTML = `<p class="muted">${empty}</p>`; return;
+  }
+  $("#dscBox").innerHTML = `<div class="dsc">${items.map(dscCard).join("")}</div>`;
+}
+function dscCard(c) {
+  const k = c.kind + c.tmdb;
+  const r = (v, ico, tip) => `<button title="${tip}" class="${c.rating === v ? "on" : ""} ${v < 0 ? "down" : ""}" onclick="dscRate('${k}',${v})">${ico}</button>`;
+  const sub = [c.year, (c.genres || []).slice(0, 2).join(", ")].filter(Boolean).join(" · ");
+  const because = c.because && c.because.length ? `<div class="hint">Porque te gustó ${esc(c.because.join(", "))}</div>` : "";
+  return `<div class="dc"><div class="poster">${c.poster ? `<img loading="lazy" src="${esc(c.poster)}" alt="">` : `<div class="noimg"></div>`}
+      <span class="kind">${c.kind === "tv" ? "Serie" : "Película"}</span>${c.have ? `<span class="own">La tengo</span>` : ""}</div>
+    <div class="body"><div class="t">${esc(c.title)}</div><div class="hint" style="margin:0">${esc(sub)}${c.vote ? " · ★ " + c.vote : ""}</div>${because}
+      <div class="ov" onclick="this.classList.toggle('open')">${esc(c.overview)}</div>
+      <div class="rate">${r(2, "👍👍", "Me encanta")}${r(1, "👍", "Me gusta")}${r(-1, "👎", "No me gusta")}</div>
+      <button class="havebtn ${c.have ? "yes" : ""}" onclick="dscHave('${k}')">${c.have ? "✓ La tengo" : "No la tengo"}</button></div></div>`;
+}
+async function dscMark(k, change) {
+  const c = dsc.items.find(x => x.kind + x.tmdb === k);
+  if (!c) return;
+  const before = {rating: c.rating, have: c.have};
+  Object.assign(c, change);
+  renderDiscover();
+  try {
+    const r = await api("/api/discover/mark", {item: c, ...change});
+    if (!r.ok) throw new Error(r.error);
+  } catch (e) { Object.assign(c, before); renderDiscover(); toast(e.message); }
+}
+function dscRate(k, v) { const c = dsc.items.find(x => x.kind + x.tmdb === k); dscMark(k, {rating: c.rating === v ? null : v}); }
+function dscHave(k) { const c = dsc.items.find(x => x.kind + x.tmdb === k); dscMark(k, {have: !c.have}); }
+
 show("inicio");
 </script>
 </body>

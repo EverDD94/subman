@@ -37,12 +37,22 @@ def _minutes(path: str) -> float | None:
         return None
 
 
+_ROMAN = {"i": 1, "ii": 2, "iii": 3, "iv": 4, "v": 5, "vi": 6, "vii": 7, "viii": 8, "ix": 9, "x": 10}
+
+
+def _arabic(text: str) -> str:
+    """«el senor de los anillos iii» -> «el senor de los anillos 3» (no la primera palabra: «X-Men»)."""
+    words = text.split()
+    return " ".join(str(_ROMAN[w]) if i and w in _ROMAN else w for i, w in enumerate(words))
+
+
 def _part_number(title: str) -> int | None:
-    """El número de la saga: «Fast 7», «after 2», «El Efecto Mariposa 3 720p...»."""
-    m = _PART.search(normalize(title))
+    """El número de la saga: «Fast 7», «after 2», «El Efecto Mariposa 3 720p...», «Anillos III - ...»."""
+    text = _arabic(normalize(title, leet=False))
+    m = _PART.search(text)
     n = int(m.group(1)) if m else None
     if not n:
-        n = next((int(w) for w in normalize(title).split()[1:] if w.isdigit() and 1 <= int(w) <= 30), None)
+        n = next((int(w) for w in text.split()[1:] if w.isdigit() and 1 <= int(w) <= 30), None)
     return n if n and 1 <= n <= 30 else None
 
 
@@ -53,17 +63,31 @@ def _duration_ok(runtime, minutes) -> bool | None:
 
 
 def _all_queries(m) -> list[str]:
-    """Además de las de Nombres: cortar en el primer número pequeño («el efecto mariposa 3 hls 2413»
-    -> «el efecto mariposa 3» y «el efecto mariposa»)."""
+    """Además de las de Nombres: sin lo de entre corchetes, cada trozo separado por «-», los números
+    romanos como números, y cortar en el primer número pequeño («el efecto mariposa 3 hls 2413» ->
+    «el efecto mariposa 3» y «el efecto mariposa»)."""
     out = identify._queries(m)
-    words = normalize(m.title, leet=False).split()
-    for i, w in enumerate(words):
-        if w.isdigit() and 1 <= int(w) <= 30 and i > 0:
-            for q in (" ".join(words[:i + 1]), " ".join(words[:i])):
-                if q not in out:
-                    out.append(q)
-            break
-    return out
+
+    def add(q):
+        q = " ".join(w for w in q.split() if re.fullmatch(r"[a-z0-9ñ]+", w))  # fuera «ᴍx» y similares
+        if q and q not in out:
+            out.append(q)
+
+    raw = re.sub(r"\[[^\]]*\]|\([^)]*\)", " ", m.title)
+    variants = [raw, *[p for p in re.split(r"\s+-\s*|\s*-\s+", raw) if len(p.split()) >= 2]]
+    for v in variants:
+        q = normalize(v, leet=False)
+        add(q)
+        add(_arabic(q))
+        roman_free = " ".join(w for i, w in enumerate(q.split()) if not (i and w in _ROMAN))
+        add(roman_free)
+        words = _arabic(q).split()
+        for i, w in enumerate(words):
+            if w.isdigit() and 1 <= int(w) <= 30 and i > 0:
+                add(" ".join(words[:i + 1]))
+                add(" ".join(words[:i]))
+                break
+    return out[:8]
 
 
 def candidates(db: TMDb, m, minutes: float | None, extra: list[int] = (), more: list[str] = ()) -> list[dict]:
@@ -73,18 +97,21 @@ def candidates(db: TMDb, m, minutes: float | None, extra: list[int] = (), more: 
         if q and q not in queries:
             queries.append(q)
     ids: list[int] = list(extra)
+    lists: list[list[int]] = []
     for i, q in enumerate(queries):
         try:
-            found = db.search(q, m.year if i == 0 else None)
-            if not found and i == 0 and m.year:
+            found = db.search(q, m.year) if m.year else []
+            if not found:
                 found = db.search(q)
         except Exception as e:
             log.warning("TheMovieDB: no se pudo buscar «%s»: %s", q, e)
             continue
-        ids += [x for x in found[:6] if x not in ids]
+        lists.append(found[:6])
+    for rank in range(6):  # primero lo mejor de cada búsqueda, luego lo demás
+        ids += [found[rank] for found in lists if len(found) > rank and found[rank] not in ids]
     part = _part_number(m.title)
     cands: dict[str, dict] = {}
-    for movie_id in ids[:10]:
+    for movie_id in ids[:12]:
         try:
             c = dict(db.movie(movie_id))
         except Exception as e:

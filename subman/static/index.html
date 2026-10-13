@@ -465,9 +465,10 @@ async function loadTrash() {
 }
 
 // ---------- Nombres ----------
-let nm = null, nmPick = {};
+let nm = null, nmPick = {}, nmShown = null;
 async function loadNames() {
   nm = await api("/api/names");
+  const fresh = nm.at !== nmShown;  // mientras revisa, no volver a pintar la lista (se borraría lo que escribes)
   $("#nmScan").disabled = nm.running || !nm.jellyfin;
   const res = nm.result;
   $("#nmState").innerHTML = !nm.jellyfin ? `<span class="pill revisar">falta Jellyfin</span> Pon la dirección y la API key de Jellyfin en Ajustes: se usa su buscador de películas.`
@@ -475,7 +476,8 @@ async function loadNames() {
     : nm.error ? `<span class="pill falla">error</span> ${esc(nm.error)}`
     : res ? `<span class="muted">Revisado ${when(nm.at)}.${!res.todo.length && !res.loose.length ? " Todo está en orden." : ""}</span>`
     : `<span class="muted">Pulsa «Revisar nombres».</span>`;
-  renderNames();
+  if (fresh || !nm.running) renderNames();
+  nmShown = nm.at;
   $("#nmHistCard").hidden = !nm.history.length;
   $("#nmHist").innerHTML = nm.history.map(h => `<tr><td>${esc(h.title)}<div class="muted" style="font-size:12px">${when(h.at)}</div></td>
     <td><div class="path">${esc(h.before)}</div><div class="path">→ ${esc(h.after)}</div></td>
@@ -493,6 +495,10 @@ function optCard(e, o, i) {
     <b>${esc(o.name)}</b> ${o.year ? "(" + o.year + ")" : ""}</div>`;
 }
 function renderNames() {
+  // Guardar lo escrito en las cajas de búsqueda (y dónde estaba el cursor) para no perderlo al repintar.
+  const typed = {}, act = document.activeElement;
+  document.querySelectorAll("#nmTodo [data-q]").forEach(i => typed[i.dataset.q] = i.value);
+  const focusId = act && act.dataset && act.dataset.q, caret = focusId ? act.selectionStart : 0;
   const res = nm && nm.result;
   const todo = res ? res.todo : [], loose = res ? res.loose : [];
   $("#nmTodoCard").hidden = !todo.length; $("#nmTodoTitle").textContent = `Por identificar: ${todo.length}`;
@@ -505,7 +511,11 @@ function renderNames() {
         <button class="btn" data-a="${e.id}" ${e.options.length ? "" : "disabled"}>Aplicar</button></div></div>`).join("");
   document.querySelectorAll("#nmTodo .opt").forEach(d => d.onclick = () => { nmPick[d.dataset.e] = +d.dataset.i; renderNames(); });
   document.querySelectorAll("#nmTodo [data-s]").forEach(b => b.onclick = () => nmSearch(+b.dataset.s));
-  document.querySelectorAll("#nmTodo [data-q]").forEach(i => i.onkeydown = ev => ev.key === "Enter" && nmSearch(+i.dataset.q));
+  document.querySelectorAll("#nmTodo [data-q]").forEach(i => {
+    if (typed[i.dataset.q]) i.value = typed[i.dataset.q];
+    i.onkeydown = ev => { if (ev.key === "Enter") nmSearch(+i.dataset.q); };  // devolver false bloquearía las teclas
+    if (i.dataset.q === focusId) { i.focus(); i.setSelectionRange(caret, caret); }
+  });
   document.querySelectorAll("#nmTodo [data-a]").forEach(b => b.onclick = () => nmApply(+b.dataset.a));
   $("#nmLooseCard").hidden = !loose.length; $("#nmLooseTitle").textContent = `Sin carpeta propia: ${loose.length}`;
   $("#nmLoose").innerHTML = loose.map(e => `<tr><td><input type="checkbox" data-l="${e.id}" ${$("#nmAll").checked ? "checked" : ""}></td>

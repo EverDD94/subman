@@ -67,7 +67,8 @@ CREATE TABLE IF NOT EXISTS renamed (  -- películas ordenadas en su carpeta desd
     created TEXT,                  -- carpeta creada (se quita al deshacer si queda vacía)
     video_from TEXT,
     video_to TEXT,
-    at REAL
+    at REAL,
+    how TEXT                       -- manual | auto | ia
 );
 """
 
@@ -166,6 +167,10 @@ class Library:
         self.db.row_factory = sqlite3.Row
         self.db.execute("PRAGMA foreign_keys = ON")
         self.db.executescript(SCHEMA)
+        cols = {r[1] for r in self.db.execute("PRAGMA table_info(renamed)")}
+        if "how" not in cols:  # bases de datos de antes
+            self.db.execute("ALTER TABLE renamed ADD COLUMN how TEXT")
+            self.db.commit()
 
     def scan(self, roots: list[str | Path], hash_files: bool = True, progress=None, exclude=()) -> dict:
         now = time.time()

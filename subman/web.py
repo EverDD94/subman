@@ -19,7 +19,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, config, diagnose, duplicates, identify, jellyfin, manager, providers
+from . import __version__, autoid, config, diagnose, duplicates, gemini, identify, jellyfin, manager, providers, tmdb
 from .library import Library
 
 log = logging.getLogger(__name__)
@@ -47,7 +47,7 @@ class App:
         self.state = {"running": False, "current": "", "done": 0, "total": 0,
                       "last_start": None, "last_end": None, "next_run": None, "message": "", "scan": None}
         self.dupes = {"running": False, "message": "", "groups": None, "at": None}
-        self.names = {"running": False, "message": "", "result": None, "at": None}
+        self.names = {"running": False, "message": "", "result": None, "at": None, "auto": None, "stop": False}
         self.logs = LogBuffer()
         logging.getLogger().addHandler(self.logs)
         try:  # registro también en /config/subman.log (sobrevive a reinicios)
@@ -136,7 +136,8 @@ class App:
     def api_config(self) -> dict:
         cfg = self.cfg()
         pub = json.loads(json.dumps(cfg))
-        for prov in [*pub.get("providers", {}).values(), pub.get("jellyfin", {})]:
+        for prov in [*pub.get("providers", {}).values(), pub.get("jellyfin", {}), pub.get("tmdb", {}),
+                     pub.get("gemini", {})]:
             for f in SECRET_FIELDS:
                 if f in prov:
                     prov[f] = MASK if prov.get(f) else ""
@@ -151,8 +152,9 @@ class App:
                     cfg[k] = new[k]
             sections = [(cfg.setdefault("providers", {}).setdefault(name, {}), values)
                         for name, values in new.get("providers", {}).items()]
-            if "jellyfin" in new:
-                sections.append((cfg.setdefault("jellyfin", {}), new["jellyfin"]))
+            for name in ("jellyfin", "tmdb", "gemini"):
+                if name in new:
+                    sections.append((cfg.setdefault(name, {}), new[name]))
             for cur, values in sections:
                 for k, v in values.items():
                     if k in SECRET_FIELDS and v == MASK:
@@ -186,6 +188,27 @@ class App:
             return {"ok": False, "error": "faltan la dirección o la API key"}
         try:
             return {"ok": True, **jellyfin.test(url, key)}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def _key(self, section: str, value: str) -> str:
+        return self.cfg().get(section, {}).get("api_key", "") if value == MASK else (value or "").strip()
+
+    def test_tmdb(self, values: dict) -> dict:
+        key = self._key("tmdb", values.get("api_key"))
+        if not key:
+            return {"ok": False, "error": "falta la clave"}
+        try:
+            return {"ok": True, **tmdb.TMDb(key).test()}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def test_gemini(self, values: dict) -> dict:
+        key = self._key("gemini", values.get("api_key"))
+        if not key:
+            return {"ok": False, "error": "falta la clave"}
+        try:
+            return {"ok": True, **gemini.Gemini(key).test()}
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
@@ -415,11 +438,50 @@ class App:
         threading.Thread(target=work, name="nombres", daemon=True).start()
         return {"ok": True}
 
+    def names_auto(self) -> dict:
+        if self.names["running"]:
+            return {"ok": True}
+        cfg = self.cfg()
+        if not cfg.get("tmdb", {}).get("api_key"):
+            return {"ok": False, "error": "pon la clave de TheMovieDB en Ajustes"}
+        self.names.update(running=True, message="empezando", error=None, stop=False)
+
+        def work():
+            try:
+                cfg = self.cfg()
+                lib = self.library(cfg)
+                if not self.state["running"] and cfg["library"]:
+                    lib.scan(cfg["library"], exclude=[cfg["duplicates_dir"]], progress=lambda n: self.names.update(
+                        message=f"buscando videos: {n} encontrados"))
+                rev = identify.review(lib, cfg, lambda msg: self.names.update(message=msg), search=False)
+                res = autoid.run(lib, cfg, rev, lambda msg: self.names.update(message=msg),
+                                 stop=lambda: self.names["stop"])
+                now = time.time()
+                self.names.update(result={"todo": res["todo"], "loose": []}, at=now, message="",
+                                  auto={"applied": len(res["applied"]),
+                                        "ai": sum(a["how"] == "ia" for a in res["applied"]),
+                                        "left": len(res["todo"]), "at": now})
+                if res["applied"]:
+                    self._jellyfin_refresh(cfg)
+            except Exception as e:
+                log.exception("identificar todo")
+                self.names.update(message="", error=str(e))
+            finally:
+                self.names.update(running=False)
+
+        threading.Thread(target=work, name="identificar", daemon=True).start()
+        return {"ok": True}
+
+    def names_stop(self) -> dict:
+        self.names["stop"] = True
+        return {"ok": True}
+
     def names_state(self) -> dict:
         cfg = self.cfg()
         jf = cfg.get("jellyfin", {})
         return {**self.names, "history": identify.history(self.library(cfg)),
-                "jellyfin": bool(jf.get("url") and jf.get("api_key"))}
+                "jellyfin": bool(jf.get("url") and jf.get("api_key")),
+                "tmdb": bool(cfg.get("tmdb", {}).get("api_key")), "gemini": bool(cfg.get("gemini", {}).get("api_key"))}
 
     def _names_entry(self, media_id: int):
         res = self.names["result"] or {}
@@ -485,8 +547,11 @@ class App:
         m = self.library(cfg).media("id=?", (media_id,))
         if not m:
             return {"ok": False, "error": "no existe"}
-        opts = identify.search(cfg, m[0], query)
         entry = self._names_entry(media_id)
+        if cfg.get("tmdb", {}).get("api_key"):  # con TheMovieDB: también duración y saga
+            opts = autoid.search(cfg, m[0], query, (entry or {}).get("minutes"))
+        else:
+            opts = identify.search(cfg, m[0], query)
         if entry is not None:
             entry["options"] = opts
         return {"ok": True, "options": opts}
@@ -539,6 +604,10 @@ def make_handler(app: App):
         "/api/names/organize": lambda b: app.names_organize([int(x) for x in b["ids"]]),
         "/api/names/search": lambda b: app.names_search(int(b["id"]), b["query"]),
         "/api/names/undo": lambda b: app.names_undo(int(b["id"])),
+        "/api/names/auto": lambda b: app.names_auto(),
+        "/api/names/stop": lambda b: app.names_stop(),
+        "/api/test-tmdb": lambda b: app.test_tmdb(b),
+        "/api/test-gemini": lambda b: app.test_gemini(b),
     }
 
     class Handler(BaseHTTPRequestHandler):

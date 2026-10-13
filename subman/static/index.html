@@ -162,6 +162,18 @@ dialog::backdrop{background:#0007}
   </div>
 
   <div class="card">
+    <h2>TheMovieDB y Gemini <span class="muted" style="font-weight:400">(para «Identificar todo» en Nombres)</span></h2>
+    <div class="two">
+      <div><label class="f">Clave de TheMovieDB</label><input type="password" id="tmdb_api_key" autocomplete="off">
+        <div class="hint">Gratis: crea una cuenta en themoviedb.org, ve a tu perfil, <i>Ajustes</i>, <i>API</i>, pide una clave (uso personal) y copia la <b>Clave de la API</b>.</div>
+        <div class="row" style="margin-top:8px"><button class="btn sec" id="testTMDB">Probar</button><span id="tmdbResult"></span></div></div>
+      <div><label class="f">Clave de Gemini (IA) <span class="muted" style="font-weight:400">opcional</span></label><input type="password" id="gemini_api_key" autocomplete="off">
+        <div class="hint">Gratis: entra en aistudio.google.com/apikey con tu cuenta de Google y pulsa <i>Create API key</i>. Sólo se le envían nombres de archivo y duraciones.</div>
+        <div class="row" style="margin-top:8px"><button class="btn sec" id="testGemini">Probar</button><span id="geminiResult"></span></div></div>
+    </div>
+  </div>
+
+  <div class="card">
     <h2>Cómo trabaja</h2>
     <div class="two">
       <div><label class="f">Idiomas que quieres</label><input type="text" id="languages">
@@ -199,10 +211,13 @@ dialog::backdrop{background:#0007}
 <section id="nombres" hidden>
   <div class="card">
     <div class="row" style="justify-content:space-between"><h2 style="margin:0">Nombres y carpetas</h2>
-      <button class="btn" id="nmScan">Revisar nombres</button></div>
+      <div class="row"><button class="btn sec" id="nmScan">Revisar nombres</button><button class="btn" id="nmAuto">Identificar todo</button>
+        <button class="btn bad" id="nmStop" hidden>Parar</button></div></div>
     <p class="muted">Jellyfin acierta casi siempre cuando cada película está en su propia carpeta con el título, el año y su número de TheMovieDB,
       por ejemplo <span class="path">After (2019) [tmdbid-338952]/After (2019).mp4</span>. Aquí salen las que no están así.
       Al aplicar, la película se mueve a su carpeta con sus subtítulos; cada cambio se puede deshacer.</p>
+    <p class="muted"><b>Identificar todo</b> lo hace solo: con TheMovieDB compara la duración y el número de la saga, y las dudosas se las pregunta a la IA (Gemini).
+      Sólo aplica las que no tienen dudas; el resto te las deja abajo con la mejor opción marcada. Necesita la clave de TheMovieDB en Ajustes.</p>
     <div id="nmState"></div>
   </div>
   <div class="card" id="nmTodoCard" hidden><h2 id="nmTodoTitle"></h2>
@@ -386,6 +401,7 @@ async function loadConfig() {
   const os = cfg.providers.opensubtitles || {};
   $("#os_api_key").value = os.api_key || ""; $("#os_username").value = os.username || ""; $("#os_password").value = os.password || "";
   const jf = cfg.jellyfin || {}; $("#jf_url").value = jf.url || ""; $("#jf_api_key").value = jf.api_key || "";
+  $("#tmdb_api_key").value = (cfg.tmdb || {}).api_key || ""; $("#gemini_api_key").value = (cfg.gemini || {}).api_key || "";
   $("#languages").value = cfg.languages.join(", "); $("#archive_languages").value = cfg.archive_languages.join(", ");
   for (const k of ["interval_minutes", "candidates", "retry_hours", "duplicates_dir"]) $("#" + k).value = cfg[k];
   for (const k of ["sync_existing", "keep_review", "dry_run", "enabled"]) $("#" + k).checked = cfg[k];
@@ -417,6 +433,7 @@ function formValues() {
     duplicates_dir: $("#duplicates_dir").value.trim(),
     sync_existing: $("#sync_existing").checked, keep_review: $("#keep_review").checked, dry_run: $("#dry_run").checked, enabled: $("#enabled").checked,
     jellyfin: {url: $("#jf_url").value, api_key: $("#jf_api_key").value},
+    tmdb: {api_key: $("#tmdb_api_key").value}, gemini: {api_key: $("#gemini_api_key").value},
     providers: {opensubtitles: {api_key: $("#os_api_key").value, username: $("#os_username").value, password: $("#os_password").value}},
   };
 }
@@ -442,6 +459,17 @@ $("#testJF").onclick = async () => {
   const r = await api("/api/test-jellyfin", formValues().jellyfin);
   $("#jfResult").innerHTML = r.ok ? `<span class="pill ok">conectado</span> ${esc(r.name)} ${esc(r.version)}`
     : `<span class="pill falla">no conecta</span> ${esc(r.error)}`;
+};
+
+$("#testTMDB").onclick = async () => {
+  $("#tmdbResult").textContent = "Probando...";
+  const r = await api("/api/test-tmdb", formValues().tmdb);
+  $("#tmdbResult").innerHTML = r.ok ? `<span class="pill ok">conectado</span>` : `<span class="pill falla">no conecta</span> ${esc(r.error)}`;
+};
+$("#testGemini").onclick = async () => {
+  $("#geminiResult").textContent = "Probando...";
+  const r = await api("/api/test-gemini", formValues().gemini);
+  $("#geminiResult").innerHTML = r.ok ? `<span class="pill ok">conectado</span> ${esc(r.model || "")}` : `<span class="pill falla">no conecta</span> ${esc(r.error)}`;
 };
 
 // ---------- Registro ----------
@@ -470,16 +498,21 @@ async function loadNames() {
   nm = await api("/api/names");
   const fresh = nm.at !== nmShown;  // mientras revisa, no volver a pintar la lista (se borraría lo que escribes)
   $("#nmScan").disabled = nm.running || !nm.jellyfin;
+  $("#nmAuto").disabled = nm.running || !nm.jellyfin || !nm.tmdb;
+  $("#nmAuto").title = !nm.tmdb ? "Pon la clave de TheMovieDB en Ajustes" : "";
+  $("#nmStop").hidden = !nm.running;
   const res = nm.result;
   $("#nmState").innerHTML = !nm.jellyfin ? `<span class="pill revisar">falta Jellyfin</span> Pon la dirección y la API key de Jellyfin en Ajustes: se usa su buscador de películas.`
     : nm.running ? `<b>${esc(nm.message || "revisando...")}</b>`
     : nm.error ? `<span class="pill falla">error</span> ${esc(nm.error)}`
+    : nm.auto && nm.auto.at === nm.at ? `<span class="pill ok">hecho</span> Aplicadas solas: <b>${nm.auto.applied}</b>${nm.auto.ai ? ` (${nm.auto.ai} con ayuda de la IA)` : ""}. Para revisar: <b>${nm.auto.left}</b>. Las aplicadas están abajo en «Cambios hechos».`
     : res ? `<span class="muted">Revisado ${when(nm.at)}.${!res.todo.length && !res.loose.length ? " Todo está en orden." : ""}</span>`
     : `<span class="muted">Pulsa «Revisar nombres».</span>`;
   if (fresh || !nm.running) renderNames();
   nmShown = nm.at;
   $("#nmHistCard").hidden = !nm.history.length;
-  $("#nmHist").innerHTML = nm.history.map(h => `<tr><td>${esc(h.title)}<div class="muted" style="font-size:12px">${when(h.at)}</div></td>
+  const HOW = {auto: '<span class="pill ok">automático</span>', ia: '<span class="pill revisar">IA</span>', manual: ""};
+  $("#nmHist").innerHTML = nm.history.map(h => `<tr><td>${esc(h.title)} ${HOW[h.how] || ""}<div class="muted" style="font-size:12px">${when(h.at)}</div></td>
     <td><div class="path">${esc(h.before)}</div><div class="path">→ ${esc(h.after)}</div></td>
     <td>${h.exists ? `<button class="btn sec" data-u="${h.id}">Deshacer</button>` : ""}</td></tr>`).join("");
   document.querySelectorAll("#nmHist button").forEach(b => b.onclick = async () => {
@@ -492,7 +525,9 @@ async function loadNames() {
 function optCard(e, o, i) {
   const on = (nmPick[e.id] ?? 0) === i;
   return `<div class="opt ${on ? "on" : ""}" data-e="${e.id}" data-i="${i}">${o.image ? `<img loading="lazy" src="${esc(o.image)}" alt="">` : `<div class="noimg"></div>`}
-    <b>${esc(o.name)}</b> ${o.year ? "(" + o.year + ")" : ""}</div>`;
+    <b>${esc(o.name)}</b> ${o.year ? "(" + o.year + ")" : ""}
+    ${o.runtime ? `<div class="${o.duration_ok === false ? "" : "muted"}" style="${o.duration_ok === false ? "color:var(--bad)" : ""}">${hms(o.runtime * 60).slice(0, -3)}</div>` : ""}
+    ${o.part ? `<div class="muted">${o.part}.ª de su saga</div>` : ""}</div>`;
 }
 function renderNames() {
   // Guardar lo escrito en las cajas de búsqueda (y dónde estaba el cursor) para no perderlo al repintar.
@@ -504,7 +539,7 @@ function renderNames() {
   $("#nmTodoCard").hidden = !todo.length; $("#nmTodoTitle").textContent = `Por identificar: ${todo.length}`;
   $("#nmTodo").innerHTML = todo.map(e => `<div class="nm" id="nm${e.id}"><b>${esc(e.name)}</b> <span class="pill revisar">${esc(e.why)}</span>
       <div class="path">${esc(e.path)}</div>
-      <div class="muted">Jellyfin dice: ${e.jellyfin ? `<b>${esc(e.jellyfin.name)}</b> ${e.jellyfin.year ? "(" + e.jellyfin.year + ")" : ""}` : "no la reconoce"}</div>
+      <div class="muted">Jellyfin dice: ${e.jellyfin ? `<b>${esc(e.jellyfin.name)}</b> ${e.jellyfin.year ? "(" + e.jellyfin.year + ")" : ""}` : "no la reconoce"}${e.minutes ? ` · tu archivo dura <b>${hms(e.minutes * 60).slice(0, -3)}</b>` : ""}</div>
       <div class="opts">${e.options.length ? e.options.map((o, i) => optCard(e, o, i)).join("") : `<span class="muted">No se encontró nada con ese nombre. Prueba a escribir otro.</span>`}</div>
       <div class="row"><input type="text" style="max-width:320px" placeholder="Otro nombre, p. ej. After 2019" data-q="${e.id}">
         <button class="btn sec" data-s="${e.id}">Buscar</button>
@@ -549,6 +584,10 @@ async function nmApply(id) {
   loadNames();
 }
 $("#nmScan").onclick = async () => { await api("/api/names/scan", {}); loadNames(); };
+$("#nmAuto").onclick = async () => {
+  const r = await api("/api/names/auto", {}); if (r.ok === false) return toast(r.error); loadNames();
+};
+$("#nmStop").onclick = async () => { await api("/api/names/stop", {}); toast("Parando en cuanto termine la película actual..."); };
 $("#nmAll").onchange = e => document.querySelectorAll("#nmLoose input").forEach(c => c.checked = e.target.checked);
 $("#nmOrganize").onclick = async () => {
   const ids = [...document.querySelectorAll("#nmLoose input:checked")].map(c => +c.dataset.l);

@@ -95,7 +95,7 @@ def _rank(m: Media, cands: list[dict]) -> list[dict]:
     return sorted(cands, key=lambda c: c["score"], reverse=True)
 
 
-def review(lib: Library, cfg: dict, progress=lambda msg: None) -> dict:
+def review(lib: Library, cfg: dict, progress=lambda msg: None, search: bool = True) -> dict:
     jf = cfg.get("jellyfin", {})
     if not (jf.get("url") and jf.get("api_key")):
         raise ValueError("pon la dirección y la API key de Jellyfin en Ajustes")
@@ -135,7 +135,10 @@ def review(lib: Library, cfg: dict, progress=lambda msg: None) -> dict:
         entry = {"id": m.id, "path": m.path, "name": video.name, "folder": video.parent.name, "alone": alone,
                  "title": m.title, "year": m.year,
                  "jellyfin": {k: it[k] for k in ("name", "year", "tmdb", "imdb")} if it else None}
-        if why:
+        if why and not search:
+            entry.update(why=why, options=[])
+            todo.append(entry)
+        elif why:
             progress(f"buscando opciones: {len(todo) + 1} ({n + 1} de {len(movies)} películas)")
             cands: dict[str, dict] = {}
             for q in _queries(m):
@@ -165,7 +168,7 @@ def search(cfg: dict, media: Media, query: str) -> list[dict]:
 
 
 def apply(lib: Library, cfg: dict, media: Media, title: str, year: int | None, tmdb: str | None,
-          imdb: str | None) -> dict:
+          imdb: str | None, how: str = "manual") -> dict:
     """Mueve la película a «Título (Año) [tmdbid-N]/Título (Año).ext» con sus subtítulos."""
     if not (tmdb or imdb):
         raise ValueError("falta el número de TheMovieDB o IMDb")
@@ -204,9 +207,9 @@ def apply(lib: Library, cfg: dict, media: Media, title: str, year: int | None, t
     new_video = new_dir / (stem + video.suffix)
     try:
         _repath(lib, media.path, str(new_video))
-        lib.db.execute("INSERT INTO renamed (title, moves, created, video_from, video_to, at) VALUES (?,?,?,?,?,?)",
+        lib.db.execute("INSERT INTO renamed (title, moves, created, video_from, video_to, at, how) VALUES (?,?,?,?,?,?,?)",
                        (f"{title} ({year})" if year else title, json.dumps(moves, ensure_ascii=False),
-                        "" if alone else str(new_dir), media.path, str(new_video), time.time()))
+                        "" if alone else str(new_dir), media.path, str(new_video), time.time(), how))
         lib.db.commit()
     except sqlite3.Error as e:  # sin anotarlo no se podría deshacer: mejor dejarlo como estaba
         lib.db.rollback()
@@ -236,7 +239,7 @@ def _undo(moves: list, created: Path | None) -> None:
 def history(lib: Library) -> list[dict]:
     rows = lib.db.execute("SELECT * FROM renamed ORDER BY at DESC LIMIT 500").fetchall()
     return [{"id": r["id"], "title": r["title"], "at": r["at"], "before": r["video_from"], "after": r["video_to"],
-             "exists": os.path.exists(r["video_to"])} for r in rows]
+             "how": r["how"] or "manual", "exists": os.path.exists(r["video_to"])} for r in rows]
 
 
 def undo(lib: Library, row_id: int) -> str:

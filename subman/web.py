@@ -436,6 +436,7 @@ class App:
                     lib.scan(cfg["library"], exclude=[cfg["duplicates_dir"]], progress=lambda n: self.names.update(
                         message=f"buscando videos: {n} encontrados"))
                 res = identify.review(lib, cfg, lambda msg: self.names.update(message=msg))
+                res = autoid.enrich(lib, cfg, res, lambda msg: self.names.update(message=msg))
                 self.names.update(result=res, at=time.time(), message="")
                 log.info("nombres: %d por identificar, %d sin carpeta propia", len(res["todo"]), len(res["loose"]))
             except Exception as e:

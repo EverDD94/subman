@@ -62,6 +62,8 @@ pre.log{background:var(--bg);border:1px solid var(--line);border-radius:8px;padd
 .bar i{display:block;height:100%;background:var(--accent)}
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:10px;opacity:0;transition:.3s;pointer-events:none;max-width:90vw}
 #toast.show{opacity:1}
+dialog.ask{border:1px solid var(--line, #444);border-radius:12px;padding:20px;max-width:420px;background:var(--card, var(--bg));color:var(--text)}
+dialog.ask::backdrop{background:rgba(0,0,0,.5)}
 dialog{border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--text);max-width:760px;width:94vw;padding:20px}
 dialog::backdrop{background:#0007}
 .path{font:12px ui-monospace,Consolas,monospace;color:var(--muted);word-break:break-all}
@@ -311,6 +313,18 @@ async function api(path, body) {
   if (!r.ok) throw new Error(j.error || r.statusText);
   return j;
 }
+// Confirmación en el centro de la pantalla (no la del navegador, que sale arriba y el navegador puede bloquear).
+function askOk(text, yes = "Sí, seguir") {
+  return new Promise(done => {
+    const d = document.createElement("dialog");
+    d.className = "ask";
+    d.innerHTML = `<p>${esc(text)}</p><div class="row" style="justify-content:flex-end;gap:8px">
+      <button class="btn sec" value="no">Cancelar</button><button class="btn" value="yes">${esc(yes)}</button></div>`;
+    d.querySelectorAll("button").forEach(b => b.onclick = () => d.close(b.value));
+    d.onclose = () => { done(d.returnValue === "yes"); d.remove(); };
+    document.body.appendChild(d); d.showModal(); d.querySelector('[value="yes"]').focus();
+  });
+}
 function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 3500); }
 function when(ts) { if (!ts) return "—"; const d = new Date(ts * 1000); return d.toLocaleString("es", {day:"numeric", month:"short", hour:"2-digit", minute:"2-digit"}); }
 function pill(s) { return `<span class="pill ${esc(s)}">${esc(LABEL[s] || s)}</span>`; }
@@ -426,7 +440,7 @@ async function openItem(id) {
   dlg.showModal();
 }
 async function act(what, id, lang) {
-  if (what === "reject" && !confirm("El subtítulo se mueve a la papelera y se busca otro. ¿Seguro?")) return;
+  if (what === "reject" && !(await askOk("El subtítulo se mueve a la papelera y se busca otro.", "Rechazar"))) return;
   const r = await api("/api/" + what, {id, lang});
   if (r.ok === false) return toast(r.error);
   toast({accept:"Aceptado", reject:"Movido a la papelera, se buscará otro", retry:"Se volverá a procesar"}[what]);
@@ -549,6 +563,7 @@ async function loadNames() {
     : res ? `<span class="muted">Revisado ${when(nm.at)}.${!res.todo.length && !res.loose.length ? " Todo está en orden." : ""}</span>`
     : `<span class="muted">Pulsa «Revisar nombres».</span>`;
   if (fresh || !nm.running) renderNames();
+  if (nm.running) $("#nmLooseCard").hidden = true;
   nmShown = nm.at;
   $("#nmHistCard").hidden = !nm.history.length;
   const HOW = {auto: '<span class="pill ok">automático</span>', ia: '<span class="pill revisar">IA</span>', manual: ""};
@@ -592,7 +607,7 @@ function renderNames() {
     if (i.dataset.q === focusId) { i.focus(); i.setSelectionRange(caret, caret); }
   });
   document.querySelectorAll("#nmTodo [data-a]").forEach(b => b.onclick = () => nmApply(+b.dataset.a));
-  $("#nmLooseCard").hidden = !loose.length; $("#nmLooseTitle").textContent = `Sin carpeta propia: ${loose.length}`;
+  $("#nmLooseCard").hidden = !loose.length || (nm && nm.running);  // mientras trabaja, la lista puede estar vieja $("#nmLooseTitle").textContent = `Sin carpeta propia: ${loose.length}`;
   $("#nmLoose").innerHTML = loose.map(e => `<tr><td><input type="checkbox" data-l="${e.id}" ${$("#nmAll").checked ? "checked" : ""}></td>
     <td>${esc(e.name)}<div class="path">${esc(e.folder)}</div></td><td class="path">${esc(e.target)}/</td></tr>`).join("");
 }
@@ -632,12 +647,13 @@ $("#nmAll").onchange = e => document.querySelectorAll("#nmLoose input").forEach(
 $("#nmOrganize").onclick = async () => {
   const ids = [...document.querySelectorAll("#nmLoose input:checked")].map(c => +c.dataset.l);
   if (!ids.length) return toast("No hay ninguna marcada");
-  if (!confirm(`Se pondrán ${ids.length} películas cada una en su carpeta, con sus subtítulos. ¿Seguir?`)) return;
-  $("#nmOrganize").disabled = true;
+  $("#nmOrganize").disabled = true; $("#nmOrganize").textContent = `Ordenando ${ids.length}...`;
   let r;
   try { r = await api("/api/names/organize", {ids}); } catch (err) { r = {ok: false, done: 0, error: err.message}; }
-  $("#nmOrganize").disabled = false;
-  toast(r.ok ? `Ordenadas ${r.done}` : `Ordenadas ${r.done}. ${r.error}`); loadNames();
+  $("#nmOrganize").disabled = false; $("#nmOrganize").textContent = "Ordenar las marcadas en carpetas";
+  nmShown = null;
+  const gone = r.gone ? ` ${r.gone} ya estaban en su carpeta.` : "";
+  toast(r.ok ? `Ordenadas ${r.done}.${gone}` : `Ordenadas ${r.done}.${gone} ${r.error}`); loadNames();
 };
 
 // ---------- Duplicados ----------
@@ -693,7 +709,7 @@ $("#dupMove").onclick = async () => {
   const all = groups.find(g => g.files.every(f => f.move));
   if (all) return toast(`${all.title}: deja al menos una copia sin marcar`);
   const ids = groups.flatMap(g => g.files.filter(f => f.move).map(f => f.id));
-  if (!confirm(`Se moverán ${ids.length} copias a ${dup.dest}, con sus subtítulos. No se borra nada. ¿Seguir?`)) return;
+  if (!(await askOk(`Se moverán ${ids.length} copias a ${dup.dest}, con sus subtítulos. No se borra nada.`, "Apartar"))) return;
   $("#dupMove").disabled = true;
   try {
     const r = await api("/api/dupes/move", {ids});

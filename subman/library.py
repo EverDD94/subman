@@ -20,6 +20,9 @@ OTHER_VIDEO_EXT = {".iso", ".vob", ".rmvb", ".rm", ".strm"}  # no se procesan, s
 SUB_EXT = {".srt", ".vtt", ".ass", ".ssa", ".sub"}
 _EP = re.compile(r"[Ss](\d{1,2})[ ._-]*[Ee](\d{1,3})|\b(\d{1,2})x(\d{2,3})\b")
 _YEAR = re.compile(r"[(\[ ._-]((?:19|20)\d{2})[)\] ._-]?")
+# Capítulo sin temporada: «Spartacus.Gods.of.the.Arena.E01.720p», «Serie - Ep 05» (temporada 1 o la de la carpeta).
+_EP_ONLY = re.compile(r"(?:^|[ ._-])[Ee][Pp]?[ ._]?(\d{1,3})(?=[ ._-]|$)")
+_SEASON_NUM = re.compile(r"(\d+)")
 _SEASON_DIR = re.compile(r"^(season|temporada|s)\s*\d+$", re.I)
 
 SCHEMA = """
@@ -101,9 +104,15 @@ def _clean(name: str) -> str:
 def parse_path(path: Path) -> dict:
     stem = path.stem
     m = _EP.search(stem)
-    if m:
-        season = int(m.group(1) or m.group(3))
-        episode = int(m.group(2) or m.group(4))
+    lone = None if m else _EP_ONLY.search(stem)
+    if m or lone:
+        if m:
+            season = int(m.group(1) or m.group(3))
+            episode = int(m.group(2) or m.group(4))
+        else:
+            sd = _SEASON_NUM.search(path.parent.name) if _SEASON_DIR.match(path.parent.name) else None
+            season, episode = (int(sd.group(1)) if sd else 1), int(lone.group(1))
+            m = lone
         parent = path.parent
         series_dir = parent.parent if _SEASON_DIR.match(parent.name) else parent
         title = _clean(stem[: m.start()]) or _clean(series_dir.name)
@@ -196,7 +205,10 @@ class Library:
                     if stats["total"] % 200 == 0:
                         self.db.commit()  # no tener la base de datos bloqueada todo el escaneo (la web también escribe)
                     if row and row["size"] == st.st_size and row["mtime"] == st.st_mtime:
-                        self.db.execute("UPDATE media SET seen=? WHERE id=?", (now, row["id"]))
+                        info = parse_path(p)  # rápido; así una mejora al leer nombres llega también a lo ya visto
+                        self.db.execute("UPDATE media SET seen=?, kind=?, title=?, year=?, season=?, episode=? WHERE id=?",
+                                        (now, info["kind"], info["title"], info["year"], info["season"], info["episode"],
+                                         row["id"]))
                         continue
                     info = parse_path(p)
                     oshash = opensubtitles_hash(p) if hash_files else None

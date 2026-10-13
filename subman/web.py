@@ -661,6 +661,7 @@ def make_handler(app: App):
         "/api/discover/detail": lambda q: app._dsc(lambda d: {"item": d.detail(q["kind"][0], int(q["tmdb"][0]))}),
         "/api/discover/taste": lambda q: app.discover_taste(),
         "/api/discover/people": lambda q: app._dsc(lambda d: {"people": d.people(q.get("q", [""])[0])}),
+        "/api/discover/popular-people": lambda q: app._dsc(lambda d: {"people": d.popular_people(int(q.get("page", ["1"])[0]))}),
         "/api/discover/deck": lambda q: app._dsc(lambda d: {"items": d.deck()}),
     }
     routes_post = {

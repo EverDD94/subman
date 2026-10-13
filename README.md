@@ -111,6 +111,10 @@ originales se apartan a `papelera/` y los de inglés a `archivo/en/` (junto a `s
   papelera y se busca otro) o volver a procesarlo.
 - **Ajustes:** carpetas de la biblioteca (navegando por `/media`), credenciales de
   OpenSubtitles con "Probar conexión", idiomas y demás opciones. Se guardan en `subman.toml`.
+- **Nombres:** las películas que Jellyfin no reconoce, reconoce mal o que están sin año, con
+  opciones del buscador de Jellyfin (TheMovieDB, con póster) para elegir la buena. Al aplicar,
+  cada película va a su carpeta `Título (Año) [tmdbid-N]/Título (Año).ext` con sus subtítulos,
+  y se avisa a Jellyfin. Las bien reconocidas pero sueltas se ordenan de golpe. Todo se puede deshacer.
 - **Duplicados:** películas con más de una copia. Se agrupan por la ficha de Jellyfin (si está
   configurado) o por el nombre limpio y el año, y se compara la duración real; propone
   quedarse con la de mejor calidad. Las marcadas se mueven (con sus subtítulos) a
@@ -138,7 +142,8 @@ subman/
   manager.py     buscar candidatos -> sincronizar -> verificar -> elegir y escribir
   diagnose.py    por qué un video no tiene subtítulo bueno y qué hacer
   duplicates.py  películas duplicadas: encontrar, apartar y devolver
-  jellyfin.py    aviso de re-escaneo y lista de películas con sus fichas
+  identify.py    identificar películas y ponerlas cada una en su carpeta (y deshacerlo)
+  jellyfin.py    aviso de re-escaneo, lista de películas con sus fichas y buscador
   providers/     proveedores enchufables (opensubtitles.py)
   config.py      subman.toml: valores por defecto, lectura y escritura
   web.py         interfaz web + trabajador en segundo plano

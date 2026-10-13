@@ -19,7 +19,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, config, diagnose, duplicates, jellyfin, manager, providers
+from . import __version__, config, diagnose, duplicates, identify, jellyfin, manager, providers
 from .library import Library
 
 log = logging.getLogger(__name__)
@@ -47,6 +47,7 @@ class App:
         self.state = {"running": False, "current": "", "done": 0, "total": 0,
                       "last_start": None, "last_end": None, "next_run": None, "message": "", "scan": None}
         self.dupes = {"running": False, "message": "", "groups": None, "at": None}
+        self.names = {"running": False, "message": "", "result": None, "at": None}
         self.logs = LogBuffer()
         logging.getLogger().addHandler(self.logs)
         try:  # registro también en /config/subman.log (sobrevive a reinicios)
@@ -389,6 +390,116 @@ class App:
                 log.warning("Jellyfin: no se pudo avisar: %s", e)
         return {"ok": not errors, "moved": len(moved), "error": "; ".join(errors)}
 
+    # --- identificar y ordenar en carpetas ------------------------------------------
+    def names_scan(self) -> dict:
+        if self.names["running"]:
+            return {"ok": True}
+        self.names.update(running=True, message="empezando", error=None)
+
+        def work():
+            try:
+                cfg = self.cfg()
+                lib = self.library(cfg)
+                if not self.state["running"] and cfg["library"]:
+                    lib.scan(cfg["library"], exclude=[cfg["duplicates_dir"]], progress=lambda n: self.names.update(
+                        message=f"buscando videos: {n} encontrados"))
+                res = identify.review(lib, cfg, lambda msg: self.names.update(message=msg))
+                self.names.update(result=res, at=time.time(), message="")
+                log.info("nombres: %d por identificar, %d sin carpeta propia", len(res["todo"]), len(res["loose"]))
+            except Exception as e:
+                log.exception("nombres")
+                self.names.update(message="", error=str(e))
+            finally:
+                self.names.update(running=False)
+
+        threading.Thread(target=work, name="nombres", daemon=True).start()
+        return {"ok": True}
+
+    def names_state(self) -> dict:
+        cfg = self.cfg()
+        jf = cfg.get("jellyfin", {})
+        return {**self.names, "history": identify.history(self.library(cfg)),
+                "jellyfin": bool(jf.get("url") and jf.get("api_key"))}
+
+    def _names_entry(self, media_id: int):
+        res = self.names["result"] or {}
+        return next((e for e in [*res.get("todo", []), *res.get("loose", [])] if e["id"] == media_id), None)
+
+    def _names_done(self, ids: set) -> None:
+        res = self.names["result"] or {}
+        for k in ("todo", "loose"):
+            res[k] = [e for e in res.get(k, []) if e["id"] not in ids]
+
+    def _names_apply(self, lib, cfg, media_id: int, title: str, year, tmdb, imdb) -> None:
+        entry = self._names_entry(media_id)
+        if not entry:
+            raise ValueError("vuelve a pulsar «Revisar nombres»")
+        m = lib.media("id=?", (media_id,))
+        if not m or m[0].path != entry["path"]:
+            raise ValueError(f"{entry['name']}: ya no está donde estaba")
+        if self.state["running"] and self.state["current"] == m[0].label:
+            raise ValueError(f"{entry['name']}: se está procesando ahora mismo; prueba en un momento")
+        identify.apply(lib, cfg, m[0], title.strip(), int(year) if year else None, tmdb or None, imdb or None)
+
+    def _jellyfin_refresh(self, cfg: dict) -> None:
+        jf = cfg.get("jellyfin", {})
+        if jf.get("url") and jf.get("api_key"):
+            try:
+                jellyfin.refresh(jf["url"], jf["api_key"])
+            except Exception as e:
+                log.warning("Jellyfin: no se pudo avisar: %s", e)
+
+    def names_apply(self, b: dict) -> dict:
+        cfg = self.cfg()
+        lib = self.library(cfg)
+        try:
+            self._names_apply(lib, cfg, int(b["id"]), b["name"], b.get("year"), b.get("tmdb"), b.get("imdb"))
+        except (ValueError, OSError) as e:
+            return {"ok": False, "error": str(e)}
+        self._names_done({int(b["id"])})
+        self._jellyfin_refresh(cfg)
+        return {"ok": True}
+
+    def names_organize(self, ids: list[int]) -> dict:
+        cfg = self.cfg()
+        lib = self.library(cfg)
+        done, errors = set(), []
+        loose = {e["id"]: e for e in (self.names["result"] or {}).get("loose", [])}
+        for i in ids:
+            e = loose.get(i)
+            if not e or not e["jellyfin"]:
+                continue
+            jf = e["jellyfin"]
+            try:
+                self._names_apply(lib, cfg, i, jf["name"], jf["year"], jf["tmdb"], jf["imdb"])
+                done.add(i)
+            except (ValueError, OSError) as ex:
+                errors.append(str(ex))
+        self._names_done(done)
+        if done:
+            self._jellyfin_refresh(cfg)
+        return {"ok": not errors, "done": len(done), "error": "; ".join(errors[:5])}
+
+    def names_search(self, media_id: int, query: str) -> dict:
+        cfg = self.cfg()
+        m = self.library(cfg).media("id=?", (media_id,))
+        if not m:
+            return {"ok": False, "error": "no existe"}
+        opts = identify.search(cfg, m[0], query)
+        entry = self._names_entry(media_id)
+        if entry is not None:
+            entry["options"] = opts
+        return {"ok": True, "options": opts}
+
+    def names_undo(self, row_id: int) -> dict:
+        cfg = self.cfg()
+        try:
+            title = identify.undo(self.library(cfg), row_id)
+        except (ValueError, OSError) as e:
+            return {"ok": False, "error": str(e)}
+        self._jellyfin_refresh(cfg)
+        return {"ok": True, "title": title}
+
     def dupes_restore(self, row_id: int) -> dict:
         cfg = self.cfg()
         try:
@@ -409,6 +520,7 @@ def make_handler(app: App):
         "/api/log": lambda q: {"lines": list(app.logs.lines)},
         "/api/trash": lambda q: app.trash(),
         "/api/dupes": lambda q: app.dupes_state(),
+        "/api/names": lambda q: app.names_state(),
     }
     routes_post = {
         "/api/config": lambda b: app.save_config(b),
@@ -422,6 +534,11 @@ def make_handler(app: App):
         "/api/dupes/scan": lambda b: app.dupes_scan(),
         "/api/dupes/move": lambda b: app.dupes_move([int(x) for x in b["ids"]]),
         "/api/dupes/restore": lambda b: app.dupes_restore(int(b["id"])),
+        "/api/names/scan": lambda b: app.names_scan(),
+        "/api/names/apply": lambda b: app.names_apply(b),
+        "/api/names/organize": lambda b: app.names_organize([int(x) for x in b["ids"]]),
+        "/api/names/search": lambda b: app.names_search(int(b["id"]), b["query"]),
+        "/api/names/undo": lambda b: app.names_undo(int(b["id"])),
     }
 
     class Handler(BaseHTTPRequestHandler):

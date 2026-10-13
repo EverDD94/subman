@@ -57,6 +57,20 @@ Para cada capítulo:
   rechazarlo si está mal (va a la papelera y se busca otro). En **Papelera** puedes
   recuperar cualquier archivo.
 
+## Películas mal reconocidas o sin año
+
+Necesita Jellyfin puesto en Ajustes. En la pestaña **Nombres**, pulsa **Revisar nombres**:
+
+- **Por identificar:** las que Jellyfin no reconoce o reconoce mal (por ejemplo `after 1.mp4`
+  convertida en otra película). Salen opciones con póster; elige la buena (o escribe otro
+  nombre y pulsa Buscar) y **Aplicar**.
+- **Sin carpeta propia:** Jellyfin ya las reconoce bien; **Ordenar las marcadas en carpetas**
+  pone cada una en su carpeta.
+
+Cada película queda como `After (2019) [tmdbid-338952]/After (2019).mp4`, con sus subtítulos al
+lado. Ese número es el de TheMovieDB: con él Jellyfin ya no se equivoca. Abajo salen los
+cambios hechos con **Deshacer**.
+
 ## Películas duplicadas
 
 En la pestaña **Duplicados**, pulsa **Buscar duplicados**. Cada película repetida sale con

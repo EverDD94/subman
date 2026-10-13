@@ -60,6 +60,15 @@ CREATE TABLE IF NOT EXISTS moved (  -- películas duplicadas apartadas desde la 
     title TEXT,
     moved REAL
 );
+CREATE TABLE IF NOT EXISTS renamed (  -- películas ordenadas en su carpeta desde la web (se pueden deshacer)
+    id INTEGER PRIMARY KEY,
+    title TEXT,
+    moves TEXT NOT NULL,           -- JSON [[antes, después], ...] en el orden en que se hicieron
+    created TEXT,                  -- carpeta creada (se quita al deshacer si queda vacía)
+    video_from TEXT,
+    video_to TEXT,
+    at REAL
+);
 """
 
 

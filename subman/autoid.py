@@ -56,7 +56,7 @@ def _all_queries(m) -> list[str]:
     """Además de las de Nombres: cortar en el primer número pequeño («el efecto mariposa 3 hls 2413»
     -> «el efecto mariposa 3» y «el efecto mariposa»)."""
     out = identify._queries(m)
-    words = normalize(m.title).split()
+    words = normalize(m.title, leet=False).split()
     for i, w in enumerate(words):
         if w.isdigit() and 1 <= int(w) <= 30 and i > 0:
             for q in (" ".join(words[:i + 1]), " ".join(words[:i])):
@@ -66,8 +66,12 @@ def _all_queries(m) -> list[str]:
     return out
 
 
-def candidates(db: TMDb, m, minutes: float | None, extra: list[int] = ()) -> list[dict]:
+def candidates(db: TMDb, m, minutes: float | None, extra: list[int] = (), more: list[str] = ()) -> list[dict]:
     queries = _all_queries(m)
+    for q in more:  # el nombre que le puso Jellyfin, o el que sugiere la IA
+        q = normalize(q, leet=False)
+        if q and q not in queries:
+            queries.append(q)
     ids: list[int] = list(extra)
     for i, q in enumerate(queries):
         try:
@@ -132,7 +136,7 @@ def run(lib: Library, cfg: dict, review: dict, progress=lambda msg: None, stop=l
     ai = Gemini(gkey) if gkey else None
 
     entries = [*review.get("loose", []), *review.get("todo", [])]
-    applied, pending, left = [], [], []
+    applied, pending, left, unknown = [], [], [], []
 
     def do_apply(e, c, how):
         media = lib.media("id=?", (e["id"],))
@@ -142,7 +146,11 @@ def run(lib: Library, cfg: dict, review: dict, progress=lambda msg: None, stop=l
             identify.apply(lib, cfg, media[0], c["name"], c["year"], c["tmdb"], c.get("imdb"), how=how)
             applied.append({"id": e["id"], "name": e["name"], "to": f"{c['name']} ({c['year']})", "how": how})
         except (ValueError, OSError) as ex:
-            e["why"] = f"no se pudo aplicar: {ex}"
+            msg = str(ex)
+            e["why"] = (f"ya tienes esta película en otra carpeta ({msg.removeprefix('ya existe la carpeta ')}): "
+                        "seguramente es un duplicado, mírala en Duplicados") if msg.startswith("ya existe la carpeta") \
+                else f"no se pudo aplicar: {msg}"
+            e["options"] = [c] + [o for o in e.get("options", []) if o is not c]
             left.append(e)
 
     for n, e in enumerate(entries):
@@ -156,8 +164,10 @@ def run(lib: Library, cfg: dict, review: dict, progress=lambda msg: None, stop=l
         m = media[0]
         minutes = _minutes(m.path)
         jf = (e.get("jellyfin") or {}).get("tmdb")
-        cands = candidates(db, m, minutes, [int(jf)] if jf and str(jf).isdigit() else [])
+        jname = (e.get("jellyfin") or {}).get("name")
+        cands = candidates(db, m, minutes, [int(jf)] if jf and str(jf).isdigit() else [], [jname] if jname else [])
         e["minutes"] = minutes
+        e["_m"] = m
         e["options"] = cands[:6]
         # Sin carpeta propia y Jellyfin ya la reconocía: basta con que la duración no lo contradiga.
         if "target" in e and jf:
@@ -172,10 +182,44 @@ def run(lib: Library, cfg: dict, review: dict, progress=lambda msg: None, stop=l
             continue
         e["why"] = ("hay varias que encajan" if len(strong) > 1 else
                     "ninguna encaja con la duración del archivo" if cands else "no se encontró nada con ese nombre")
-        if cands and ai:
-            pending.append(e)
+        if ai:
+            (pending if cands else unknown).append(e)
         else:
             left.append(e)
+
+    # Sin opciones: que la IA diga qué película cree que es y se busca con ese nombre.
+    for i in range(0, len(unknown), BATCH):
+        group = unknown[i:i + BATCH]
+        if stop():
+            left.extend(unknown[i:])
+            unknown = []
+            break
+        progress(f"la IA busca el nombre: {i + 1}-{i + len(group)} de {len(unknown)} ({len(applied)} hechas)")
+        try:
+            guesses = ai.guess([{"n": k + 1, "file": e["name"], "folder": e["folder"], "minutes": e["minutes"]}
+                                for k, e in enumerate(group)])
+        except Exception as ex:
+            log.warning("Gemini: %s", ex)
+            guesses = {}
+        for k, e in enumerate(group):
+            names = guesses.get(k + 1) or []
+            ids: list[int] = []
+            for title, year in names:
+                try:
+                    ids += [x for x in db.search(normalize(title, leet=False) or title, year)[:3] if x not in ids]
+                except Exception as ex:
+                    log.warning("TheMovieDB: no se pudo buscar «%s»: %s", title, ex)
+            cands = candidates(db, e["_m"], e["minutes"], ids, [t for t, _ in names]) if ids else []
+            e["options"] = cands[:6]
+            ok = [c for c in cands if c["duration_ok"] and int(c["tmdb"]) in ids[:1]] or [c for c in cands if c["strong"]][:1]
+            if ok:  # la primera que dijo la IA y encaja en duración
+                do_apply(e, ok[0], "ia")
+            elif cands:
+                e["why"] = "la IA sugirió estas, pero ninguna encaja seguro"
+                pending.append(e)
+            else:
+                e["why"] = "ni TheMovieDB ni la IA la reconocen"
+                left.append(e)
 
     for i in range(0, len(pending), BATCH):
         group = pending[i:i + BATCH]
@@ -203,6 +247,8 @@ def run(lib: Library, cfg: dict, review: dict, progress=lambda msg: None, stop=l
                 e["why"] = "la IA cree que no es ninguna de estas"
             left.append(e)
 
+    for e in left:
+        e.pop("_m", None)
     log.info("identificar todo: %d aplicadas (%d con IA), %d para revisar", len(applied),
              sum(a["how"] == "ia" for a in applied), len(left))
     return {"applied": applied, "todo": left}

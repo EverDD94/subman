@@ -43,7 +43,8 @@ _LEETS = str.maketrans({"0": "o", "v": "u"})  # «Jvrassic+W0rld» (sólo para c
 DURATION_TOLERANCE = 0.04  # 4 %: más diferencia que esto ya puede ser otro montaje
 
 
-def normalize(title: str) -> str:
+def normalize(title: str, leet: bool = True) -> str:
+    """Título limpio para comparar. Con leet=False (para buscar), sin cambiar letras: «vida» sigue siendo «vida»."""
     s = unicodedata.normalize("NFKD", title.lower())
     s = "".join(c for c in s if not unicodedata.combining(c))
     s = _HANDLE.sub(" ", s)
@@ -54,7 +55,7 @@ def normalize(title: str) -> str:
     words = [w for w in s.split() if w not in _JUNK]
     if len(words) > 1:  # el año va aparte (si no, «Batalla Naval 2012» y «Batalla Naval» no casan)
         words = [w for w in words if not re.fullmatch(r"(19|20)\d{2}", w)] or words
-    return " ".join(w if w.isdigit() else w.translate(_LEETS) for w in words)
+    return " ".join(w if w.isdigit() or not leet else w.translate(_LEETS) for w in words)
 
 
 def _tail(path: str) -> tuple[str, str]:

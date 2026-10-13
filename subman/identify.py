@@ -77,7 +77,7 @@ def _companions(video: Path) -> list[Path]:
 
 
 def _queries(m: Media) -> list[str]:
-    q = normalize(m.title)
+    q = normalize(m.title, leet=False)
     out = [q] if q else []
     base = re.sub(r"(\s+\d{1,2})+$", "", q)  # «after 2» -> también «after»
     if base and base != q:

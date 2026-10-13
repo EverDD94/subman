@@ -34,6 +34,19 @@ Archivos:
 """
 
 
+GUESS = """Eres un experto en cine. Estos son archivos de video de una biblioteca personal (nombres casi
+siempre en español de Latinoamérica o España, a veces mal escritos o con basura como «720p», «lat»,
+«@canal», «hls-2413»). Para cada uno di qué película crees que es, con su duración como pista.
+Da hasta 3 posibilidades, la más probable primero, con el título como se conoce en español y el
+título original, y el año de estreno. Si no tienes idea, deja la lista vacía.
+
+Responde sólo con JSON: una lista de objetos {"archivo": <número>, "peliculas":
+[{"titulo": "...", "original": "...", "año": 2001}]}.
+
+Archivos:
+"""
+
+
 class Gemini:
     def __init__(self, key: str, timeout: float = 120):
         self.key = key
@@ -135,4 +148,32 @@ class Gemini:
             pick = str(d["tmdb"]) if d.get("tmdb") not in (None, "null", "") else None
             if n in valid and (pick is None or pick in valid[n]):
                 out[n] = (pick, bool(d.get("seguro")))
+        return out
+
+    def guess(self, items: list[dict]) -> dict[int, list[tuple[str, int | None]]]:
+        """items: [{"n", "file", "folder", "minutes"}] -> {n: [(título, año), ...]} para buscarlos en TheMovieDB."""
+        lines = [f"{it['n']}. archivo «{it['file']}» (carpeta «{it['folder']}»), duración {it['minutes'] or '?'} min."
+                 for it in items]
+        raw = self.ask(GUESS + "\n".join(lines))
+        try:
+            data = json.loads(raw)
+        except ValueError:
+            log.warning("Gemini: respuesta que no es JSON: %s", raw[:200])
+            return {}
+        out: dict[int, list] = {}
+        for d in data if isinstance(data, list) else []:
+            try:
+                n = int(d.get("archivo"))
+            except (TypeError, ValueError, AttributeError):
+                continue
+            names = []
+            for p in (d.get("peliculas") or [])[:3]:
+                if not isinstance(p, dict):
+                    continue
+                year = p.get("año") or p.get("ano") or p.get("year")
+                year = int(year) if str(year).isdigit() else None
+                for t in (p.get("titulo"), p.get("original")):
+                    if isinstance(t, str) and t.strip() and (t.strip(), year) not in names:
+                        names.append((t.strip(), year))
+            out[n] = names
         return out

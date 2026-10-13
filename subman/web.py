@@ -19,7 +19,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, config, jellyfin, manager, providers
+from . import __version__, config, diagnose, duplicates, jellyfin, manager, providers
 from .library import Library
 
 log = logging.getLogger(__name__)
@@ -46,6 +46,7 @@ class App:
         self.lock = threading.Lock()
         self.state = {"running": False, "current": "", "done": 0, "total": 0,
                       "last_start": None, "last_end": None, "next_run": None, "message": "", "scan": None}
+        self.dupes = {"running": False, "message": "", "groups": None, "at": None}
         self.logs = LogBuffer()
         logging.getLogger().addHandler(self.logs)
         try:  # registro también en /config/subman.log (sobrevive a reinicios)
@@ -94,7 +95,7 @@ class App:
             lib = self.library(cfg)
             log.info("buscando videos en %s", ", ".join(cfg["library"]))
             stats = lib.scan(cfg["library"], progress=lambda n: self.state.update(
-                message=f"buscando videos: {n} encontrados"))
+                message=f"buscando videos: {n} encontrados"), exclude=[cfg.get("duplicates_dir")])
             log.info("escaneo: %s", stats)
             self.state.update(scan={"por_carpeta": stats["por_carpeta"], "ignorados": stats["ignorados"]})
             items = lib.media(order="mtime DESC")  # lo más reciente primero (lo que acaba de llegar)
@@ -144,7 +145,7 @@ class App:
         with self.lock:
             cfg = self.cfg()
             for k in ("enabled", "library", "languages", "candidates", "keep_review", "sync_existing",
-                      "retry_hours", "archive_languages", "dry_run", "interval_minutes"):
+                      "retry_hours", "archive_languages", "dry_run", "interval_minutes", "duplicates_dir"):
                 if k in new:
                     cfg[k] = new[k]
             sections = [(cfg.setdefault("providers", {}).setdefault(name, {}), values)
@@ -213,7 +214,8 @@ class App:
                 r = st.get(m.id, {}).get(lang)
                 langs[lang] = {"status": r["status"] if r else "pendiente",
                                "source": r["source"] if r else "",
-                               "updated": r["updated"] if r else None}
+                               "updated": r["updated"] if r else None,
+                               "reason": diagnose.reason(r, m.label)["code"]}
             items.append({"id": m.id, "label": m.label, "kind": m.kind, "title": m.title,
                           "season": m.season, "episode": m.episode, "path": m.path, "langs": langs})
         return {"items": items, "languages": cfg["languages"]}
@@ -300,17 +302,101 @@ class App:
     def status(self) -> dict:
         cfg = self.cfg()
         counts = collections.Counter()
+        reasons = []
         try:
             lib = self.library(cfg)
-            total = len(lib.media())
-            for langs in lib.statuses().values():
-                for lang, r in langs.items():
-                    if lang in cfg["languages"]:
-                        counts[r["status"]] += 1
+            media = lib.media()
+            total = len(media)
+            st = lib.statuses()
+            for m in media:
+                for lang in cfg["languages"]:
+                    r = st.get(m.id, {}).get(lang)
+                    counts[r["status"] if r else "pendiente"] += 1
+                    reasons.append(diagnose.reason(r, m.label))
         except Exception:
+            log.exception("estado")
             total = 0
         return {"version": __version__, "state": self.state, "enabled": cfg["enabled"],
-                "problems": config.problems(cfg), "media": total, "counts": counts}
+                "problems": config.problems(cfg), "media": total, "counts": counts,
+                "missing": diagnose.summary(reasons)}
+
+    # --- duplicados ----------------------------------------------------------------
+    def dupes_scan(self) -> dict:
+        if self.dupes["running"]:
+            return {"ok": True}
+        self.dupes.update(running=True, message="empezando", error=None)
+
+        def work():
+            try:
+                cfg = self.cfg()
+                lib = self.library(cfg)
+                if not self.state["running"] and cfg["library"]:  # lista de videos al día (la pasada ya la hace)
+                    lib.scan(cfg["library"], exclude=[cfg["duplicates_dir"]], progress=lambda n: self.dupes.update(
+                        message=f"buscando videos: {n} encontrados"))
+                groups = duplicates.find(lib, cfg, lambda msg: self.dupes.update(message=msg))
+                self.dupes.update(groups=groups, at=time.time(), message="")
+                log.info("duplicados: %d grupos", len(groups))
+            except Exception as e:
+                log.exception("duplicados")
+                self.dupes.update(message="", error=str(e))
+            finally:
+                self.dupes.update(running=False)
+
+        threading.Thread(target=work, name="duplicados", daemon=True).start()
+        return {"ok": True}
+
+    def dupes_state(self) -> dict:
+        cfg = self.cfg()
+        return {**self.dupes, "dest": cfg["duplicates_dir"], "moved": duplicates.moved_list(self.library(cfg)),
+                "jellyfin": bool(cfg.get("jellyfin", {}).get("url") and cfg.get("jellyfin", {}).get("api_key"))}
+
+    def dupes_move(self, ids: list[int]) -> dict:
+        cfg = self.cfg()
+        dest = cfg["duplicates_dir"]
+        root = Path(MEDIA_ROOT).resolve()
+        d = Path(dest).resolve()
+        if root != d and root not in d.parents:
+            return {"ok": False, "error": f"la carpeta de duplicados tiene que estar dentro de {MEDIA_ROOT}"}
+        if any(d == Path(r).resolve() or Path(r).resolve() in d.parents for r in cfg["library"]):
+            return {"ok": False, "error": "la carpeta de duplicados no puede estar dentro de una carpeta de la biblioteca"}
+        want = set(ids)
+        lib = self.library(cfg)
+        moved, errors = set(), []
+        for g in self.dupes["groups"] or []:
+            pick = [f for f in g["files"] if f["id"] in want]
+            if not pick:
+                continue
+            if len(pick) >= len(g["files"]):
+                errors.append(f"{g['title']}: hay que dejar al menos una copia")
+                continue
+            for f in pick:
+                m = lib.media("id=?", (f["id"],))
+                if not m or m[0].path != f["path"] or not Path(f["path"]).exists():
+                    errors.append(f"{f['name']}: ya no está donde estaba")
+                    continue
+                try:
+                    duplicates.move(lib, m[0], dest, MEDIA_ROOT, cfg["library"], g["title"])
+                    moved.add(f["id"])
+                except OSError as e:
+                    errors.append(f"{f['name']}: {e}")
+            g["files"] = [f for f in g["files"] if f["id"] not in moved]
+        self.dupes["groups"] = [g for g in self.dupes["groups"] or [] if len(g["files"]) > 1]
+        jf = cfg.get("jellyfin", {})
+        if moved and jf.get("url") and jf.get("api_key"):
+            try:
+                jellyfin.refresh(jf["url"], jf["api_key"])
+            except Exception as e:
+                log.warning("Jellyfin: no se pudo avisar: %s", e)
+        return {"ok": not errors, "moved": len(moved), "error": "; ".join(errors)}
+
+    def dupes_restore(self, row_id: int) -> dict:
+        cfg = self.cfg()
+        try:
+            dest = duplicates.restore(self.library(cfg), row_id)
+        except (ValueError, OSError) as e:
+            return {"ok": False, "error": str(e)}
+        self.wake.set()  # que vuelva a aparecer en la biblioteca
+        return {"ok": True, "dest": dest}
 
 
 def make_handler(app: App):
@@ -322,6 +408,7 @@ def make_handler(app: App):
         "/api/item": lambda q: app.item(int(q["id"][0])),
         "/api/log": lambda q: {"lines": list(app.logs.lines)},
         "/api/trash": lambda q: app.trash(),
+        "/api/dupes": lambda q: app.dupes_state(),
     }
     routes_post = {
         "/api/config": lambda b: app.save_config(b),
@@ -332,6 +419,9 @@ def make_handler(app: App):
         "/api/accept": lambda b: app.accept(int(b["id"]), b["lang"]),
         "/api/reject": lambda b: app.reject(int(b["id"]), b["lang"]),
         "/api/restore": lambda b: app.restore(b["path"]),
+        "/api/dupes/scan": lambda b: app.dupes_scan(),
+        "/api/dupes/move": lambda b: app.dupes_move([int(x) for x in b["ids"]]),
+        "/api/dupes/restore": lambda b: app.dupes_restore(int(b["id"])),
     }
 
     class Handler(BaseHTTPRequestHandler):

@@ -53,6 +53,13 @@ CREATE TABLE IF NOT EXISTS rejected (  -- subtítulos que el usuario descartó d
     source TEXT NOT NULL,
     PRIMARY KEY (media_id, lang, source)
 );
+CREATE TABLE IF NOT EXISTS moved (  -- películas duplicadas apartadas desde la web (se pueden devolver)
+    id INTEGER PRIMARY KEY,
+    src TEXT NOT NULL,             -- dónde estaba (archivo o carpeta)
+    dest TEXT NOT NULL,            -- dónde está ahora
+    title TEXT,
+    moved REAL
+);
 """
 
 
@@ -151,13 +158,15 @@ class Library:
         self.db.execute("PRAGMA foreign_keys = ON")
         self.db.executescript(SCHEMA)
 
-    def scan(self, roots: list[str | Path], hash_files: bool = True, progress=None) -> dict:
+    def scan(self, roots: list[str | Path], hash_files: bool = True, progress=None, exclude=()) -> dict:
         now = time.time()
+        skip = {os.path.normpath(str(e)) for e in exclude if e}
         stats = {"nuevos": 0, "cambiados": 0, "borrados": 0, "total": 0, "por_carpeta": {}, "ignorados": {}}
         for root in roots:
             before = stats["total"]
             for dirpath, dirnames, filenames in os.walk(root):
-                dirnames[:] = [d for d in dirnames if not d.startswith(("@", "."))]  # @eaDir de Synology
+                dirnames[:] = [d for d in dirnames if not d.startswith(("@", "."))  # @eaDir de Synology
+                               and os.path.normpath(os.path.join(dirpath, d)) not in skip]
                 for fn in filenames:
                     p = Path(dirpath) / fn
                     ext = p.suffix.lower()

@@ -57,6 +57,17 @@ Para cada capítulo:
   rechazarlo si está mal (va a la papelera y se busca otro). En **Papelera** puedes
   recuperar cualquier archivo.
 
+## Películas duplicadas
+
+En la pestaña **Duplicados**, pulsa **Buscar duplicados**. Cada película repetida sale con
+sus copias (calidad, duración, tamaño, subtítulos) y la peor ya marcada; si la duración no
+coincide (por ejemplo, una versión extendida) sale como **dudoso** y no se marca nada.
+**Apartar las marcadas** las mueve a `Duplicados` dentro de tu carpeta compartida (se cambia
+en Ajustes), con la misma estructura de carpetas. Nada se borra: abajo salen las apartadas
+con **Devolver**, y cuando las hayas revisado las borras tú desde File Station.
+Si tienes Jellyfin puesto en Ajustes, lo usa para reconocer la película aunque el nombre
+del archivo sea raro.
+
 ## Otros detalles
 
 - Empieza por lo más reciente (lo que acaba de bajar Sonarr) y sigue hacia atrás.

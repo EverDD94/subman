@@ -20,6 +20,7 @@ DEFAULTS: dict = {
     "dry_run": False,
     "interval_minutes": 60,
     "web_port": 8787,
+    "duplicates_dir": "/media/Duplicados",  # adonde van las películas duplicadas que se apartan
     "providers": {"opensubtitles": {"api_key": "", "username": "", "password": ""}},
     "jellyfin": {"url": "", "api_key": ""},  # opcional: avisar a Jellyfin para que vea los subtítulos nuevos
 }

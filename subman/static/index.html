@@ -65,6 +65,13 @@ dialog::backdrop{background:#0007}
 .path{font:12px ui-monospace,Consolas,monospace;color:var(--muted);word-break:break-all}
 .filters button{background:var(--chip);border:0;border-radius:999px;padding:4px 12px;color:var(--text);cursor:pointer;font:inherit;font-size:13px}
 .filters button.on{background:var(--accent);color:#fff}
+.reason{display:grid;grid-template-columns:70px 1fr auto;gap:12px;align-items:start;padding:12px 0;border-top:1px solid var(--line)}
+.reason:first-child{border-top:0}
+.reason .n{font-size:24px;font-weight:700}
+.reason p{margin:3px 0}
+.dup td{vertical-align:middle}
+.dup tr.keep{background:color-mix(in srgb,var(--ok) 8%,transparent)}
+.dup tr.go{background:color-mix(in srgb,var(--bad) 8%,transparent)}
 </style>
 </head>
 <body>
@@ -75,6 +82,7 @@ dialog::backdrop{background:#0007}
     <button data-tab="biblioteca">Biblioteca</button>
     <button data-tab="ajustes">Ajustes</button>
     <button data-tab="registro">Registro</button>
+    <button data-tab="duplicados">Duplicados</button>
     <button data-tab="papelera">Papelera</button>
   </nav>
 </header>
@@ -91,6 +99,9 @@ dialog::backdrop{background:#0007}
     <div style="margin-top:14px" id="stateBox"></div>
   </div>
   <div class="card"><h2>Subtítulos</h2><div class="grid" id="counts"></div></div>
+  <div class="card" id="missingCard" hidden><h2 id="missingTitle">Lo que falta</h2>
+    <p class="muted" style="margin-top:0">Por qué no tienen todavía un subtítulo bueno y qué puedes hacer. Pulsa <b>Ver</b> para la lista.</p>
+    <div id="missing"></div></div>
 </section>
 
 <section id="biblioteca" hidden>
@@ -105,6 +116,7 @@ dialog::backdrop{background:#0007}
       </div>
       <div style="flex:1;min-width:180px;max-width:320px"><input type="text" id="search" placeholder="Buscar..."></div>
     </div>
+    <div class="row" id="reasonBar" hidden style="margin-top:10px"><span class="muted">Motivo:</span> <b id="reasonName"></b> <button class="btn sec" onclick="setReason('')">Quitar</button></div>
     <p class="muted" id="libCount"></p>
     <table><thead><tr><th>Video</th><th id="langHead">Estado</th><th>Origen</th></tr></thead><tbody id="libBody"></tbody></table>
   </div>
@@ -153,6 +165,8 @@ dialog::backdrop{background:#0007}
       <div><label class="f">Subtítulos de OpenSubtitles a probar por video</label><input type="number" id="candidates" min="1" max="20">
         <div class="hint">Cada uno gasta una descarga de tu cuenta.</div></div>
       <div><label class="f">Reintentar lo que falló cada (horas)</label><input type="number" id="retry_hours" min="1"></div>
+      <div><label class="f">Carpeta para las películas duplicadas</label><input type="text" id="duplicates_dir">
+        <div class="hint">Las que apartes en <i>Duplicados</i> se mueven aquí (no se borran). Mejor dentro de la misma carpeta compartida (/media/...) para que el movimiento sea instantáneo, y fuera de las carpetas de la biblioteca.</div></div>
     </div>
     <div style="margin-top:14px;display:grid;gap:12px">
       <label class="switch"><input type="checkbox" id="sync_existing"><span>Probar primero los subtítulos que ya tengo junto a los videos</span></label>
@@ -175,6 +189,21 @@ dialog::backdrop{background:#0007}
   </div>
 </section>
 
+<section id="duplicados" hidden>
+  <div class="card">
+    <div class="row" style="justify-content:space-between"><h2 style="margin:0">Películas duplicadas</h2>
+      <button class="btn" id="dupScan">Buscar duplicados</button></div>
+    <p class="muted" id="dupIntro"></p>
+    <div id="dupState"></div>
+  </div>
+  <div id="dupGroups"></div>
+  <div class="row" id="dupActions" hidden style="position:sticky;bottom:0;background:var(--bg);padding:12px 0">
+    <button class="btn" id="dupMove">Apartar las marcadas</button><span class="muted" id="dupSel"></span></div>
+  <div class="card" id="dupMovedCard" hidden><h2>Apartadas</h2>
+    <p class="muted" style="margin-top:0">Están en <span class="path" id="dupDest2"></span>. Cuando las hayas revisado, bórralas tú desde File Station; <b>Devolver</b> las pone otra vez en su sitio.</p>
+    <table><thead><tr><th>Película</th><th>Ahora está en</th><th></th></tr></thead><tbody id="dupMoved"></tbody></table></div>
+</section>
+
 <section id="papelera" hidden>
   <div class="card">
     <h2>Papelera y archivo</h2>
@@ -192,7 +221,7 @@ dialog::backdrop{background:#0007}
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const LABEL = {ok:"bien", revisar:"revisar", falla:"falla", pendiente:"pendiente", error:"error"};
-let cfg = null, chosen = [], libItems = [], filter = "", tab = "inicio";
+let cfg = null, chosen = [], libItems = [], filter = "", reasonF = "", reasonTitles = {}, tab = "inicio";
 
 async function api(path, body) {
   const r = await fetch(path, body === undefined ? {} : {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
@@ -209,7 +238,7 @@ function show(name) {
   tab = name;
   document.querySelectorAll("main > section").forEach(s => s.hidden = s.id !== name);
   document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === name));
-  ({inicio:loadStatus, biblioteca:loadLibrary, ajustes:loadConfig, registro:loadLog, papelera:loadTrash})[name]();
+  ({inicio:loadStatus, biblioteca:loadLibrary, ajustes:loadConfig, registro:loadLog, papelera:loadTrash, duplicados:loadDupes})[name]();
 }
 document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => show(b.dataset.tab));
 
@@ -242,7 +271,21 @@ async function loadStatus() {
   $("#counts").innerHTML = [["Videos", s.media], ["Bien", c.ok || 0], ["Revisar", c.revisar || 0], ["Fallan", (c.falla || 0) + (c.error || 0)], ["Pendientes", c.pendiente || 0]]
     .map(([k, v]) => `<div class="stat"><span class="muted">${k}</span><b>${v}</b></div>`).join("");
   $("#runNow").disabled = st.running || !s.enabled;
+  const miss = s.missing || [];
+  const total = miss.reduce((a, g) => a + g.count, 0);
+  $("#missingCard").hidden = !miss.length;
+  $("#missingTitle").textContent = `Lo que falta: ${total}`;
+  miss.forEach(g => reasonTitles[g.code] = g.title);
+  $("#missing").innerHTML = miss.map(g => {
+    let extra = "";
+    if (g.only_local) extra += `<p class="muted">En ${g.only_local}, OpenSubtitles no tenía otro para probar: suele ser por el nombre del archivo.</p>`;
+    if (g.audio_es) extra += `<p class="muted">${g.audio_es} tienen «LAT» o «Castellano» en el nombre: si el audio ya está en español, quizá no necesitas subtítulos.</p>`;
+    return `<div class="reason"><div class="n">${g.count}</div><div><b>${esc(g.title)}</b><p>${esc(g.what)}</p><p><b>Qué hacer:</b> ${esc(g.todo)}</p>${extra}</div>
+      <button class="btn sec" onclick="seeReason('${g.code}')">Ver</button></div>`;
+  }).join("");
 }
+function seeReason(code) { filter = ""; reasonF = code; show("biblioteca"); }
+function setReason(code) { reasonF = code; renderLibrary(); }
 $("#runNow").onclick = async () => { await api("/api/run", {}); toast("Empezando..."); setTimeout(loadStatus, 1500); };
 $("#enabledHome").onchange = async e => {
   await api("/api/config", {enabled: e.target.checked});
@@ -259,7 +302,10 @@ async function loadLibrary() {
 function renderLibrary() {
   const q = $("#search").value.toLowerCase();
   const rows = libItems.filter(m => (!q || m.label.toLowerCase().includes(q) || m.path.toLowerCase().includes(q))
-    && (!filter || Object.values(m.langs).some(l => l.status === filter || (filter === "falla" && l.status === "error"))));
+    && (!filter || Object.values(m.langs).some(l => l.status === filter || (filter === "falla" && l.status === "error")))
+    && (!reasonF || Object.values(m.langs).some(l => l.reason === reasonF)));
+  $("#reasonBar").hidden = !reasonF; $("#reasonName").textContent = reasonTitles[reasonF] || reasonF;
+  document.querySelectorAll("#filters button").forEach(x => x.classList.toggle("on", x.dataset.f === filter));
   $("#libCount").textContent = `${rows.length} de ${libItems.length} videos` + (libItems.length ? "" : ". Aún no se ha escaneado la biblioteca.");
   $("#libBody").innerHTML = rows.slice(0, 1500).map(m => `<tr class="click" data-id="${m.id}"><td>${esc(m.label)}</td>
     <td>${Object.entries(m.langs).map(([l, v]) => pill(v.status) + (Object.keys(m.langs).length > 1 ? " " + esc(l) : "")).join(" ")}</td>
@@ -313,7 +359,7 @@ async function loadConfig() {
   $("#os_api_key").value = os.api_key || ""; $("#os_username").value = os.username || ""; $("#os_password").value = os.password || "";
   const jf = cfg.jellyfin || {}; $("#jf_url").value = jf.url || ""; $("#jf_api_key").value = jf.api_key || "";
   $("#languages").value = cfg.languages.join(", "); $("#archive_languages").value = cfg.archive_languages.join(", ");
-  for (const k of ["interval_minutes", "candidates", "retry_hours"]) $("#" + k).value = cfg[k];
+  for (const k of ["interval_minutes", "candidates", "retry_hours", "duplicates_dir"]) $("#" + k).value = cfg[k];
   for (const k of ["sync_existing", "keep_review", "dry_run", "enabled"]) $("#" + k).checked = cfg[k];
   $("#saveMsg").textContent = r.problems.length ? "Falta: " + r.problems.join("; ") : "";
   renderChosen(); browse(r.media_root);
@@ -340,6 +386,7 @@ function formValues() {
   return {
     library: chosen, languages: list($("#languages").value), archive_languages: list($("#archive_languages").value),
     interval_minutes: +$("#interval_minutes").value, candidates: +$("#candidates").value, retry_hours: +$("#retry_hours").value,
+    duplicates_dir: $("#duplicates_dir").value.trim(),
     sync_existing: $("#sync_existing").checked, keep_review: $("#keep_review").checked, dry_run: $("#dry_run").checked, enabled: $("#enabled").checked,
     jellyfin: {url: $("#jf_url").value, api_key: $("#jf_api_key").value},
     providers: {opensubtitles: {api_key: $("#os_api_key").value, username: $("#os_username").value, password: $("#os_password").value}},
@@ -388,6 +435,68 @@ async function loadTrash() {
     toast(x.ok ? "Recuperado en " + x.dest : x.error); loadTrash();
   });
 }
+
+// ---------- Duplicados ----------
+let dup = null;
+function size(b) { return b >= 1e9 ? (b / 1e9).toFixed(1) + " GB" : Math.round(b / 1e6) + " MB"; }
+function hms(t) { t = Math.round(t || 0); return t ? `${Math.floor(t / 3600)}:${String(Math.floor(t / 60) % 60).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}` : "?"; }
+async function loadDupes() {
+  dup = await api("/api/dupes");
+  $("#dupIntro").innerHTML = (dup.jellyfin ? "Usa las fichas de Jellyfin para saber qué archivos son la misma película, y el nombre y la duración para el resto."
+    : "Compara el nombre y la duración. Si pones Jellyfin en Ajustes, también usa sus fichas (más fiable con nombres raros).")
+    + ` Lo que apartes se mueve a <span class="path">${esc(dup.dest)}</span>; no se borra nada.`;
+  $("#dupScan").disabled = dup.running;
+  $("#dupState").innerHTML = dup.running ? `<b>${esc(dup.message || "buscando...")}</b>`
+    : dup.error ? `<span class="pill falla">error</span> ${esc(dup.error)}`
+    : dup.groups ? `<span class="muted">${dup.groups.length ? "Películas con más de una copia: " + dup.groups.length : "No hay películas repetidas."} · buscado ${when(dup.at)}</span>`
+    : `<span class="muted">Pulsa «Buscar duplicados».</span>`;
+  renderDupes();
+  $("#dupMovedCard").hidden = !dup.moved.length; $("#dupDest2").textContent = dup.dest;
+  $("#dupMoved").innerHTML = dup.moved.map(r => `<tr><td>${esc(r.title || "")}<div class="path">${esc(r.src)}</div><div class="muted" style="font-size:12px">${when(r.moved)}</div></td>
+    <td class="path">${r.exists ? esc(r.dest) : "ya no está (¿borrada?)"}</td><td>${r.exists ? `<button class="btn sec" data-r="${r.id}">Devolver</button>` : ""}</td></tr>`).join("");
+  document.querySelectorAll("#dupMoved button").forEach(b => b.onclick = async () => {
+    const x = await api("/api/dupes/restore", {id: +b.dataset.r}); toast(x.ok ? "Devuelta a " + x.dest : x.error); loadDupes();
+  });
+  if (dup.running) setTimeout(() => tab === "duplicados" && loadDupes(), 2000);
+}
+function renderDupes() {
+  const groups = (dup && dup.groups) || [];
+  $("#dupGroups").innerHTML = groups.map((g, gi) => `<div class="card dup"><div class="row"><h2 style="margin:0">${esc(g.title)}${g.year ? " (" + g.year + ")" : ""}</h2>
+      <span class="pill">${g.files.length} copias</span>${g.doubtful ? `<span class="pill revisar">dudoso: la duración no coincide</span>` : ""}
+      <span class="muted" style="font-size:13px">${g.how === "nombre" ? "por el nombre" : "según Jellyfin"}</span></div>
+    <table style="margin-top:8px"><thead><tr><th>Apartar</th><th>Archivo</th><th>Calidad</th><th>Duración</th><th>Tamaño</th><th>Subtítulos</th></tr></thead><tbody>
+    ${g.files.map((f, fi) => `<tr class="${f.move ? "go" : f.keep ? "keep" : ""}"><td><input type="checkbox" data-g="${gi}" data-f="${fi}" ${f.move ? "checked" : ""}></td>
+      <td>${esc(f.name)}${f.keep ? ' <span class="pill ok">mejor</span>' : ""}<div class="path">${esc(f.path)}</div></td>
+      <td>${esc(f.resolution)} ${esc(f.codec || "")}<div class="muted" style="font-size:12px">audio: ${esc((f.audio || []).join(", ") || "?")}</div></td>
+      <td>${hms(f.duration)}</td><td>${size(f.size || 0)}</td><td>${esc((f.subs || []).join(", ") || "—")}</td></tr>`).join("")}
+    </tbody></table></div>`).join("");
+  document.querySelectorAll("#dupGroups input").forEach(c => c.onchange = () => {
+    const f = dup.groups[c.dataset.g].files[c.dataset.f]; f.move = c.checked;
+    c.closest("tr").className = f.move ? "go" : f.keep ? "keep" : ""; countSel();
+  });
+  countSel();
+}
+function countSel() {
+  const groups = (dup && dup.groups) || [];
+  const n = groups.reduce((a, g) => a + g.files.filter(f => f.move).length, 0);
+  $("#dupActions").hidden = !groups.length;
+  $("#dupMove").disabled = !n;
+  $("#dupSel").textContent = n ? `${n} marcadas` : "Marca las copias que quieras apartar.";
+}
+$("#dupScan").onclick = async () => { await api("/api/dupes/scan", {}); loadDupes(); };
+$("#dupMove").onclick = async () => {
+  const groups = dup.groups || [];
+  const all = groups.find(g => g.files.every(f => f.move));
+  if (all) return toast(`${all.title}: deja al menos una copia sin marcar`);
+  const ids = groups.flatMap(g => g.files.filter(f => f.move).map(f => f.id));
+  if (!confirm(`Se moverán ${ids.length} copias a ${dup.dest}, con sus subtítulos. No se borra nada. ¿Seguir?`)) return;
+  $("#dupMove").disabled = true;
+  try {
+    const r = await api("/api/dupes/move", {ids});
+    toast(r.ok ? `Apartadas ${r.moved}` : `Apartadas ${r.moved}. ${r.error}`);
+  } catch (e) { toast("Error: " + e.message); }
+  loadDupes();
+};
 
 setInterval(() => { if (tab === "inicio") loadStatus(); if (tab === "registro" && $("#follow").checked) loadLog(); }, 4000);
 show("inicio");

@@ -40,7 +40,7 @@ class TMDb:
 
     def test(self) -> dict:
         d = self.movie(603)  # Matrix
-        return {"title": d["title"]}
+        return {"title": d["name"]}
 
     def search(self, query: str, year: int | None = None) -> list[int]:
         params = {"query": query, "include_adult": "false"}

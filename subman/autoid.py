@@ -154,7 +154,9 @@ def candidates(db: TMDb, m, minutes: float | None, extra: list[int] = (), more: 
     return sorted(out, key=lambda c: c["score"], reverse=True)
 
 
-def run(lib: Library, cfg: dict, review: dict, progress=lambda msg: None, stop=lambda: False) -> dict:
+def run(lib: Library, cfg: dict, review: dict, progress=lambda msg: None, stop=lambda: False,
+        counts=lambda c: None) -> dict:
+    """counts recibe cómo va: {total, ok (aplicadas), review (con opciones para revisar), fail (sin opciones), ai (esperando a la IA)}."""
     key = cfg.get("tmdb", {}).get("api_key")
     if not key:
         raise ValueError("pon la clave de TheMovieDB en Ajustes")
@@ -164,6 +166,18 @@ def run(lib: Library, cfg: dict, review: dict, progress=lambda msg: None, stop=l
 
     entries = [*review.get("loose", []), *review.get("todo", [])]
     applied, pending, left, unknown = [], [], [], []
+
+    def report():
+        done = {a["id"] for a in applied} | {e["id"] for e in left}
+        review_n = sum(1 for e in left if e.get("options"))
+        counts({"total": len(entries), "ok": len(applied), "review": review_n, "fail": len(left) - review_n,
+                "ai": len({e["id"] for e in [*pending, *unknown]} - done)})
+
+    _progress = progress
+
+    def progress(msg):
+        report()
+        _progress(msg)
 
     def do_apply(e, c, how):
         media = lib.media("id=?", (e["id"],))
@@ -275,6 +289,7 @@ def run(lib: Library, cfg: dict, review: dict, progress=lambda msg: None, stop=l
                 e["why"] = "la IA cree que no es ninguna de estas"
             left.append(e)
 
+    report()
     for e in left:
         e.pop("_m", None)
     log.info("identificar todo: %d aplicadas (%d con IA), %d para revisar", len(applied),

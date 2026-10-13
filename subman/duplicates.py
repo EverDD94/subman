@@ -19,6 +19,7 @@ import logging
 import os
 import re
 import shutil
+import sqlite3
 import time
 import unicodedata
 from pathlib import Path
@@ -198,18 +199,28 @@ def move(lib: Library, media: Media, dest_root: str, media_root: str, roots: lis
     else:
         items = [p for p in folder.iterdir() if p.is_file() and (p == video or p.name.startswith(video.stem + ".")
                                                                   or p.name.startswith(video.stem + "-"))]
-    moved = []
-    for src in items:
-        dest = _unique(Path(dest_root) / _relative(src, [media_root, *roots]))
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(src), str(dest))
-        lib.db.execute("INSERT INTO moved (src, dest, title, moved) VALUES (?,?,?,?)",
-                       (str(src), str(dest), title, time.time()))
+    done: list[tuple[Path, Path]] = []
+    try:
+        for src in items:
+            dest = _unique(Path(dest_root) / _relative(src, [media_root, *roots]))
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(src), str(dest))
+            done.append((src, dest))
+            lib.db.execute("INSERT INTO moved (src, dest, title, moved) VALUES (?,?,?,?)",
+                           (str(src), str(dest), title, time.time()))
+        lib.db.execute("DELETE FROM media WHERE id=?", (media.id,))
+        lib.db.commit()
+    except (OSError, sqlite3.Error) as e:  # sin anotarlo no se podría devolver: se deja como estaba
+        lib.db.rollback()
+        for src, dest in reversed(done):
+            shutil.move(str(dest), str(src))
+        if isinstance(e, sqlite3.Error):
+            raise OSError("subman está ocupado revisando la biblioteca; no se ha movido nada, "
+                          "prueba otra vez en un momento") from e
+        raise
+    for src, dest in done:
         log.info("duplicado apartado: %s -> %s", src, dest)
-        moved.append(str(dest))
-    lib.db.execute("DELETE FROM media WHERE id=?", (media.id,))
-    lib.db.commit()
-    return moved
+    return [str(d) for _, d in done]
 
 
 def moved_list(lib: Library) -> list[dict]:
@@ -226,9 +237,13 @@ def restore(lib: Library, row_id: int) -> str:
         raise ValueError(f"ya no está en {dest}")
     if src.exists():
         raise ValueError(f"ya hay algo en {src}; muévelo a mano")
+    try:
+        lib.db.execute("DELETE FROM moved WHERE id=?", (row_id,))
+    except sqlite3.Error as e:
+        lib.db.rollback()
+        raise ValueError("subman está ocupado revisando la biblioteca; prueba otra vez en un momento") from e
     src.parent.mkdir(parents=True, exist_ok=True)
     shutil.move(str(dest), str(src))
-    lib.db.execute("DELETE FROM moved WHERE id=?", (row_id,))
     lib.db.commit()
     log.info("duplicado devuelto: %s -> %s", dest, src)
     return str(src)

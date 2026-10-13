@@ -19,6 +19,7 @@ import json
 import logging
 import os
 import re
+import sqlite3
 import time
 from pathlib import Path
 
@@ -31,6 +32,7 @@ _ORGANIZED = re.compile(r"\[(tmdbid|imdbid)-[^\]]+\]", re.I)
 _HAS_YEAR = re.compile(r"(?<!\d)(19|20)\d{2}(?!\d)")
 _BAD_CHARS = re.compile(r'[<>"/\\|?*\x00-\x1f]')
 SIMILAR = 0.7
+BUSY = "subman está ocupado revisando la biblioteca; no se ha cambiado nada, prueba otra vez en un momento"
 
 
 def similarity(a: str, b: str) -> float:
@@ -200,11 +202,16 @@ def apply(lib: Library, cfg: dict, media: Media, title: str, year: int | None, t
         _undo(moves, created=None if alone else new_dir)
         raise
     new_video = new_dir / (stem + video.suffix)
-    _repath(lib, media.path, str(new_video))
-    lib.db.execute("INSERT INTO renamed (title, moves, created, video_from, video_to, at) VALUES (?,?,?,?,?,?)",
-                   (f"{title} ({year})" if year else title, json.dumps(moves, ensure_ascii=False),
-                    "" if alone else str(new_dir), media.path, str(new_video), time.time()))
-    lib.db.commit()
+    try:
+        _repath(lib, media.path, str(new_video))
+        lib.db.execute("INSERT INTO renamed (title, moves, created, video_from, video_to, at) VALUES (?,?,?,?,?,?)",
+                       (f"{title} ({year})" if year else title, json.dumps(moves, ensure_ascii=False),
+                        "" if alone else str(new_dir), media.path, str(new_video), time.time()))
+        lib.db.commit()
+    except sqlite3.Error as e:  # sin anotarlo no se podría deshacer: mejor dejarlo como estaba
+        lib.db.rollback()
+        _undo(moves, created=None if alone else new_dir)
+        raise ValueError(BUSY) from e
     log.info("identificada: %s -> %s", media.path, new_video)
     return {"dest": str(new_video)}
 
@@ -242,9 +249,13 @@ def undo(lib: Library, row_id: int) -> str:
             raise ValueError(f"ya no está {dest}")
         if os.path.exists(src):
             raise ValueError(f"ya hay algo en {src}")
+    try:
+        _repath(lib, r["video_to"], r["video_from"])
+        lib.db.execute("DELETE FROM renamed WHERE id=?", (row_id,))
+    except sqlite3.Error as e:
+        lib.db.rollback()
+        raise ValueError(BUSY) from e
     _undo(moves, Path(r["created"]) if r["created"] else None)
-    _repath(lib, r["video_to"], r["video_from"])
-    lib.db.execute("DELETE FROM renamed WHERE id=?", (row_id,))
     lib.db.commit()
     log.info("deshecho: %s", r["title"])
     return r["title"]

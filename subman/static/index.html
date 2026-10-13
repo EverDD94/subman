@@ -481,7 +481,9 @@ async function loadNames() {
     <td><div class="path">${esc(h.before)}</div><div class="path">→ ${esc(h.after)}</div></td>
     <td>${h.exists ? `<button class="btn sec" data-u="${h.id}">Deshacer</button>` : ""}</td></tr>`).join("");
   document.querySelectorAll("#nmHist button").forEach(b => b.onclick = async () => {
-    const x = await api("/api/names/undo", {id: +b.dataset.u}); toast(x.ok ? "Deshecho: " + x.title : x.error); loadNames();
+    b.disabled = true;
+    let x; try { x = await api("/api/names/undo", {id: +b.dataset.u}); } catch (err) { x = {ok: false, error: err.message}; }
+    toast(x.ok ? "Deshecho: " + x.title : "No se pudo: " + x.error); loadNames();
   });
   if (nm.running) setTimeout(() => tab === "nombres" && loadNames(), 2000);
 }
@@ -519,8 +521,22 @@ async function nmSearch(id) {
 async function nmApply(id) {
   const e = nm.result.todo.find(x => x.id === id); const o = e.options[nmPick[id] ?? 0];
   if (!o || !confirm(`«${e.name}» pasará a ser «${o.name}${o.year ? " (" + o.year + ")" : ""}», en su propia carpeta y con sus subtítulos. ¿Seguir?`)) return;
-  const r = await api("/api/names/apply", {id, name: o.name, year: o.year, tmdb: o.tmdb, imdb: o.imdb});
-  toast(r.ok ? "Hecho. Jellyfin la actualizará en unos minutos." : r.error); loadNames();
+  const card = document.getElementById("nm" + id);
+  card.querySelectorAll("button").forEach(b => b.disabled = true);
+  let r;
+  try { r = await api("/api/names/apply", {id, name: o.name, year: o.year, tmdb: o.tmdb, imdb: o.imdb}); }
+  catch (err) { r = {ok: false, error: err.message}; }
+  if (!r.ok) {
+    card.querySelectorAll("button").forEach(b => b.disabled = false);
+    let msg = card.querySelector(".nmErr");
+    if (!msg) { msg = document.createElement("p"); msg.className = "nmErr"; msg.style.color = "var(--bad)"; card.appendChild(msg); }
+    msg.textContent = "No se pudo: " + r.error;
+    return toast("No se pudo: " + r.error);
+  }
+  nm.result.todo = nm.result.todo.filter(x => x.id !== id);  // fuera de la lista enseguida
+  renderNames();
+  toast(`Hecho: ${o.name}. Jellyfin la actualizará en unos minutos.`);
+  loadNames();
 }
 $("#nmScan").onclick = async () => { await api("/api/names/scan", {}); loadNames(); };
 $("#nmAll").onchange = e => document.querySelectorAll("#nmLoose input").forEach(c => c.checked = e.target.checked);
@@ -529,7 +545,8 @@ $("#nmOrganize").onclick = async () => {
   if (!ids.length) return toast("No hay ninguna marcada");
   if (!confirm(`Se pondrán ${ids.length} películas cada una en su carpeta, con sus subtítulos. ¿Seguir?`)) return;
   $("#nmOrganize").disabled = true;
-  const r = await api("/api/names/organize", {ids});
+  let r;
+  try { r = await api("/api/names/organize", {ids}); } catch (err) { r = {ok: false, done: 0, error: err.message}; }
   $("#nmOrganize").disabled = false;
   toast(r.ok ? `Ordenadas ${r.done}` : `Ordenadas ${r.done}. ${r.error}`); loadNames();
 };

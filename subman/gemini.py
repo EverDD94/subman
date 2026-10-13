@@ -5,6 +5,7 @@ Sólo se envían nombres de archivo, duraciones y las opciones; nunca el video.
 """
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import re
@@ -44,6 +45,17 @@ Responde sólo con JSON: una lista de objetos {"archivo": <número>, "peliculas"
 [{"titulo": "...", "original": "...", "año": 2001}]}.
 
 Archivos:
+"""
+
+
+SEE = """Eres un experto en cine. Te paso fotos sacadas de un archivo de video de una biblioteca personal
+(la primera, del principio, a veces muestra el título o los créditos). Dime qué película es: fíjate en
+los actores, títulos en pantalla y escenas reconocibles. Ayudas: el archivo se llama «{file}» (puede
+ser basura) y dura {minutes} min.{options}
+
+Responde sólo con JSON: {{"peliculas": [{{"titulo": "...", "original": "...", "año": 2001}}],
+"seguro": true|false}}, hasta 3 posibilidades, la más probable primero. «seguro» es true sólo si
+reconoces la película sin dudas. Si no tienes idea, lista vacía.
 """
 
 
@@ -91,8 +103,10 @@ class Gemini:
             return ("preview" in n, "lite" not in n, -version[0], n)
         return sorted(flash, key=rank)
 
-    def ask(self, text: str) -> str:
-        body = {"contents": [{"parts": [{"text": text}]}],
+    def ask(self, text: str, images: list[bytes] = ()) -> str:
+        parts = [{"text": text}] + [{"inline_data": {"mime_type": "image/jpeg", "data": base64.b64encode(b).decode()}}
+                                    for b in images]
+        body = {"contents": [{"parts": parts}],
                 "generationConfig": {"temperature": 0, "responseMimeType": "application/json"}}
         if not self._models:
             try:
@@ -199,3 +213,28 @@ class Gemini:
                         names.append((t.strip(), year))
             out[n] = names
         return out
+
+    def see(self, images: list[bytes], file: str, minutes, options: list[dict] = ()) -> tuple[list, bool]:
+        """Qué película es, mirando fotos del video -> ([(título, año), ...], seguro)."""
+        opts = ""
+        if options:
+            opts = "\nPuede que sea una de estas (de TheMovieDB): " + "; ".join(
+                f"«{o['name']}» ({o['year'] or '?'}, {o['runtime'] or '?'} min)" for o in options[:6])
+        raw = self.ask(SEE.format(file=file, minutes=minutes or "?", options=opts), images)
+        try:
+            data = json.loads(raw)
+        except ValueError:
+            log.warning("Gemini: respuesta que no es JSON: %s", raw[:200])
+            return [], False
+        if isinstance(data, list):
+            data = data[0] if data and isinstance(data[0], dict) else {}
+        names = []
+        for p in (data.get("peliculas") or [])[:3]:
+            if not isinstance(p, dict):
+                continue
+            year = p.get("año") or p.get("ano") or p.get("year")
+            year = int(year) if str(year).isdigit() else None
+            for t in (p.get("titulo"), p.get("original")):
+                if isinstance(t, str) and t.strip() and (t.strip(), year) not in names:
+                    names.append((t.strip(), year))
+        return names, bool(data.get("seguro"))

@@ -144,6 +144,7 @@ subman/
   duplicates.py  películas duplicadas: encontrar, apartar y devolver
   identify.py    identificar películas y ponerlas cada una en su carpeta (y deshacerlo)
   autoid.py      «Identificar todo»: TheMovieDB (duración, sagas) + Gemini para las dudosas
+  peek.py        mirar dentro del video: huella de OpenSubtitles, título interno y fotos
   tmdb.py        cliente de TheMovieDB
   gemini.py      cliente de Gemini (IA, capa gratis)
   jellyfin.py    aviso de re-escaneo, lista de películas con sus fichas y buscador

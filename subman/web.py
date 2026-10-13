@@ -19,7 +19,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, autoid, config, diagnose, discover, duplicates, gemini, identify, jellyfin, manager, providers, tmdb
+from . import __version__, autoid, config, diagnose, discover, duplicates, gemini, identify, jellyfin, manager, peek, providers, tmdb
 from .library import Library
 
 log = logging.getLogger(__name__)
@@ -464,7 +464,8 @@ class App:
                         message=f"buscando videos: {n} encontrados"))
                 rev = identify.review(lib, cfg, lambda msg: self.names.update(message=msg), search=False)
                 res = autoid.run(lib, cfg, rev, lambda msg: self.names.update(message=msg),
-                                 stop=lambda: self.names["stop"], counts=lambda c: self.names.update(counts=c))
+                                 stop=lambda: self.names["stop"], counts=lambda c: self.names.update(counts=c),
+                                 frames_dir=self.frames_dir)
                 now = time.time()
                 self.names.update(result={"todo": res["todo"], "loose": []}, at=now, message="",
                                   auto={"applied": len(res["applied"]),
@@ -480,6 +481,23 @@ class App:
 
         threading.Thread(target=work, name="identificar", daemon=True).start()
         return {"ok": True}
+
+    @property
+    def frames_dir(self) -> Path:
+        return Path(self.config_path).parent / "cache" / "fotos"
+
+    def names_frame(self, media_id: int, n: int) -> bytes | None:
+        """Una foto del video para enseñarla en Nombres (se saca la primera vez que se pide)."""
+        if not 0 <= n < len(peek.FRAMES):
+            return None
+        m = self.library(self.cfg()).media("id=?", (media_id,))
+        if not m or not os.path.exists(m[0].path):
+            return None
+        key = f"{m[0].id}_{int(os.stat(m[0].path).st_mtime)}"
+        jpg = self.frames_dir / f"{key}_{n}.jpg"
+        if not jpg.exists():
+            jpg = peek.frame(m[0].path, self.frames_dir, peek.info(m[0].path)["minutes"], key, n)
+        return jpg.read_bytes() if jpg else None
 
     def names_stop(self) -> dict:
         self.names["stop"] = True
@@ -679,6 +697,20 @@ def make_handler(app: App):
             u = urlparse(self.path)
             if u.path in routes_get:
                 return self._json(routes_get[u.path], parse_qs(u.query))
+            if u.path == "/api/names/frame":
+                q = parse_qs(u.query)
+                try:
+                    img = app.names_frame(int(q["id"][0]), int(q["n"][0]))
+                except (KeyError, ValueError):
+                    img = None
+                if not img:
+                    return self._send(404, b"", "text/plain")
+                self.send_response(200)
+                self.send_header("Content-Type", "image/jpeg")
+                self.send_header("Content-Length", str(len(img)))
+                self.send_header("Cache-Control", "max-age=86400")
+                self.end_headers()
+                return self.wfile.write(img)
             if u.path in ("/", "/index.html"):
                 return self._send(200, (STATIC / "index.html").read_bytes(), "text/html; charset=utf-8")
             self._send(404, b"no encontrado", "text/plain")

@@ -16,12 +16,14 @@ from __future__ import annotations
 
 import logging
 import re
+from pathlib import Path
 
-from . import audio, identify
+from . import audio, identify, peek
 from .duplicates import normalize
 from .gemini import Gemini, GeminiError
 from .identify import similarity
 from .library import Library
+from .providers.opensubtitles import OpenSubtitles
 from .tmdb import TMDb
 
 log = logging.getLogger(__name__)
@@ -44,6 +46,9 @@ def _arabic(text: str) -> str:
     """«el senor de los anillos iii» -> «el senor de los anillos 3» (no la primera palabra: «X-Men»)."""
     words = text.split()
     return " ".join(str(_ROMAN[w]) if i and w in _ROMAN else w for i, w in enumerate(words))
+
+
+_info = peek.info  # duración y título guardado dentro del video
 
 
 def _part_number(title: str) -> int | None:
@@ -155,7 +160,7 @@ def candidates(db: TMDb, m, minutes: float | None, extra: list[int] = (), more: 
 
 
 def run(lib: Library, cfg: dict, review: dict, progress=lambda msg: None, stop=lambda: False,
-        counts=lambda c: None) -> dict:
+        counts=lambda c: None, frames_dir: Path | None = None) -> dict:
     """counts recibe cómo va: {total, ok (aplicadas), review (con opciones para revisar), fail (sin opciones), ai (esperando a la IA)}."""
     key = cfg.get("tmdb", {}).get("api_key")
     if not key:
@@ -163,6 +168,8 @@ def run(lib: Library, cfg: dict, review: dict, progress=lambda msg: None, stop=l
     db = TMDb(key, cfg.get("tmdb", {}).get("language") or "es-MX")
     gkey = cfg.get("gemini", {}).get("api_key")
     ai = Gemini(gkey) if gkey else None
+    oskey = cfg.get("providers", {}).get("opensubtitles", {}).get("api_key")
+    osub = OpenSubtitles(oskey) if oskey else None  # sólo para la huella: buscar no gasta descargas
 
     entries = [*review.get("loose", []), *review.get("todo", [])]
     applied, pending, left, unknown = [], [], [], []
@@ -233,13 +240,27 @@ def run(lib: Library, cfg: dict, review: dict, progress=lambda msg: None, stop=l
         if not media:
             continue
         m = media[0]
-        minutes = _minutes(m.path)
+        inf = _info(m.path)
+        minutes = inf["minutes"]
         jf = (e.get("jellyfin") or {}).get("tmdb")
         jname = (e.get("jellyfin") or {}).get("name")
-        cands = candidates(db, m, minutes, [int(jf)] if jf and str(jf).isdigit() else [], [jname] if jname else [])
+        hits = peek.hash_lookup(osub, m.oshash)  # la huella del archivo en OpenSubtitles
+        extra = [int(h["tmdb"]) for h in hits[:2]] + ([int(jf)] if jf and str(jf).isdigit() else [])
+        more = [x for x in (inf["title"], jname) if x]
+        cands = candidates(db, m, minutes, extra, more)
         e["minutes"] = minutes
+        e["inside"] = inf["title"]
         e["_m"] = m
         e["options"] = cands[:6]
+        if hits:  # ese mismo archivo ya lo conoce OpenSubtitles: es esa película salvo que la duración no cuadre
+            mine = next((c for c in cands if c["tmdb"] == hits[0]["tmdb"]), None)
+            if mine and mine["duration_ok"] is not False:
+                do_apply(e, mine, "huella")
+                continue
+        if inf["title"]:  # el título guardado dentro del video cuenta como un buen nombre
+            for c in cands:
+                if c["duration_ok"] and max(similarity(inf["title"], c["name"]), similarity(inf["title"], c["original"])) >= 0.85:
+                    c["strong"] = True
         # Sin carpeta propia y Jellyfin ya la reconocía: basta con que la duración no lo contradiga.
         if "target" in e and jf:
             mine = next((c for c in cands if c["tmdb"] == str(jf)), None)
@@ -318,6 +339,43 @@ def run(lib: Library, cfg: dict, review: dict, progress=lambda msg: None, stop=l
                 e["why"] = "la IA no está segura" if not sure else "la IA eligió una cuya duración no encaja"
             elif k + 1 in picks:
                 e["why"] = "la IA cree que no es ninguna de estas"
+            left.append(e)
+
+    # Lo que queda: que la IA mire unas fotos del video.
+    if ai and frames_dir and not stop():
+        look, left[:] = list(left), []
+        for n, e in enumerate(look):
+            if stop() or ai_state["off"] or not e.get("_m"):
+                left.append(e)
+                continue
+            progress(f"la IA mira el video: {n + 1} de {len(look)} ({len(applied)} hechas)")
+            m = e["_m"]
+            try:
+                stamp = int(Path(m.path).stat().st_mtime)
+            except OSError:
+                left.append(e)
+                continue
+            imgs = [p.read_bytes() for p in peek.frames(m.path, frames_dir, e["minutes"], f"{m.id}_{stamp}")]
+            seen = ask_ai(lambda _: ai.see(imgs, e["name"], e["minutes"], e.get("options") or []), None) if imgs else None
+            if not seen or not seen[0]:
+                left.append(e)
+                continue
+            names, sure = seen
+            ids: list[int] = []
+            for title, year in names:
+                try:
+                    ids += [x for x in db.search(normalize(title, leet=False) or title, year)[:3] if x not in ids]
+                except Exception as ex:
+                    log.warning("TheMovieDB: no se pudo buscar «%s»: %s", title, ex)
+            known = [int(o["tmdb"]) for o in e.get("options") or []]
+            cands = candidates(db, m, e["minutes"], ids + [k for k in known if k not in ids], [t for t, _ in names]) if ids else []
+            first = [c for c in cands if int(c["tmdb"]) in ids[:1]]
+            if first and sure and first[0]["duration_ok"]:
+                do_apply(e, first[0], "ia")
+                continue
+            if first:
+                e["options"] = first + [c for c in cands if c is not first[0]][:5]
+                e["why"] = f"la IA miró el video y cree que es «{first[0]['name']}», pero no está segura"
             left.append(e)
 
     report()

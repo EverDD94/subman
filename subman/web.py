@@ -19,7 +19,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, autoid, config, diagnose, discover, duplicates, gemini, identify, jellyfin, manager, peek, providers, tmdb
+from . import __version__, autoid, config, diagnose, discover, duplicates, formats, gemini, identify, jellyfin, manager, peek, providers, tmdb
 from .library import Library
 
 log = logging.getLogger(__name__)
@@ -48,6 +48,7 @@ class App:
                       "last_start": None, "last_end": None, "next_run": None, "message": "", "scan": None}
         self.dupes = {"running": False, "message": "", "groups": None, "at": None}
         self.names = {"running": False, "message": "", "result": None, "at": None, "auto": None, "stop": False}
+        self.fmt = {"running": False, "message": "", "done": 0, "total": 0, "error": None, "stop": False}
         self.logs = LogBuffer()
         logging.getLogger().addHandler(self.logs)
         try:  # registro también en /config/subman.log (sobrevive a reinicios)
@@ -353,6 +354,35 @@ class App:
                 "problems": config.problems(cfg), "media": total, "counts": counts,
                 "missing": diagnose.summary(reasons)}
 
+    # --- formatos (qué reproduce Jellyfin directo) ----------------------------------
+    def formats_scan(self) -> dict:
+        if self.fmt["running"]:
+            return {"ok": True}
+        self.fmt.update(running=True, message="empezando", error=None, stop=False, done=0, total=0)
+
+        def work():
+            try:
+                cfg = self.cfg()
+                lib = self.library(cfg)
+                if not self.state["running"] and cfg["library"]:  # lista de videos al día (la pasada ya la hace)
+                    lib.scan(cfg["library"], exclude=[cfg["duplicates_dir"]], progress=lambda n: self.fmt.update(
+                        message=f"buscando videos: {n} encontrados"))
+                res = formats.Formats(lib).scan(
+                    progress=lambda done, total, name: self.fmt.update(done=done, total=total, message=name),
+                    stop=lambda: self.fmt["stop"])
+                log.info("formatos: %d videos mirados de %d", res["mirados"], res["total"])
+            except Exception as e:
+                log.exception("formatos")
+                self.fmt.update(error=str(e))
+            finally:
+                self.fmt.update(running=False, message="")
+
+        threading.Thread(target=work, name="formatos", daemon=True).start()
+        return {"ok": True}
+
+    def formats_state(self) -> dict:
+        return {**self.fmt, **formats.Formats(self.library()).summary()}
+
     # --- duplicados ----------------------------------------------------------------
     def dupes_scan(self) -> dict:
         if self.dupes["running"]:
@@ -655,6 +685,7 @@ def make_handler(app: App):
         "/api/log": lambda q: {"lines": list(app.logs.lines)},
         "/api/trash": lambda q: app.trash(),
         "/api/dupes": lambda q: app.dupes_state(),
+        "/api/formats": lambda q: app.formats_state(),
         "/api/names": lambda q: app.names_state(),
         "/api/discover": lambda q: app.discover_list(q.get("section", ["novedades"])[0], int(q.get("page", ["1"])[0])),
         "/api/discover/search": lambda q: app.discover_search(q.get("q", [""])[0]),
@@ -674,6 +705,8 @@ def make_handler(app: App):
         "/api/reject": lambda b: app.reject(int(b["id"]), b["lang"]),
         "/api/restore": lambda b: app.restore(b["path"]),
         "/api/dupes/scan": lambda b: app.dupes_scan(),
+        "/api/formats/scan": lambda b: app.formats_scan(),
+        "/api/formats/stop": lambda b: (app.fmt.update(stop=True), {"ok": True})[1],
         "/api/dupes/move": lambda b: app.dupes_move([int(x) for x in b["ids"]]),
         "/api/dupes/restore": lambda b: app.dupes_restore(int(b["id"])),
         "/api/names/scan": lambda b: app.names_scan(),

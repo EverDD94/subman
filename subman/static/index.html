@@ -143,6 +143,7 @@ dialog::backdrop{background:#0007}
     <button data-tab="biblioteca">Biblioteca</button>
     <button data-tab="nombres">Nombres</button>
     <button data-tab="duplicados">Duplicados</button>
+    <button data-tab="formatos">Formatos</button>
     <button data-tab="descubrir">Descubrir</button>
     <button data-tab="registro">Registro</button>
     <button data-tab="ajustes">Ajustes</button>
@@ -324,6 +325,23 @@ dialog::backdrop{background:#0007}
     <table><thead><tr><th>Película</th><th>Ahora está en</th><th></th></tr></thead><tbody id="dupMoved"></tbody></table></div>
 </section>
 
+<section id="formatos" hidden>
+  <div class="card">
+    <div class="row" style="justify-content:space-between"><h2 style="margin:0">Formatos para Jellyfin</h2>
+      <div class="row"><button class="btn sec" id="fmtStop" hidden>Parar</button><button class="btn" id="fmtScan">Analizar videos</button></div></div>
+    <p class="muted">Mira cada video y dice si móvil, Roku, Fire TV, Google TV y el navegador lo reproducen directo, o si el NAS tendría que convertirlo mientras lo ves (eso es lo que hace que se trabe).
+      Lo que funciona en todos: caja <b>MP4</b>, imagen <b>H.264</b> hasta 1080p y sonido principal <b>AAC estéreo</b>. Aquí sólo se mira y se cuenta: <b>no se cambia ningún archivo</b>.</p>
+    <div id="fmtState"></div>
+  </div>
+  <div class="card" id="fmtSumCard" hidden><h2>Resumen</h2><div id="fmtSum"></div></div>
+  <div class="card" id="fmtListCard" hidden>
+    <div class="filters row" id="fmtFilters" style="gap:6px;margin-bottom:10px"></div>
+    <input type="text" id="fmtQ" placeholder="Buscar por nombre..." style="margin-bottom:10px">
+    <table><thead><tr><th>Video</th><th>Imagen</th><th>Sonido</th><th>Qué le falta</th></tr></thead><tbody id="fmtList"></tbody></table>
+    <p class="muted" id="fmtMore"></p>
+  </div>
+</section>
+
 <section id="papelera" hidden>
   <div class="card">
     <h2>Papelera y archivo</h2>
@@ -370,7 +388,7 @@ function show(name) {
   tab = name;
   document.querySelectorAll("main > section").forEach(s => s.hidden = s.id !== name);
   document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === name));
-  ({inicio:loadStatus, biblioteca:loadLibrary, ajustes:loadConfig, registro:loadLog, papelera:loadTrash, duplicados:loadDupes, nombres:loadNames, descubrir:loadDiscover})[name]();
+  ({inicio:loadStatus, biblioteca:loadLibrary, ajustes:loadConfig, registro:loadLog, papelera:loadTrash, duplicados:loadDupes, formatos:loadFormats, nombres:loadNames, descubrir:loadDiscover})[name]();
 }
 document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => show(b.dataset.tab));
 
@@ -771,6 +789,58 @@ $("#dupMove").onclick = async () => {
   } catch (e) { toast("Error: " + e.message); }
   loadDupes();
 };
+
+// ---------- Formatos ----------
+const FMT = {
+  ok: ["Ya están bien", "Se reproducen directo en todos los aparatos. No se tocan.", "var(--ok)"],
+  caja: ["Sólo cambiar la caja", "Imagen y sonido ya valen; sólo hay que pasarlos a MP4. Segundos por video, sin perder calidad.", "var(--accent)"],
+  sonido: ["Arreglar el sonido", "La imagen se copia tal cual y sólo se convierte el sonido. Un par de minutos por video.", "var(--warn)"],
+  video: ["Convertir la imagen", "Lo lento: en este NAS tarda más o menos lo que dura el video.", "var(--bad)"],
+  "4k": ["4K / HDR: no se tocan", "Pasarlos a H.264 los arruinaría; los aparatos que muestran 4K ya los entienden.", "var(--muted)"],
+  error: ["No se pudieron leer", "Puede que el archivo esté dañado o incompleto.", "var(--muted)"]};
+let fmt = null, fmtF = "", fmtShown = 200;
+function dur(s) { s = Math.round(s || 0); if (s < 60) return s ? s + " s" : "—"; const h = Math.floor(s / 3600), m = Math.round(s / 60) % 60;
+  if (h >= 48) return `${Math.round(h / 24)} días`; return h ? `${h} h ${m} min` : `${m} min`; }
+async function loadFormats() {
+  fmt = await api("/api/formats");
+  $("#fmtScan").disabled = fmt.running; $("#fmtStop").hidden = !fmt.running;
+  $("#fmtScan").textContent = fmt.analyzed ? "Analizar otra vez" : "Analizar videos";
+  $("#fmtState").innerHTML = fmt.running
+    ? `<b>Analizando</b> · ${fmt.total ? `${fmt.done} de ${fmt.total}` : ""}<div class="muted">${esc(fmt.message)}</div>${fmt.total ? `<div class="bar"><i style="width:${fmt.done / fmt.total * 100}%"></i></div>` : ""}`
+    : fmt.error ? `<span class="pill falla">error</span> ${esc(fmt.error)}`
+    : !fmt.analyzed ? `<span class="muted">Pulsa «Analizar videos». La primera vez mira todos (puede tardar un rato); después sólo los nuevos o cambiados.</span>`
+    : fmt.pending ? `<span class="muted">Hay ${fmt.pending} videos sin mirar todavía: pulsa «Analizar otra vez».</span>` : "";
+  const G = fmt.groups, n = fmt.analyzed;
+  $("#fmtSumCard").hidden = $("#fmtListCard").hidden = !n;
+  if (n) {
+    const fix = ["caja", "sonido", "video"], work = fix.reduce((a, g) => a + G[g].seconds, 0);
+    $("#fmtSum").innerHTML = `<div class="nmbar">${Object.keys(FMT).filter(g => G[g].count).map(g => `<div title="${FMT[g][0]}: ${G[g].count}" style="width:${G[g].count / n * 100}%;background:${FMT[g][2]}"></div>`).join("")}</div>`
+      + Object.keys(FMT).filter(g => G[g].count).map(g => `<div class="reason"><div class="n">${G[g].count}</div><div><b><span class="dot" style="background:${FMT[g][2]}"></span>${FMT[g][0]}</b><p class="muted">${FMT[g][1]}</p>
+        ${fix.includes(g) ? `<p>Tiempo aproximado en el NAS: <b>${dur(G[g].seconds)}</b> · ocupan ${size(G[g].size)}</p>` : ""}</div>
+        <button class="btn sec" onclick="fmtFilter('${g}')">Ver</button></div>`).join("")
+      + (work ? `<p style="margin-bottom:0">Arreglarlo todo llevaría unas <b>${dur(work)}</b> de trabajo del NAS, uno a uno. Mientras se guardan los originales hace falta espacio libre parecido a lo que ocupan: <b>${size(fix.reduce((a, g) => a + G[g].size, 0))}</b>.</p>` : "");
+    renderFormats();
+  }
+  if (fmt.running) setTimeout(() => tab === "formatos" && loadFormats(), 3000);
+}
+function fmtFilter(g) { fmtF = g; fmtShown = 200; renderFormats(); $("#fmtListCard").scrollIntoView({behavior: "smooth"}); }
+function renderFormats() {
+  const counts = fmt.groups;
+  $("#fmtFilters").innerHTML = [["", "Todos", fmt.analyzed], ...Object.keys(FMT).filter(g => counts[g].count).map(g => [g, FMT[g][0], counts[g].count])]
+    .map(([g, t, c]) => `<button class="${fmtF === g ? "on" : ""}" onclick="fmtFilter('${g}')">${esc(t)} (${c})</button>`).join("");
+  const q = $("#fmtQ").value.toLowerCase();
+  const rows = fmt.items.filter(i => (!fmtF || i.grp === fmtF) && (!q || (i.label + " " + i.name).toLowerCase().includes(q)));
+  $("#fmtList").innerHTML = rows.slice(0, fmtShown).map(i => `<tr><td><span class="dot" style="background:${FMT[i.grp][2]}"></span>${esc(i.label)}<div class="path">${esc(i.name)}</div></td>
+    <td>${esc(i.video || "?")}${i.height ? ` · ${i.height}p` : ""}<div class="muted" style="font-size:12px">caja ${esc(i.container || "?")}</div></td>
+    <td style="font-size:13px">${(i.audio || []).map(esc).join("<br>") || "—"}</td>
+    <td style="font-size:13px">${i.grp === "ok" ? '<span class="pill ok">nada</span>' : (i.why || []).map(esc).join("<br>")}
+      ${(i.notes || []).length ? `<div class="muted" style="font-size:12px">${i.notes.map(esc).join("<br>")}</div>` : ""}
+      ${i.seconds >= 60 ? `<div class="muted" style="font-size:12px">≈ ${dur(i.seconds)}</div>` : ""}</td></tr>`).join("");
+  $("#fmtMore").innerHTML = rows.length > fmtShown ? `Se ven ${fmtShown} de ${rows.length}. <a href="#" onclick="fmtShown += 300; renderFormats(); return false">Ver más</a>` : "";
+}
+$("#fmtQ").oninput = () => { fmtShown = 200; renderFormats(); };
+$("#fmtScan").onclick = async () => { await api("/api/formats/scan", {}); loadFormats(); };
+$("#fmtStop").onclick = async () => { await api("/api/formats/stop", {}); toast("Parando: lo ya mirado se guarda"); };
 
 setInterval(() => { if (tab === "inicio") loadStatus(); if (tab === "registro" && $("#follow").checked) loadLog(); }, 4000);
 // ---------- Descubrir ----------

@@ -464,12 +464,12 @@ $("#testJF").onclick = async () => {
 $("#testTMDB").onclick = async () => {
   $("#tmdbResult").textContent = "Probando...";
   const r = await api("/api/test-tmdb", formValues().tmdb);
-  $("#tmdbResult").innerHTML = r.ok ? `<span class="pill ok">conectado</span>` : `<span class="pill falla">no conecta</span> ${esc(r.error)}`;
+  $("#tmdbResult").innerHTML = r.ok ? `<span class="pill ok">conectado</span> clave guardada` : `<span class="pill falla">no conecta</span> ${esc(r.error)}`;
 };
 $("#testGemini").onclick = async () => {
   $("#geminiResult").textContent = "Probando...";
   const r = await api("/api/test-gemini", formValues().gemini);
-  $("#geminiResult").innerHTML = r.ok ? `<span class="pill ok">conectado</span> ${esc(r.model || "")}` : `<span class="pill falla">no conecta</span> ${esc(r.error)}`;
+  $("#geminiResult").innerHTML = r.ok ? `<span class="pill ok">conectado</span> clave guardada (${esc(r.model || "")})` : `<span class="pill falla">no conecta</span> ${esc(r.error)}`;
 };
 
 // ---------- Registro ----------
@@ -504,6 +504,7 @@ async function loadNames() {
   const res = nm.result;
   $("#nmState").innerHTML = !nm.jellyfin ? `<span class="pill revisar">falta Jellyfin</span> Pon la dirección y la API key de Jellyfin en Ajustes: se usa su buscador de películas.`
     : nm.running ? `<b>${esc(nm.message || "revisando...")}</b>`
+    : !nm.tmdb ? `<span class="pill revisar">falta la clave</span> «Identificar todo» necesita la clave de TheMovieDB guardada en Ajustes (pega la clave y pulsa Probar o «Guardar ajustes»).`
     : nm.error ? `<span class="pill falla">error</span> ${esc(nm.error)}`
     : nm.auto && nm.auto.at === nm.at ? `<span class="pill ok">hecho</span> Aplicadas solas: <b>${nm.auto.applied}</b>${nm.auto.ai ? ` (${nm.auto.ai} con ayuda de la IA)` : ""}. Para revisar: <b>${nm.auto.left}</b>. Las aplicadas están abajo en «Cambios hechos».`
     : res ? `<span class="muted">Revisado ${when(nm.at)}.${!res.todo.length && !res.loose.length ? " Todo está en orden." : ""}</span>`

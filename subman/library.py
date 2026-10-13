@@ -188,6 +188,8 @@ class Library:
                     stats["total"] += 1
                     if progress and stats["total"] % 25 == 0:
                         progress(stats["total"])
+                    if stats["total"] % 200 == 0:
+                        self.db.commit()  # no tener la base de datos bloqueada todo el escaneo (la web también escribe)
                     if row and row["size"] == st.st_size and row["mtime"] == st.st_mtime:
                         self.db.execute("UPDATE media SET seen=? WHERE id=?", (now, row["id"]))
                         continue

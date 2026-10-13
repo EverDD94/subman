@@ -104,11 +104,21 @@ originales se apartan a `papelera/` y los de inglés a `archivo/en/` (junto a `s
 `subman serve` (lo que arranca el contenedor) abre una página en el puerto 8787:
 
 - **Inicio:** encender o pausar el trabajo automático, procesar ahora, progreso y recuento.
+  Debajo, **Lo que falta**: los videos sin subtítulo bueno agrupados por motivo (sin
+  subtítulo, forzado, de otra versión, no se pudo sincronizar...) con qué hacer en cada caso.
 - **Biblioteca:** cada video con su estado; al abrirlo se ve de dónde salió el subtítulo,
   los tramos corregidos y la verificación, con botones para aceptarlo, rechazarlo (va a la
   papelera y se busca otro) o volver a procesarlo.
 - **Ajustes:** carpetas de la biblioteca (navegando por `/media`), credenciales de
   OpenSubtitles con "Probar conexión", idiomas y demás opciones. Se guardan en `subman.toml`.
+- **Nombres:** las películas que Jellyfin no reconoce, reconoce mal o que están sin año, con
+  opciones del buscador de Jellyfin (TheMovieDB, con póster) para elegir la buena. Al aplicar,
+  cada película va a su carpeta `Título (Año) [tmdbid-N]/Título (Año).ext` con sus subtítulos,
+  y se avisa a Jellyfin. Las bien reconocidas pero sueltas se ordenan de golpe. Todo se puede deshacer.
+- **Duplicados:** películas con más de una copia. Se agrupan por la ficha de Jellyfin (si está
+  configurado) o por el nombre limpio y el año, y se compara la duración real; propone
+  quedarse con la de mejor calidad. Las marcadas se mueven (con sus subtítulos) a
+  `duplicates_dir` (por defecto `/media/Duplicados`), nunca se borran, y se pueden devolver.
 - **Registro** y **Papelera** (con "Recuperar").
 
 No tiene contraseña: está pensada para la red de casa. Hasta que se activa en la web,
@@ -130,6 +140,10 @@ subman/
   sync.py        video + subtítulo -> subtítulo sincronizado + informe
   library.py     escaneo de la biblioteca, hash de OpenSubtitles, índice SQLite
   manager.py     buscar candidatos -> sincronizar -> verificar -> elegir y escribir
+  diagnose.py    por qué un video no tiene subtítulo bueno y qué hacer
+  duplicates.py  películas duplicadas: encontrar, apartar y devolver
+  identify.py    identificar películas y ponerlas cada una en su carpeta (y deshacerlo)
+  jellyfin.py    aviso de re-escaneo, lista de películas con sus fichas y buscador
   providers/     proveedores enchufables (opensubtitles.py)
   config.py      subman.toml: valores por defecto, lectura y escritura
   web.py         interfaz web + trabajador en segundo plano

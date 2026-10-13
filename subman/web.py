@@ -532,13 +532,19 @@ class App:
         return {"ok": True}
 
     def names_organize(self, ids: list[int]) -> dict:
+        if self.names["running"]:
+            return {"ok": False, "done": 0, "error": "espera a que termine lo que está haciendo Nombres"}
         cfg = self.cfg()
         lib = self.library(cfg)
-        done, errors = set(), []
+        done, gone, errors = set(), set(), []
         loose = {e["id"]: e for e in (self.names["result"] or {}).get("loose", [])}
         for i in ids:
             e = loose.get(i)
-            if not e or not e["jellyfin"]:
+            m = lib.media("id=?", (i,))
+            if not e or not m or m[0].path != e["path"]:  # ya la movió otra cosa (p. ej. «Identificar todo»)
+                gone.add(i)
+                continue
+            if not e["jellyfin"]:
                 continue
             jf = e["jellyfin"]
             try:
@@ -546,10 +552,10 @@ class App:
                 done.add(i)
             except (ValueError, OSError) as ex:
                 errors.append(str(ex))
-        self._names_done(done)
+        self._names_done(done | gone)
         if done:
             self._jellyfin_refresh(cfg)
-        return {"ok": not errors, "done": len(done), "error": "; ".join(errors[:5])}
+        return {"ok": not errors, "done": len(done), "gone": len(gone), "error": "; ".join(errors[:5])}
 
     def names_search(self, media_id: int, query: str) -> dict:
         cfg = self.cfg()

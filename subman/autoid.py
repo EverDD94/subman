@@ -19,7 +19,7 @@ import re
 
 from . import audio, identify
 from .duplicates import normalize
-from .gemini import Gemini
+from .gemini import Gemini, GeminiError
 from .identify import similarity
 from .library import Library
 from .tmdb import TMDb
@@ -167,11 +167,40 @@ def run(lib: Library, cfg: dict, review: dict, progress=lambda msg: None, stop=l
     entries = [*review.get("loose", []), *review.get("todo", [])]
     applied, pending, left, unknown = [], [], [], []
 
+    ai_state = {"error": None, "off": False, "fails": 0}
+
     def report():
         done = {a["id"] for a in applied} | {e["id"] for e in left}
         review_n = sum(1 for e in left if e.get("options"))
         counts({"total": len(entries), "ok": len(applied), "review": review_n, "fail": len(left) - review_n,
-                "ai": len({e["id"] for e in [*pending, *unknown]} - done)})
+                "ai": len({e["id"] for e in [*pending, *unknown]} - done),
+                "ai_error": ai_state["error"], "ai_off": ai_state["off"]})
+
+    def ask_ai(fn, items):
+        """Llama a la IA; si falla lo apunta para que se vea en la página, y tras dos fallos seguidos
+        (o con la clave mala) deja de preguntarle en esta pasada."""
+        if ai_state["off"]:
+            return None
+        try:
+            out = fn(items)
+            ai_state.update(fails=0, error=None)
+            return out
+        except GeminiError as ex:
+            log.warning("Gemini: %s", ex)
+            ai_state["fails"] += 1
+            ai_state["error"] = str(ex).rsplit(" (", 1)[0]
+            if ex.kind == "key" or ai_state["fails"] >= 2:
+                ai_state["off"] = True
+        except Exception as ex:
+            log.warning("Gemini: %s", ex)
+            ai_state.update(fails=ai_state["fails"] + 1, error=f"la IA (Gemini) dio un error: {ex}")
+            if ai_state["fails"] >= 2:
+                ai_state["off"] = True
+        report()
+        return None
+
+    def no_ai(e):
+        e["why"] = f"{e.get('why') or 'para revisar'}; no se pudo preguntar a la IA ({ai_state['error']})"
 
     _progress = progress
 
@@ -237,12 +266,13 @@ def run(lib: Library, cfg: dict, review: dict, progress=lambda msg: None, stop=l
             unknown = []
             break
         progress(f"la IA busca el nombre: {i + 1}-{i + len(group)} de {len(unknown)} ({len(applied)} hechas)")
-        try:
-            guesses = ai.guess([{"n": k + 1, "file": e["name"], "folder": e["folder"], "minutes": e["minutes"]}
-                                for k, e in enumerate(group)])
-        except Exception as ex:
-            log.warning("Gemini: %s", ex)
-            guesses = {}
+        guesses = ask_ai(ai.guess, [{"n": k + 1, "file": e["name"], "folder": e["folder"], "minutes": e["minutes"]}
+                                    for k, e in enumerate(group)])
+        if guesses is None:
+            for e in group:
+                no_ai(e)
+                left.append(e)
+            continue
         for k, e in enumerate(group):
             names = guesses.get(k + 1) or []
             ids: list[int] = []
@@ -271,11 +301,12 @@ def run(lib: Library, cfg: dict, review: dict, progress=lambda msg: None, stop=l
         progress(f"preguntando a la IA: {i + 1}-{i + len(group)} de {len(pending)} ({len(applied)} hechas)")
         items = [{"n": k + 1, "file": e["name"], "folder": e["folder"], "minutes": e["minutes"],
                   "options": e["options"]} for k, e in enumerate(group)]
-        try:
-            picks = ai.choose(items)
-        except Exception as ex:
-            log.warning("Gemini: %s", ex)
-            picks = {}
+        picks = ask_ai(ai.choose, items)
+        if picks is None:
+            for e in group:
+                no_ai(e)
+                left.append(e)
+            continue
         for k, e in enumerate(group):
             pick, sure = picks.get(k + 1, (None, False))
             c = next((o for o in e["options"] if o["tmdb"] == pick), None)

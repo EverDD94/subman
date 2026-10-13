@@ -47,11 +47,26 @@ Archivos:
 """
 
 
+class GeminiError(RuntimeError):
+    """kind: «quota» (sin cupo gratis), «down» (no contesta / saturada) o «key» (clave mala)."""
+
+    def __init__(self, message: str, kind: str):
+        super().__init__(message)
+        self.kind = kind
+
+
+QUOTA_MSG = ("la IA (Gemini) llegó a su límite gratis; suele volver en un minuto, o mañana si es el límite "
+             "del día")
+DOWN_MSG = "la IA (Gemini) no contesta ahora mismo (Google está saturado o no hay conexión)"
+KEY_MSG = "Google no acepta esa clave de Gemini; cópiala otra vez de aistudio.google.com/apikey"
+
+
 class Gemini:
-    def __init__(self, key: str, timeout: float = 120):
+    def __init__(self, key: str, timeout: float = 60):
         self.key = key
         self.timeout = timeout
         self.model = None
+        self._models: list[str] = []
         self._last = 0.0
 
     def _post(self, model: str, body: dict) -> requests.Response:
@@ -65,7 +80,7 @@ class Gemini:
         """Los modelos «flash» que Google ofrece ahora a esta clave (cambian a menudo), los rápidos primero."""
         r = requests.get(LIST, params={"key": self.key, "pageSize": 1000}, timeout=20)
         if r.status_code in (400, 401, 403):
-            raise RuntimeError("Google no acepta esa clave; cópiala otra vez de aistudio.google.com/apikey")
+            raise GeminiError(KEY_MSG, "key")
         r.raise_for_status()
         names = [m["name"].removeprefix("models/") for m in r.json().get("models", [])
                  if "generateContent" in m.get("supportedGenerationMethods", [])]
@@ -79,24 +94,28 @@ class Gemini:
     def ask(self, text: str) -> str:
         body = {"contents": [{"parts": [{"text": text}]}],
                 "generationConfig": {"temperature": 0, "responseMimeType": "application/json"}}
-        if self.model:
-            models = [self.model]
-        else:
+        if not self._models:
             try:
-                models = self.models()[:5] or list(MODELS)
+                self._models = self.models()[:5] or list(MODELS)
             except requests.RequestException as e:
                 log.warning("Gemini: no se pudo pedir la lista de modelos: %s", e)
-                models = list(MODELS)
-            log.info("Gemini: modelos a probar: %s", ", ".join(models))
+                self._models = list(MODELS)
+            log.info("Gemini: modelos a probar: %s", ", ".join(self._models))
+        # el que ya funcionó primero; si se queda sin cupo, los demás (cada modelo tiene su propio límite)
+        models = [self.model] + [m for m in self._models if m != self.model] if self.model else self._models
         errors: list[str] = []
+        waited = False
+        deadline = time.time() + max(90, self.timeout)  # no quedarse minutos probando modelos
         for model in models:
+            if time.time() > deadline:
+                errors.append(f"{model}: sin tiempo")
+                continue
             try:
-                for attempt in range(3):
+                r = self._post(model, body)
+                if r.status_code == 429 and not waited and self.timeout > 30:  # límite por minuto: esperar una vez (no al probar)
+                    waited = True
+                    time.sleep(30)
                     r = self._post(model, body)
-                    if r.status_code == 429 and attempt < 2 and self.timeout > 30:  # límite por minuto: esperar (no al probar)
-                        time.sleep(30)
-                        continue
-                    break
             except (requests.Timeout, requests.ConnectionError) as e:  # ese modelo va lento: probar otro
                 log.warning("Gemini: %s no contesta: %s", model, e)
                 errors.append(f"{model}: no contesta")
@@ -106,12 +125,15 @@ class Gemini:
                 errors.append(f"{model}: {r.status_code}")
                 continue
             if r.status_code in (400, 403) and "API key" in r.text:
-                raise RuntimeError("Google no acepta esa clave; cópiala otra vez de aistudio.google.com/apikey")
+                raise GeminiError(KEY_MSG, "key")
             r.raise_for_status()
             self.model = model
             parts = r.json()["candidates"][0]["content"]["parts"]
             return "".join(p.get("text", "") for p in parts)
-        raise RuntimeError("ningún modelo de Gemini contestó (" + "; ".join(errors) + ")")
+        detail = " (" + "; ".join(errors) + ")"
+        if errors and any(e.endswith(": 429") for e in errors) and all(e.endswith((": 429", ": sin tiempo")) for e in errors):
+            raise GeminiError(QUOTA_MSG + detail, "quota")
+        raise GeminiError(DOWN_MSG + detail, "down")
 
     def test(self) -> dict:
         self.timeout, keep = 25, self.timeout  # para probar no hace falta esperar un minuto por modelo

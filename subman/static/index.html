@@ -561,7 +561,9 @@ function nmBar(c) {
       <span><span class="dot" style="background:var(--warn)"></span>Para revisar: <b>${c.review}</b></span>
       <span><span class="dot" style="background:var(--bad)"></span>No se pudieron: <b>${c.fail}</b></span>
       ${c.ai ? `<span><span class="dot" style="background:var(--accent)"></span>Esperando a la IA: <b>${c.ai}</b></span>` : ""}
-      ${rest ? `<span>Faltan por mirar: <b>${rest}</b></span>` : ""}<span>de ${c.total}</span></div>`;
+      ${rest ? `<span>Faltan por mirar: <b>${rest}</b></span>` : ""}<span>de ${c.total}</span></div>
+    ${c.ai_error ? `<div style="margin-top:8px"><span class="pill falla">IA</span> ${esc(c.ai_error[0].toUpperCase() + c.ai_error.slice(1))}.
+      ${c.ai_off ? "Ya no se le pregunta más en esta pasada: las que la necesitaban te quedan para revisar. Puedes volver a pulsar «Identificar todo» más tarde." : "Se vuelve a intentar con la siguiente tanda."}</div>` : ""}`;
 }
 let nm = null, nmPick = {}, nmShown = null;
 async function loadNames() {

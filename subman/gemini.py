@@ -7,13 +7,16 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 
 import requests
 
 log = logging.getLogger(__name__)
 API = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-MODELS = ("gemini-2.5-flash", "gemini-flash-latest", "gemini-2.0-flash", "gemini-2.5-flash-lite")
+LIST = "https://generativelanguage.googleapis.com/v1beta/models"
+MODELS = ("gemini-flash-lite-latest", "gemini-flash-latest", "gemini-2.5-flash-lite", "gemini-2.5-flash")  # si no se puede preguntar
+_SKIP = re.compile(r"image|tts|audio|live|embed|vision|thinking|exp", re.I)
 PAUSE = 6.0  # la capa gratis admite unas 10 peticiones por minuto
 
 PROMPT = """Eres un experto en cine. Para cada archivo de video de una biblioteca personal (casi siempre
@@ -45,26 +48,49 @@ class Gemini:
         self._last = time.time()
         return requests.post(API.format(model=model), params={"key": self.key}, json=body, timeout=self.timeout)
 
+    def models(self) -> list[str]:
+        """Los modelos «flash» que Google ofrece ahora a esta clave (cambian a menudo), los rápidos primero."""
+        r = requests.get(LIST, params={"key": self.key, "pageSize": 1000}, timeout=20)
+        if r.status_code in (400, 401, 403):
+            raise RuntimeError("Google no acepta esa clave; cópiala otra vez de aistudio.google.com/apikey")
+        r.raise_for_status()
+        names = [m["name"].removeprefix("models/") for m in r.json().get("models", [])
+                 if "generateContent" in m.get("supportedGenerationMethods", [])]
+        flash = [n for n in names if "flash" in n and not _SKIP.search(n)]
+
+        def rank(n):
+            version = [float(v) for v in re.findall(r"(\d+(?:\.\d+)?)", n)[:1]] or [0.0]
+            return ("preview" in n, "lite" not in n, -version[0], n)
+        return sorted(flash, key=rank)
+
     def ask(self, text: str) -> str:
         body = {"contents": [{"parts": [{"text": text}]}],
                 "generationConfig": {"temperature": 0, "responseMimeType": "application/json"}}
-        models = [self.model] if self.model else list(MODELS)
-        last: Exception | None = None
+        if self.model:
+            models = [self.model]
+        else:
+            try:
+                models = self.models()[:5] or list(MODELS)
+            except requests.RequestException as e:
+                log.warning("Gemini: no se pudo pedir la lista de modelos: %s", e)
+                models = list(MODELS)
+            log.info("Gemini: modelos a probar: %s", ", ".join(models))
+        errors: list[str] = []
         for model in models:
             try:
                 for attempt in range(3):
                     r = self._post(model, body)
-                    if r.status_code == 429 and attempt < 2:  # límite por minuto: esperar y repetir
+                    if r.status_code == 429 and attempt < 2 and self.timeout > 30:  # límite por minuto: esperar (no al probar)
                         time.sleep(30)
                         continue
                     break
             except (requests.Timeout, requests.ConnectionError) as e:  # ese modelo va lento: probar otro
                 log.warning("Gemini: %s no contesta: %s", model, e)
-                last = RuntimeError(f"Gemini no contesta ({model}); prueba otra vez en un rato")
+                errors.append(f"{model}: no contesta")
                 continue
-            if r.status_code == 404 or r.status_code >= 500:  # no existe o está saturado: el siguiente
+            if r.status_code in (404, 429) or r.status_code >= 500:  # no existe, sin cupo o saturado: el siguiente
                 log.warning("Gemini: %s respondió %s", model, r.status_code)
-                last = RuntimeError(f"Gemini respondió {r.status_code} ({model})")
+                errors.append(f"{model}: {r.status_code}")
                 continue
             if r.status_code in (400, 403) and "API key" in r.text:
                 raise RuntimeError("Google no acepta esa clave; cópiala otra vez de aistudio.google.com/apikey")
@@ -72,7 +98,7 @@ class Gemini:
             self.model = model
             parts = r.json()["candidates"][0]["content"]["parts"]
             return "".join(p.get("text", "") for p in parts)
-        raise last or RuntimeError("Gemini no contesta")
+        raise RuntimeError("ningún modelo de Gemini contestó (" + "; ".join(errors) + ")")
 
     def test(self) -> dict:
         self.timeout, keep = 25, self.timeout  # para probar no hace falta esperar un minuto por modelo

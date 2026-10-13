@@ -13,7 +13,7 @@ import requests
 
 log = logging.getLogger(__name__)
 API = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-MODELS = ("gemini-flash-latest", "gemini-2.5-flash", "gemini-2.0-flash")
+MODELS = ("gemini-2.5-flash", "gemini-flash-latest", "gemini-2.0-flash", "gemini-2.5-flash-lite")
 PAUSE = 6.0  # la capa gratis admite unas 10 peticiones por minuto
 
 PROMPT = """Eres un experto en cine. Para cada archivo de video de una biblioteca personal (casi siempre
@@ -32,7 +32,7 @@ Archivos:
 
 
 class Gemini:
-    def __init__(self, key: str, timeout: float = 60):
+    def __init__(self, key: str, timeout: float = 120):
         self.key = key
         self.timeout = timeout
         self.model = None
@@ -49,26 +49,37 @@ class Gemini:
         body = {"contents": [{"parts": [{"text": text}]}],
                 "generationConfig": {"temperature": 0, "responseMimeType": "application/json"}}
         models = [self.model] if self.model else list(MODELS)
-        last = None
+        last: Exception | None = None
         for model in models:
-            for attempt in range(3):
-                r = self._post(model, body)
-                if r.status_code == 429 and attempt < 2:  # límite por minuto: esperar y repetir
-                    time.sleep(30)
-                    continue
-                break
-            if r.status_code == 404:  # ese modelo ya no existe: probar el siguiente
-                last = r
+            try:
+                for attempt in range(3):
+                    r = self._post(model, body)
+                    if r.status_code == 429 and attempt < 2:  # límite por minuto: esperar y repetir
+                        time.sleep(30)
+                        continue
+                    break
+            except (requests.Timeout, requests.ConnectionError) as e:  # ese modelo va lento: probar otro
+                log.warning("Gemini: %s no contesta: %s", model, e)
+                last = RuntimeError(f"Gemini no contesta ({model}); prueba otra vez en un rato")
                 continue
+            if r.status_code == 404 or r.status_code >= 500:  # no existe o está saturado: el siguiente
+                log.warning("Gemini: %s respondió %s", model, r.status_code)
+                last = RuntimeError(f"Gemini respondió {r.status_code} ({model})")
+                continue
+            if r.status_code in (400, 403) and "API key" in r.text:
+                raise RuntimeError("Google no acepta esa clave; cópiala otra vez de aistudio.google.com/apikey")
             r.raise_for_status()
             self.model = model
             parts = r.json()["candidates"][0]["content"]["parts"]
             return "".join(p.get("text", "") for p in parts)
-        last.raise_for_status()
-        return ""
+        raise last or RuntimeError("Gemini no contesta")
 
     def test(self) -> dict:
-        self.ask('Responde sólo con JSON: {"ok": true}')
+        self.timeout, keep = 25, self.timeout  # para probar no hace falta esperar un minuto por modelo
+        try:
+            self.ask('Responde sólo con JSON: {"ok": true}')
+        finally:
+            self.timeout = keep
         return {"model": self.model}
 
     def choose(self, items: list[dict]) -> dict[int, tuple[str | None, bool]]:

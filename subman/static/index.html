@@ -70,7 +70,7 @@ pre.log{background:var(--bg);border:1px solid var(--line);border-radius:8px;padd
 .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
 dialog.ask{border:1px solid var(--line, #444);border-radius:12px;padding:20px;max-width:420px;background:var(--card, var(--bg));color:var(--text)}
 dialog.ask::backdrop{background:rgba(0,0,0,.5)}
-dialog{border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--text);max-width:760px;width:94vw;padding:20px}
+dialog{border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--text);max-width:900px;width:94vw;padding:20px}
 dialog::backdrop{background:#0007}
 .path{font:12px ui-monospace,Consolas,monospace;color:var(--muted);word-break:break-all}
 .filters button{background:var(--chip);border:0;border-radius:999px;padding:4px 12px;color:var(--text);cursor:pointer;font:inherit;font-size:13px}
@@ -88,22 +88,41 @@ dialog::backdrop{background:#0007}
 .nm{border-top:1px solid var(--line);padding:14px 0}
 .nm:first-child{border-top:0}
 .dup tr.go{background:color-mix(in srgb,var(--bad) 8%,transparent)}
-.dsc{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:12px}
+.dsc{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
 .dc{background:var(--bg);border:1px solid var(--line);border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
-.dc .poster{position:relative}
+.dc .poster{position:relative;cursor:pointer}
 .dc img,.dc .noimg{width:100%;aspect-ratio:2/3;object-fit:cover;display:block;background:var(--chip)}
-.dc .kind{position:absolute;top:6px;left:6px;background:#000a;color:#fff;font-size:11px;padding:1px 7px;border-radius:999px}
-.dc .own{position:absolute;top:6px;right:6px;background:var(--ok);color:#fff;font-size:11px;padding:1px 7px;border-radius:999px}
-.dc .body{padding:8px 10px;display:flex;flex-direction:column;gap:6px;flex:1}
-.dc .t{font-weight:600;line-height:1.25}
-.dc .ov{font-size:12px;color:var(--muted);display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
-.dc .ov.open{-webkit-line-clamp:unset}
+.dc .kind{position:absolute;top:8px;left:8px;background:#000a;color:#fff;font-size:12px;padding:2px 8px;border-radius:999px}
+.dc .own{position:absolute;top:8px;right:8px;background:var(--ok);color:#fff;font-size:12px;padding:2px 8px;border-radius:999px}
+.dc .body{padding:10px 12px 12px;display:flex;flex-direction:column;gap:8px;flex:1}
+.dc .t{font-weight:600;font-size:16px;line-height:1.25;cursor:pointer}
+.dc .ov{font-size:13.5px;line-height:1.5}
 .rate{display:flex;gap:4px;margin-top:auto}
-.rate button,.havebtn{flex:1;background:var(--chip);border:1px solid transparent;border-radius:8px;padding:4px 0;cursor:pointer;font:inherit;font-size:14px;color:var(--text)}
+.rate button,.havebtn{flex:1;background:var(--chip);border:1px solid transparent;border-radius:8px;padding:6px 0;cursor:pointer;font:inherit;font-size:15px;color:var(--text)}
 .rate button.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 22%,transparent)}
 .rate button.on.down{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 20%,transparent)}
-.havebtn{font-size:12px;padding:5px 0}
+.havebtn{font-size:13px;padding:6px 0}
 .havebtn.yes{background:color-mix(in srgb,var(--ok) 20%,transparent);color:var(--ok);font-weight:600}
+.detail,.swipe{display:grid;grid-template-columns:260px 1fr;gap:20px;align-items:start}
+.detail img.big,.swipe img.big,.swipe .noimg.big{width:100%;border-radius:10px;display:block;aspect-ratio:2/3;object-fit:cover;background:var(--chip)}
+@media (max-width:640px){.detail,.swipe{grid-template-columns:1fr}.detail img.big,.swipe img.big{max-width:240px;margin:0 auto}}
+.cast,.people{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:10px}
+.people{margin:12px 0}
+.person{font-size:12px;display:flex;flex-direction:column;gap:2px}
+.person.pick{cursor:pointer;border:2px solid var(--line);border-radius:10px;padding:6px}
+.person.pick:hover{border-color:var(--accent)}
+.person img,.person .noimg{width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:6px;background:var(--chip)}
+.person span{color:var(--muted)}
+.gchips{display:flex;flex-wrap:wrap;gap:8px}
+.gchips button{background:var(--chip);border:2px solid transparent;border-radius:999px;padding:7px 14px;color:var(--text);cursor:pointer;font:inherit}
+.gchips button.yes{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 18%,transparent)}
+.gchips button.no{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 15%,transparent)}
+.deckbtns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.deckbtns .btn{padding:12px;font-size:16px}
+.swipe{transition:transform .2s,opacity .2s}
+.swipe.out-r{transform:translateX(80px) rotate(3deg);opacity:0}
+.swipe.out-l{transform:translateX(-80px) rotate(-3deg);opacity:0}
+.swipe.out-d{transform:translateY(40px);opacity:0}
 </style>
 </head>
 <body>
@@ -236,6 +255,7 @@ dialog::backdrop{background:#0007}
         <button data-s="para-ti">Para ti</button>
         <button data-s="por-conseguir">Por conseguir</button>
         <button data-s="calificadas">Mis calificaciones</button>
+        <button data-s="gustos">♥ Mis gustos</button>
       </div>
       <div class="filters" id="dscKind">
         <button data-k="" class="on">Todo</button><button data-k="movie">Películas</button><button data-k="tv">Series</button>
@@ -745,13 +765,16 @@ $("#dupMove").onclick = async () => {
 setInterval(() => { if (tab === "inicio") loadStatus(); if (tab === "registro" && $("#follow").checked) loadLog(); }, 4000);
 // ---------- Descubrir ----------
 const DSC_HELP = {
-  "novedades": "Películas y series que acaban de salir o salen pronto. Califícalas para que «Para ti» aprenda lo que te gusta.",
+  "novedades": "Películas y series que acaban de salir o salen pronto. Pulsa el póster para ver la ficha completa.",
   "clasicos": "Lo más visto esta semana y lo mejor valorado de siempre.",
-  "para-ti": "Parecidas a lo que te encanta (cuenta doble) y te gusta. No salen las que ya tienes ni las que ya calificaste.",
+  "para-ti": "Según «Mis gustos» y lo que calificaste. No salen las que ya tienes ni las que ya calificaste.",
   "por-conseguir": "Lo que marcaste «No la tengo», y lo que te gusta y no está en tu biblioteca. Cuando la consigas, pulsa «La tengo».",
   "calificadas": "Todo lo que has calificado. Puedes cambiarlo cuando quieras.",
+  "gustos": "",
   "buscar": "Resultados de la búsqueda."};
-let dsc = {section: "novedades", kind: "", page: 1, items: [], q: ""};
+const RATE = {2: "👍👍 Me encanta", 1: "👍 Me gusta", "-1": "👎 No me gusta", 0: "No la he visto"};
+let dsc = {section: "novedades", kind: "", page: 1, items: [], q: "", checked: false};
+let taste = null, quiz = null, deck = {items: [], i: 0, count: 0, loading: false};
 document.querySelectorAll("#dscTabs button").forEach(b => b.onclick = () => { dsc.section = b.dataset.s; dsc.q = ""; $("#dscQ").value = ""; loadDiscover(); });
 document.querySelectorAll("#dscKind button").forEach(b => b.onclick = () => {
   dsc.kind = b.dataset.k; document.querySelectorAll("#dscKind button").forEach(x => x.classList.toggle("on", x === b)); renderDiscover(); });
@@ -766,55 +789,266 @@ $("#dscMore").onclick = async () => {
     renderDiscover();
   } catch (e) { toast(e.message); } finally { $("#dscMore").disabled = false; }
 };
+function dscError(msg) {
+  $("#dscBox").innerHTML = `<p>${esc(msg)}</p>` + (msg.includes("Ajustes") ? `<button class="btn sec" onclick="show('ajustes')">Ir a Ajustes</button>` : "");
+}
 async function loadDiscover() {
+  if (!dsc.checked) {  // la primera vez: si no has contestado «Mis gustos», empieza por ahí
+    dsc.checked = true;
+    try { const t = await api("/api/discover/taste"); if (t.ok) { taste = t; if (!t.profile.done) dsc.section = "gustos"; } } catch (e) {}
+  }
   document.querySelectorAll("#dscTabs button").forEach(x => x.classList.toggle("on", x.dataset.s === dsc.section));
   $("#dscHelp").textContent = DSC_HELP[dsc.section];
-  $("#dscBox").innerHTML = `<p class="muted">Cargando…</p>`;
+  $("#dscHelp").hidden = !DSC_HELP[dsc.section];
+  $("#dscKind").hidden = dsc.section === "gustos";
   $("#dscMore").hidden = true;
+  if (dsc.section === "gustos") return loadTaste();
+  $("#dscBox").innerHTML = `<p class="muted">Cargando…</p>`;
   dsc.page = 1;
   try {
     const r = dsc.section === "buscar" ? await api("/api/discover/search?q=" + encodeURIComponent(dsc.q))
                                        : await api(`/api/discover?section=${dsc.section}&page=1`);
-    if (!r.ok) { $("#dscBox").innerHTML = `<p>${esc(r.error)}</p>` + (r.error.includes("Ajustes") ? `<button class="btn sec" onclick="show('ajustes')">Ir a Ajustes</button>` : ""); return; }
+    if (!r.ok) return dscError(r.error);
     dsc.items = r.items;
     renderDiscover();
   } catch (e) { $("#dscBox").innerHTML = `<p>No se pudo hablar con TheMovieDB: ${esc(e.message)}</p>`; }
 }
 function renderDiscover() {
+  if (dsc.section === "gustos") return;
   const items = dsc.items.filter(c => !dsc.kind || c.kind === dsc.kind);
   $("#dscMore").hidden = !["novedades", "clasicos"].includes(dsc.section);
   if (!items.length) {
-    const empty = {"para-ti": "Todavía no hay recomendaciones: califica con 👍 o 👍👍 algunas películas o series en Novedades, Populares o con el buscador.",
+    const empty = {"para-ti": `Todavía no hay recomendaciones. Contesta <a href="#" onclick="dscGo('gustos');return false">Mis gustos</a> o califica algunas con 👍 o 👍👍.`,
                    "por-conseguir": "Nada por conseguir.", "calificadas": "Aún no has calificado nada."}[dsc.section] || "No hay nada aquí.";
     $("#dscBox").innerHTML = `<p class="muted">${empty}</p>`; return;
   }
   $("#dscBox").innerHTML = `<div class="dsc">${items.map(dscCard).join("")}</div>`;
 }
+function dscGo(section) { dsc.section = section; loadDiscover(); }
+function dscFind(k) { return dsc.items.find(x => x.kind + x.tmdb === k) || deck.items.find(x => x.kind + x.tmdb === k) || (dsc.open && dsc.open.kind + dsc.open.tmdb === k ? dsc.open : null); }
+function rateButtons(c, k) {
+  const r = (v, ico, tip) => `<button title="${tip}" class="${c.rating === v ? "on" : ""} ${v < 0 ? "down" : ""}" onclick="dscRate('${k}',${v})">${ico}</button>`;
+  return `<div class="rate">${r(2, "👍👍", "Me encanta")}${r(1, "👍", "Me gusta")}${r(-1, "👎", "No me gusta")}</div>`;
+}
+function dscSub(c) { return [c.year, (c.genres || []).slice(0, 3).join(", ")].filter(Boolean).join(" · ") + (c.vote ? " · ★ " + c.vote : ""); }
 function dscCard(c) {
   const k = c.kind + c.tmdb;
-  const r = (v, ico, tip) => `<button title="${tip}" class="${c.rating === v ? "on" : ""} ${v < 0 ? "down" : ""}" onclick="dscRate('${k}',${v})">${ico}</button>`;
-  const sub = [c.year, (c.genres || []).slice(0, 2).join(", ")].filter(Boolean).join(" · ");
-  const because = c.because && c.because.length ? `<div class="hint">Porque te gustó ${esc(c.because.join(", "))}</div>` : "";
-  return `<div class="dc"><div class="poster">${c.poster ? `<img loading="lazy" src="${esc(c.poster)}" alt="">` : `<div class="noimg"></div>`}
+  const because = c.because && c.because.length ? `<div class="hint" style="margin:0">Porque ${esc(c.because.map(w => w.startsWith("te gusta") || w.startsWith("sale") || w.startsWith("parecida") || w === "popular" ? w : "te gustó " + w).join(", "))}</div>` : "";
+  return `<div class="dc"><div class="poster" onclick="dscOpen('${k}')">${c.poster ? `<img loading="lazy" src="${esc(c.poster)}" alt="">` : `<div class="noimg"></div>`}
       <span class="kind">${c.kind === "tv" ? "Serie" : "Película"}</span>${c.have ? `<span class="own">La tengo</span>` : ""}</div>
-    <div class="body"><div class="t">${esc(c.title)}</div><div class="hint" style="margin:0">${esc(sub)}${c.vote ? " · ★ " + c.vote : ""}</div>${because}
-      <div class="ov" onclick="this.classList.toggle('open')">${esc(c.overview)}</div>
-      <div class="rate">${r(2, "👍👍", "Me encanta")}${r(1, "👍", "Me gusta")}${r(-1, "👎", "No me gusta")}</div>
+    <div class="body"><div class="t" onclick="dscOpen('${k}')">${esc(c.title)}</div><div class="hint" style="margin:0">${esc(dscSub(c))}</div>${because}
+      <div class="ov">${esc(c.overview) || `<i>Sin resumen en español. <a href="#" onclick="dscOpen('${k}');return false">Ver ficha</a></i>`}</div>
+      ${rateButtons(c, k)}
       <button class="havebtn ${c.have ? "yes" : ""}" onclick="dscHave('${k}')">${c.have ? "✓ La tengo" : "No la tengo"}</button></div></div>`;
 }
 async function dscMark(k, change) {
-  const c = dsc.items.find(x => x.kind + x.tmdb === k);
+  const c = dscFind(k);
   if (!c) return;
   const before = {rating: c.rating, have: c.have};
   Object.assign(c, change);
-  renderDiscover();
+  dscRefresh(k);
   try {
     const r = await api("/api/discover/mark", {item: c, ...change});
     if (!r.ok) throw new Error(r.error);
-  } catch (e) { Object.assign(c, before); renderDiscover(); toast(e.message); }
+  } catch (e) { Object.assign(c, before); dscRefresh(k); toast(e.message); }
 }
-function dscRate(k, v) { const c = dsc.items.find(x => x.kind + x.tmdb === k); dscMark(k, {rating: c.rating === v ? null : v}); }
-function dscHave(k) { const c = dsc.items.find(x => x.kind + x.tmdb === k); dscMark(k, {have: !c.have}); }
+function dscRefresh(k) {
+  renderDiscover();
+  if (dlg.open && dsc.open && dsc.open.kind + dsc.open.tmdb === k) renderDetail();
+  if (dsc.section === "gustos" && quiz && quiz.step === "deck") renderDeck();
+}
+function dscRate(k, v) { const c = dscFind(k); dscMark(k, {rating: c.rating === v ? null : v}); }
+function dscHave(k) { const c = dscFind(k); dscMark(k, {have: !c.have}); }
+
+// ficha completa
+async function dscOpen(k) {
+  const c = dscFind(k);
+  if (!c) return;
+  dsc.open = c;
+  $("#dlgBody").innerHTML = `<p class="muted">Cargando la ficha de ${esc(c.title)}…</p>`;
+  dlg.showModal();
+  try {
+    const r = await api(`/api/discover/detail?kind=${c.kind}&tmdb=${c.tmdb}`);
+    if (!r.ok) throw new Error(r.error);
+    Object.assign(c, r.item, {rating: c.rating, have: c.have});
+    renderDetail();
+  } catch (e) { renderDetail(); toast(e.message); }
+}
+function renderDetail() {
+  const c = dsc.open, k = c.kind + c.tmdb;
+  const facts = [];
+  if (c.directors && c.directors.length) facts.push(`<b>Dirección:</b> ${esc(c.directors.join(", "))}`);
+  if (c.creators && c.creators.length) facts.push(`<b>Creada por:</b> ${esc(c.creators.join(", "))}`);
+  if (c.runtime) facts.push(`<b>Duración:</b> ${Math.floor(c.runtime / 60) ? Math.floor(c.runtime / 60) + " h " : ""}${c.runtime % 60} min${c.kind === "tv" ? " por capítulo" : ""}`);
+  if (c.seasons) facts.push(`<b>Temporadas:</b> ${c.seasons}${c.episodes ? " (" + c.episodes + " capítulos)" : ""}`);
+  const cast = (c.cast || []).map(p => `<div class="person">${p.photo ? `<img src="${esc(p.photo)}" alt="">` : `<div class="noimg"></div>`}<b>${esc(p.name)}</b><span>${esc(p.character)}</span></div>`).join("");
+  $("#dlgBody").innerHTML = `<div class="detail">
+    <div>${c.poster ? `<img class="big" src="${esc(c.poster)}" alt="">` : ""}</div>
+    <div><h2 style="margin:0 0 4px">${esc(c.title)}</h2>
+      ${c.original && c.original !== c.title ? `<div class="muted">${esc(c.original)}</div>` : ""}
+      <div class="hint">${c.kind === "tv" ? "Serie" : "Película"} · ${esc(dscSub(c))}</div>
+      ${c.tagline ? `<p><i>${esc(c.tagline)}</i></p>` : ""}
+      <p style="white-space:pre-line">${esc(c.overview) || "<i>No hay resumen.</i>"}${c.overview_lang === "en" ? ` <span class="hint">(en inglés: no hay resumen en español)</span>` : ""}</p>
+      ${facts.map(f => `<div>${f}</div>`).join("")}
+      ${c.trailer ? `<p><a href="${esc(c.trailer)}" target="_blank" rel="noopener">▶ Ver tráiler</a></p>` : ""}
+      <div style="max-width:360px;margin-top:12px">${rateButtons(c, k)}
+      <button class="havebtn ${c.have ? "yes" : ""}" style="width:100%;margin-top:6px" onclick="dscHave('${k}')">${c.have ? "✓ La tengo" : "No la tengo"}</button></div>
+    </div></div>
+    ${cast ? `<h3 style="margin:16px 0 8px">Reparto</h3><div class="cast">${cast}</div>` : ""}`;
+}
+
+// ---------- Mis gustos ----------
+async function loadTaste() {
+  $("#dscBox").innerHTML = `<p class="muted">Cargando…</p>`;
+  try {
+    const t = await api("/api/discover/taste");
+    if (!t.ok) return dscError(t.error);
+    taste = t;
+  } catch (e) { return dscError("No se pudo hablar con TheMovieDB: " + e.message); }
+  if (!quiz || !quiz.keep) quiz = {step: taste.profile.done ? "summary" : "genres", p: JSON.parse(JSON.stringify(taste.profile)), people: []};
+  quiz.keep = false;
+  renderTaste();
+}
+function renderTaste() {
+  if (quiz.step === "deck") return renderDeck();
+  const p = quiz.p;
+  if (quiz.step === "summary") {
+    const st = taste.stats || {};
+    const g = taste.genres.filter(x => x.ids.some(id => p.genres[id] > 0)).map(x => x.name);
+    const bad = taste.genres.filter(x => x.ids.some(id => p.genres[id] < 0)).map(x => x.name);
+    const KIND = {movie: "Películas", tv: "Series", both: "Películas y series"}, ERA = {"new": "Sobre todo nuevas", all: "Nuevas y antiguas", classic: "Sobre todo clásicas"};
+    $("#dscBox").innerHTML = `<h2>Mis gustos</h2>
+      <p><b>Te gustan:</b> ${g.length ? esc(g.join(", ")) : "<span class='muted'>ningún género marcado</span>"}</p>
+      <p><b>No te gustan:</b> ${bad.length ? esc(bad.join(", ")) : "<span class='muted'>ninguno</span>"}</p>
+      <p><b>Actores y directores:</b> ${p.people.length ? esc(p.people.map(x => x.name).join(", ")) : "<span class='muted'>ninguno</span>"}</p>
+      <p><b>Prefieres:</b> ${KIND[p.kinds]} · ${ERA[p.era]}</p>
+      <p><b>Has calificado:</b> ${st["2"] || 0} me encanta · ${st["1"] || 0} me gusta · ${st["-1"] || 0} no me gusta · ${st["0"] || 0} no la has visto
+        · <a href="#" onclick="dscGo('calificadas');return false">ver todas</a></p>
+      <div class="row" style="margin-top:14px">
+        <button class="btn" onclick="startDeck()">Seguir calificando</button>
+        <button class="btn sec" onclick="quiz.step='genres';renderTaste()">Cambiar respuestas</button>
+        <button class="btn sec" onclick="redoTaste()">Rehacer desde cero</button>
+      </div>
+      <p class="hint">«Rehacer desde cero» borra estas respuestas, no tus calificaciones (esas se cambian en Mis calificaciones).</p>`;
+    return;
+  }
+  const steps = ["genres", "people", "prefs"], n = steps.indexOf(quiz.step) + 1;
+  const nav = (back, next, label) => `<div class="row" style="margin-top:16px;justify-content:space-between">
+      <span class="muted">Paso ${n} de 4</span><span class="row">${back ? `<button class="btn sec" onclick="quiz.step='${back}';renderTaste()">Atrás</button>` : ""}
+      <button class="btn" onclick="${next}">${label}</button></span></div>`;
+  if (quiz.step === "genres") {
+    $("#dscBox").innerHTML = `<h2>¿Qué te gusta ver?</h2>
+      <p class="muted" style="margin-top:0">Toca un género una vez si te gusta (👍), dos veces si no te gusta (👎) y otra vez para dejarlo en blanco.</p>
+      <div class="gchips">${taste.genres.map((g, i) => { const v = p.genres[g.ids[0]] || 0;
+        return `<button class="${v > 0 ? "yes" : v < 0 ? "no" : ""}" onclick="cycleGenre(${i})">${v > 0 ? "👍 " : v < 0 ? "👎 " : ""}${esc(g.name)}</button>`; }).join("")}</div>
+      ${nav("", "quiz.step='people';renderTaste()", "Siguiente")}`;
+  } else if (quiz.step === "people") {
+    $("#dscBox").innerHTML = `<h2>Actores y directores que te gustan</h2>
+      <p class="muted" style="margin-top:0">Busca por nombre y pulsa en la persona. Puedes saltarte este paso.</p>
+      <div class="row"><input type="text" id="pplQ" placeholder="p. ej. Tom Hanks, Christopher Nolan" style="flex:1;width:auto"><button class="btn sec" onclick="findPeople()">Buscar</button></div>
+      <div class="people">${quiz.people.map((x, i) => `<div class="person pick" onclick="addPerson(${i})">${x.photo ? `<img src="${esc(x.photo)}" alt="">` : `<div class="noimg"></div>`}<b>${esc(x.name)}</b><span>${esc(x.known)}</span></div>`).join("")}</div>
+      <div class="chips">${p.people.map((x, i) => `<span>${esc(x.name)}<b onclick="quiz.p.people.splice(${i},1);renderTaste()">✕</b></span>`).join("")}</div>
+      ${nav("genres", "quiz.step='prefs';renderTaste()", "Siguiente")}`;
+    $("#pplQ").onkeydown = e => { if (e.key === "Enter") findPeople(); };
+    $("#pplQ").focus();
+  } else if (quiz.step === "prefs") {
+    const opt = (field, v, label) => `<button class="${p[field] === v ? "on" : ""}" onclick="quiz.p.${field}='${v}';renderTaste()">${label}</button>`;
+    $("#dscBox").innerHTML = `<h2>Un par de cosas más</h2>
+      <p><b>¿Qué prefieres?</b></p><div class="filters">${opt("kinds", "movie", "Películas")}${opt("kinds", "tv", "Series")}${opt("kinds", "both", "Las dos")}</div>
+      <p><b>¿De qué época?</b></p><div class="filters">${opt("era", "new", "Sobre todo nuevas")}${opt("era", "all", "De todo")}${opt("era", "classic", "Sobre todo clásicas")}</div>
+      ${nav("people", "saveTaste()", "Empezar a calificar")}`;
+  }
+}
+function cycleGenre(i) {
+  const g = taste.genres[i], v = quiz.p.genres[g.ids[0]] || 0, nv = v === 0 ? 1 : v > 0 ? -1 : 0;
+  g.ids.forEach(id => { if (nv) quiz.p.genres[id] = nv; else delete quiz.p.genres[id]; });
+  renderTaste();
+}
+async function findPeople() {
+  const q = $("#pplQ").value.trim();
+  if (!q) return;
+  try { const r = await api("/api/discover/people?q=" + encodeURIComponent(q)); quiz.people = r.people || []; if (!quiz.people.length) toast("No encontré a nadie con ese nombre"); }
+  catch (e) { toast(e.message); }
+  renderTaste();
+  $("#pplQ").value = q;
+}
+function addPerson(i) {
+  const x = quiz.people[i];
+  if (!quiz.p.people.some(y => y.id === x.id)) quiz.p.people.push(x);
+  quiz.people = [];
+  renderTaste();
+}
+async function saveTaste() {
+  try {
+    const r = await api("/api/discover/taste", {...quiz.p, done: true});
+    if (!r.ok) throw new Error(r.error);
+    taste.profile = quiz.p = r.profile;
+    startDeck();
+  } catch (e) { toast(e.message); }
+}
+async function redoTaste() {
+  try { await api("/api/discover/taste/reset", {}); } catch (e) { return toast(e.message); }
+  quiz = null;
+  loadTaste();
+}
+async function startDeck() {
+  quiz.step = "deck";
+  deck = {items: [], i: 0, count: 0, loading: false};
+  await moreDeck();
+}
+async function moreDeck() {
+  if (deck.loading) return;
+  deck.loading = true;
+  if (!deck.items.length) $("#dscBox").innerHTML = `<p class="muted">Buscando películas y series para ti…</p>`;
+  try {
+    const r = await api("/api/discover/deck");
+    if (!r.ok) throw new Error(r.error);
+    const seen = new Set(deck.items.map(c => c.kind + c.tmdb));
+    deck.items.push(...r.items.filter(c => !seen.has(c.kind + c.tmdb)));
+  } catch (e) { toast(e.message); }
+  deck.loading = false;
+  renderDeck();
+}
+function renderDeck() {
+  const c = deck.items[deck.i];
+  if (!c) {
+    $("#dscBox").innerHTML = deck.loading ? `<p class="muted">Buscando más…</p>` :
+      `<p>No quedan más por ahora. Prueba a marcar más géneros o actores.</p><button class="btn sec" onclick="quiz.step='summary';loadTaste()">Ver mis gustos</button>`;
+    return;
+  }
+  const k = c.kind + c.tmdb;
+  const b = (v, label, cls) => `<button class="btn ${cls}" onclick="deckAnswer(${v})">${label}</button>`;
+  $("#dscBox").innerHTML = `<div class="row" style="justify-content:space-between;margin-bottom:10px"><span class="muted">Llevas ${deck.count} · ${c.because && c.because[0] ? "Sale porque " + esc(c.because[0]) : ""}</span>
+      <button class="btn sec" onclick="quiz.step='summary';loadTaste()">Terminar</button></div>
+    <div class="swipe" id="swipe">
+      <div onclick="dscOpen('${k}')" style="cursor:pointer">${c.poster ? `<img class="big" src="${esc(c.poster)}" alt="">` : `<div class="noimg big"></div>`}</div>
+      <div><h2 style="margin:0 0 4px">${esc(c.title)}</h2><div class="hint">${c.kind === "tv" ? "Serie" : "Película"} · ${esc(dscSub(c))}</div>
+        <p style="white-space:pre-line">${esc(c.overview) || "<i>Sin resumen en español.</i>"}</p>
+        <p><a href="#" onclick="dscOpen('${k}');return false">Ficha completa, reparto y tráiler</a></p>
+        <div class="deckbtns">${b(2, "👍👍 Me encanta", "")}${b(1, "👍 Me gusta", "")}${b(-1, "👎 No me gusta", "bad")}${b(0, "No la he visto", "sec")}</div>
+        <button class="havebtn ${c.have ? "yes" : ""}" style="width:100%;margin-top:8px" onclick="dscHave('${k}')">${c.have ? "✓ La tengo" : "No la tengo"}</button>
+        <p class="hint">Atajos de teclado: 1 me encanta · 2 me gusta · 3 no me gusta · 4 no la he visto</p>
+      </div></div>`;
+}
+async function deckAnswer(v) {
+  const c = deck.items[deck.i];
+  if (!c) return;
+  const box = $("#swipe");
+  if (box) box.classList.add(v > 0 ? "out-r" : v < 0 ? "out-l" : "out-d");
+  api("/api/discover/mark", {item: c, rating: v}).catch(e => toast(e.message));
+  c.rating = v;
+  deck.count++;
+  setTimeout(() => {
+    deck.i++;
+    renderDeck();
+    if (deck.items.length - deck.i < 5) moreDeck();
+  }, 220);
+}
+document.addEventListener("keydown", e => {
+  if (tab !== "descubrir" || !quiz || quiz.step !== "deck" || dsc.section !== "gustos" || dlg.open || e.target.tagName === "INPUT") return;
+  const v = {"1": 2, "2": 1, "3": -1, "4": 0}[e.key];
+  if (v !== undefined) deckAnswer(v);
+});
 
 show("inicio");
 </script>

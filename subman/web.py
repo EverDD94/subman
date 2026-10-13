@@ -635,6 +635,15 @@ class App:
             return {"ok": False, "error": str(e)}
         return {"ok": True}
 
+    def _dsc(self, fn) -> dict:
+        try:
+            return {"ok": True, **fn(self._discover())}
+        except ValueError as e:
+            return {"ok": False, "error": str(e)}
+
+    def discover_taste(self) -> dict:
+        return self._dsc(lambda d: {"profile": d.profile(), "genres": d.genre_list(), "stats": d.stats()})
+
 
 def make_handler(app: App):
     routes_get = {
@@ -649,6 +658,10 @@ def make_handler(app: App):
         "/api/names": lambda q: app.names_state(),
         "/api/discover": lambda q: app.discover_list(q.get("section", ["novedades"])[0], int(q.get("page", ["1"])[0])),
         "/api/discover/search": lambda q: app.discover_search(q.get("q", [""])[0]),
+        "/api/discover/detail": lambda q: app._dsc(lambda d: {"item": d.detail(q["kind"][0], int(q["tmdb"][0]))}),
+        "/api/discover/taste": lambda q: app.discover_taste(),
+        "/api/discover/people": lambda q: app._dsc(lambda d: {"people": d.people(q.get("q", [""])[0])}),
+        "/api/discover/deck": lambda q: app._dsc(lambda d: {"items": d.deck()}),
     }
     routes_post = {
         "/api/config": lambda b: app.save_config(b),
@@ -672,6 +685,8 @@ def make_handler(app: App):
         "/api/test-tmdb": lambda b: app.test_tmdb(b),
         "/api/test-gemini": lambda b: app.test_gemini(b),
         "/api/discover/mark": lambda b: app.discover_mark(b),
+        "/api/discover/taste": lambda b: app._dsc(lambda d: {"profile": d.save_profile(b)}),
+        "/api/discover/taste/reset": lambda b: app._dsc(lambda d: (d.reset_profile(), {})[1]),
     }
 
     class Handler(BaseHTTPRequestHandler):

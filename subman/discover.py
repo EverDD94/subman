@@ -1,6 +1,7 @@
 """Descubrir: novedades, clásicos y recomendaciones de TheMovieDB, con tus calificaciones.
 
-Calificaciones: 2 = me encanta, 1 = me gusta, -1 = no me gusta. «La tengo» se sabe sola mirando la
+Calificaciones: 2 = me encanta, 1 = me gusta, -1 = no me gusta, 0 = no la he visto (sólo para no volver
+a preguntarla en «Mis gustos»). «La tengo» se sabe sola mirando la
 biblioteca (carpetas con ``[tmdbid-N]``, Jellyfin, o el mismo título y año), y se puede corregir a mano.
 «Para ti» junta las recomendaciones de TheMovieDB de lo que te encanta (cuenta doble) y te gusta,
 sube los géneros que te gustan, baja los que no, y quita lo que ya tienes o ya calificaste.
@@ -9,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import random
 import re
 import time
 import unicodedata
@@ -27,13 +29,21 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS discover (
     kind TEXT NOT NULL,            -- movie | tv
     tmdb INTEGER NOT NULL,
-    rating INTEGER,                -- 2 me encanta | 1 me gusta | -1 no me gusta | NULL
+    rating INTEGER,                -- 2 me encanta | 1 me gusta | -1 no me gusta | 0 no la he visto | NULL
     have INTEGER,                  -- 1 la tengo | 0 no la tengo (a mano) | NULL = lo que diga la biblioteca
     info TEXT,                     -- JSON con título, año, póster... (para enseñarla sin preguntar otra vez)
     updated REAL,
     PRIMARY KEY (kind, tmdb)
 );
+CREATE TABLE IF NOT EXISTS taste (  -- respuestas de «Mis gustos» (una sola fila)
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    data TEXT NOT NULL
+);
 """
+PROFILE = {"done": False, "genres": {}, "people": [], "kinds": "both", "era": "all"}
+PROFILE_IMG = "https://image.tmdb.org/t/p/w185"
+TV_ALIAS = {10759: (28, 12), 10765: (878, 14), 10768: (10752,)}  # géneros de series con nombre en inglés
+TV_SKIP = {10763, 10767}  # noticias y programas de entrevistas
 
 
 def _norm(s: str) -> str:
@@ -50,7 +60,7 @@ def card(kind: str, d: dict, genres: dict) -> dict:
             "original": d.get("original_title") or d.get("original_name") or "",
             "year": int(when[:4]) if when else None, "date": when or "",
             "poster": IMG + d["poster_path"] if d.get("poster_path") else "",
-            "overview": (d.get("overview") or "")[:400],
+            "overview": d.get("overview") or "",
             "genres": [genres.get(g, "") for g in d.get("genre_ids") or [] if genres.get(g)],
             "genre_ids": d.get("genre_ids") or [],
             "vote": round(d.get("vote_average") or 0, 1)}
@@ -83,7 +93,7 @@ class Discover:
         r = row["rating"] if row else None
         h = row["have"] if row else None
         if rating is not ...:
-            if rating not in (None, 2, 1, -1):
+            if rating not in (None, 2, 1, 0, -1):
                 raise ValueError("calificación no válida")
             r = rating
         if have is not ...:
@@ -201,11 +211,12 @@ class Discover:
 
     def for_you(self, limit: int = 60) -> list[dict]:
         marks = self.marks()
+        prof = self.profile()
         liked = sorted(((k, v) for k, v in marks.items() if (v["rating"] or 0) > 0),
                        key=lambda kv: -kv[1]["rating"])[:40]
-        if not liked:
+        if not liked and not prof["done"]:
             return []
-        taste: dict[int, float] = {}  # cuánto te gusta cada género
+        taste: dict[int, float] = {int(g): 3 * v for g, v in prof["genres"].items()}  # cuánto te gusta cada género
         for v in marks.values():
             w = {2: 2, 1: 1, -1: -2}.get(v["rating"], 0)
             for g in v["info"].get("genre_ids") or []:
@@ -213,6 +224,11 @@ class Discover:
         score: dict[tuple, float] = {}
         cards: dict[tuple, dict] = {}
         why: dict[tuple, list] = {}
+        for c, reason in self._seed(prof):  # lo que contestaste en «Mis gustos»
+            k = (c["kind"], c["tmdb"])
+            score[k] = score.get(k, 0) + 0.6
+            cards[k] = c
+            why.setdefault(k, []).append(reason)
         for (kind, tid), v in liked:
             for rank, c in enumerate(self._recommendations(kind, tid)):
                 k = (c["kind"], c["tmdb"])
@@ -229,11 +245,13 @@ class Discover:
         out = []
         for k, c in cards.items():
             mk = marks.get(k)
-            if mk and (mk["rating"] is not None or mk["have"] == 1):
+            if mk and (mk["rating"] not in (None, 0) or mk["have"] == 1):
                 continue  # ya calificada o ya la tienes
             if not (mk and mk["have"] == 0) and self.in_library(c, idx):
                 continue
             g = sum(taste.get(x, 0) for x in c["genre_ids"]) / max(1, len(c["genre_ids"]))
+            if prof["kinds"] in KINDS and c["kind"] != prof["kinds"]:
+                continue
             c["score"] = score[k] + 0.15 * g + c["vote"] / 50
             c["because"] = [w for w in dict.fromkeys(why[k]) if w][:3]
             out.append(c)
@@ -257,7 +275,7 @@ class Discover:
 
     def rated(self) -> list[dict]:
         marks = self.marks()
-        rows = self.db.execute("SELECT kind, tmdb FROM discover WHERE rating IS NOT NULL ORDER BY updated DESC")
+        rows = self.db.execute("SELECT kind, tmdb FROM discover WHERE rating IS NOT NULL AND rating != 0 ORDER BY updated DESC")
         out = [{"kind": r["kind"], "tmdb": r["tmdb"], "genre_ids": [], "year": None, "title": "",
                 **marks[(r["kind"], r["tmdb"])]["info"]} for r in rows]
         return self._decorate(out, self.owned_index(), marks)
@@ -267,6 +285,188 @@ class Discover:
         cards = [card(d["media_type"], d, self.genres()) for d in res.get("results", [])
                  if d.get("media_type") in KINDS and d.get("id")]
         return self._decorate(cards, self.owned_index(), self.marks())
+
+    # --- Mis gustos -----------------------------------------------------------------------
+    def profile(self) -> dict:
+        row = self.db.execute("SELECT data FROM taste WHERE id=1").fetchone()
+        return {**PROFILE, **(json.loads(row["data"]) if row else {})}
+
+    def save_profile(self, data: dict) -> dict:
+        prof = {**PROFILE, **{k: data[k] for k in PROFILE if k in data}}
+        prof["genres"] = {str(int(g)): (1 if v > 0 else -1) for g, v in (prof["genres"] or {}).items() if v}
+        prof["people"] = [{k: p.get(k) for k in ("id", "name", "photo", "known")} for p in prof["people"] or []
+                          if p.get("id")][:30]
+        if prof["kinds"] not in ("movie", "tv", "both"):
+            prof["kinds"] = "both"
+        if prof["era"] not in ("new", "all", "classic"):
+            prof["era"] = "all"
+        self.db.execute("INSERT INTO taste (id, data) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET data=excluded.data",
+                        (json.dumps(prof, ensure_ascii=False),))
+        self.db.commit()
+        return prof
+
+    def reset_profile(self) -> None:
+        self.db.execute("DELETE FROM taste")
+        self.db.commit()
+
+    def genre_list(self) -> list[dict]:
+        """Géneros de películas y series juntos (los que se llaman igual, una sola vez)."""
+        out: dict[str, dict] = {}
+        by_id: dict[int, dict] = {}
+        for kind in KINDS:
+            for x in self.api._get(f"/genre/{kind}/list").get("genres", []):
+                if x["id"] in TV_SKIP:
+                    continue
+                if x["id"] in TV_ALIAS:  # «Action & Adventure» de series va con Acción y Aventura de películas
+                    for m in TV_ALIAS[x["id"]]:
+                        if m in by_id and x["id"] not in by_id[m]["ids"]:
+                            by_id[m]["ids"].append(x["id"])
+                    if any(m in by_id for m in TV_ALIAS[x["id"]]):
+                        continue
+                g = out.setdefault(x["name"], {"id": x["id"], "name": x["name"], "ids": []})
+                if x["id"] not in g["ids"]:
+                    g["ids"].append(x["id"])
+                by_id[x["id"]] = g
+        return sorted(out.values(), key=lambda g: g["name"])
+
+    def people(self, query: str) -> list[dict]:
+        res = self.api._get("/search/person", query=query, include_adult="false")
+        return [{"id": p["id"], "name": p.get("name", ""),
+                 "photo": PROFILE_IMG + p["profile_path"] if p.get("profile_path") else "",
+                 "known": ", ".join(k.get("title") or k.get("name") or "" for k in p.get("known_for") or [])[:120],
+                 "job": p.get("known_for_department", "")}
+                for p in res.get("results", [])[:8]]
+
+    def _dates(self, era: str, kind: str) -> dict:
+        field = "primary_release_date" if kind == "movie" else "first_air_date"
+        year = date.today().year
+        if era == "new":
+            return {f"{field}.gte": f"{year - 6}-01-01"}
+        if era == "classic":
+            return {f"{field}.lte": f"{year - 20}-12-31"}
+        return {}
+
+    def _seed(self, prof: dict, pages=(1,)) -> list[tuple[dict, str]]:
+        """Títulos sacados de tus respuestas: géneros que te gustan y tus actores o directores."""
+        out = []
+        like = [g for g, v in prof["genres"].items() if v > 0]
+        hate = [g for g, v in prof["genres"].items() if v < 0]
+        names = self.genres()
+        kinds = [prof["kinds"]] if prof["kinds"] in KINDS else list(KINDS)
+        for kind in kinds:
+            if not like and not prof["people"]:
+                like_k = []
+            else:
+                like_k = [g for g in like if int(g) in self._kind_genres(kind)]
+            if like_k or not prof["people"]:
+                for page in pages:
+                    params = {"sort_by": "popularity.desc", "include_adult": "false", "vote_count.gte": 150,
+                              **self._dates(prof["era"], kind)}
+                    if like_k:
+                        params["with_genres"] = "|".join(like_k)
+                    hate_k = [g for g in hate if int(g) in self._kind_genres(kind)]
+                    if hate_k:
+                        params["without_genres"] = ",".join(hate_k)
+                    try:
+                        for c in self._page(kind, f"/discover/{kind}", page, **params):
+                            g = next((names[int(x)] for x in like_k if int(x) in c["genre_ids"]), "")
+                            out.append((c, f"te gusta: {g}" if g else "popular"))
+                    except Exception as e:
+                        log.info("descubrir: %s", e)
+        for p in prof["people"][:12]:
+            for c in self._credits(p["id"]):
+                if c["kind"] in kinds:
+                    out.append((c, f"sale {p['name']}"))
+        return out
+
+    _kg: dict = {}
+
+    def _kind_genres(self, kind: str) -> set[int]:
+        if kind not in Discover._kg:
+            Discover._kg[kind] = {x["id"] for x in self.api._get(f"/genre/{kind}/list").get("genres", [])}
+        return Discover._kg[kind]
+
+    _credit_cache: dict = {}
+
+    def _credits(self, person: int) -> list[dict]:
+        key = (self.language, person)
+        hit = Discover._credit_cache.get(key)
+        if not hit or time.time() - hit[0] > 24 * 3600:
+            try:
+                d = self.api._get(f"/person/{person}/combined_credits")
+                rows = [x for x in d.get("cast", []) + [x for x in d.get("crew", []) if x.get("job") == "Director"]
+                        if x.get("media_type") in KINDS and x.get("id") and (x.get("vote_count") or 0) >= 50
+                        and 10767 not in (x.get("genre_ids") or []) and 10763 not in (x.get("genre_ids") or [])]
+                rows.sort(key=lambda x: -(x.get("popularity") or 0))
+                seen, cards = set(), []
+                for x in rows:
+                    if (x["media_type"], x["id"]) not in seen:
+                        seen.add((x["media_type"], x["id"]))
+                        cards.append(card(x["media_type"], x, self.genres()))
+                hit = (time.time(), cards[:15])
+            except Exception as e:
+                log.info("descubrir: sin títulos de la persona %s (%s)", person, e)
+                hit = (time.time(), [])
+            Discover._credit_cache[key] = hit
+        return [dict(c) for c in hit[1]]
+
+    def deck(self, size: int = 20) -> list[dict]:
+        """Tarjetas para calificar de una en una: según tus respuestas, sin repetir las ya contestadas."""
+        prof = self.profile()
+        marks = self.marks()
+        n_done = sum(1 for v in marks.values() if v["rating"] is not None)
+        pages = random.sample(range(1, 8), 2) if n_done > 20 else [1, 2]
+        seen, out = set(), []
+        pool = self._seed(prof, pages)
+        # también parecidas a lo que te encanta, para afinar
+        for (kind, tid), v in sorted(marks.items(), key=lambda kv: -(kv[1]["rating"] or 0))[:5]:
+            if (v["rating"] or 0) > 0:
+                pool += [(c, f"parecida a {v['info'].get('title', '')}") for c in self._recommendations(kind, tid)[:8]]
+        random.shuffle(pool)
+        for c, why in pool:
+            k = (c["kind"], c["tmdb"])
+            if k in seen or k in marks or not c["poster"]:
+                continue
+            seen.add(k)
+            c["because"] = [why]
+            out.append(c)
+            if len(out) >= size:
+                break
+        return self._decorate(out, self.owned_index(), marks)
+
+    def detail(self, kind: str, tid: int) -> dict:
+        if kind not in KINDS:
+            raise ValueError("tipo desconocido")
+        lang = self.language.split("-")[0]
+        d = self.api._get(f"/{kind}/{tid}", append_to_response="credits,videos",
+                          include_video_language=f"{lang},en,null")
+        c = card(kind, {**d, "genre_ids": [g["id"] for g in d.get("genres", [])]}, self.genres())
+        if not c["overview"]:  # sin resumen en español: el de inglés
+            try:
+                c["overview"] = self.api._get(f"/{kind}/{tid}", language="en-US").get("overview") or ""
+                c["overview_lang"] = "en"
+            except Exception:
+                pass
+        cr = d.get("credits") or {}
+        c["cast"] = [{"name": x.get("name", ""), "character": x.get("character", ""),
+                      "photo": PROFILE_IMG + x["profile_path"] if x.get("profile_path") else ""}
+                     for x in (cr.get("cast") or [])[:10]]
+        c["directors"] = [x["name"] for x in cr.get("crew") or [] if x.get("job") == "Director"][:3]
+        c["creators"] = [x.get("name", "") for x in d.get("created_by") or []]
+        c["runtime"] = d.get("runtime") or (d.get("episode_run_time") or [None])[0]
+        c["seasons"] = d.get("number_of_seasons")
+        c["episodes"] = d.get("number_of_episodes")
+        c["status"] = d.get("status", "")
+        c["tagline"] = d.get("tagline", "")
+        vids = [v for v in (d.get("videos") or {}).get("results", []) if v.get("site") == "YouTube"
+                and v.get("type") in ("Trailer", "Teaser")]
+        vids.sort(key=lambda v: (v.get("type") != "Trailer", v.get("iso_639_1") != lang))
+        c["trailer"] = f"https://www.youtube.com/watch?v={vids[0]['key']}" if vids else ""
+        return self._decorate([c], self.owned_index(), self.marks())[0]
+
+    def stats(self) -> dict:
+        rows = self.db.execute("SELECT rating, COUNT(*) n FROM discover WHERE rating IS NOT NULL GROUP BY rating")
+        return {str(r["rating"]): r["n"] for r in rows}
 
     def section(self, name: str, page: int = 1) -> list[dict]:
         if name == "para-ti":

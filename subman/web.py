@@ -191,6 +191,11 @@ class App:
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
+    def _keep_key(self, section: str, value: str) -> None:
+        """Si la clave nueva funciona, se guarda ya (si no, se perdía al cambiar de pestaña sin «Guardar»)."""
+        if value and value != MASK and value.strip() != self.cfg().get(section, {}).get("api_key"):
+            self.save_config({section: {"api_key": value}})
+
     def _key(self, section: str, value: str) -> str:
         return self.cfg().get(section, {}).get("api_key", "") if value == MASK else (value or "").strip()
 
@@ -199,7 +204,9 @@ class App:
         if not key:
             return {"ok": False, "error": "falta la clave"}
         try:
-            return {"ok": True, **tmdb.TMDb(key).test()}
+            res = {"ok": True, **tmdb.TMDb(key).test()}
+            self._keep_key("tmdb", values.get("api_key"))
+            return res
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
@@ -208,7 +215,9 @@ class App:
         if not key:
             return {"ok": False, "error": "falta la clave"}
         try:
-            return {"ok": True, **gemini.Gemini(key).test()}
+            res = {"ok": True, **gemini.Gemini(key).test()}
+            self._keep_key("gemini", values.get("api_key"))
+            return res
         except Exception as e:
             return {"ok": False, "error": str(e)}
 

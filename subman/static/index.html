@@ -530,7 +530,7 @@ async function nmSearch(id) {
 }
 async function nmApply(id) {
   const e = nm.result.todo.find(x => x.id === id); const o = e.options[nmPick[id] ?? 0];
-  if (!o || !confirm(`«${e.name}» pasará a ser «${o.name}${o.year ? " (" + o.year + ")" : ""}», en su propia carpeta y con sus subtítulos. ¿Seguir?`)) return;
+  if (!o) return;  // sin preguntar: se puede deshacer en «Cambios hechos»
   const card = document.getElementById("nm" + id);
   card.querySelectorAll("button").forEach(b => b.disabled = true);
   let r;

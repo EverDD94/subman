@@ -62,6 +62,9 @@ pre.log{background:var(--bg);border:1px solid var(--line);border-radius:8px;padd
 .bar i{display:block;height:100%;background:var(--accent)}
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:10px;opacity:0;transition:.3s;pointer-events:none;max-width:90vw}
 #toast.show{opacity:1}
+.nmbar{display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--chip);margin-top:10px}
+.nmbar div{height:100%;transition:width .4s}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
 dialog.ask{border:1px solid var(--line, #444);border-radius:12px;padding:20px;max-width:420px;background:var(--card, var(--bg));color:var(--text)}
 dialog.ask::backdrop{background:rgba(0,0,0,.5)}
 dialog{border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--text);max-width:760px;width:94vw;padding:20px}
@@ -546,6 +549,20 @@ async function loadTrash() {
 }
 
 // ---------- Nombres ----------
+// Barra de «Identificar todo»: verde = hechas, amarillo = para revisar tú, rojo = sin nada que proponer,
+// azul claro = esperando a la IA, gris = aún sin mirar.
+function nmBar(c) {
+  if (!c || !c.total) return "";
+  const seg = (n, color, label) => n ? `<div title="${label}: ${n}" style="width:${100 * n / c.total}%;background:${color}"></div>` : "";
+  const rest = Math.max(0, c.total - c.ok - c.review - c.fail - c.ai);
+  return `<div class="nmbar">${seg(c.ok, "var(--ok)", "Hechas")}${seg(c.review, "var(--warn)", "Para revisar")}${seg(c.fail, "var(--bad)", "No se pudieron")}${seg(c.ai, "var(--accent)", "Esperando a la IA")}</div>
+    <div class="row muted" style="gap:14px;font-size:13px;margin-top:6px">
+      <span><span class="dot" style="background:var(--ok)"></span>Hechas: <b>${c.ok}</b></span>
+      <span><span class="dot" style="background:var(--warn)"></span>Para revisar: <b>${c.review}</b></span>
+      <span><span class="dot" style="background:var(--bad)"></span>No se pudieron: <b>${c.fail}</b></span>
+      ${c.ai ? `<span><span class="dot" style="background:var(--accent)"></span>Esperando a la IA: <b>${c.ai}</b></span>` : ""}
+      ${rest ? `<span>Faltan por mirar: <b>${rest}</b></span>` : ""}<span>de ${c.total}</span></div>`;
+}
 let nm = null, nmPick = {}, nmShown = null;
 async function loadNames() {
   nm = await api("/api/names");
@@ -556,10 +573,10 @@ async function loadNames() {
   $("#nmStop").hidden = !nm.running;
   const res = nm.result;
   $("#nmState").innerHTML = !nm.jellyfin ? `<span class="pill revisar">falta Jellyfin</span> Pon la dirección y la API key de Jellyfin en Ajustes: se usa su buscador de películas.`
-    : nm.running ? `<b>${esc(nm.message || "revisando...")}</b>`
+    : nm.running ? `<b>${esc(nm.message || "revisando...")}</b>${nmBar(nm.counts)}`
     : !nm.tmdb ? `<span class="pill revisar">falta la clave</span> «Identificar todo» necesita la clave de TheMovieDB guardada en Ajustes (pega la clave y pulsa Probar o «Guardar ajustes»).`
     : nm.error ? `<span class="pill falla">error</span> ${esc(nm.error)}`
-    : nm.auto && nm.auto.at === nm.at ? `<span class="pill ok">hecho</span> Aplicadas solas: <b>${nm.auto.applied}</b>${nm.auto.ai ? ` (${nm.auto.ai} con ayuda de la IA)` : ""}.${nm.auto.copies ? ` <b>${nm.auto.copies}</b> eran otra copia de una película que ya tenías: quedaron en la misma carpeta y las ves en «Duplicados».` : ""} Para revisar: <b>${nm.auto.left}</b>. Las aplicadas están abajo en «Cambios hechos».`
+    : nm.auto && nm.auto.at === nm.at ? `<span class="pill ok">hecho</span> Aplicadas solas: <b>${nm.auto.applied}</b>${nm.auto.ai ? ` (${nm.auto.ai} con ayuda de la IA)` : ""}.${nm.auto.copies ? ` <b>${nm.auto.copies}</b> eran otra copia de una película que ya tenías: quedaron en la misma carpeta y las ves en «Duplicados».` : ""} Para revisar: <b>${nm.auto.left}</b>. Las aplicadas están abajo en «Cambios hechos».${nmBar(nm.counts)}`
     : res ? `<span class="muted">Revisado ${when(nm.at)}.${!res.todo.length && !res.loose.length ? " Todo está en orden." : ""}</span>`
     : `<span class="muted">Pulsa «Revisar nombres».</span>`;
   if (fresh || !nm.running) renderNames();

@@ -426,7 +426,7 @@ class App:
     def names_scan(self) -> dict:
         if self.names["running"]:
             return {"ok": True}
-        self.names.update(running=True, message="empezando", error=None)
+        self.names.update(running=True, message="empezando", error=None, counts=None)
 
         def work():
             try:
@@ -453,7 +453,7 @@ class App:
         cfg = self.cfg()
         if not cfg.get("tmdb", {}).get("api_key"):
             return {"ok": False, "error": "pon la clave de TheMovieDB en Ajustes"}
-        self.names.update(running=True, message="empezando", error=None, stop=False)
+        self.names.update(running=True, message="empezando", error=None, stop=False, counts=None)
 
         def work():
             try:
@@ -464,7 +464,7 @@ class App:
                         message=f"buscando videos: {n} encontrados"))
                 rev = identify.review(lib, cfg, lambda msg: self.names.update(message=msg), search=False)
                 res = autoid.run(lib, cfg, rev, lambda msg: self.names.update(message=msg),
-                                 stop=lambda: self.names["stop"])
+                                 stop=lambda: self.names["stop"], counts=lambda c: self.names.update(counts=c))
                 now = time.time()
                 self.names.update(result={"todo": res["todo"], "loose": []}, at=now, message="",
                                   auto={"applied": len(res["applied"]),

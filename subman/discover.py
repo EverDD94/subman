@@ -1,0 +1,290 @@
+"""Descubrir: novedades, clásicos y recomendaciones de TheMovieDB, con tus calificaciones.
+
+Calificaciones: 2 = me encanta, 1 = me gusta, -1 = no me gusta. «La tengo» se sabe sola mirando la
+biblioteca (carpetas con ``[tmdbid-N]``, Jellyfin, o el mismo título y año), y se puede corregir a mano.
+«Para ti» junta las recomendaciones de TheMovieDB de lo que te encanta (cuenta doble) y te gusta,
+sube los géneros que te gustan, baja los que no, y quita lo que ya tienes o ya calificaste.
+"""
+from __future__ import annotations
+
+import json
+import logging
+import re
+import time
+import unicodedata
+from datetime import date, timedelta
+
+from . import jellyfin
+from .library import Library
+from .tmdb import TMDb
+
+log = logging.getLogger(__name__)
+IMG = "https://image.tmdb.org/t/p/w342"
+KINDS = ("movie", "tv")
+_TMDBID = re.compile(r"\[tmdbid-(\d+)\]", re.I)
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS discover (
+    kind TEXT NOT NULL,            -- movie | tv
+    tmdb INTEGER NOT NULL,
+    rating INTEGER,                -- 2 me encanta | 1 me gusta | -1 no me gusta | NULL
+    have INTEGER,                  -- 1 la tengo | 0 no la tengo (a mano) | NULL = lo que diga la biblioteca
+    info TEXT,                     -- JSON con título, año, póster... (para enseñarla sin preguntar otra vez)
+    updated REAL,
+    PRIMARY KEY (kind, tmdb)
+);
+"""
+
+
+def _norm(s: str) -> str:
+    s = unicodedata.normalize("NFKD", s or "").encode("ascii", "ignore").decode().lower()
+    s = re.sub(r"^(the|el|la|los|las)\s+", "", s.strip())
+    return re.sub(r"[^a-z0-9]+", "", s)
+
+
+def card(kind: str, d: dict, genres: dict) -> dict:
+    """Un resultado de TheMovieDB (película o serie) en el formato de la web."""
+    when = d.get("release_date") if kind == "movie" else d.get("first_air_date")
+    return {"kind": kind, "tmdb": int(d["id"]),
+            "title": d.get("title") or d.get("name") or "",
+            "original": d.get("original_title") or d.get("original_name") or "",
+            "year": int(when[:4]) if when else None, "date": when or "",
+            "poster": IMG + d["poster_path"] if d.get("poster_path") else "",
+            "overview": (d.get("overview") or "")[:400],
+            "genres": [genres.get(g, "") for g in d.get("genre_ids") or [] if genres.get(g)],
+            "genre_ids": d.get("genre_ids") or [],
+            "vote": round(d.get("vote_average") or 0, 1)}
+
+
+class Discover:
+    def __init__(self, lib: Library, cfg: dict):
+        self.lib = lib
+        self.cfg = cfg
+        self.db = lib.db
+        self.db.executescript(SCHEMA)
+        t = cfg.get("tmdb", {})
+        self.language = t.get("language") or "es-MX"
+        self.api = TMDb(t["api_key"], self.language)
+
+    # --- lo que guarda el usuario -----------------------------------------------------
+    def marks(self) -> dict[tuple[str, int], dict]:
+        out = {}
+        for r in self.db.execute("SELECT kind, tmdb, rating, have, info FROM discover"):
+            out[(r["kind"], r["tmdb"])] = {"rating": r["rating"], "have": r["have"],
+                                           "info": json.loads(r["info"] or "{}")}
+        return out
+
+    def mark(self, item: dict, rating=..., have=...) -> None:
+        """Guarda la calificación y/o «la tengo» (``None`` la quita; ``...`` la deja como está)."""
+        kind, tid = item["kind"], int(item["tmdb"])
+        if kind not in KINDS:
+            raise ValueError("tipo desconocido")
+        row = self.db.execute("SELECT rating, have FROM discover WHERE kind=? AND tmdb=?", (kind, tid)).fetchone()
+        r = row["rating"] if row else None
+        h = row["have"] if row else None
+        if rating is not ...:
+            if rating not in (None, 2, 1, -1):
+                raise ValueError("calificación no válida")
+            r = rating
+        if have is not ...:
+            h = None if have is None else int(bool(have))
+        info = {k: item.get(k) for k in ("title", "original", "year", "date", "poster", "overview", "genres",
+                                         "genre_ids", "vote")}
+        if r is None and h is None:
+            self.db.execute("DELETE FROM discover WHERE kind=? AND tmdb=?", (kind, tid))
+        else:
+            self.db.execute(
+                """INSERT INTO discover (kind, tmdb, rating, have, info, updated) VALUES (?,?,?,?,?,?)
+                   ON CONFLICT(kind, tmdb) DO UPDATE SET rating=excluded.rating, have=excluded.have,
+                     info=CASE WHEN excluded.info IS NOT NULL AND excluded.info != '{}' THEN excluded.info
+                          ELSE discover.info END, updated=excluded.updated""",
+                (kind, tid, r, h, json.dumps(info, ensure_ascii=False) if item.get("title") else None, time.time()))
+        self.db.commit()
+
+    # --- lo que ya hay en la biblioteca ------------------------------------------------
+    _owned: dict = {}
+
+    def owned_index(self) -> dict:
+        """Qué hay en la biblioteca: números de TheMovieDB conocidos y títulos (normalizados)."""
+        hit = Discover._owned.get("idx")
+        if hit and time.time() - hit[0] < 300:  # Jellyfin tarda: se recuerda unos minutos
+            return hit[1]
+        ids = {"movie": set(), "tv": set()}
+        movies: dict[str, set] = {}
+        series: set[str] = set()
+        for r in self.db.execute("SELECT path, kind, title, year FROM media"):
+            if r["kind"] == "movie":
+                m = _TMDBID.search(r["path"])
+                if m:
+                    ids["movie"].add(int(m.group(1)))
+                movies.setdefault(_norm(r["title"]), set()).add(r["year"])
+            else:
+                series.add(_norm(r["title"]))
+        jf = self.cfg.get("jellyfin", {})
+        if jf.get("url") and jf.get("api_key"):
+            try:
+                for it in jellyfin.movies(jf["url"], jf["api_key"]):
+                    if it.get("tmdb") and str(it["tmdb"]).isdigit():
+                        ids["movie"].add(int(it["tmdb"]))
+            except Exception as e:
+                log.info("descubrir: Jellyfin no respondió (%s); se mira sólo la carpeta", e)
+        idx = {"ids": ids, "movies": movies, "series": series}
+        Discover._owned["idx"] = (time.time(), idx)
+        return idx
+
+    @staticmethod
+    def in_library(c: dict, idx: dict) -> bool:
+        if c["tmdb"] in idx["ids"][c["kind"]]:
+            return True
+        names = {_norm(c["title"]), _norm(c.get("original", ""))} - {""}
+        if c["kind"] == "tv":
+            return bool(names & idx["series"])
+        for n in names:
+            years = idx["movies"].get(n)
+            if years and (c["year"] is None or None in years or any(abs(y - c["year"]) <= 1 for y in years if y)):
+                return True
+        return False
+
+    def _decorate(self, cards: list[dict], idx: dict, marks: dict) -> list[dict]:
+        for c in cards:
+            mk = marks.get((c["kind"], c["tmdb"]), {})
+            c["rating"] = mk.get("rating")
+            c["auto_have"] = self.in_library(c, idx)
+            c["have"] = bool(mk["have"]) if mk.get("have") is not None else c["auto_have"]
+            c["have_manual"] = mk.get("have") is not None
+        return cards
+
+    # --- TheMovieDB --------------------------------------------------------------------
+    _genres: dict = {}
+
+    def genres(self) -> dict[int, str]:
+        if self.language not in Discover._genres:
+            g = {}
+            for kind in KINDS:
+                for x in self.api._get(f"/genre/{kind}/list").get("genres", []):
+                    g[x["id"]] = x["name"]
+            Discover._genres[self.language] = g
+        return Discover._genres[self.language]
+
+    def news(self, page: int = 1) -> list[dict]:
+        today = date.today()
+        movies = self._page("movie", "/discover/movie", page, sort_by="popularity.desc", include_adult="false",
+                            **{"primary_release_date.gte": (today - timedelta(days=60)).isoformat(),
+                               "primary_release_date.lte": (today + timedelta(days=30)).isoformat()})
+        series = self._page("tv", "/discover/tv", page, sort_by="popularity.desc", include_adult="false",
+                            **{"first_air_date.gte": (today - timedelta(days=90)).isoformat(),
+                               "first_air_date.lte": (today + timedelta(days=30)).isoformat()})
+        return _mix(movies, series)
+
+    def classics(self, page: int = 1) -> list[dict]:
+        trending = self._page("movie", "/trending/movie/week", page) + self._page("tv", "/trending/tv/week", page)
+        best = self._page("movie", "/movie/top_rated", page) + self._page("tv", "/tv/top_rated", page)
+        return _mix(trending, best)
+
+    def _page(self, kind: str, path: str, page: int, **params) -> list[dict]:
+        res = self.api._get(path, page=page, **params)
+        return [card(kind, d, self.genres()) for d in res.get("results", []) if d.get("id")]
+
+    _recs: dict = {}
+
+    def _recommendations(self, kind: str, tid: int) -> list[dict]:
+        key = (self.language, kind, tid)
+        hit = Discover._recs.get(key)
+        if not hit or time.time() - hit[0] > 24 * 3600:
+            try:
+                hit = (time.time(), self._page(kind, f"/{kind}/{tid}/recommendations", 1))
+            except Exception as e:
+                log.info("descubrir: sin recomendaciones para %s %s (%s)", kind, tid, e)
+                hit = (time.time(), [])
+            Discover._recs[key] = hit
+        return [dict(c) for c in hit[1]]
+
+    def for_you(self, limit: int = 60) -> list[dict]:
+        marks = self.marks()
+        liked = sorted(((k, v) for k, v in marks.items() if (v["rating"] or 0) > 0),
+                       key=lambda kv: -kv[1]["rating"])[:40]
+        if not liked:
+            return []
+        taste: dict[int, float] = {}  # cuánto te gusta cada género
+        for v in marks.values():
+            w = {2: 2, 1: 1, -1: -2}.get(v["rating"], 0)
+            for g in v["info"].get("genre_ids") or []:
+                taste[g] = taste.get(g, 0) + w
+        score: dict[tuple, float] = {}
+        cards: dict[tuple, dict] = {}
+        why: dict[tuple, list] = {}
+        for (kind, tid), v in liked:
+            for rank, c in enumerate(self._recommendations(kind, tid)):
+                k = (c["kind"], c["tmdb"])
+                score[k] = score.get(k, 0) + v["rating"] * (1 - rank / 40)
+                cards[k] = c
+                why.setdefault(k, []).append(v["info"].get("title") or "")
+        for (kind, tid), v in marks.items():  # lo que no te gusta también aleja lo parecido
+            if v["rating"] == -1:
+                for c in self._recommendations(kind, tid)[:10]:
+                    k = (c["kind"], c["tmdb"])
+                    if k in score:
+                        score[k] -= 0.5
+        idx = self.owned_index()
+        out = []
+        for k, c in cards.items():
+            mk = marks.get(k)
+            if mk and (mk["rating"] is not None or mk["have"] == 1):
+                continue  # ya calificada o ya la tienes
+            if not (mk and mk["have"] == 0) and self.in_library(c, idx):
+                continue
+            g = sum(taste.get(x, 0) for x in c["genre_ids"]) / max(1, len(c["genre_ids"]))
+            c["score"] = score[k] + 0.15 * g + c["vote"] / 50
+            c["because"] = [w for w in dict.fromkeys(why[k]) if w][:3]
+            out.append(c)
+        out.sort(key=lambda c: -c["score"])
+        return self._decorate(out[:limit], idx, marks)
+
+    def wanted(self) -> list[dict]:
+        """Por conseguir: lo que marcaste «No la tengo», o te gusta y no está en la biblioteca."""
+        idx = self.owned_index()
+        marks = self.marks()
+        out = []
+        for (kind, tid), v in marks.items():
+            c = {"kind": kind, "tmdb": tid, **v["info"]}
+            c.setdefault("title", "")
+            c.setdefault("genre_ids", [])
+            c.setdefault("year", None)
+            if v["have"] == 0 or ((v["rating"] or 0) > 0 and v["have"] is None and not self.in_library(c, idx)):
+                out.append(c)
+        out.sort(key=lambda c: (-(marks[(c["kind"], c["tmdb"])]["rating"] or 0), c["title"]))
+        return self._decorate(out, idx, marks)
+
+    def rated(self) -> list[dict]:
+        marks = self.marks()
+        rows = self.db.execute("SELECT kind, tmdb FROM discover WHERE rating IS NOT NULL ORDER BY updated DESC")
+        out = [{"kind": r["kind"], "tmdb": r["tmdb"], "genre_ids": [], "year": None, "title": "",
+                **marks[(r["kind"], r["tmdb"])]["info"]} for r in rows]
+        return self._decorate(out, self.owned_index(), marks)
+
+    def search(self, query: str) -> list[dict]:
+        res = self.api._get("/search/multi", query=query, include_adult="false")
+        cards = [card(d["media_type"], d, self.genres()) for d in res.get("results", [])
+                 if d.get("media_type") in KINDS and d.get("id")]
+        return self._decorate(cards, self.owned_index(), self.marks())
+
+    def section(self, name: str, page: int = 1) -> list[dict]:
+        if name == "para-ti":
+            return self.for_you()
+        if name == "por-conseguir":
+            return self.wanted()
+        if name == "calificadas":
+            return self.rated()
+        cards = self.news(page) if name == "novedades" else self.classics(page)
+        return self._decorate(cards, self.owned_index(), self.marks())
+
+
+def _mix(*lists: list[dict]) -> list[dict]:
+    """Intercala listas (películas y series) sin repetir."""
+    out, seen = [], set()
+    for row in zip(*[l + [None] * (max(map(len, lists)) - len(l)) for l in lists]):
+        for c in row:
+            if c and (c["kind"], c["tmdb"]) not in seen:
+                seen.add((c["kind"], c["tmdb"]))
+                out.append(c)
+    return out

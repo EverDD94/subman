@@ -19,7 +19,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, autoid, config, diagnose, duplicates, gemini, identify, jellyfin, manager, providers, tmdb
+from . import __version__, autoid, config, diagnose, discover, duplicates, gemini, identify, jellyfin, manager, providers, tmdb
 from .library import Library
 
 log = logging.getLogger(__name__)
@@ -583,6 +583,33 @@ class App:
         self.wake.set()  # que vuelva a aparecer en la biblioteca
         return {"ok": True, "dest": dest}
 
+    # --- Descubrir -------------------------------------------------------------------
+    def _discover(self):
+        cfg = self.cfg()
+        if not cfg.get("tmdb", {}).get("api_key"):
+            raise ValueError("pon la clave de TheMovieDB en Ajustes")
+        return discover.Discover(self.library(cfg), cfg)
+
+    def discover_list(self, section: str, page: int) -> dict:
+        try:
+            return {"ok": True, "items": self._discover().section(section, page)}
+        except ValueError as e:
+            return {"ok": False, "error": str(e)}
+
+    def discover_search(self, query: str) -> dict:
+        try:
+            return {"ok": True, "items": self._discover().search(query)}
+        except ValueError as e:
+            return {"ok": False, "error": str(e)}
+
+    def discover_mark(self, b: dict) -> dict:
+        kw = {k: b[k] for k in ("rating", "have") if k in b}
+        try:
+            self._discover().mark(b["item"], **kw)
+        except ValueError as e:
+            return {"ok": False, "error": str(e)}
+        return {"ok": True}
+
 
 def make_handler(app: App):
     routes_get = {
@@ -595,6 +622,8 @@ def make_handler(app: App):
         "/api/trash": lambda q: app.trash(),
         "/api/dupes": lambda q: app.dupes_state(),
         "/api/names": lambda q: app.names_state(),
+        "/api/discover": lambda q: app.discover_list(q.get("section", ["novedades"])[0], int(q.get("page", ["1"])[0])),
+        "/api/discover/search": lambda q: app.discover_search(q.get("q", [""])[0]),
     }
     routes_post = {
         "/api/config": lambda b: app.save_config(b),
@@ -617,6 +646,7 @@ def make_handler(app: App):
         "/api/names/stop": lambda b: app.names_stop(),
         "/api/test-tmdb": lambda b: app.test_tmdb(b),
         "/api/test-gemini": lambda b: app.test_gemini(b),
+        "/api/discover/mark": lambda b: app.discover_mark(b),
     }
 
     class Handler(BaseHTTPRequestHandler):

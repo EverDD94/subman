@@ -386,6 +386,34 @@ def run(lib: Library, cfg: dict, review: dict, progress=lambda msg: None, stop=l
     return {"applied": applied, "todo": left}
 
 
+def enrich(lib: Library, cfg: dict, review: dict, progress=lambda msg: None) -> dict:
+    """«Revisar nombres»: la duración del archivo, el título de dentro del video y, si hay clave de
+    TheMovieDB, opciones con su duración (las de Jellyfin no la traen) para poder comparar a mano."""
+    key = cfg.get("tmdb", {}).get("api_key")
+    db = TMDb(key, cfg.get("tmdb", {}).get("language") or "es-MX") if key else None
+    todo = review.get("todo", [])
+    for n, e in enumerate(todo):
+        media = lib.media("id=?", (e["id"],))
+        if not media:
+            continue
+        m = media[0]
+        progress(f"mirando duraciones: {n + 1} de {len(todo)}")
+        inf = _info(m.path)
+        e["minutes"], e["inside"] = inf["minutes"], inf["title"]
+        if not db:
+            continue
+        jf = e.get("jellyfin") or {}
+        extra = [int(x) for x in [jf.get("tmdb"), *(o.get("tmdb") for o in e.get("options", []))]
+                 if x and str(x).isdigit()]
+        extra = list(dict.fromkeys(extra))
+        cands = candidates(db, m, inf["minutes"], extra, [x for x in (inf["title"], jf.get("name")) if x])
+        if cands:
+            e["options"] = cands[:6]
+            if e.get("why") == "no se encontró nada con ese nombre":
+                e.pop("why")
+    return review
+
+
 def search(cfg: dict, m, query: str, minutes: float | None) -> list[dict]:
     """La búsqueda a mano de Nombres («Otro nombre»), con TheMovieDB."""
     db = TMDb(cfg["tmdb"]["api_key"], cfg.get("tmdb", {}).get("language") or "es-MX")

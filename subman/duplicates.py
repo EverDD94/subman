@@ -130,6 +130,11 @@ def find(lib: Library, cfg: dict, progress=lambda msg: None) -> list[dict]:
     for m in movies:
         if m.id in matched:
             continue
+        tag = re.search(r"\[tmdbid-(\d+)\]", Path(m.path).parent.name)
+        if tag:  # carpeta ya identificada (p. ej. otra copia que «Nombres» metió junto a la que ya había)
+            g = groups.setdefault(f"tmdb:{tag.group(1)}", {"title": m.title, "year": m.year, "how": "nombre", "media": {}})
+            g["media"][m.id] = m
+            continue
         norm = normalize(m.title)
         if not norm:
             continue

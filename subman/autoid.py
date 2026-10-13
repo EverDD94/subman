@@ -170,8 +170,9 @@ def run(lib: Library, cfg: dict, review: dict, progress=lambda msg: None, stop=l
         if not media:
             return
         try:
-            identify.apply(lib, cfg, media[0], c["name"], c["year"], c["tmdb"], c.get("imdb"), how=how)
-            applied.append({"id": e["id"], "name": e["name"], "to": f"{c['name']} ({c['year']})", "how": how})
+            r = identify.apply(lib, cfg, media[0], c["name"], c["year"], c["tmdb"], c.get("imdb"), how=how)
+            applied.append({"id": e["id"], "name": e["name"], "to": f"{c['name']} ({c['year']})", "how": how,
+                            "copy": r.get("copy", False)})
         except (ValueError, OSError) as ex:
             msg = str(ex)
             e["why"] = (f"ya tienes esta película en otra carpeta ({msg.removeprefix('ya existe la carpeta ')}): "

@@ -119,8 +119,8 @@ def review(lib: Library, cfg: dict, progress=lambda msg: None, search: bool = Tr
     for n, m in enumerate(movies):
         video = Path(m.path)
         alone = _alone(video, roots)
-        if alone and _ORGANIZED.search(video.parent.name):
-            continue  # ya está como le gusta a Jellyfin
+        if _ORGANIZED.search(video.parent.name):
+            continue  # ya está como le gusta a Jellyfin (aunque tenga varias copias)
         it = jellyfin_item(m.path)
         name_has_year = bool(_HAS_YEAR.search(video.parent.name if alone else video.stem)) or bool(m.year)
         why = None
@@ -182,16 +182,20 @@ def apply(lib: Library, cfg: dict, media: Media, title: str, year: int | None, t
     parent = video.parent.parent if alone else video.parent
     new_dir = parent / name
     moves: list[tuple[str, str]] = []
-    if alone and new_dir != video.parent:
-        if new_dir.exists():
-            raise ValueError(f"ya existe la carpeta {new_dir.name}")
+    created: Path | None = None
+    copy = new_dir.exists() and new_dir != video.parent
+    if copy:  # esa película ya tiene su carpeta: esta copia entra como otra versión (Duplicados la verá)
+        k = 2
+        while any(p.name.startswith(f"{stem} - {k}") for p in new_dir.iterdir()):
+            k += 1
+        stem = f"{stem} - {k}"
+    elif alone and new_dir != video.parent:
         os.rename(video.parent, new_dir)
         moves.append((str(video.parent), str(new_dir)))
         video = new_dir / video.name
     elif not alone:
-        if new_dir.exists():
-            raise ValueError(f"ya existe la carpeta {new_dir.name}")
         new_dir.mkdir()
+        created = new_dir
     try:
         for p in _companions(video):
             dest = new_dir / (stem + p.name[len(video.stem):])
@@ -202,21 +206,21 @@ def apply(lib: Library, cfg: dict, media: Media, title: str, year: int | None, t
             os.rename(p, dest)
             moves.append((str(p), str(dest)))
     except Exception:
-        _undo(moves, created=None if alone else new_dir)
+        _undo(moves, created=created)
         raise
     new_video = new_dir / (stem + video.suffix)
     try:
         _repath(lib, media.path, str(new_video))
         lib.db.execute("INSERT INTO renamed (title, moves, created, video_from, video_to, at, how) VALUES (?,?,?,?,?,?,?)",
                        (f"{title} ({year})" if year else title, json.dumps(moves, ensure_ascii=False),
-                        "" if alone else str(new_dir), media.path, str(new_video), time.time(), how))
+                        str(created) if created else "", media.path, str(new_video), time.time(), how))
         lib.db.commit()
     except sqlite3.Error as e:  # sin anotarlo no se podría deshacer: mejor dejarlo como estaba
         lib.db.rollback()
-        _undo(moves, created=None if alone else new_dir)
+        _undo(moves, created=created)
         raise ValueError(BUSY) from e
-    log.info("identificada: %s -> %s", media.path, new_video)
-    return {"dest": str(new_video)}
+    log.info("identificada: %s -> %s%s", media.path, new_video, " (otra copia de una que ya estaba)" if copy else "")
+    return {"dest": str(new_video), "copy": copy}
 
 
 def _repath(lib: Library, old: str, new: str) -> None:

@@ -468,7 +468,7 @@ class App:
                 now = time.time()
                 self.names.update(result={"todo": res["todo"], "loose": []}, at=now, message="",
                                   auto={"applied": len(res["applied"]),
-                                        "ai": sum(a["how"] == "ia" for a in res["applied"]),
+                                        "ai": sum(a["how"] == "ia" for a in res["applied"]), "copies": sum(bool(a.get("copy")) for a in res["applied"]),
                                         "left": len(res["todo"]), "at": now})
                 if res["applied"]:
                     self._jellyfin_refresh(cfg)

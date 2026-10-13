@@ -545,7 +545,7 @@ async function loadNames() {
     : nm.running ? `<b>${esc(nm.message || "revisando...")}</b>`
     : !nm.tmdb ? `<span class="pill revisar">falta la clave</span> «Identificar todo» necesita la clave de TheMovieDB guardada en Ajustes (pega la clave y pulsa Probar o «Guardar ajustes»).`
     : nm.error ? `<span class="pill falla">error</span> ${esc(nm.error)}`
-    : nm.auto && nm.auto.at === nm.at ? `<span class="pill ok">hecho</span> Aplicadas solas: <b>${nm.auto.applied}</b>${nm.auto.ai ? ` (${nm.auto.ai} con ayuda de la IA)` : ""}. Para revisar: <b>${nm.auto.left}</b>. Las aplicadas están abajo en «Cambios hechos».`
+    : nm.auto && nm.auto.at === nm.at ? `<span class="pill ok">hecho</span> Aplicadas solas: <b>${nm.auto.applied}</b>${nm.auto.ai ? ` (${nm.auto.ai} con ayuda de la IA)` : ""}.${nm.auto.copies ? ` <b>${nm.auto.copies}</b> eran otra copia de una película que ya tenías: quedaron en la misma carpeta y las ves en «Duplicados».` : ""} Para revisar: <b>${nm.auto.left}</b>. Las aplicadas están abajo en «Cambios hechos».`
     : res ? `<span class="muted">Revisado ${when(nm.at)}.${!res.todo.length && !res.loose.length ? " Todo está en orden." : ""}</span>`
     : `<span class="muted">Pulsa «Revisar nombres».</span>`;
   if (fresh || !nm.running) renderNames();

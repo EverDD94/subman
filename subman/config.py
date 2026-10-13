@@ -22,7 +22,9 @@ DEFAULTS: dict = {
     "web_port": 8787,
     "duplicates_dir": "/media/Duplicados",  # adonde van las películas duplicadas que se apartan
     "providers": {"opensubtitles": {"api_key": "", "username": "", "password": ""}},
-    "jellyfin": {"url": "", "api_key": ""},  # opcional: avisar a Jellyfin para que vea los subtítulos nuevos
+    "jellyfin": {"url": "", "api_key": ""},
+    "tmdb": {"api_key": "", "language": "es-MX"},  # para identificar películas (duración y sagas)
+    "gemini": {"api_key": ""},                     # IA gratis para las películas difíciles  # opcional: avisar a Jellyfin para que vea los subtítulos nuevos
 }
 
 HEADER = """# Configuración de subman. Se puede editar a mano o desde la web (puerto 8787).

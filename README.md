@@ -143,6 +143,9 @@ subman/
   diagnose.py    por qué un video no tiene subtítulo bueno y qué hacer
   duplicates.py  películas duplicadas: encontrar, apartar y devolver
   identify.py    identificar películas y ponerlas cada una en su carpeta (y deshacerlo)
+  autoid.py      «Identificar todo»: TheMovieDB (duración, sagas) + Gemini para las dudosas
+  tmdb.py        cliente de TheMovieDB
+  gemini.py      cliente de Gemini (IA, capa gratis)
   jellyfin.py    aviso de re-escaneo, lista de películas con sus fichas y buscador
   providers/     proveedores enchufables (opensubtitles.py)
   config.py      subman.toml: valores por defecto, lectura y escritura

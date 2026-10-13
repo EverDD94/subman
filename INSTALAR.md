@@ -67,6 +67,17 @@ Necesita Jellyfin puesto en Ajustes. En la pestaña **Nombres**, pulsa **Revisar
 - **Sin carpeta propia:** Jellyfin ya las reconoce bien; **Ordenar las marcadas en carpetas**
   pone cada una en su carpeta.
 
+**Identificar todo** lo hace solo. Necesita dos claves gratis en Ajustes:
+
+- **TheMovieDB** (obligatoria): crea una cuenta en themoviedb.org, ve a tu perfil > Ajustes > API,
+  pide una clave de uso personal y copia la *Clave de la API*. Con ella subman compara la duración
+  de tu archivo con la de cada película y sabe el orden de las sagas («Fast 7» = la 7.ª).
+- **Gemini** (opcional, IA): en aistudio.google.com/apikey, *Create API key*. Sólo se usa para las
+  dudosas, y sólo se le envían nombres de archivo y duraciones.
+
+Aplica sola las que no tienen dudas (salen en «Cambios hechos» como *automático* o *IA*, con
+Deshacer) y deja el resto abajo con la mejor opción marcada.
+
 Cada película queda como `After (2019) [tmdbid-338952]/After (2019).mp4`, con sus subtítulos al
 lado. Ese número es el de TheMovieDB: con él Jellyfin ya no se equivoca. Abajo salen los
 cambios hechos con **Deshacer**.

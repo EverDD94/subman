@@ -19,7 +19,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, autoid, config, diagnose, discover, duplicates, formats, gemini, identify, jellyfin, manager, peek, providers, tmdb
+from . import __version__, autoid, config, convert, diagnose, discover, duplicates, formats, gemini, identify, jellyfin, manager, peek, providers, tmdb
 from .library import Library
 
 log = logging.getLogger(__name__)
@@ -49,6 +49,9 @@ class App:
         self.dupes = {"running": False, "message": "", "groups": None, "at": None}
         self.names = {"running": False, "message": "", "result": None, "at": None, "auto": None, "stop": False}
         self.fmt = {"running": False, "message": "", "done": 0, "total": 0, "error": None, "stop": False}
+        self.conv = {"current": "", "what": "", "progress": 0.0, "message": "apagado", "started": None,
+                     "done": 0, "stop": False}
+        self.conv_wake = threading.Event()
         self.logs = LogBuffer()
         logging.getLogger().addHandler(self.logs)
         try:  # registro también en /config/subman.log (sobrevive a reinicios)
@@ -97,7 +100,7 @@ class App:
             lib = self.library(cfg)
             log.info("buscando videos en %s", ", ".join(cfg["library"]))
             stats = lib.scan(cfg["library"], progress=lambda n: self.state.update(
-                message=f"buscando videos: {n} encontrados"), exclude=[cfg.get("duplicates_dir")])
+                message=f"buscando videos: {n} encontrados"), exclude=config.excluded(cfg))
             log.info("escaneo: %s", stats)
             self.state.update(scan={"por_carpeta": stats["por_carpeta"], "ignorados": stats["ignorados"]})
             items = lib.media(order="mtime DESC")  # lo más reciente primero (lo que acaba de llegar)
@@ -365,7 +368,7 @@ class App:
                 cfg = self.cfg()
                 lib = self.library(cfg)
                 if not self.state["running"] and cfg["library"]:  # lista de videos al día (la pasada ya la hace)
-                    lib.scan(cfg["library"], exclude=[cfg["duplicates_dir"]], progress=lambda n: self.fmt.update(
+                    lib.scan(cfg["library"], exclude=config.excluded(cfg), progress=lambda n: self.fmt.update(
                         message=f"buscando videos: {n} encontrados"))
                 res = formats.Formats(lib).scan(
                     progress=lambda done, total, name: self.fmt.update(done=done, total=total, message=name),
@@ -381,7 +384,167 @@ class App:
         return {"ok": True}
 
     def formats_state(self) -> dict:
-        return {**self.fmt, **formats.Formats(self.library()).summary()}
+        cfg = self.cfg()
+        lib = self.library(cfg)
+        formats.Formats(lib)
+        lib.db.executescript(convert.SCHEMA)
+        failed = {r["path"]: r["error"] for r in lib.db.execute("SELECT path, error FROM convert_failed")}
+        out = {**self.fmt, **formats.Formats(lib).summary(cfg["convert"]["allow_hevc"])}
+        for i in out["items"]:
+            if i["path"] in failed:
+                i["failed"] = failed[i["path"]]
+        return {**out, "conv": self.conv, "settings": cfg["convert"], "failed": len(failed),
+                "converted": convert.converted_list(lib)}
+
+    def convert_settings(self, b: dict) -> dict:
+        with self.lock:
+            cfg = self.cfg()
+            c = cfg["convert"]
+            for k in ("enabled", "allow_hevc", "night_only"):
+                if k in b:
+                    c[k] = bool(b[k])
+            if "groups" in b:
+                c["groups"] = [g for g in ("caja", "sonido", "video") if g in b["groups"]]
+            for k in ("night_start", "night_end"):
+                if k in b:
+                    c[k] = max(0, min(23, int(b[k])))
+            if "originals_dir" in b and b["originals_dir"].strip():
+                d = Path(b["originals_dir"].strip()).resolve()
+                root = Path(MEDIA_ROOT).resolve()
+                if root != d and root not in d.parents:
+                    return {"ok": False, "error": f"la carpeta de originales tiene que estar dentro de {MEDIA_ROOT}"}
+                if any(d == Path(r).resolve() or Path(r).resolve() in d.parents for r in cfg["library"]):
+                    return {"ok": False, "error": "la carpeta de originales no puede estar dentro de una carpeta de la biblioteca"}
+                c["originals_dir"] = str(d)
+            if "min_free_gb" in b:
+                c["min_free_gb"] = max(5, int(b["min_free_gb"]))
+            config.save(self.config_path, cfg)
+        if not c["enabled"]:
+            self.conv["stop"] = True  # para el que esté a medias (se borra lo a medio hacer, el original no se toca)
+        log.info("conversión: %s", "encendida" if c["enabled"] else "apagada")
+        self.conv_wake.set()
+        return {"ok": True}
+
+    def convert_retry(self) -> dict:
+        lib = self.library()
+        lib.db.executescript(convert.SCHEMA)
+        lib.db.execute("DELETE FROM convert_failed")
+        lib.db.commit()
+        self.conv_wake.set()
+        return {"ok": True}
+
+    def convert_restore(self, row_id: int) -> dict:
+        cfg = self.cfg()
+        if self.conv["current"]:
+            return {"ok": False, "error": "espera a que termine el que está convirtiendo, o apaga la conversión"}
+        lib = self.library(cfg)
+        try:
+            dest = convert.restore(lib, row_id, cfg["convert"]["originals_dir"], MEDIA_ROOT, cfg["library"])
+        except (ValueError, OSError) as e:
+            return {"ok": False, "error": str(e)}
+        # que no lo vuelva a convertir solo
+        lib.db.execute("INSERT OR REPLACE INTO convert_failed VALUES (?,?,?)",
+                       (dest, "lo devolviste tú: no se vuelve a convertir solo", time.time()))
+        lib.db.commit()
+        self._jellyfin_refresh(cfg)
+        return {"ok": True, "dest": dest}
+
+    def converter(self) -> None:
+        """Hilo que convierte uno a uno lo que falta, mientras esté encendido."""
+        last_check, cleaned, since_refresh = 0.0, False, 0
+        while True:
+            cfg = self.cfg()
+            c = cfg["convert"]
+            self.conv["stop"] = False
+            wait = 0
+            if not c["enabled"]:
+                self.conv.update(message="apagado", current="")
+                wait = 3600
+            elif not cfg["library"]:
+                self.conv.update(message="elige primero las carpetas de la biblioteca en Ajustes")
+                wait = 300
+            elif not convert.in_window(c):
+                self.conv.update(message=f"esperando la noche (de {c['night_start']}:00 a {c['night_end']}:00)")
+                wait = 300
+            if wait:
+                if since_refresh:
+                    self._jellyfin_refresh(cfg)
+                    since_refresh = 0
+                self.conv_wake.wait(wait)
+                self.conv_wake.clear()
+                continue
+            lib = self.library(cfg)
+            lib.db.executescript(convert.SCHEMA)
+            try:
+                if not cleaned:
+                    n = convert.leftovers(cfg["library"])
+                    cleaned = True
+                    if n:
+                        log.info("conversión: quitados %d archivos a medio convertir de antes de un reinicio", n)
+                if time.time() - last_check > 1800 and not self.fmt["running"]:  # videos nuevos (p. ej. de Sonarr)
+                    self.conv.update(message="mirando si hay videos nuevos")
+                    if not self.state["running"]:
+                        lib.scan(cfg["library"], exclude=config.excluded(cfg))
+                    formats.Formats(lib).scan(stop=lambda: self.conv["stop"])
+                    last_check = time.time()
+                item = self._next_to_convert(lib, c)
+            except Exception as e:
+                log.exception("conversión")
+                self.conv.update(message=f"error: {e}")
+                self.conv_wake.wait(600)
+                self.conv_wake.clear()
+                continue
+            if not item:
+                self.conv.update(message="al día: no queda nada por convertir", current="")
+                if since_refresh:
+                    self._jellyfin_refresh(cfg)
+                    since_refresh = 0
+                last_check = 0  # la próxima vez, mirar si llegó algo
+                self.conv_wake.wait(1800)
+                self.conv_wake.clear()
+                continue
+            self.conv.update(current=item["label"], what=item["grp"], progress=0.0, started=time.time(),
+                             message="convirtiendo", path=item["path"])
+            try:
+                convert.convert(lib, item["path"], item["info"], cfg, cfg["library"], MEDIA_ROOT,
+                                progress=lambda x: self.conv.update(progress=x), stop=lambda: self.conv["stop"])
+                self.conv["done"] += 1
+                since_refresh += 1
+                if since_refresh >= 20:
+                    self._jellyfin_refresh(cfg)
+                    since_refresh = 0
+            except convert.Stopped:
+                log.info("conversión parada: %s queda como estaba", item["label"])
+            except convert.NoSpace as e:
+                log.warning("conversión en pausa: %s", e)
+                self.conv.update(message=f"en pausa: {e}", current="")
+                self.conv_wake.wait(1800)
+                self.conv_wake.clear()
+            except Exception as e:
+                log.warning("no se pudo convertir %s: %s", item["path"], e)
+                lib.db.execute("INSERT OR REPLACE INTO convert_failed VALUES (?,?,?)", (item["path"], str(e)[:300], time.time()))
+                lib.db.commit()
+            finally:
+                self.conv.update(current="", what="", progress=0.0, path="")
+
+    def _next_to_convert(self, lib, c: dict) -> dict | None:
+        failed = {r[0] for r in lib.db.execute("SELECT path FROM convert_failed")}
+        best = None
+        for r in lib.db.execute("SELECT f.path, f.info, m.size, m.kind, m.title, m.season, m.episode, m.year "
+                                "FROM formats f JOIN media m ON m.path = f.path"):
+            if r["path"] in failed:
+                continue
+            info = json.loads(r["info"])
+            grp = formats.group(info, c["allow_hevc"])
+            if grp not in c["groups"] or grp not in ("caja", "sonido", "video") or "why_video" not in info:
+                continue
+            key = (("caja", "sonido", "video").index(grp), r["size"] or 0)  # lo rápido primero
+            if best is None or key < best[0]:
+                label = (f"{r['title']} S{r['season']:02d}E{r['episode']:02d}" if r["kind"] == "episode"
+                         else f"{r['title']} ({r['year']})" if r["year"] else r["title"])
+                best = (key, {"path": r["path"], "info": info, "grp": grp, "label": label})
+        return best[1] if best else None
+
 
     # --- duplicados ----------------------------------------------------------------
     def dupes_scan(self) -> dict:
@@ -394,7 +557,7 @@ class App:
                 cfg = self.cfg()
                 lib = self.library(cfg)
                 if not self.state["running"] and cfg["library"]:  # lista de videos al día (la pasada ya la hace)
-                    lib.scan(cfg["library"], exclude=[cfg["duplicates_dir"]], progress=lambda n: self.dupes.update(
+                    lib.scan(cfg["library"], exclude=config.excluded(cfg), progress=lambda n: self.dupes.update(
                         message=f"buscando videos: {n} encontrados"))
                 groups = duplicates.find(lib, cfg, lambda msg: self.dupes.update(message=msg))
                 self.dupes.update(groups=groups, at=time.time(), message="")
@@ -463,7 +626,7 @@ class App:
                 cfg = self.cfg()
                 lib = self.library(cfg)
                 if not self.state["running"] and cfg["library"]:
-                    lib.scan(cfg["library"], exclude=[cfg["duplicates_dir"]], progress=lambda n: self.names.update(
+                    lib.scan(cfg["library"], exclude=config.excluded(cfg), progress=lambda n: self.names.update(
                         message=f"buscando videos: {n} encontrados"))
                 res = identify.review(lib, cfg, lambda msg: self.names.update(message=msg))
                 res = autoid.enrich(lib, cfg, res, lambda msg: self.names.update(message=msg))
@@ -491,7 +654,7 @@ class App:
                 cfg = self.cfg()
                 lib = self.library(cfg)
                 if not self.state["running"] and cfg["library"]:
-                    lib.scan(cfg["library"], exclude=[cfg["duplicates_dir"]], progress=lambda n: self.names.update(
+                    lib.scan(cfg["library"], exclude=config.excluded(cfg), progress=lambda n: self.names.update(
                         message=f"buscando videos: {n} encontrados"))
                 rev = identify.review(lib, cfg, lambda msg: self.names.update(message=msg), search=False)
                 res = autoid.run(lib, cfg, rev, lambda msg: self.names.update(message=msg),
@@ -707,6 +870,9 @@ def make_handler(app: App):
         "/api/dupes/scan": lambda b: app.dupes_scan(),
         "/api/formats/scan": lambda b: app.formats_scan(),
         "/api/formats/stop": lambda b: (app.fmt.update(stop=True), {"ok": True})[1],
+        "/api/convert/settings": lambda b: app.convert_settings(b),
+        "/api/convert/retry": lambda b: app.convert_retry(),
+        "/api/convert/restore": lambda b: app.convert_restore(int(b["id"])),
         "/api/dupes/move": lambda b: app.dupes_move([int(x) for x in b["ids"]]),
         "/api/dupes/restore": lambda b: app.dupes_restore(int(b["id"])),
         "/api/names/scan": lambda b: app.names_scan(),
@@ -781,6 +947,7 @@ def serve(config_path: str, port: int | None = None) -> None:
     cfg = app.cfg()
     port = port or cfg["web_port"]
     threading.Thread(target=app.worker, name="trabajador", daemon=True).start()
+    threading.Thread(target=app.converter, name="conversión", daemon=True).start()
     httpd = ThreadingHTTPServer(("0.0.0.0", port), make_handler(app))
     log.info("interfaz web en http://<ip-del-nas>:%d", port)
     httpd.serve_forever()

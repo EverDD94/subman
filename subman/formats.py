@@ -31,6 +31,7 @@ from .library import Library
 
 log = logging.getLogger(__name__)
 
+VERSION = 2  # sube cuando cambia lo que se guarda de cada video (así se vuelven a mirar)
 GROUPS = ("ok", "caja", "sonido", "video", "4k", "error")
 MP4_FORMATS = {"mov", "mp4", "m4a", "3gp", "3g2", "mj2"}  # format_name de ffprobe para MP4: «mov,mp4,m4a,3gp,3g2,mj2»
 MAIN_AUDIO_OK = {"aac", "mp3"}
@@ -95,7 +96,7 @@ def classify(info: dict) -> tuple[str, dict]:
     out = {"duration": duration, "container": CONTAINER_NAMES.get(first, first.upper()),
            "video": "", "height": 0, "audio": [], "subs": [], "why": [], "notes": []}
     if not video:
-        out["why"].append("no tiene imagen")
+        out.update(why=["no tiene imagen"], grp="error", v=VERSION)
         return "error", out
 
     codec = video.get("codec_name", "")
@@ -116,6 +117,7 @@ def classify(info: dict) -> tuple[str, dict]:
 
     if w > 1920 or h > 1088 or hdr:
         out["why"].append("4K" if (w > 1920 or h > 1088) else "HDR")
+        out.update(grp="4k", v=VERSION)
         return "4k", out
 
     why_video = []
@@ -128,8 +130,11 @@ def classify(info: dict) -> tuple[str, dict]:
             why_video.append(f"H.264 perfil «{video.get('profile')}»")
         if level > MAX_LEVEL:
             why_video.append(f"H.264 nivel {level / 10:g}")
-    if (video.get("field_order") or "progressive") not in ("progressive", "unknown"):
+    interlaced = (video.get("field_order") or "progressive") not in ("progressive", "unknown")
+    if interlaced:
         why_video.append("imagen entrelazada")
+    # HEVC normal (8 o 10 bits) lo leen Roku, Fire TV, Google TV, Android e iPhone; sólo algún navegador no.
+    out["hevc"] = codec == "hevc" and profile in ("main", "main 10") and not interlaced
 
     why_audio = []
     if not auds:
@@ -147,19 +152,38 @@ def classify(info: dict) -> tuple[str, dict]:
 
     container = set((fmt.get("format_name") or "").split(","))
     why_box = [] if container & MP4_FORMATS else [f"la caja es {out['container'] or '?'}"]
-    if any(s.get("codec_name") in IMAGE_SUBS for s in subs):
-        out["notes"].append("trae subtítulos de imagen dentro: no caben en MP4, se quedan en el original")
+    out["image_subs"] = any(s.get("codec_name") in IMAGE_SUBS for s in subs)
+    if out["image_subs"]:
+        if why_box:  # MKV lo leen todos los aparatos de la tele; en MP4 se perderían esos subtítulos
+            out["notes"].append("trae subtítulos de imagen dentro: se queda en MKV para no perderlos")
+            why_box = []
     elif subs and why_box:
-        out["notes"].append("trae subtítulos de texto dentro: se sacarían a un .srt")
+        out["notes"].append("trae subtítulos de texto dentro: se sacan a un .srt al lado")
 
-    out["why"] = why_video + why_audio + why_box
-    if why_video:
-        return "video", out
-    if why_audio:
-        return "sonido", out
-    if why_box:
-        return "caja", out
-    return "ok", out
+    out.update(why_video=why_video, why_audio=why_audio, why_box=why_box, v=VERSION)
+    return group(out, allow_hevc=False), out
+
+
+def group(info: dict, allow_hevc: bool) -> str:
+    """Grupo de un video ya analizado. Con allow_hevc, el HEVC normal cuenta como imagen válida."""
+    if "why_video" not in info:  # análisis antiguo o error
+        return info.get("grp", "error")
+    if info.get("height", 0) > 1088 or info.get("width", 0) > 1920 or info.get("hdr"):
+        return "4k"
+    if info["why_video"] and not (allow_hevc and info.get("hevc")):
+        return "video"
+    if info["why_audio"]:
+        return "sonido"
+    if info["why_box"]:
+        return "caja"
+    return "ok"
+
+
+def reasons(info: dict, allow_hevc: bool) -> list[str]:
+    if "why_video" not in info:
+        return info.get("why", [])
+    vid = [] if allow_hevc and info.get("hevc") else info["why_video"]
+    return vid + info["why_audio"] + info["why_box"]
 
 
 def estimate(grp: str, info: dict, size: int) -> float:
@@ -184,7 +208,8 @@ class Formats:
     def scan(self, progress=lambda done, total, name: None, stop=lambda: False) -> dict:
         """Mira con ffprobe los videos nuevos o cambiados; los demás salen de lo guardado."""
         media = self.lib.media()
-        known = {r["path"]: r for r in self.lib.db.execute("SELECT path, size, mtime FROM formats")}
+        known = {r["path"]: r for r in self.lib.db.execute(
+            "SELECT path, size, mtime FROM formats WHERE json_extract(info, '$.v') = ?", (VERSION,))}
         mtimes = {r["path"]: r["mtime"] for r in self.lib.db.execute("SELECT path, mtime FROM media")}
         looked = 0
         for n, m in enumerate(media):
@@ -198,7 +223,8 @@ class Formats:
                 grp, info = classify(audio.probe(m.path))
             except Exception as e:
                 log.warning("formatos: no se pudo leer %s: %s", m.path, getattr(e, "stderr", b"") or e)
-                grp, info = "error", {"why": ["no se pudo leer (¿archivo dañado o a medio copiar?)"], "duration": 0}
+                grp, info = "error", {"why": ["no se pudo leer (¿archivo dañado o a medio copiar?)"], "duration": 0,
+                                      "grp": "error", "v": VERSION}
             self.lib.db.execute("INSERT OR REPLACE INTO formats VALUES (?,?,?,?,?)",
                                 (m.path, m.size, mtimes.get(m.path), grp, json.dumps(info, ensure_ascii=False)))
             looked += 1
@@ -208,7 +234,7 @@ class Formats:
         self.lib.db.commit()
         return {"mirados": looked, "total": len(media)}
 
-    def summary(self) -> dict:
+    def summary(self, allow_hevc: bool = True) -> dict:
         rows = self.lib.db.execute(
             "SELECT f.path, f.grp, f.info, m.id, m.size, m.kind, m.title, m.season, m.episode, m.year "
             "FROM formats f JOIN media m ON m.path = f.path ORDER BY m.title, m.season, m.episode").fetchall()
@@ -216,8 +242,10 @@ class Formats:
         items = []
         for r in rows:
             info = json.loads(r["info"])
-            secs = estimate(r["grp"], info, r["size"])
-            g = groups[r["grp"]]
+            info.setdefault("grp", r["grp"])
+            grp = group(info, allow_hevc)
+            secs = estimate(grp, info, r["size"])
+            g = groups[grp]
             g["count"] += 1
             g["size"] += r["size"] or 0
             g["seconds"] += secs
@@ -225,10 +253,11 @@ class Formats:
             label = (f"{r['title']} S{r['season']:02d}E{r['episode']:02d}" if r["kind"] == "episode"
                      else f"{r['title']} ({r['year']})" if r["year"] else r["title"])
             items.append({"id": r["id"], "label": label, "name": Path(r["path"]).name, "path": r["path"],
-                          "grp": r["grp"], "size": r["size"], "seconds": secs, "video": info.get("video", ""),
+                          "grp": grp, "size": r["size"], "seconds": secs, "video": info.get("video", ""),
                           "height": info.get("height", 0), "audio": info.get("audio", []), "subs": info.get("subs", []),
-                          "container": info.get("container", ""), "why": info.get("why", []),
+                          "container": info.get("container", ""), "why": reasons(info, allow_hevc),
                           "notes": info.get("notes", []), "duration": info.get("duration", 0)})
         pending = self.lib.db.execute(
-            "SELECT COUNT(*) FROM media WHERE path NOT IN (SELECT path FROM formats)").fetchone()[0]
+            "SELECT COUNT(*) FROM media WHERE path NOT IN (SELECT path FROM formats WHERE json_extract(info, '$.v') = ?)",
+            (VERSION,)).fetchone()[0]
         return {"groups": groups, "items": items, "pending": pending, "analyzed": len(rows), "at": time.time()}

@@ -30,6 +30,7 @@ button.btn.sec{background:var(--chip);color:var(--text)}
 button.btn.bad{background:var(--bad)}
 button.btn:disabled{opacity:.5;cursor:default}
 input[type=text],input[type=password],input[type=number]{background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit;width:100%}
+select{background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit}
 label.f{display:block;margin:10px 0 4px;font-weight:600}
 .hint{font-size:13px;color:var(--muted);margin-top:3px}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
@@ -330,8 +331,27 @@ dialog::backdrop{background:#0007}
     <div class="row" style="justify-content:space-between"><h2 style="margin:0">Formatos para Jellyfin</h2>
       <div class="row"><button class="btn sec" id="fmtStop" hidden>Parar</button><button class="btn" id="fmtScan">Analizar videos</button></div></div>
     <p class="muted">Mira cada video y dice si móvil, Roku, Fire TV, Google TV y el navegador lo reproducen directo, o si el NAS tendría que convertirlo mientras lo ves (eso es lo que hace que se trabe).
-      Lo que funciona en todos: caja <b>MP4</b>, imagen <b>H.264</b> hasta 1080p y sonido principal <b>AAC estéreo</b>. Aquí sólo se mira y se cuenta: <b>no se cambia ningún archivo</b>.</p>
+      Lo que funciona en todos: caja <b>MP4</b>, imagen <b>H.264</b> hasta 1080p y sonido principal <b>AAC estéreo</b>. «Analizar» sólo mira y cuenta; lo que se convierte lo eliges abajo en «Convertir».</p>
     <div id="fmtState"></div>
+  </div>
+  <div class="card" id="cvCard" hidden>
+    <h2>Convertir</h2>
+    <label class="switch"><input type="checkbox" id="cvOn"><span id="cvOnText">Convertir solo</span></label>
+    <div class="hint">Encendido, convierte uno a uno lo marcado abajo, empezando por lo más rápido, y también los videos que lleguen después. El original se mueve a <span class="path" id="cvDir"></span> (no se borra) y puedes devolverlo cuando quieras.</div>
+    <div class="row" style="margin-top:12px;gap:18px">
+      <label class="switch"><input type="checkbox" data-g="caja"><span>Cambiar la caja</span></label>
+      <label class="switch"><input type="checkbox" data-g="sonido"><span>Arreglar el sonido</span></label>
+      <label class="switch"><input type="checkbox" data-g="video"><span>Convertir la imagen</span></label>
+    </div>
+    <div class="row" style="margin-top:12px;gap:18px">
+      <label class="switch"><input type="checkbox" id="cvHevc"><span>Dejar los HEVC (H.265) como están</span></label>
+    </div>
+    <div class="hint">Roku, Fire TV, Google TV, Android e iPhone ya reproducen HEVC directo. Si lo apagas, también se pasan a H.264 (mucho más lento).</div>
+    <div class="row" style="margin-top:12px;gap:10px">
+      <label class="switch"><input type="checkbox" id="cvNight"><span>Sólo de noche, de</span></label>
+      <select id="cvFrom"></select><span>a</span><select id="cvTo"></select>
+    </div>
+    <div id="cvState" style="margin-top:14px"></div>
   </div>
   <div class="card" id="fmtSumCard" hidden><h2>Resumen</h2><div id="fmtSum"></div></div>
   <div class="card" id="fmtListCard" hidden>
@@ -340,6 +360,9 @@ dialog::backdrop{background:#0007}
     <table><thead><tr><th>Video</th><th>Imagen</th><th>Sonido</th><th>Qué le falta</th></tr></thead><tbody id="fmtList"></tbody></table>
     <p class="muted" id="fmtMore"></p>
   </div>
+  <div class="card" id="cvDoneCard" hidden><h2>Convertidos</h2>
+    <p class="muted" style="margin-top:0">Los originales están en <span class="path" id="cvDir2"></span>. Cuando estés conforme, bórralos tú desde File Station; <b>Devolver</b> pone el original otra vez en su sitio.</p>
+    <div style="overflow-x:auto"><table><thead><tr><th>Video</th><th>Qué se hizo</th><th>Tamaño</th><th></th></tr></thead><tbody id="cvDone"></tbody></table></div></div>
 </section>
 
 <section id="papelera" hidden>
@@ -821,8 +844,44 @@ async function loadFormats() {
       + (work ? `<p style="margin-bottom:0">Arreglarlo todo llevaría unas <b>${dur(work)}</b> de trabajo del NAS, uno a uno. Mientras se guardan los originales hace falta espacio libre parecido a lo que ocupan: <b>${size(fix.reduce((a, g) => a + G[g].size, 0))}</b>.</p>` : "");
     renderFormats();
   }
-  if (fmt.running) setTimeout(() => tab === "formatos" && loadFormats(), 3000);
+  renderConvert();
+  if (fmt.running || fmt.conv.current) setTimeout(() => tab === "formatos" && loadFormats(), 3000);
 }
+const CV_WHAT = {caja: "caja a MP4", sonido: "sonido arreglado", video: "imagen convertida"};
+for (let h = 0; h < 24; h++) { $("#cvFrom").add(new Option(h + ":00", h)); $("#cvTo").add(new Option(h + ":00", h)); }
+function renderConvert() {
+  const c = fmt.settings, v = fmt.conv;
+  $("#cvCard").hidden = !fmt.analyzed;
+  $("#cvOn").checked = c.enabled;
+  $("#cvOnText").textContent = c.enabled ? "Convirtiendo solo: encendido" : "Convertir solo: apagado";
+  document.querySelectorAll("#cvCard [data-g]").forEach(x => x.checked = c.groups.includes(x.dataset.g));
+  $("#cvHevc").checked = c.allow_hevc; $("#cvNight").checked = c.night_only;
+  $("#cvFrom").value = c.night_start; $("#cvTo").value = c.night_end;
+  $("#cvDir").textContent = $("#cvDir2").textContent = c.originals_dir;
+  let html = v.current
+    ? `<b>Convirtiendo</b> · ${esc(v.current)} <span class="muted">(${esc(FMT[v.what] ? FMT[v.what][0].toLowerCase() : "")})</span>
+       <div class="bar"><i style="width:${(v.progress || 0) * 100}%"></i></div><div class="muted" style="font-size:13px">${pct(v.progress)}${v.progress > 0.02 ? ` · faltan unos ${dur((Date.now() / 1000 - v.started) * (1 - v.progress) / v.progress)}` : ""}</div>`
+    : `<span class="muted">${esc(v.message || "")}</span>`;
+  if (v.done) html += `<div class="muted" style="font-size:13px">Convertidos desde que arrancó subman: ${v.done}</div>`;
+  if (fmt.failed) html += `<div style="margin-top:6px"><span class="pill falla">${fmt.failed} no se pudieron</span> <span class="muted" style="font-size:13px">están en la lista de abajo con el motivo</span> <a href="#" onclick="cvRetry();return false">Reintentar</a></div>`;
+  $("#cvState").innerHTML = html;
+  const done = fmt.converted || [];
+  $("#cvDoneCard").hidden = !done.length;
+  $("#cvDone").innerHTML = done.map(r => `<tr><td>${esc(r.new.split("/").pop())}<div class="muted" style="font-size:12px">${when(r.at)} · ${dur(r.seconds)}</div></td>
+    <td>${esc(CV_WHAT[r.what] || r.what)}</td><td>${size(r.old_size)} → ${size(r.new_size)}</td>
+    <td>${r.exists ? `<button class="btn sec" data-cv="${r.id}">Devolver</button>` : '<span class="muted" style="font-size:12px">original borrado</span>'}</td></tr>`).join("");
+  document.querySelectorAll("#cvDone [data-cv]").forEach(b => b.onclick = async () => {
+    const x = await api("/api/convert/restore", {id: +b.dataset.cv}); toast(x.ok ? "Devuelto a su sitio" : x.error); loadFormats(); });
+}
+async function cvSave(body) { const r = await api("/api/convert/settings", body); if (!r.ok) toast(r.error); setTimeout(loadFormats, 800); }
+$("#cvOn").onchange = e => cvSave({enabled: e.target.checked});
+document.querySelectorAll("#cvCard [data-g]").forEach(x => x.onchange = () =>
+  cvSave({groups: [...document.querySelectorAll("#cvCard [data-g]:checked")].map(y => y.dataset.g)}));
+$("#cvHevc").onchange = e => cvSave({allow_hevc: e.target.checked});
+$("#cvNight").onchange = e => cvSave({night_only: e.target.checked});
+$("#cvFrom").onchange = e => cvSave({night_start: +e.target.value});
+$("#cvTo").onchange = e => cvSave({night_end: +e.target.value});
+async function cvRetry() { await api("/api/convert/retry", {}); toast("Se volverán a intentar"); loadFormats(); }
 function fmtFilter(g) { fmtF = g; fmtShown = 200; renderFormats(); $("#fmtListCard").scrollIntoView({behavior: "smooth"}); }
 function renderFormats() {
   const counts = fmt.groups;
@@ -835,7 +894,8 @@ function renderFormats() {
     <td style="font-size:13px">${(i.audio || []).map(esc).join("<br>") || "—"}</td>
     <td style="font-size:13px">${i.grp === "ok" ? '<span class="pill ok">nada</span>' : (i.why || []).map(esc).join("<br>")}
       ${(i.notes || []).length ? `<div class="muted" style="font-size:12px">${i.notes.map(esc).join("<br>")}</div>` : ""}
-      ${i.seconds >= 60 ? `<div class="muted" style="font-size:12px">≈ ${dur(i.seconds)}</div>` : ""}</td></tr>`).join("");
+      ${i.seconds >= 60 ? `<div class="muted" style="font-size:12px">≈ ${dur(i.seconds)}</div>` : ""}
+      ${i.failed ? `<div style="font-size:12px;color:var(--bad)">No se convirtió: ${esc(i.failed)}</div>` : ""}</td></tr>`).join("");
   $("#fmtMore").innerHTML = rows.length > fmtShown ? `Se ven ${fmtShown} de ${rows.length}. <a href="#" onclick="fmtShown += 300; renderFormats(); return false">Ver más</a>` : "";
 }
 $("#fmtQ").oninput = () => { fmtShown = 200; renderFormats(); };

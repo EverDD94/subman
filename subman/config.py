@@ -24,7 +24,11 @@ DEFAULTS: dict = {
     "providers": {"opensubtitles": {"api_key": "", "username": "", "password": ""}},
     "jellyfin": {"url": "", "api_key": ""},
     "tmdb": {"api_key": "", "language": "es-MX"},  # para identificar películas (duración y sagas)
-    "gemini": {"api_key": ""},                     # IA gratis para las películas difíciles  # opcional: avisar a Jellyfin para que vea los subtítulos nuevos
+    "gemini": {"api_key": ""},
+    # convertir videos al formato que Jellyfin reproduce directo (pestaña «Formatos»)
+    "convert": {"enabled": False, "groups": ["caja", "sonido", "video"], "allow_hevc": True,
+                "night_only": False, "night_start": 1, "night_end": 8,
+                "originals_dir": "/media/Originales", "min_free_gb": 50},                     # IA gratis para las películas difíciles  # opcional: avisar a Jellyfin para que vea los subtítulos nuevos
 }
 
 HEADER = """# Configuración de subman. Se puede editar a mano o desde la web (puerto 8787).
@@ -86,6 +90,11 @@ def save(path: str | Path, cfg: dict) -> None:
     tmp = p.with_suffix(".tmp")
     tmp.write_text(dumps(cfg), encoding="utf-8")
     tmp.replace(p)
+
+
+def excluded(cfg: dict) -> list[str]:
+    """Carpetas que no son biblioteca aunque estén dentro: duplicados apartados y originales convertidos."""
+    return [d for d in (cfg.get("duplicates_dir"), cfg.get("convert", {}).get("originals_dir")) if d]
 
 
 def problems(cfg: dict) -> list[str]:

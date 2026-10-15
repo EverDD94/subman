@@ -857,6 +857,7 @@ def make_handler(app: App):
         "/api/discover/people": lambda q: app._dsc(lambda d: {"people": d.people(q.get("q", [""])[0])}),
         "/api/discover/popular-people": lambda q: app._dsc(lambda d: {"people": d.popular_people(int(q.get("page", ["1"])[0]))}),
         "/api/discover/deck": lambda q: app._dsc(lambda d: {"items": d.deck()}),
+        "/api/discover/releases": lambda q: app._dsc(lambda d: {"items": d.releases(q.get("kind", ["movie"])[0], int(q.get("page", ["1"])[0]))}),
     }
     routes_post = {
         "/api/config": lambda b: app.save_config(b),

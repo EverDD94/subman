@@ -262,6 +262,7 @@ dialog::backdrop{background:#0007}
   <div class="card">
     <div class="row" style="justify-content:space-between">
       <div class="filters" id="dscTabs">
+        <button data-s="estrenos">🎬 Estrenos</button>
         <button data-s="novedades" class="on">Novedades</button>
         <button data-s="clasicos">Populares y clásicos</button>
         <button data-s="para-ti">Para ti</button>
@@ -911,6 +912,7 @@ const DSC_HELP = {
   "por-conseguir": "Lo que marcaste «No la tengo», y lo que te gusta y no está en tu biblioteca. Cuando la consigas, pulsa «La tengo».",
   "calificadas": "Todo lo que has calificado. Puedes cambiarlo cuando quieras.",
   "gustos": "",
+  "estrenos": "",
   "buscar": "Resultados de la búsqueda."};
 const RATE = {2: "👍👍 Me encanta", 1: "👍 Me gusta", "-1": "👎 No me gusta", 0: "No la he visto"};
 let dsc = {section: "novedades", kind: "", page: 1, items: [], q: "", checked: false};
@@ -940,9 +942,10 @@ async function loadDiscover() {
   document.querySelectorAll("#dscTabs button").forEach(x => x.classList.toggle("on", x.dataset.s === dsc.section));
   $("#dscHelp").textContent = DSC_HELP[dsc.section];
   $("#dscHelp").hidden = !DSC_HELP[dsc.section];
-  $("#dscKind").hidden = dsc.section === "gustos";
+  $("#dscKind").hidden = ["gustos", "estrenos"].includes(dsc.section);
   $("#dscMore").hidden = true;
   if (dsc.section === "gustos") return loadTaste();
+  if (dsc.section === "estrenos") return renderEst();
   $("#dscBox").innerHTML = `<p class="muted">Cargando…</p>`;
   dsc.page = 1;
   try {
@@ -954,7 +957,7 @@ async function loadDiscover() {
   } catch (e) { $("#dscBox").innerHTML = `<p>No se pudo hablar con TheMovieDB: ${esc(e.message)}</p>`; }
 }
 function renderDiscover() {
-  if (dsc.section === "gustos") return;
+  if (["gustos", "estrenos"].includes(dsc.section)) return;
   const items = dsc.items.filter(c => !dsc.kind || c.kind === dsc.kind);
   $("#dscMore").hidden = !["novedades", "clasicos"].includes(dsc.section);
   if (!items.length) {
@@ -965,7 +968,7 @@ function renderDiscover() {
   $("#dscBox").innerHTML = `<div class="dsc">${items.map(dscCard).join("")}</div>`;
 }
 function dscGo(section) { dsc.section = section; loadDiscover(); }
-function dscFind(k) { return dsc.items.find(x => x.kind + x.tmdb === k) || deck.items.find(x => x.kind + x.tmdb === k) || (dsc.open && dsc.open.kind + dsc.open.tmdb === k ? dsc.open : null); }
+function dscFind(k) { return dsc.items.find(x => x.kind + x.tmdb === k) || deck.items.find(x => x.kind + x.tmdb === k) || est.items.find(x => x.kind + x.tmdb === k) || (dsc.open && dsc.open.kind + dsc.open.tmdb === k ? dsc.open : null); }
 function rateButtons(c, k) {
   const r = (v, ico, tip) => `<button title="${tip}" class="${c.rating === v ? "on" : ""} ${v < 0 ? "down" : ""}" onclick="dscRate('${k}',${v})">${ico}</button>`;
   return `<div class="rate">${r(2, "👍👍", "Me encanta")}${r(1, "👍", "Me gusta")}${r(-1, "👎", "No me gusta")}</div>`;
@@ -996,6 +999,7 @@ function dscRefresh(k) {
   renderDiscover();
   if (dlg.open && dsc.open && dsc.open.kind + dsc.open.tmdb === k) renderDetail();
   if (dsc.section === "gustos" && quiz && quiz.step === "deck") renderDeck();
+  if (dsc.section === "estrenos" && est.kind) renderEst();
 }
 function dscRate(k, v) { const c = dscFind(k); dscMark(k, {rating: c.rating === v ? null : v}); }
 function dscHave(k) { const c = dscFind(k); dscMark(k, {have: !c.have}); }
@@ -1036,6 +1040,91 @@ function renderDetail() {
     </div></div>
     ${cast ? `<h3 style="margin:16px 0 8px">Reparto</h3><div class="cast">${cast}</div>` : ""}`;
 }
+
+// ---------- Estrenos: lo del último año, de una en una ----------
+let est = {kind: "", items: [], i: 0, page: 0, loading: false, done: false, count: 0};
+function estStart(kind) { est = {kind, items: [], i: 0, page: 0, loading: false, done: false, count: 0}; estMore(); }
+async function estMore() {
+  if (est.loading || est.done) return;
+  est.loading = true;
+  if (!est.items.length) renderEst();
+  const kind = est.kind;
+  try {
+    let got = 0;
+    while (got < 5 && est.page < 30 && kind === est.kind) {  // salta páginas ya contestadas
+      est.page++;
+      const r = await api(`/api/discover/releases?kind=${kind}&page=${est.page}`);
+      if (!r.ok) throw new Error(r.error);
+      if (kind !== est.kind) return;
+      const seen = new Set(est.items.map(c => c.tmdb));
+      const fresh = r.items.filter(c => !seen.has(c.tmdb));
+      est.items.push(...fresh);
+      got += fresh.length;
+    }
+    if (!got) est.done = true;
+  } catch (e) { toast(e.message); est.done = true; }
+  est.loading = false;
+  if (dsc.section === "estrenos") renderEst();
+}
+function renderEst() {
+  if (!est.kind) {
+    $("#dscBox").innerHTML = `<h2>Estrenos del último año</h2>
+      <p class="muted" style="margin-top:0">Lo que se ha estrenado en los últimos 12 meses, lo más popular primero. Te salen de una en una para que las califiques; las que ya contestaste no vuelven a salir.</p>
+      <div class="deckbtns" style="max-width:520px"><button class="btn" onclick="estStart('movie')">🎬 Películas</button><button class="btn" onclick="estStart('tv')">📺 Series</button></div>`;
+    return;
+  }
+  const c = est.items[est.i];
+  const head = `<div class="row" style="justify-content:space-between;margin-bottom:10px">
+      <span class="muted">${est.kind === "tv" ? "Series" : "Películas"} estrenadas en el último año · llevas ${est.count}</span>
+      <span class="row"><button class="btn sec" onclick="estStart('${est.kind === "tv" ? "movie" : "tv"}')">Cambiar a ${est.kind === "tv" ? "películas" : "series"}</button></span></div>`;
+  if (!c) {
+    $("#dscBox").innerHTML = head + `<p class="muted">${est.loading ? "Buscando estrenos…" : "Ya contestaste todos los estrenos que hay por ahora."}</p>`;
+    return;
+  }
+  const k = c.kind + c.tmdb, wants = c.have === false && c.have_manual;
+  const b = (v, label, cls) => `<button class="btn ${cls}" onclick="estAnswer(${v})">${label}</button>`;
+  $("#dscBox").innerHTML = head + `<div class="swipe" id="swipe">
+      <div onclick="dscOpen('${k}')" style="cursor:pointer"><img class="big" src="${esc(c.poster)}" alt=""></div>
+      <div><h2 style="margin:0 0 4px">${esc(c.title)}</h2>
+        <div class="hint">${c.date ? "Estreno: " + new Date(c.date + "T12:00").toLocaleDateString("es", {day: "numeric", month: "long", year: "numeric"}) + " · " : ""}${esc((c.genres || []).slice(0, 3).join(", "))}${c.vote ? " · ★ " + c.vote : ""}</div>
+        ${c.have && !c.have_manual ? `<p><span class="pill ok">Ya la tienes</span></p>` : ""}
+        <p style="white-space:pre-line">${esc(c.overview) || "<i>Todavía no tiene resumen.</i>"}${c.overview_lang === "en" ? ` <span class="hint">(en inglés: aún no hay resumen en español)</span>` : ""}</p>
+        <p><a href="#" onclick="dscOpen('${k}');return false">Ficha completa, reparto y tráiler</a></p>
+        <div class="deckbtns three">${b(2, "👍👍 Me encanta", "")}${b(1, "👍 Me gusta", "")}${b(-1, "👎 No me gusta", "bad")}</div>
+        <div class="deckbtns">
+          <button class="btn ${wants ? "" : "sec"}" onclick="estWant()">${wants ? "✓ En mi lista para buscar" : "＋ Agregar a mi lista para buscar"}</button>
+          <button class="btn sec" onclick="estAnswer(0)">Pasar ›</button></div>
+        <p class="hint">«Agregar a mi lista» la pone en Por conseguir. Atajos: 1 me encanta · 2 me gusta · 3 no me gusta · 4 agregar a la lista · espacio pasar</p>
+      </div></div>`;
+}
+function estWant() {
+  const c = est.items[est.i];
+  if (!c) return;
+  const on = !(c.have === false && c.have_manual);
+  c.have_manual = on;
+  dscMark(c.kind + c.tmdb, {have: on ? false : null});
+}
+function estAnswer(v) {
+  const c = est.items[est.i];
+  if (!c) return;
+  const box = $("#swipe");
+  if (box) box.classList.add(v > 0 ? "out-r" : v < 0 ? "out-l" : "out-d");
+  api("/api/discover/mark", {item: c, rating: v}).catch(e => toast(e.message));
+  c.rating = v;
+  if (v) est.count++;
+  setTimeout(() => {
+    est.i++;
+    renderEst();
+    if (est.items.length - est.i < 5) estMore();
+  }, 220);
+}
+document.addEventListener("keydown", e => {
+  if (tab !== "descubrir" || dsc.section !== "estrenos" || !est.kind || dlg.open || e.target.tagName === "INPUT") return;
+  if (e.key === "4") return estWant();
+  if (e.key === " ") { e.preventDefault(); return estAnswer(0); }
+  const v = {"1": 2, "2": 1, "3": -1}[e.key];
+  if (v !== undefined) estAnswer(v);
+});
 
 // ---------- Mis gustos ----------
 async function loadTaste() {

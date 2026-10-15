@@ -486,6 +486,27 @@ class Discover:
         c["trailer"] = f"https://www.youtube.com/watch?v={vids[0]['key']}" if vids else ""
         return self._decorate([c], self.owned_index(), self.marks())[0]
 
+    def releases(self, kind: str, page: int = 1) -> list[dict]:
+        """Estrenos de los últimos 12 meses (películas o series nuevas) que todavía no has contestado."""
+        if kind not in KINDS:
+            raise ValueError("tipo desconocido")
+        today = date.today()
+        field = "primary_release_date" if kind == "movie" else "first_air_date"
+        marks = self.marks()
+        res = self.api._get(f"/discover/{kind}", page=page, sort_by="popularity.desc", include_adult="false",
+                            **{f"{field}.gte": (today - timedelta(days=365)).isoformat(),
+                               f"{field}.lte": today.isoformat(), "vote_count.gte": 5})
+        cards = [card(kind, d, self.genres()) for d in res.get("results", []) if d.get("id") and d.get("poster_path")]
+        cards = [c for c in cards if (kind, c["tmdb"]) not in marks]
+        for c in cards:
+            if not c["overview"]:  # sin resumen en español: el de inglés
+                try:
+                    c["overview"] = self.api._get(f"/{kind}/{c['tmdb']}", language="en-US").get("overview") or ""
+                    c["overview_lang"] = "en"
+                except Exception:
+                    pass
+        return self._decorate(cards, self.owned_index(), marks)
+
     def stats(self) -> dict:
         rows = self.db.execute("SELECT rating, COUNT(*) n FROM discover WHERE rating IS NOT NULL GROUP BY rating")
         return {str(r["rating"]): r["n"] for r in rows}

@@ -238,7 +238,9 @@ dialog.sheet .foot{display:none}
 .stagetop{position:relative;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:18px 22px 0;font-size:14px}
 .swipe,.pcard{position:relative;display:grid;grid-template-columns:minmax(220px,320px) 1fr;gap:30px;align-items:start;padding:22px;
   transition:transform .24s var(--ease-out),opacity .24s var(--ease-out);will-change:transform}
-.swipe .media,.pcard .media{position:relative;touch-action:pan-y;cursor:grab}
+.swipe,.pcard{touch-action:pan-y;-webkit-user-select:none;user-select:none;cursor:grab}
+.swipe .media,.pcard .media{position:relative;cursor:pointer}
+.swipe.drag,.pcard.drag{cursor:grabbing}
 .swipe img.big,.swipe .noimg.big,.pcard img.face{width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:16px;display:block;background:var(--chip);box-shadow:var(--shadow-lg);-webkit-user-drag:none;user-select:none}
 .swipe h2,.pcard h2{font-size:clamp(28px,3.6vw,40px);line-height:1.05;margin:4px 0 8px;letter-spacing:-.025em}
 .swipe .ov{font-size:16px;margin:16px 0 0;white-space:pre-line;max-width:64ch}
@@ -246,7 +248,7 @@ dialog.sheet .foot{display:none}
 .swipe.out-l,.pcard.out-l{transform:translateX(-120px) rotate(-4deg);opacity:0}
 .swipe.out-d,.pcard.out-d{transform:translateY(40px);opacity:0}
 .swipe.drag,.pcard.drag{transition:none}
-.stamp{position:absolute;top:22px;z-index:2;padding:6px 14px;border-radius:10px;font:700 15px var(--sans);letter-spacing:.04em;text-transform:uppercase;opacity:0;border:2px solid;background:rgb(15 10 5/.4);backdrop-filter:blur(6px)}
+.stamp{position:absolute;top:22px;pointer-events:none;z-index:2;padding:6px 14px;border-radius:10px;font:700 15px var(--sans);letter-spacing:.04em;text-transform:uppercase;opacity:0;border:2px solid;background:rgb(15 10 5/.4);backdrop-filter:blur(6px)}
 .stamp.yes{left:18px;color:#7fe0a4;transform:rotate(-8deg)}
 .stamp.no{right:18px;color:#ff9a8a;transform:rotate(8deg)}
 .deckbtns{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:22px}
@@ -293,8 +295,14 @@ dialog.sheet .foot{display:none}
 }
 @media (hover:none){.kbd{display:none}.touch{display:block}}
 
+/* iPad y pantallas medianas: el menú entero cabe sin iconos */
+@media (min-width:901px) and (max-width:1180px){
+  header{gap:14px}
+  nav button{padding:8px 10px;font-size:14.5px}
+  nav button[data-tab] svg.i{display:none}
+}
 /* móvil: menú abajo, tarjetas a todo lo ancho */
-@media (max-width:760px){
+@media (max-width:900px){
   /* sin desenfoque: con backdrop-filter el menú fijo quedaría pegado a la cabecera y no abajo */
   header{padding-top:max(10px,env(safe-area-inset-top));padding-bottom:10px;gap:10px;background:var(--bg);backdrop-filter:none;-webkit-backdrop-filter:none}
   header h1{font-size:20px}
@@ -1179,7 +1187,7 @@ setInterval(() => { if (tab === "inicio") loadStatus(); if (tab === "registro" &
 const DSC_HELP = {
   "novedades": "Lo que acaba de salir o sale pronto. Toca el póster para ver la ficha completa.",
   "clasicos": "Lo más visto esta semana y lo mejor valorado de siempre.",
-  "para-ti": "Según «Mis gustos» y lo que calificaste. No salen las que ya tienes ni las que ya calificaste.",
+  "para-ti": "Aprende de lo que calificas y de «Mis gustos». No salen las que ya tienes ni las que ya calificaste.",
   "por-conseguir": "Lo que marcaste «No la tengo» y lo que te gusta y no está en tu biblioteca. Cuando la consigas, pulsa «La tengo».",
   "calificadas": "Todo lo que has calificado. Puedes cambiarlo cuando quieras.",
   "gustos": "",
@@ -1336,19 +1344,21 @@ function renderDetail(partial) {
     ${cast ? `<div class="castwrap"><h3>Reparto</h3><div class="cast">${cast}</div></div>` : partial ? `<p class="empty">Cargando la ficha…</p>` : ""}`;
 }
 
-// deslizar con el dedo (o arrastrar con el ratón): derecha = me gusta, izquierda = no me gusta
+// deslizar la tarjeta entera con el dedo (o arrastrarla con el ratón): derecha = me gusta, izquierda = no me gusta
 function swipeable(card, onRight, onLeft) {
-  const media = card && card.querySelector(".media");
-  if (!media) return;
+  if (!card) return;
   let x0 = null, y0 = 0, dx = 0, id = null;
   const yes = card.querySelector(".stamp.yes"), no = card.querySelector(".stamp.no");
-  media.onpointerdown = e => { if (e.button) return; x0 = e.clientX; y0 = e.clientY; dx = 0; id = e.pointerId; };
-  media.onpointermove = e => {
+  card.onpointerdown = e => {
+    if (e.button || e.target.closest("button, a, input, summary")) return;  // los botones siguen funcionando
+    x0 = e.clientX; y0 = e.clientY; dx = 0; id = e.pointerId;
+  };
+  card.onpointermove = e => {
     if (x0 === null || e.pointerId !== id) return;
     dx = e.clientX - x0;
     if (!card.classList.contains("drag")) {
       if (Math.abs(dx) < 8 || Math.abs(dx) < Math.abs(e.clientY - y0)) return;
-      card.classList.add("drag"); media.setPointerCapture(id);
+      card.classList.add("drag"); card.setPointerCapture(id);
     }
     card.style.transform = `translateX(${dx}px) rotate(${dx / 30}deg)`;
     if (yes) yes.style.opacity = Math.max(0, Math.min(1, dx / 100));
@@ -1361,12 +1371,13 @@ function swipeable(card, onRight, onLeft) {
     if (yes) yes.style.opacity = 0;
     if (no) no.style.opacity = 0;
     if (!dragged) return;
-    media.dataset.dragged = "1"; setTimeout(() => delete media.dataset.dragged, 50);  // que no abra la ficha al soltar
-    if (dx > 100) onRight(); else if (dx < -100) onLeft();
+    card.dataset.dragged = "1"; setTimeout(() => delete card.dataset.dragged, 50);  // que no abra la ficha al soltar
+    const limit = Math.min(110, card.offsetWidth / 4);
+    if (dx > limit) onRight(); else if (dx < -limit) onLeft();
   };
-  media.onpointerup = end; media.onpointercancel = end;
+  card.onpointerup = end; card.onpointercancel = end;
 }
-function tapOpen(el, k) { if (!el.dataset.dragged) dscOpen(k); }
+function tapOpen(el, k) { if (!el.closest("[data-dragged]")) dscOpen(k); }
 function glow(c) { return c && (c.backdrop || c.poster) ? `<div class="glow" style="background-image:url('${esc(c.backdrop || c.poster)}')"></div>` : ""; }
 function stamps() { return `<span class="stamp yes">Me gusta</span><span class="stamp no">No me gusta</span>`; }
 
@@ -1426,7 +1437,7 @@ function renderEst(quiet) {
           <button class="btn sec want ${wants ? "on" : ""}" onclick="estWant()">${ico(wants ? "check" : "plus")}${wants ? "En mi lista para buscar" : "Agregar a mi lista"}</button>
           <button class="btn sec" onclick="estAnswer(0)">Pasar ${ico("next")}</button></div>
         <p class="kbd">«Agregar a mi lista» la pone en Por conseguir. Atajos: 1 me encanta · 2 me gusta · 3 no me gusta · 4 agregar a la lista · espacio pasar</p>
-        <p class="kbd touch">Desliza el póster a la derecha si te gusta y a la izquierda si no. «Agregar a mi lista» la pone en Por conseguir.</p>
+        <p class="kbd touch">Arrastra la tarjeta a la derecha si te gusta y a la izquierda si no. «Agregar a mi lista» la pone en Por conseguir.</p>
       </div></div></div>`;
   swipeable($("#swipe"), () => estAnswer(1), () => estAnswer(-1));
 }
@@ -1491,6 +1502,7 @@ function renderTaste() {
         <dt>Has calificado</dt><dd>${st["2"] || 0} me encanta · ${st["1"] || 0} me gusta · ${st["-1"] || 0} no me gusta · ${st["0"] || 0} no la has visto
           · <a href="#" onclick="dscGo('calificadas');return false">ver todas</a></dd>
       </dl>
+      ${learnedBox(taste.learned)}
       <div class="row">
         <button class="btn" onclick="startDeck()">Seguir calificando</button>
         <button class="btn sec" onclick="quiz.step='genres';renderTaste()">Cambiar respuestas</button>
@@ -1522,7 +1534,7 @@ function renderTaste() {
             <button class="btn sec" onclick="personAnswer(0)">${ico("meh")}<span>Me da igual</span></button>
             <button class="btn love" onclick="personAnswer(1)">${ico("up")}<span>Me gusta</span></button></div>
           <p class="kbd">Atajos de teclado: 1 me gusta · 2 no me gusta · 3 me da igual</p>
-          <p class="kbd touch">También puedes deslizar la foto: a la derecha si te gusta, a la izquierda si no.</p></div></div></div>`
+          <p class="kbd touch">También puedes arrastrar la tarjeta: a la derecha si te gusta, a la izquierda si no.</p></div></div></div>`
       : loading(pp.loading ? "Buscando gente famosa…" : "No quedan más por ahora.");
     $("#dscBox").innerHTML = `<div class="card"><h2>¿Te gustan estos actores y directores?</h2>
       <p class="muted" style="margin:0 0 16px">Te salen los más famosos, con sus películas o series más conocidas. Contesta y pasa al siguiente; cuando te canses, pulsa Siguiente.</p>
@@ -1543,6 +1555,15 @@ function renderTaste() {
       <p><b>¿De qué época?</b></p><div class="filters">${opt("era", "new", "Sobre todo nuevas")}${opt("era", "all", "De todo")}${opt("era", "classic", "Sobre todo clásicas")}</div>
       ${nav("people", "saveTaste()", "Empezar a calificar")}</div>`;
   }
+}
+function learnedBox(l) {
+  if (!l || !l.count) return "";
+  const line = (label, xs) => xs && xs.length ? `<dt>${label}</dt><dd>${esc(xs.join(", "))}</dd>` : "";
+  const body = line("Géneros que te van", l.likes) + line("Géneros que no", l.dislikes) + line("Épocas", l.decades)
+    + (l.kind ? `<dt>Prefieres</dt><dd>${esc(l.kind)}</dd>` : "") + line("Gente que te gusta", l.people) + line("Gente que no", l.people_no);
+  return `<h3 style="font-size:19px;margin:22px 0 4px">Lo que he aprendido de tus ${l.count} calificaciones</h3>
+    <p class="hint" style="margin:0">Cada «Me encanta», «Me gusta» o «No me gusta» cuenta. Con esto se ordenan «Para ti», «Estrenos» y las tarjetas de calificar.</p>
+    ${body ? `<dl>${body}</dl>` : `<p class="muted">Todavía son pocas: califica unas cuantas más y aquí verás lo que va aprendiendo.</p>`}`;
 }
 async function morePeople() {
   const pp = quiz.pp;
@@ -1651,7 +1672,7 @@ function renderDeck(quiet) {
         <div class="deckbtns">${b(-1, "down", "No me gusta", "nope")}${b(1, "up", "Me gusta", "like")}${b(2, "heart", "Me encanta", "love")}</div>
         <div class="deckbtns two"><button class="btn sec" onclick="deckAnswer(0)">No la he visto</button>${haveButton(c, k).replace('class="havebtn', 'class="btn sec havebtn')}</div>
         <p class="kbd">Atajos de teclado: 1 me encanta · 2 me gusta · 3 no me gusta · 4 no la he visto</p>
-        <p class="kbd touch">Desliza el póster a la derecha si te gusta y a la izquierda si no.</p>
+        <p class="kbd touch">Arrastra la tarjeta a la derecha si te gusta y a la izquierda si no.</p>
       </div></div></div>`;
   swipeable($("#swipe"), () => deckAnswer(1), () => deckAnswer(-1));
 }

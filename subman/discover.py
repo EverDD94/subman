@@ -5,6 +5,11 @@ a preguntarla en «Mis gustos»). «La tengo» se sabe sola mirando la
 biblioteca (carpetas con ``[tmdbid-N]``, Jellyfin, o el mismo título y año), y se puede corregir a mano.
 «Para ti» junta las recomendaciones de TheMovieDB de lo que te encanta (cuenta doble) y te gusta,
 sube los géneros que te gustan, baja los que no, y quita lo que ya tienes o ya calificaste.
+
+Además aprende de tus calificaciones (``learned``): cada «me encanta», «me gusta» o «no me gusta»
+suma o resta a sus géneros, a su década, a películas o series y a su reparto y dirección. Esos pesos
+ordenan «Para ti», «Mis gustos» y «Estrenos», y la gente que aparece en varias que te gustan trae
+más títulos suyos.
 """
 from __future__ import annotations
 
@@ -36,6 +41,12 @@ CREATE TABLE IF NOT EXISTS discover (
     updated REAL,
     PRIMARY KEY (kind, tmdb)
 );
+CREATE TABLE IF NOT EXISTS credits (  -- reparto principal y dirección de lo calificado (no cambia)
+    kind TEXT NOT NULL,
+    tmdb INTEGER NOT NULL,
+    data TEXT NOT NULL,
+    PRIMARY KEY (kind, tmdb)
+);
 CREATE TABLE IF NOT EXISTS taste (  -- respuestas de «Mis gustos» (una sola fila)
     id INTEGER PRIMARY KEY CHECK (id = 1),
     data TEXT NOT NULL
@@ -45,6 +56,22 @@ PROFILE = {"done": False, "genres": {}, "people": [], "people_no": [], "people_s
 PROFILE_IMG = "https://image.tmdb.org/t/p/w185"
 TV_ALIAS = {10759: (28, 12), 10765: (878, 14), 10768: (10752,)}  # géneros de series con nombre en inglés
 TV_SKIP = {10763, 10767}  # noticias y programas de entrevistas
+RW = {2: 2.0, 1: 1.0, -1: -2.0}  # lo que pesa cada calificación al aprender (un «no me gusta» pesa como un «me encanta»)
+CAST_FETCH = 40  # repartos nuevos que se piden a TheMovieDB cada vez (el resto, en la siguiente)
+
+
+def _gids(ids) -> list[int]:
+    """Géneros de película y de serie en la misma escala (Acción y aventura de series = Acción + Aventura)."""
+    out = []
+    for x in ids or []:
+        for y in TV_ALIAS.get(int(x), (int(x),)):
+            if y not in TV_SKIP and y not in out:
+                out.append(y)
+    return out
+
+
+def _decade(year) -> int | None:
+    return int(year) // 10 * 10 if year else None
 
 
 def _norm(s: str) -> str:
@@ -211,6 +238,102 @@ class Discover:
             Discover._recs[key] = hit
         return [dict(c) for c in hit[1]]
 
+    # --- lo que se aprende de tus calificaciones ---------------------------------------
+    def _cast(self, kind: str, tid: int, fetch: bool = True) -> list[dict] | None:
+        """Reparto principal y dirección de un título (se guarda en la base: no cambia)."""
+        row = self.db.execute("SELECT data FROM credits WHERE kind=? AND tmdb=?", (kind, tid)).fetchone()
+        if row:
+            return json.loads(row["data"])
+        if not fetch:
+            return None
+        try:
+            d = self.api._get(f"/{kind}/{tid}/credits")
+        except Exception as e:
+            log.info("descubrir: sin reparto de %s %s (%s)", kind, tid, e)
+            return None
+        people = [{"id": x["id"], "name": x.get("name", "")} for x in (d.get("cast") or [])[:6] if x.get("id")]
+        people += [{"id": x["id"], "name": x.get("name", "")} for x in d.get("crew") or []
+                   if x.get("job") == "Director" and x.get("id")][:2]
+        self.db.execute("INSERT OR REPLACE INTO credits (kind, tmdb, data) VALUES (?,?,?)",
+                        (kind, tid, json.dumps(people, ensure_ascii=False)))
+        self.db.commit()
+        return people
+
+    def learned(self, marks: dict | None = None, fetch: int = CAST_FETCH) -> dict:
+        """Pesos aprendidos de tus calificaciones: géneros, décadas, películas/series y gente.
+
+        Cada peso es la suma de lo que valen sus calificaciones dividida entre (cuántas + 2): con una sola
+        no se fía mucho, y cuantas más coinciden, más pesa. La gente cuenta a partir de dos títulos.
+        """
+        marks = self.marks() if marks is None else marks
+        rated = {k: v for k, v in marks.items() if v["rating"] in RW}
+        acc: dict[str, dict] = {"genres": {}, "decades": {}, "kinds": {}, "people": {}}
+        names: dict[int, str] = {}
+        budget = fetch
+
+        def add(table, key, w):
+            s = acc[table].setdefault(key, [0.0, 0])
+            s[0] += w
+            s[1] += 1
+        for (kind, tid), v in rated.items():
+            w, info = RW[v["rating"]], v["info"]
+            for g in _gids(info.get("genre_ids")):
+                add("genres", g, w)
+            if _decade(info.get("year")):
+                add("decades", _decade(info.get("year")), w)
+            add("kinds", kind, w)
+            cast = self._cast(kind, tid, fetch=False)
+            if cast is None and budget > 0:  # sin guardar todavía: se pide (unas pocas cada vez)
+                budget -= 1
+                cast = self._cast(kind, tid)
+            if cast is None:
+                continue
+            for p in cast:
+                add("people", p["id"], w)
+                names[p["id"]] = p["name"]
+        out = {k: {key: s / (n + 2) for key, (s, n) in t.items()} for k, t in acc.items() if k != "people"}
+        out["people"] = sorted(({"id": pid, "name": names.get(pid, ""), "w": s / (n + 2), "n": n}
+                                for pid, (s, n) in acc["people"].items() if n >= 2), key=lambda p: -abs(p["w"]))
+        out["count"] = len(rated)
+        return out
+
+    @staticmethod
+    def affinity(c: dict, L: dict) -> float:
+        """Cuánto encaja un título con lo aprendido (0 = nada que decir; negativo = no es lo tuyo)."""
+        gs = [L["genres"].get(g, 0.0) for g in _gids(c.get("genre_ids"))]
+        a = sum(gs) / len(gs) if gs else 0.0
+        if gs and min(gs) < 0:
+            a += 0.5 * min(gs)  # un género que no te gusta pesa más que uno indiferente
+        if _decade(c.get("year")):
+            a += 0.4 * L["decades"].get(_decade(c.get("year")), 0.0)
+        a += 0.3 * L["kinds"].get(c.get("kind"), 0.0)
+        return a
+
+    def _with_learned(self, prof: dict, L: dict) -> dict:
+        """«Mis gustos» completado con lo aprendido (lo que marcaste a mano manda)."""
+        prof = {**prof, "genres": dict(prof["genres"])}
+        for g, w in L["genres"].items():
+            if str(g) not in prof["genres"] and abs(w) >= 0.6:
+                prof["genres"][str(g)] = 1 if w > 0 else -1
+        return prof
+
+    def learned_summary(self) -> dict:
+        """Lo aprendido, en palabras, para enseñarlo en «Mis gustos»."""
+        L = self.learned()
+        names = self.genres()
+        g = sorted(L["genres"].items(), key=lambda kv: -kv[1])
+        dec = sorted(((d, w) for d, w in L["decades"].items() if w >= 0.5), key=lambda kv: -kv[1])[:3]
+        label = lambda d: f"años {d}" if d >= 2000 else f"años {d % 100:02d}"
+        kinds = L["kinds"]
+        return {"count": L["count"],
+                "likes": [names[k] for k, w in g if w >= 0.5 and k in names][:6],
+                "dislikes": [names[k] for k, w in reversed(g) if w <= -0.5 and k in names][:6],
+                "decades": [label(d) for d, _ in dec],
+                "kind": ("series" if kinds.get("tv", 0) > kinds.get("movie", 0) + 0.4 else
+                         "películas" if kinds.get("movie", 0) > kinds.get("tv", 0) + 0.4 else ""),
+                "people": [p["name"] for p in L["people"] if p["w"] >= 0.5][:8],
+                "people_no": [p["name"] for p in L["people"] if p["w"] <= -0.5][:6]}
+
     def for_you(self, limit: int = 60) -> list[dict]:
         marks = self.marks()
         prof = self.profile()
@@ -218,15 +341,12 @@ class Discover:
                        key=lambda kv: -kv[1]["rating"])[:40]
         if not liked and not prof["done"]:
             return []
-        taste: dict[int, float] = {int(g): 3 * v for g, v in prof["genres"].items()}  # cuánto te gusta cada género
-        for v in marks.values():
-            w = {2: 2, 1: 1, -1: -2}.get(v["rating"], 0)
-            for g in v["info"].get("genre_ids") or []:
-                taste[g] = taste.get(g, 0) + w
+        L = self.learned(marks)
+        taste: dict[int, float] = {int(g): 3 * v for g, v in prof["genres"].items()}  # lo que marcaste a mano
         score: dict[tuple, float] = {}
         cards: dict[tuple, dict] = {}
         why: dict[tuple, list] = {}
-        for c, reason in self._seed(prof):  # lo que contestaste en «Mis gustos»
+        for c, reason in self._seed(self._with_learned(prof, L)):  # «Mis gustos» + lo aprendido
             k = (c["kind"], c["tmdb"])
             score[k] = score.get(k, 0) + 0.6
             cards[k] = c
@@ -237,7 +357,14 @@ class Discover:
                 score[k] = score.get(k, 0) + v["rating"] * (1 - rank / 40)
                 cards[k] = c
                 why.setdefault(k, []).append(v["info"].get("title") or "")
-        for p in prof["people_no"][:20]:  # y la gente que no te gusta
+        for p in [x for x in L["people"] if x["w"] >= 0.5][:6]:  # gente que sale en varias que te gustan
+            for c in self._credits(p["id"]):
+                k = (c["kind"], c["tmdb"])
+                score[k] = score.get(k, 0) + 0.5 * p["w"]
+                cards.setdefault(k, c)
+                why.setdefault(k, []).append(f"sale {p['name']}")
+        bad = prof["people_no"][:20] + [x for x in L["people"] if x["w"] <= -0.5][:10]
+        for p in bad:  # y la gente que no te gusta
             for c in self._credits(p["id"]):
                 k = (c["kind"], c["tmdb"])
                 if k in score:
@@ -259,8 +386,13 @@ class Discover:
             g = sum(taste.get(x, 0) for x in c["genre_ids"]) / max(1, len(c["genre_ids"]))
             if prof["kinds"] in KINDS and c["kind"] != prof["kinds"]:
                 continue
-            c["score"] = score[k] + 0.15 * g + c["vote"] / 50
+            aff = self.affinity(c, L)
+            c["score"] = score[k] + 0.15 * g + 0.8 * aff + c["vote"] / 50
             c["because"] = [w for w in dict.fromkeys(why[k]) if w][:3]
+            if not c["because"] and aff >= 0.5:
+                top = max(_gids(c["genre_ids"]), key=lambda x: L["genres"].get(x, 0), default=None)
+                if top in self.genres():
+                    c["because"] = [f"te gusta: {self.genres()[top]}"]
             out.append(c)
         out.sort(key=lambda c: -c["score"])
         return self._decorate(out[:limit], idx, marks)
@@ -441,16 +573,21 @@ class Discover:
         n_done = sum(1 for v in marks.values() if v["rating"] is not None)
         pages = random.sample(range(1, 8), 2) if n_done > 20 else [1, 2]
         seen, out = set(), []
-        pool = self._seed(prof, pages)
+        L = self.learned(marks, fetch=8)
+        pool = self._seed(self._with_learned(prof, L), pages)
         # también parecidas a lo que te encanta, para afinar
         for (kind, tid), v in sorted(marks.items(), key=lambda kv: -(kv[1]["rating"] or 0))[:5]:
             if (v["rating"] or 0) > 0:
                 pool += [(c, f"parecida a {v['info'].get('title', '')}") for c in self._recommendations(kind, tid)[:8]]
+        # primero lo que más encaja con lo aprendido, con algo de azar para no repetir siempre lo mismo
         random.shuffle(pool)
+        pool.sort(key=lambda cw: -(self.affinity(cw[0], L) + random.random() * 0.8))
         for c, why in pool:
             k = (c["kind"], c["tmdb"])
             if k in seen or k in marks or not c["poster"]:
                 continue
+            if L["count"] >= 8 and self.affinity(c, L) <= -0.8:
+                continue  # claramente no es lo tuyo
             seen.add(k)
             c["because"] = [why]
             out.append(c)
@@ -502,6 +639,9 @@ class Discover:
                                f"{field}.lte": today.isoformat(), "vote_count.gte": 5})
         cards = [card(kind, d, self.genres()) for d in res.get("results", []) if d.get("id") and d.get("poster_path")]
         cards = [c for c in cards if (kind, c["tmdb"]) not in marks]
+        L = self.learned(marks, fetch=8)  # que los estrenos salgan rápido
+        if L["count"] >= 5:  # dentro de cada tanda, primero lo que más encaja contigo
+            cards.sort(key=lambda c: -self.affinity(c, L))
         for c in cards:
             if not c["overview"]:  # sin resumen en español: el de inglés
                 try:

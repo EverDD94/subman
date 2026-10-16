@@ -25,13 +25,15 @@ DEFAULTS: dict = {
     "jellyfin": {"url": "", "api_key": ""},
     "tmdb": {"api_key": "", "language": "es-MX"},  # para identificar películas (duración y sagas)
     "gemini": {"api_key": ""},
+    # usuario y contraseña de la página (vacío = sin contraseña). Olvidada: borra password_hash.
+    "access": {"user": "", "password_hash": "", "secret": ""},
     # convertir videos al formato que Jellyfin reproduce directo (pestaña «Formatos»)
     "convert": {"enabled": False, "groups": ["caja", "sonido", "video"], "allow_hevc": True,
                 "night_only": False, "night_start": 1, "night_end": 8,
                 "originals_dir": "/media/Originales", "min_free_gb": 50},                     # IA gratis para las películas difíciles  # opcional: avisar a Jellyfin para que vea los subtítulos nuevos
 }
 
-HEADER = """# Configuración de subman. Se puede editar a mano o desde la web (puerto 8787).
+HEADER = """# Configuración de Videotecario (antes subman). Se puede editar a mano o desde la web (puerto 8787).
 # Rutas de la biblioteca tal como se ven DENTRO del contenedor (/media/...).
 """
 

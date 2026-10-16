@@ -8,6 +8,6 @@ RUN pip install --no-cache-dir .
 VOLUME ["/config", "/media"]
 EXPOSE 8787
 HEALTHCHECK --interval=2m --timeout=10s --start-period=30s \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8787/api/status', timeout=5)"
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8787/health', timeout=5)"
 ENTRYPOINT ["subman"]
 CMD ["serve"]

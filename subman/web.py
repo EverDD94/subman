@@ -848,7 +848,8 @@ class App:
             return {"ok": False, "error": str(e)}
 
     def discover_taste(self) -> dict:
-        return self._dsc(lambda d: {"profile": d.profile(), "genres": d.genre_list(), "stats": d.stats()})
+        return self._dsc(lambda d: {"profile": d.profile(), "genres": d.genre_list(), "stats": d.stats(),
+                                     "learned": d.learned_summary()})
 
 
 def make_handler(app: App):

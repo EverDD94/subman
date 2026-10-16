@@ -2,7 +2,8 @@
 
 Un solo proceso: un hilo recorre la biblioteca cada ``interval_minutes`` (o cuando se pulsa
 "Procesar ahora") y un servidor HTTP sirve la página y una pequeña API JSON. Pensado para la
-red de casa: no tiene usuarios ni contraseña.
+red de casa (y para entrar desde fuera con Tailscale): si en Ajustes se pone usuario y
+contraseña, la página los pide (ver auth.py).
 """
 from __future__ import annotations
 
@@ -19,13 +20,19 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, autoid, config, convert, diagnose, discover, duplicates, formats, gemini, identify, jellyfin, manager, peek, providers, tmdb
+from . import __version__, auth, autoid, config, convert, diagnose, discover, duplicates, formats, gemini, identify, jellyfin, manager, peek, providers, tmdb
 from .library import Library
 
 log = logging.getLogger(__name__)
 STATIC = Path(__file__).parent / "static"
 MEDIA_ROOT = os.environ.get("SUBMAN_MEDIA_ROOT", "/media")
 SECRET_FIELDS = ("api_key", "password")
+# lo que se sirve sin haber entrado (la pantalla de entrada necesita el icono)
+PUBLIC = {"/manifest.webmanifest": ("manifest.webmanifest", "application/manifest+json"),
+          "/icon.svg": ("icon.svg", "image/svg+xml"),
+          "/icon-192.png": ("icon-192.png", "image/png"),
+          "/icon-512.png": ("icon-512.png", "image/png"),
+          "/apple-touch-icon.png": ("apple-touch-icon.png", "image/png")}
 MASK = "••••••••"
 
 
@@ -145,6 +152,9 @@ class App:
             for f in SECRET_FIELDS:
                 if f in prov:
                     prov[f] = MASK if prov.get(f) else ""
+        a = pub.pop("access", {}) or {}
+        pub["access"] = {"user": a.get("user", ""), "password": MASK if a.get("password_hash") else "",
+                         "on": auth.enabled(cfg)}
         return {"config": pub, "problems": config.problems(cfg), "media_root": MEDIA_ROOT}
 
     def save_config(self, new: dict) -> dict:
@@ -164,6 +174,9 @@ class App:
                     if k in SECRET_FIELDS and v == MASK:
                         continue  # sin cambios
                     cur[k] = v.strip() if isinstance(v, str) else v
+            if "access" in new:
+                pw = new["access"].get("password") or ""
+                auth.set_access(cfg, new["access"].get("user", ""), None if pw in ("", MASK) else pw)
             cfg["candidates"] = int(cfg["candidates"])
             cfg["interval_minutes"] = max(5, int(cfg["interval_minutes"]))
             cfg["retry_hours"] = float(cfg["retry_hours"])
@@ -894,24 +907,41 @@ def make_handler(app: App):
         def log_message(self, *args):  # sin ruido en el registro
             pass
 
-        def _send(self, code: int, body: bytes, ctype: str) -> None:
+        def _send(self, code: int, body: bytes, ctype: str, headers: dict | None = None) -> None:
             self.send_response(code)
+            headers = {"Cache-Control": "no-store", **(headers or {})}
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(body)))
-            self.send_header("Cache-Control", "no-store")
+            for k, v in headers.items():
+                self.send_header(k, v)
             self.end_headers()
             self.wfile.write(body)
 
-        def _json(self, fn, arg) -> None:
+        def _json(self, fn, arg, headers: dict | None = None) -> None:
             try:
                 data, code = fn(arg), 200
             except Exception as e:
                 log.error("API %s: %s", self.path, traceback.format_exc(limit=3))
-                data, code = {"ok": False, "error": str(e)}, 500
-            self._send(code, json.dumps(data, ensure_ascii=False, default=str).encode(), "application/json")
+                data, code, headers = {"ok": False, "error": str(e)}, 500, None
+            self._send(code, json.dumps(data, ensure_ascii=False, default=str).encode(), "application/json", headers)
+
+        def _authed(self) -> bool:
+            cfg = app.cfg()
+            return not auth.enabled(cfg) or auth.token_ok(cfg, auth.token_from(self.headers.get("Cookie")))
+
+        def _static(self, name: str, ctype: str, cache: bool = False) -> None:
+            self._send(200, (STATIC / name).read_bytes(), ctype, {"Cache-Control": "max-age=86400"} if cache else None)
 
         def do_GET(self):
             u = urlparse(self.path)
+            if u.path in PUBLIC:
+                return self._static(*PUBLIC[u.path], cache=True)
+            if u.path == "/health":  # para el HEALTHCHECK de Docker (no dice nada de la biblioteca)
+                return self._send(200, b"ok", "text/plain")
+            if not self._authed():
+                if u.path.startswith("/api/"):
+                    return self._send(401, b'{"ok": false, "error": "hay que entrar"}', "application/json")
+                return self._static("login.html", "text/html; charset=utf-8")
             if u.path in routes_get:
                 return self._json(routes_get[u.path], parse_qs(u.query))
             if u.path == "/api/names/frame":
@@ -934,11 +964,47 @@ def make_handler(app: App):
 
         def do_POST(self):
             u = urlparse(self.path)
+            n = int(self.headers.get("Content-Length") or 0)
+            if n > 5_000_000:
+                return self._send(413, b"demasiado grande", "text/plain")
+            raw = self.rfile.read(n)
+            if u.path == "/api/login":
+                return self._login(json.loads(raw or b"{}"))
+            if u.path == "/api/logout":
+                return self._send(200, b'{"ok": true}', "application/json", {"Set-Cookie": auth.cookie("", 0)})
+            if not self._authed():
+                return self._send(401, b'{"ok": false, "error": "hay que entrar"}', "application/json")
             if u.path not in routes_post:
                 return self._send(404, b"no encontrado", "text/plain")
-            n = int(self.headers.get("Content-Length") or 0)
-            body = json.loads(self.rfile.read(n) or b"{}")
+            body = json.loads(raw or b"{}")
+            headers = None
+            if u.path == "/api/config" and "access" in body:
+                # quien acaba de poner (o cambiar) la contraseña sigue dentro sin tener que entrar otra vez
+                headers = {"Set-Cookie": auth.cookie("", 0)}
+
+                def save(b):
+                    out = app.save_config(b)
+                    cfg = app.cfg()
+                    if auth.enabled(cfg):
+                        headers["Set-Cookie"] = auth.cookie(auth.make_token(cfg))
+                    return out
+                return self._json(save, body, headers)
             self._json(routes_post[u.path], body)
+
+        def _login(self, b: dict) -> None:
+            cfg, addr = app.cfg(), self.client_address[0]
+            if not auth.enabled(cfg):
+                return self._send(200, b'{"ok": true}', "application/json")
+            if auth.blocked(addr):
+                return self._send(429, json.dumps({"ok": False, "error": "Demasiados intentos. Espera unos minutos."},
+                                                  ensure_ascii=False).encode(), "application/json")
+            token = auth.login(cfg, addr, b.get("user", ""), b.get("password", ""))
+            if not token:
+                log.warning("intento de entrar con usuario o contraseña incorrectos desde %s", addr)
+                return self._send(401, json.dumps({"ok": False, "error": "Usuario o contraseña incorrectos"},
+                                                  ensure_ascii=False).encode(), "application/json")
+            log.info("entrada a la página desde %s", addr)
+            self._send(200, b'{"ok": true}', "application/json", {"Set-Cookie": auth.cookie(token)})
 
     return Handler
 
@@ -950,5 +1016,6 @@ def serve(config_path: str, port: int | None = None) -> None:
     threading.Thread(target=app.worker, name="trabajador", daemon=True).start()
     threading.Thread(target=app.converter, name="conversión", daemon=True).start()
     httpd = ThreadingHTTPServer(("0.0.0.0", port), make_handler(app))
-    log.info("interfaz web en http://<ip-del-nas>:%d", port)
+    log.info("Videotecario en http://<ip-del-nas>:%d%s", port,
+             " (pide usuario y contraseña)" if auth.enabled(cfg) else "")
     httpd.serve_forever()

@@ -1,4 +1,7 @@
-# Instalar subman en el Synology (DS923+)
+# Instalar Videotecario en el Synology (DS923+)
+
+Videotecario es el nuevo nombre de subman. Por dentro todo sigue igual: la imagen sigue siendo
+`ghcr.io/everdd94/subman` y la carpeta `docker/subman`, así que no hay que reinstalar nada.
 
 ## 1. Carpeta de configuración
 
@@ -30,6 +33,29 @@ En el navegador: **http://192.168.1.121:8787** (la IP de tu Synology).
    el progreso.
 
 Los ajustes se guardan en `docker/subman/subman.toml`; no hace falta tocarlo a mano.
+
+## Verlo desde el móvil, también fuera de casa (Tailscale)
+
+Tailscale crea una red privada entre tus aparatos: el móvil ve el NAS como si estuviera en casa,
+sin abrir puertos en el router y sin que nadie más de internet pueda llegar a la página.
+
+1. **Pon usuario y contraseña** en Videotecario: *Ajustes*, tarjeta *Entrar con usuario y contraseña*,
+   y pulsa *Guardar ajustes*. Desde entonces la página los pide (cada aparato se recuerda 90 días).
+2. **En el NAS:** *Centro de paquetes*, busca **Tailscale**, *Instalar*. Al abrirlo te pide entrar con
+   una cuenta (Google, Microsoft o Apple, gratis). Cuando termine, el NAS sale en la lista con un nombre,
+   por ejemplo `ds923`.
+3. **En el móvil:** instala la app **Tailscale** (App Store o Google Play) y entra con **la misma cuenta**.
+   Deja el interruptor encendido.
+4. Abre en el móvil `http://ds923:8787` (cambia `ds923` por el nombre que muestra la app de Tailscale;
+   también vale la dirección `100.x.x.x` que sale al lado).
+5. Para tenerlo como una app: en iPhone, Safari, botón *Compartir*, *Añadir a pantalla de inicio*;
+   en Android, Chrome, menú, *Añadir a pantalla de inicio*.
+
+Es el mismo Videotecario del NAS, no una copia: lo que hagas en el móvil se ve en el ordenador y al revés.
+
+**Si olvidas la contraseña:** en File Station abre `docker/subman/subman.toml`, borra la línea que empieza
+por `password_hash` (dentro de `[access]`), guarda y vuelve a abrir la página: entra sin contraseña y
+puedes poner una nueva en *Ajustes*.
 
 ## Actualizar a una versión nueva
 

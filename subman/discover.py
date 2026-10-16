@@ -22,6 +22,7 @@ from .tmdb import TMDb
 
 log = logging.getLogger(__name__)
 IMG = "https://image.tmdb.org/t/p/w342"
+BACKDROP = "https://image.tmdb.org/t/p/w780"
 KINDS = ("movie", "tv")
 _TMDBID = re.compile(r"\[tmdbid-(\d+)\]", re.I)
 
@@ -60,6 +61,7 @@ def card(kind: str, d: dict, genres: dict) -> dict:
             "original": d.get("original_title") or d.get("original_name") or "",
             "year": int(when[:4]) if when else None, "date": when or "",
             "poster": IMG + d["poster_path"] if d.get("poster_path") else "",
+            "backdrop": BACKDROP + d["backdrop_path"] if d.get("backdrop_path") else "",
             "overview": d.get("overview") or "",
             "genres": [genres.get(g, "") for g in d.get("genre_ids") or [] if genres.get(g)],
             "genre_ids": d.get("genre_ids") or [],
@@ -98,7 +100,7 @@ class Discover:
             r = rating
         if have is not ...:
             h = None if have is None else int(bool(have))
-        info = {k: item.get(k) for k in ("title", "original", "year", "date", "poster", "overview", "genres",
+        info = {k: item.get(k) for k in ("title", "original", "year", "date", "poster", "backdrop", "overview", "genres",
                                          "genre_ids", "vote")}
         if r is None and h is None:
             self.db.execute("DELETE FROM discover WHERE kind=? AND tmdb=?", (kind, tid))
@@ -484,6 +486,8 @@ class Discover:
                 and v.get("type") in ("Trailer", "Teaser")]
         vids.sort(key=lambda v: (v.get("type") != "Trailer", v.get("iso_639_1") != lang))
         c["trailer"] = f"https://www.youtube.com/watch?v={vids[0]['key']}" if vids else ""
+        if d.get("backdrop_path"):  # más grande para la ficha a pantalla completa
+            c["backdrop"] = "https://image.tmdb.org/t/p/w1280" + d["backdrop_path"]
         return self._decorate([c], self.owned_index(), self.marks())[0]
 
     def releases(self, kind: str, page: int = 1) -> list[dict]:

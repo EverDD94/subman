@@ -54,5 +54,6 @@ jobs:
           # interfaz web: arranca con el compose de siempre (run --watch) y responde
           docker run -d --name web -p 8787:8787 -v "$PWD/prueba:/config" "$IMG" run --watch 60
           for i in $(seq 1 20); do curl -fs localhost:8787/api/status && break; sleep 1; done
-          curl -fs localhost:8787/ | grep -q '<title>subman</title>'
+          curl -fs localhost:8787/ | grep -q '<title>Videotecario</title>'
+          curl -fs localhost:8787/health && curl -fs localhost:8787/manifest.webmanifest > /dev/null
           docker rm -f web

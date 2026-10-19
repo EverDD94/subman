@@ -164,7 +164,7 @@ class App:
         with self.lock:
             cfg = self.cfg()
             for k in ("enabled", "library", "languages", "candidates", "keep_review", "sync_existing",
-                      "retry_hours", "archive_languages", "dry_run", "interval_minutes", "duplicates_dir"):
+                      "retry_hours", "archive_languages", "dry_run", "interval_minutes", "duplicates_dir", "discard_dir"):
                 if k in new:
                     cfg[k] = new[k]
             sections = [(cfg.setdefault("providers", {}).setdefault(name, {}), values)
@@ -987,6 +987,101 @@ class App:
         self.wake.set()  # que vuelva a aparecer en la biblioteca
         return {"ok": True, "dest": dest}
 
+    # --- No se sabe qué es: papelera de videos -----------------------------------------
+    def unknown_state(self) -> dict:
+        cfg = self.cfg()
+        lib = self.library(cfg)
+        rows = lib.db.execute("SELECT u.path, u.minutes, u.at, m.id, m.size FROM unknown u "
+                              "JOIN media m ON m.path = u.path ORDER BY u.at DESC").fetchall()
+        items = [{"id": r["id"], "path": r["path"], "name": Path(r["path"]).name, "folder": Path(r["path"]).parent.name,
+                  "minutes": r["minutes"], "size": r["size"], "at": r["at"]} for r in rows if os.path.exists(r["path"])]
+        return {"items": items, "dest": cfg["discard_dir"], "discarded": duplicates.moved_list(lib, "discarded")}
+
+    def _discard_dir_problem(self, cfg: dict) -> str | None:
+        d = Path(cfg["discard_dir"]).resolve()
+        root = Path(MEDIA_ROOT).resolve()
+        if root != d and root not in d.parents:
+            return f"la papelera de videos tiene que estar dentro de {MEDIA_ROOT}"
+        if any(d == Path(r).resolve() or Path(r).resolve() in d.parents for r in cfg["library"]):
+            return "la papelera de videos no puede estar dentro de una carpeta de la biblioteca"
+        return None
+
+    def unknown_discard(self, ids: list[int]) -> dict:
+        cfg = self.cfg()
+        bad = self._discard_dir_problem(cfg)
+        if bad:
+            return {"ok": False, "error": bad}
+        lib = self.library(cfg)
+        done, errors = 0, []
+        for media_id in ids:
+            m = lib.media("id=?", (media_id,))
+            if not m or not Path(m[0].path).exists():
+                errors.append(f"{media_id}: ya no está")
+                continue
+            try:
+                duplicates.move(lib, m[0], cfg["discard_dir"], MEDIA_ROOT, cfg["library"], Path(m[0].path).name, "discarded")
+                lib.db.execute("DELETE FROM unknown WHERE path=?", (m[0].path,))
+                lib.db.commit()
+                done += 1
+            except OSError as e:
+                errors.append(f"{Path(m[0].path).name}: {e}")
+        res = self.names["result"] or {}
+        for k in ("todo", "loose"):
+            res[k] = [e for e in res.get(k, []) if e["id"] not in set(ids)]
+        if done:
+            self._jellyfin_refresh(cfg)
+        return {"ok": not errors, "done": done, "error": "; ".join(errors)}
+
+    def unknown_restore(self, row_id: int) -> dict:
+        try:
+            dest = duplicates.restore(self.library(), row_id, "discarded")
+        except (ValueError, OSError) as e:
+            return {"ok": False, "error": str(e)}
+        self.wake.set()
+        return {"ok": True, "dest": dest}
+
+    def unknown_retry(self, media_id: int) -> dict:
+        lib = self.library()
+        lib.db.execute("DELETE FROM unknown WHERE path IN (SELECT path FROM media WHERE id=?)", (media_id,))
+        lib.db.commit()
+        e = self._names_entry(media_id)
+        if e:  # vuelve a la lista de Nombres para buscarla a mano
+            e["unknown"] = False
+            e["why"] = "la reconoces tú: escribe su nombre"
+        return {"ok": True}
+
+    def unknown_empty(self) -> dict:
+        """Borra de verdad lo que está en la papelera de videos (sólo lo que se mandó desde aquí)."""
+        cfg = self.cfg()
+        lib = self.library(cfg)
+        trash = Path(cfg["discard_dir"]).resolve()
+        n, freed, errors = 0, 0, []
+        for r in lib.db.execute("SELECT * FROM discarded").fetchall():
+            dest = Path(r["dest"])
+            if trash not in dest.resolve().parents:
+                errors.append(f"{dest}: no está en la papelera de videos, no se toca")
+                continue
+            try:
+                if dest.is_dir():
+                    freed += sum(f.stat().st_size for f in dest.rglob("*") if f.is_file())
+                    shutil.rmtree(dest)
+                elif dest.exists():
+                    freed += dest.stat().st_size
+                    dest.unlink()
+                lib.db.execute("DELETE FROM discarded WHERE id=?", (r["id"],))
+                lib.db.commit()
+                n += 1
+                log.info("papelera de videos: borrado %s", dest)
+            except OSError as e:
+                errors.append(f"{dest.name}: {e}")
+        for dirpath, _, _ in sorted(os.walk(trash), key=lambda w: -len(w[0])):  # carpetas que quedaron vacías
+            if Path(dirpath) != trash:
+                try:
+                    os.rmdir(dirpath)
+                except OSError:
+                    pass
+        return {"ok": not errors, "done": n, "freed": freed, "error": "; ".join(errors)}
+
     # --- Descubrir -------------------------------------------------------------------
     def _discover(self):
         cfg = self.cfg()
@@ -1038,6 +1133,7 @@ def make_handler(app: App):
         "/api/formats": lambda q: app.formats_state(),
         "/api/names": lambda q: app.names_state(),
         "/api/auto": lambda q: app.auto_state(),
+        "/api/unknown": lambda q: app.unknown_state(),
         "/api/discover": lambda q: app.discover_list(q.get("section", ["novedades"])[0], int(q.get("page", ["1"])[0])),
         "/api/discover/search": lambda q: app.discover_search(q.get("q", [""])[0]),
         "/api/discover/detail": lambda q: app._dsc(lambda d: {"item": d.detail(q["kind"][0], int(q["tmdb"][0]))}),
@@ -1071,6 +1167,10 @@ def make_handler(app: App):
         "/api/names/undo": lambda b: app.names_undo(int(b["id"])),
         "/api/names/auto": lambda b: app.names_auto(),
         "/api/auto/settings": lambda b: app.auto_settings(b),
+        "/api/unknown/discard": lambda b: app.unknown_discard([int(x) for x in b["ids"]]),
+        "/api/unknown/restore": lambda b: app.unknown_restore(int(b["id"])),
+        "/api/unknown/retry": lambda b: app.unknown_retry(int(b["id"])),
+        "/api/unknown/empty": lambda b: app.unknown_empty(),
         "/api/names/stop": lambda b: app.names_stop(),
         "/api/test-tmdb": lambda b: app.test_tmdb(b),
         "/api/test-gemini": lambda b: app.test_gemini(b),

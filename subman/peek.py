@@ -6,6 +6,8 @@
 * **Título interno**: muchos .mkv/.mp4 guardan el nombre de la película en sus etiquetas.
 * **Fotos**: unos fotogramas (principio, donde suele salir el título, y escenas) para la IA y para
   enseñarlos en la página.
+* **Segundo intento**: más fotos de los primeros minutos (título, créditos) y un minuto de audio con
+  diálogo, para la IA, cuando las fotos de escenas no bastaron.
 """
 from __future__ import annotations
 
@@ -22,6 +24,8 @@ from .duplicates import normalize
 
 log = logging.getLogger(__name__)
 FRAMES = (0.03, 0.2, 0.45, 0.7)  # dónde se sacan las fotos (fracción de la duración)
+OPENING = (15, 45, 90, 150, 240, 360)  # fotos del principio para el segundo intento (segundos)
+CLIP_AT, CLIP_SECONDS = 0.3, 60  # trozo de audio: un minuto hacia el 30 % (lejos de la música del principio)
 # Etiquetas «title» que no son el nombre de una película: webs, grupos, la propia herramienta...
 _JUNK_TITLE = re.compile(r"https?:|www\.|\.com|\.net|\.org|@|telegram|torrent|\byts\b|rarbg|"
                          r"handbrake|lavf|encoded|ripped|^\W*$", re.I)
@@ -66,6 +70,49 @@ def frame(path: str, out_dir: Path, minutes: float | None, key: str, n: int) -> 
 def frames(path: str, out_dir: Path, minutes: float | None, key: str) -> list[Path]:
     """Todas las fotos del video. ``key`` identifica el archivo (id + fecha)."""
     return [p for p in (frame(path, out_dir, minutes, key, n) for n in range(len(FRAMES))) if p]
+
+
+def opening(path: str, out_dir: Path, minutes: float | None, key: str) -> list[Path]:
+    """Fotos de los primeros minutos, donde suelen salir el título y los créditos."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out = []
+    for n, sec in enumerate(OPENING):
+        if minutes and sec > minutes * 60 * 0.5:
+            break
+        jpg = out_dir / f"{key}_p{n}.jpg"
+        if not jpg.exists():
+            tmp = jpg.with_suffix(f".{threading.get_ident()}.tmp.jpg")
+            try:
+                subprocess.run(["ffmpeg", "-nostdin", "-v", "error", "-y", "-ss", str(sec), "-i", str(path),
+                                "-frames:v", "1", "-vf", "scale=640:-2", "-q:v", "5", str(tmp)],
+                               check=True, capture_output=True, timeout=60)
+                os.replace(tmp, jpg)
+            except Exception as e:
+                log.warning("no se pudo sacar la foto del principio %d de %s: %s", n, path, e)
+                tmp.unlink(missing_ok=True)
+                continue
+        if jpg.stat().st_size:
+            out.append(jpg)
+    return out
+
+
+def clip(path: str, out_dir: Path, minutes: float | None, key: str) -> Path | None:
+    """Un minuto de audio (mp3 mono, pequeño) para que la IA escuche el diálogo."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    mp3 = out_dir / f"{key}_audio.mp3"
+    if not mp3.exists():
+        tmp = mp3.with_suffix(f".{threading.get_ident()}.tmp.mp3")
+        start = (minutes or 90) * 60 * CLIP_AT
+        try:
+            subprocess.run(["ffmpeg", "-nostdin", "-v", "error", "-y", "-ss", f"{start:.0f}", "-i", str(path),
+                            "-t", str(CLIP_SECONDS), "-vn", "-map", "0:a:0", "-ac", "1", "-ar", "16000",
+                            "-b:a", "32k", str(tmp)], check=True, capture_output=True, timeout=120)
+            os.replace(tmp, mp3)
+        except Exception as e:
+            log.warning("no se pudo sacar el audio de %s: %s", path, e)
+            tmp.unlink(missing_ok=True)
+            return None
+    return mp3 if mp3.stat().st_size else None
 
 
 def hash_lookup(client, oshash: str | None) -> list[dict]:

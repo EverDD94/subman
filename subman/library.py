@@ -63,6 +63,18 @@ CREATE TABLE IF NOT EXISTS moved (  -- películas duplicadas apartadas desde la 
     title TEXT,
     moved REAL
 );
+CREATE TABLE IF NOT EXISTS discarded (  -- películas que no se sabe qué son, mandadas a la papelera de videos
+    id INTEGER PRIMARY KEY,
+    src TEXT NOT NULL,
+    dest TEXT NOT NULL,
+    title TEXT,
+    moved REAL
+);
+CREATE TABLE IF NOT EXISTS unknown (  -- «Identificar todo» lo probó todo y no sabe qué película es
+    path TEXT PRIMARY KEY,
+    minutes REAL,
+    at REAL
+);
 CREATE TABLE IF NOT EXISTS renamed (  -- películas ordenadas en su carpeta desde la web (se pueden deshacer)
     id INTEGER PRIMARY KEY,
     title TEXT,

@@ -467,6 +467,8 @@ dialog.sheet .foot{display:none}
       <div><label class="f">Reintentar lo que falló cada (horas)</label><input type="number" id="retry_hours" min="1"></div>
       <div><label class="f">Carpeta para las películas duplicadas</label><input type="text" id="duplicates_dir">
         <div class="hint">Las que apartes en <i>Duplicados</i> se mueven aquí (no se borran). Mejor dentro de la misma carpeta compartida (/media/...) para que el movimiento sea instantáneo, y fuera de las carpetas de la biblioteca.</div></div>
+      <div><label class="f">Papelera de videos</label><input type="text" id="discard_dir">
+        <div class="hint">Las que no se sabe qué son y eliminas en <i>Duplicados</i> esperan aquí hasta que pulses «Vaciar». También dentro de /media y fuera de la biblioteca.</div></div>
     </div>
     <div style="margin-top:14px;display:grid;gap:12px">
       <label class="switch"><input type="checkbox" id="sync_existing"><span>Probar primero los subtítulos que ya tengo junto a los videos</span></label>
@@ -555,6 +557,7 @@ dialog.sheet .foot{display:none}
     <p class="muted"><b>Identificar todo</b> lo hace solo: mira la huella del archivo en OpenSubtitles y el título guardado dentro del video, con TheMovieDB compara la duración y el número de la saga, las dudosas se las pregunta a la IA (Gemini) y, si aún no sabe cuál es, la IA mira unas fotos del video.
       Sólo aplica las que no tienen dudas; el resto te las deja abajo con la mejor opción marcada. Necesita la clave de TheMovieDB en Ajustes.</p>
     <div id="nmState"></div>
+    <p class="muted" id="nmUnknown" hidden style="margin-bottom:0"></p>
   </div>
   <div class="card" id="nmTodoCard" hidden><h2 id="nmTodoTitle"></h2>
     <p class="muted" style="margin-top:0">Elige la película correcta. Si no está, escribe otro nombre (puedes poner el año) y pulsa Buscar.</p>
@@ -581,6 +584,16 @@ dialog.sheet .foot{display:none}
   <div class="card" id="dupMovedCard" hidden><h2>Apartadas</h2>
     <p class="muted" style="margin-top:0">Están en <span class="path" id="dupDest2"></span>. Cuando las hayas revisado, bórralas tú desde File Station; <b>Devolver</b> las pone otra vez en su sitio.</p>
     <table><thead><tr><th>Película</th><th>Ahora está en</th><th></th></tr></thead><tbody id="dupMoved"></tbody></table></div>
+  <div class="card" id="unkCard" hidden><h2 id="unkTitle">No se sabe qué es</h2>
+    <p class="muted" style="margin-top:0">«Identificar todo» lo probó todo con estas: el nombre, la huella del archivo, el título de dentro del video y que la IA mire fotos, el principio y un minuto de audio. Si reconoces alguna por las fotos, pulsa <b>La conozco</b> y pasa a <i>Nombres</i> para que escribas su nombre; si no, elimínala.
+      <b>Eliminar</b> la mueve a <span class="path" id="unkDest"></span> (puedes devolverla) hasta que pulses <b>Vaciar</b>.</p>
+    <div class="row" style="margin-bottom:8px"><label class="switch"><input type="checkbox" id="unkAll"><span>Todas</span></label>
+      <button class="btn bad" id="unkDiscard">Eliminar las marcadas</button><span class="muted" id="unkSel"></span></div>
+    <div id="unkList"></div></div>
+  <div class="card" id="unkTrashCard" hidden><h2 id="unkTrashTitle">Papelera de videos</h2>
+    <div class="row" style="margin-bottom:8px"><button class="btn bad" id="unkEmpty">Vaciar la papelera de videos</button>
+      <span class="muted">Las borra para siempre y libera el espacio.</span></div>
+    <table><thead><tr><th>Video</th><th>Ahora está en</th><th></th></tr></thead><tbody id="unkTrash"></tbody></table></div>
 </section>
 
 <section id="formatos" hidden>
@@ -859,7 +872,7 @@ async function loadConfig() {
   const jf = cfg.jellyfin || {}; $("#jf_url").value = jf.url || ""; $("#jf_api_key").value = jf.api_key || "";
   $("#tmdb_api_key").value = (cfg.tmdb || {}).api_key || ""; $("#gemini_api_key").value = (cfg.gemini || {}).api_key || "";
   $("#languages").value = cfg.languages.join(", "); $("#archive_languages").value = cfg.archive_languages.join(", ");
-  for (const k of ["interval_minutes", "candidates", "retry_hours", "duplicates_dir"]) $("#" + k).value = cfg[k];
+  for (const k of ["interval_minutes", "candidates", "retry_hours", "duplicates_dir", "discard_dir"]) $("#" + k).value = cfg[k];
   for (const k of ["sync_existing", "keep_review", "dry_run", "enabled"]) $("#" + k).checked = cfg[k];
   const acc = cfg.access || {};
   $("#acc_user").value = acc.user || ""; $("#acc_password").value = acc.password || "";
@@ -890,7 +903,7 @@ function formValues() {
   return {
     library: chosen, languages: list($("#languages").value), archive_languages: list($("#archive_languages").value),
     interval_minutes: +$("#interval_minutes").value, candidates: +$("#candidates").value, retry_hours: +$("#retry_hours").value,
-    duplicates_dir: $("#duplicates_dir").value.trim(),
+    duplicates_dir: $("#duplicates_dir").value.trim(), discard_dir: $("#discard_dir").value.trim(),
     sync_existing: $("#sync_existing").checked, keep_review: $("#keep_review").checked, dry_run: $("#dry_run").checked, enabled: $("#enabled").checked,
     jellyfin: {url: $("#jf_url").value, api_key: $("#jf_api_key").value},
     tmdb: {api_key: $("#tmdb_api_key").value}, gemini: {api_key: $("#gemini_api_key").value},
@@ -1015,7 +1028,10 @@ function renderNames() {
   document.querySelectorAll("#nmTodo [data-q]").forEach(i => typed[i.dataset.q] = i.value);
   const focusId = act && act.dataset && act.dataset.q, caret = focusId ? act.selectionStart : 0;
   const res = nm && nm.result;
-  const todo = res ? res.todo : [], loose = res ? res.loose : [];
+  const todo = res ? res.todo.filter(e => !e.unknown) : [], loose = res ? res.loose : [];
+  const unkN = res ? res.todo.length - todo.length : 0;
+  $("#nmUnknown").hidden = !unkN;
+  $("#nmUnknown").innerHTML = `<b>${unkN}</b> no se sabe qué película son (se probó todo, también que la IA mire y escuche el video). Están en <a href="#" onclick="show('duplicados');setTimeout(()=>$('#unkCard').scrollIntoView({behavior:'smooth'}),400);return false">Duplicados › No se sabe qué es</a>, donde puedes eliminarlas.`;
   $("#nmTodoCard").hidden = !todo.length; $("#nmTodoTitle").textContent = `Por identificar: ${todo.length}`;
   $("#nmTodo").innerHTML = todo.map(e => `<div class="nm" id="nm${e.id}"><b>${esc(e.name)}</b> <span class="pill revisar">${esc(e.why)}</span>
       <div class="path">${esc(e.path)}</div>
@@ -1105,7 +1121,52 @@ async function loadDupes() {
     const x = await api("/api/dupes/restore", {id: +b.dataset.r}); toast(x.ok ? "Devuelta a " + x.dest : x.error); loadDupes();
   });
   if (dup.running) setTimeout(() => tab === "duplicados" && loadDupes(), 2000);
+  if (!dup.running) loadUnknown();
 }
+let unk = null;
+async function loadUnknown() {
+  unk = await api("/api/unknown");
+  $("#unkCard").hidden = !unk.items.length; $("#unkTitle").textContent = `No se sabe qué es: ${unk.items.length}`;
+  $("#unkDest").textContent = unk.dest;
+  $("#unkAll").checked = false;
+  $("#unkList").innerHTML = unk.items.map(e => `<div class="nm"><label class="switch"><input type="checkbox" data-unk="${e.id}"><span><b>${esc(e.name)}</b></span></label>
+      <div class="path">${esc(e.path)}</div>
+      <div class="muted">${e.minutes ? `dura <b>${hms(e.minutes * 60).slice(0, -3)}</b> · ` : ""}${e.size ? size(e.size) : ""}</div>
+      <div class="frames">${[0, 1, 2, 3].map(n => `<img loading="lazy" alt="" src="/api/names/frame?id=${e.id}&n=${n}" onerror="this.remove()">`).join("")}</div>
+      <div class="row" style="margin-top:6px"><button class="btn bad" data-unkdel="${e.id}">Eliminar</button>
+        <button class="btn sec" data-unkretry="${e.id}">La conozco</button></div></div>`).join("");
+  const sel = () => { const n = document.querySelectorAll("[data-unk]:checked").length; $("#unkSel").textContent = n ? `${n} marcadas` : ""; $("#unkDiscard").disabled = !n; };
+  document.querySelectorAll("[data-unk]").forEach(x => x.onchange = sel); sel();
+  document.querySelectorAll("[data-unkdel]").forEach(b => b.onclick = () => unkDiscard([+b.dataset.unkdel]));
+  document.querySelectorAll("[data-unkretry]").forEach(b => b.onclick = async () => {
+    await api("/api/unknown/retry", {id: +b.dataset.unkretry}); toast("Está en Nombres: escribe su nombre y pulsa Buscar"); show("nombres"); });
+  const tr = unk.discarded;
+  $("#unkTrashCard").hidden = !tr.length; $("#unkTrashTitle").textContent = `Papelera de videos: ${tr.length}`;
+  $("#unkTrash").innerHTML = tr.map(r => `<tr><td>${esc(r.title || "")}<div class="path">${esc(r.src)}</div><div class="muted" style="font-size:12px">${when(r.moved)}</div></td>
+    <td class="path">${r.exists ? esc(r.dest) : "ya no está"}</td><td>${r.exists ? `<button class="btn sec" data-unkr="${r.id}">Devolver</button>` : ""}</td></tr>`).join("");
+  document.querySelectorAll("[data-unkr]").forEach(b => b.onclick = async () => {
+    const x = await api("/api/unknown/restore", {id: +b.dataset.unkr}); toast(x.ok ? "Devuelta a " + x.dest : x.error); loadUnknown(); });
+}
+async function unkDiscard(ids) {
+  let r; try { r = await api("/api/unknown/discard", {ids}); } catch (e) { r = {ok: false, done: 0, error: e.message}; }
+  toast(r.ok ? (r.done === 1 ? "Eliminada (está en la papelera de videos)" : `${r.done} eliminadas (están en la papelera de videos)`) : r.error);
+  loadUnknown();
+}
+$("#unkAll").onchange = e => { document.querySelectorAll("[data-unk]").forEach(x => x.checked = e.target.checked); $("#unkDiscard").disabled = !e.target.checked || !unk.items.length;
+  $("#unkSel").textContent = e.target.checked ? `${unk.items.length} marcadas` : ""; };
+$("#unkDiscard").onclick = () => unkDiscard([...document.querySelectorAll("[data-unk]:checked")].map(x => +x.dataset.unk));
+let unkArmed = null;
+$("#unkEmpty").onclick = async () => {
+  const b = $("#unkEmpty");
+  if (!unkArmed) {  // sin ventanas de confirmación: el botón pide un segundo toque
+    b.textContent = "Pulsa otra vez para borrarlas para siempre";
+    unkArmed = setTimeout(() => { unkArmed = null; b.textContent = "Vaciar la papelera de videos"; }, 4000);
+    return;
+  }
+  clearTimeout(unkArmed); unkArmed = null; b.textContent = "Vaciar la papelera de videos";
+  const r = await api("/api/unknown/empty", {});
+  toast(r.ok ? `Borradas ${r.done}, liberados ${size(r.freed)}` : r.error); loadUnknown();
+};
 function renderDupes() {
   const groups = (dup && dup.groups) || [];
   $("#dupGroups").innerHTML = groups.map((g, gi) => `<div class="card dup"><div class="row"><h2 style="margin:0">${esc(g.title)}${g.year ? " (" + g.year + ")" : ""}</h2>

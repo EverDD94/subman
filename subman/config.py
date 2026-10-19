@@ -21,6 +21,7 @@ DEFAULTS: dict = {
     "interval_minutes": 60,
     "web_port": 8787,
     "duplicates_dir": "/media/Duplicados",  # adonde van las películas duplicadas que se apartan
+    "discard_dir": "/media/Papelera de videos",  # las que no se sabe qué son y mandas a eliminar (hasta «Vaciar»)
     "providers": {"opensubtitles": {"api_key": "", "username": "", "password": ""}},
     "jellyfin": {"url": "", "api_key": ""},
     "tmdb": {"api_key": "", "language": "es-MX"},  # para identificar películas (duración y sagas)
@@ -98,7 +99,7 @@ def save(path: str | Path, cfg: dict) -> None:
 
 def excluded(cfg: dict) -> list[str]:
     """Carpetas que no son biblioteca aunque estén dentro: duplicados apartados y originales convertidos."""
-    return [d for d in (cfg.get("duplicates_dir"), cfg.get("convert", {}).get("originals_dir")) if d]
+    return [d for d in (cfg.get("duplicates_dir"), cfg.get("discard_dir"), cfg.get("convert", {}).get("originals_dir")) if d]
 
 
 def problems(cfg: dict) -> list[str]:

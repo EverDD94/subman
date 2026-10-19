@@ -20,7 +20,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, auth, autoid, config, convert, diagnose, discover, duplicates, formats, gemini, identify, jellyfin, manager, peek, providers, tmdb
+from . import __version__, auth, autoid, config, convert, diagnose, discover, duplicates, formats, gemini, identify, jellyfin, manager, peek, providers, tmdb, updater
 from .library import Library
 
 log = logging.getLogger(__name__)
@@ -56,6 +56,7 @@ class App:
         self.dupes = {"running": False, "message": "", "groups": None, "at": None}
         self.names = {"running": False, "message": "", "result": None, "at": None, "auto": None, "stop": False}
         self.auto = {"message": "", "last": None}
+        self.upd = {"running": False, "message": "", "asked": None}
         self.auto_wake = threading.Event()
         self.auto_lock = threading.Lock()
         self.fmt = {"running": False, "message": "", "done": 0, "total": 0, "error": None, "stop": False}
@@ -164,7 +165,8 @@ class App:
         with self.lock:
             cfg = self.cfg()
             for k in ("enabled", "library", "languages", "candidates", "keep_review", "sync_existing",
-                      "retry_hours", "archive_languages", "dry_run", "interval_minutes", "duplicates_dir", "discard_dir"):
+                      "retry_hours", "archive_languages", "dry_run", "interval_minutes", "duplicates_dir", "discard_dir",
+                      "timezone"):
                 if k in new:
                     cfg[k] = new[k]
             sections = [(cfg.setdefault("providers", {}).setdefault(name, {}), values)
@@ -184,6 +186,7 @@ class App:
             cfg["interval_minutes"] = max(5, int(cfg["interval_minutes"]))
             cfg["retry_hours"] = float(cfg["retry_hours"])
             config.save(self.config_path, cfg)
+        updater.apply_timezone(cfg.get("timezone", ""))
         log.info("ajustes guardados")
         self.wake.set()
         return self.api_config()
@@ -561,6 +564,66 @@ class App:
                 best = (key, {"path": r["path"], "info": info, "grp": grp, "label": label})
         return best[1] if best else None
 
+
+    # --- actualizarse sola (Watchtower) ----------------------------------------------
+    def update_state(self) -> dict:
+        cfg = self.cfg()
+        return {**self.upd, "build": updater.BUILD, "built": updater.BUILT, "watchtower": updater.available(),
+                "settings": cfg["update"], "now": time.strftime("%H:%M"), "timezone": cfg.get("timezone", "")}
+
+    def update_now(self) -> dict:
+        if not updater.available():
+            return {"ok": False, "error": "falta Watchtower en el proyecto de Container Manager (mira INSTALAR.md)"}
+        if self.upd["running"]:
+            return {"ok": True}
+        self.upd.update(running=True, message="buscando versión nueva", asked=time.time())
+
+        def work():
+            try:
+                updater.update()
+                self.upd.update(message="ya tienes la última versión")
+            except Exception as e:
+                self.upd.update(message=f"no se pudo: {e}")
+            finally:
+                self.upd.update(running=False)
+
+        threading.Thread(target=work, name="actualizar", daemon=True).start()
+        return {"ok": True}
+
+    def update_settings(self, b: dict) -> dict:
+        with self.lock:
+            cfg = self.cfg()
+            if "auto" in b:
+                cfg["update"]["auto"] = bool(b["auto"])
+            if "hour" in b:
+                cfg["update"]["hour"] = max(0, min(23, int(b["hour"])))
+            config.save(self.config_path, cfg)
+        return {"ok": True, **self.update_state()}
+
+    def updates(self) -> None:
+        """Hilo: una vez al día, a la hora elegida, pide la versión nueva (si hay, se reinicia).
+        Si a esa hora se está convirtiendo un video, espera a que acabe para no perderlo."""
+        due = None
+        while True:
+            time.sleep(300)
+            try:
+                cfg = self.cfg()
+                u = cfg["update"]
+                today = time.strftime("%Y-%m-%d")
+                if not u["auto"] or not updater.available() or self._auto_load().get("updated") == today:
+                    continue
+                if due is None and time.localtime().tm_hour == int(u["hour"]):
+                    due = time.time()
+                if due is None:
+                    continue
+                busy = self.conv["current"] or self.names["running"] or self.dupes["running"] or self.state["running"]
+                if busy and time.time() - due < 20 * 3600:
+                    continue
+                self._auto_save(updated=today)
+                due = None
+                self.update_now()
+            except Exception:
+                log.exception("actualización automática")
 
     # --- Nombres y Duplicados solos -------------------------------------------------
     @property
@@ -1134,6 +1197,7 @@ def make_handler(app: App):
         "/api/names": lambda q: app.names_state(),
         "/api/auto": lambda q: app.auto_state(),
         "/api/unknown": lambda q: app.unknown_state(),
+        "/api/update": lambda q: app.update_state(),
         "/api/discover": lambda q: app.discover_list(q.get("section", ["novedades"])[0], int(q.get("page", ["1"])[0])),
         "/api/discover/search": lambda q: app.discover_search(q.get("q", [""])[0]),
         "/api/discover/detail": lambda q: app._dsc(lambda d: {"item": d.detail(q["kind"][0], int(q["tmdb"][0]))}),
@@ -1171,6 +1235,8 @@ def make_handler(app: App):
         "/api/unknown/restore": lambda b: app.unknown_restore(int(b["id"])),
         "/api/unknown/retry": lambda b: app.unknown_retry(int(b["id"])),
         "/api/unknown/empty": lambda b: app.unknown_empty(),
+        "/api/update/now": lambda b: app.update_now(),
+        "/api/update/settings": lambda b: app.update_settings(b),
         "/api/names/stop": lambda b: app.names_stop(),
         "/api/test-tmdb": lambda b: app.test_tmdb(b),
         "/api/test-gemini": lambda b: app.test_gemini(b),
@@ -1288,10 +1354,12 @@ def make_handler(app: App):
 def serve(config_path: str, port: int | None = None) -> None:
     app = App(config_path)
     cfg = app.cfg()
+    updater.apply_timezone(cfg.get("timezone", ""))
     port = port or cfg["web_port"]
     threading.Thread(target=app.worker, name="trabajador", daemon=True).start()
     threading.Thread(target=app.converter, name="conversión", daemon=True).start()
     threading.Thread(target=app.automatic, name="automático", daemon=True).start()
+    threading.Thread(target=app.updates, name="actualizaciones", daemon=True).start()
     httpd = ThreadingHTTPServer(("0.0.0.0", port), make_handler(app))
     log.info("Videotecario en http://<ip-del-nas>:%d%s", port,
              " (pide usuario y contraseña)" if auth.enabled(cfg) else "")

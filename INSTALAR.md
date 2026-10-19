@@ -59,9 +59,19 @@ puedes poner una nueva en *Ajustes*.
 
 ## Actualizar a una versión nueva
 
-Container Manager, **Proyecto**, `subman`: **Detener**, luego **Acción**, **Compilar**
-(descarga la imagen nueva) y **Iniciar**. Si tu compose aún no tiene la parte `ports`,
-añádela antes (ver `docker-compose.yml`).
+Con el bloque `subman-actualizar` (Watchtower) en el proyecto, Videotecario se actualiza solo:
+cada día a la hora elegida en **Ajustes › Actualizaciones** o al pulsar **Actualizar ahora**.
+Si hay versión nueva se reinicia en un minuto con todo igual; si no, no hace nada.
+
+**Añadir Watchtower (una sola vez)**, si tu proyecto aún no lo tiene:
+
+1. Container Manager, **Proyecto**, `subman`: **Detener**.
+2. **Acción › Editar** (o la pestaña **YAML**) y pega al final, con la misma sangría que `subman:`,
+   el bloque `subman-actualizar` de `docker-compose.yml`. Guarda.
+3. **Acción › Limpiar**; en **Imagen** elimina `ghcr.io/everdd94/subman`; vuelve a **Proyecto** y
+   **Acción › Crear** (o **Compilar**). Arranca con la versión nueva y ya con Watchtower.
+
+Sin Watchtower, se actualiza a mano con el paso 3.
 
 ## Qué hace con tus archivos
 

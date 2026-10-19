@@ -498,6 +498,18 @@ dialog.sheet .foot{display:none}
   </div>
 
   <div class="card">
+    <h2>Actualizaciones</h2>
+    <div id="updVersion" class="muted"></div>
+    <div class="row" style="margin-top:12px;gap:10px">
+      <label class="switch"><input type="checkbox" id="updAuto"><span>Actualizarse sola cada día a las</span></label>
+      <select id="updHour"></select>
+      <button class="btn sec" id="updNow">Actualizar ahora</button>
+    </div>
+    <div class="hint">Si hay versión nueva, Videotecario se reinicia en un minuto y vuelve con todo igual. Si a esa hora está convirtiendo un video, espera a que termine.</div>
+    <div id="updState" style="margin-top:10px"></div>
+  </div>
+
+  <div class="card">
     <h2>Entrar con usuario y contraseña</h2>
     <p class="muted" style="margin-top:0">Si pones un usuario y una contraseña, la página los pide al abrirla, también desde el móvil fuera de casa (con Tailscale, ver INSTALAR.md). Cada aparato se recuerda 90 días. Si dejas el usuario vacío y guardas, se deja de pedir.</p>
     <div class="two">
@@ -863,6 +875,36 @@ document.querySelectorAll("[data-auto]").forEach(x => x.onchange = () => autoSav
 $("#autoFrom").onchange = e => autoSave({night_start: +e.target.value});
 $("#autoTo").onchange = e => autoSave({night_end: +e.target.value});
 
+// ---------- Actualizaciones ----------
+for (let h = 0; h < 24; h++) $("#updHour").add(new Option(h + ":00", h));
+let upd = null, updWatch = null;
+async function loadUpdate() {
+  upd = await api("/api/update");
+  $("#updAuto").checked = upd.settings.auto; $("#updHour").value = upd.settings.hour;
+  $("#updVersion").innerHTML = `Versión instalada: ${upd.built ? "del " + new Date(upd.built).toLocaleString("es", {day: "numeric", month: "long", hour: "2-digit", minute: "2-digit"}) : esc(upd.build)}
+    · hora del NAS: <b>${esc(upd.now)}</b>${upd.timezone ? ` (${esc(upd.timezone)})` : ""}`;
+  $("#updNow").disabled = !upd.watchtower || upd.running;
+  $("#updState").innerHTML = !upd.watchtower
+    ? `<span class="pill revisar">falta Watchtower</span> Para que se actualice sola hay que añadir una vez el bloque «subman-actualizar» al proyecto en Container Manager (ver INSTALAR.md).`
+    : upd.running ? `<b>Buscando versión nueva...</b> <span class="muted">si la hay, la página se recarga sola cuando vuelva.</span>`
+    : upd.message ? `<span class="muted">${esc(upd.message)}${upd.asked ? " · " + when(upd.asked) : ""}</span>` : "";
+}
+async function updSave(body) { try { await api("/api/update/settings", body); toast("Guardado"); } catch (e) { toast(e.message); } loadUpdate(); }
+$("#updAuto").onchange = e => updSave({auto: e.target.checked});
+$("#updHour").onchange = e => updSave({hour: +e.target.value});
+$("#updNow").onclick = async () => {
+  const r = await api("/api/update/now", {}); if (r.ok === false) return toast(r.error);
+  const before = upd.build; loadUpdate(); clearInterval(updWatch);
+  const t0 = Date.now();
+  updWatch = setInterval(async () => {  // mientras se reinicia la página no contesta; luego trae otra versión
+    try {
+      const u = await api("/api/update");
+      if (u.build !== before) { clearInterval(updWatch); toast("Actualizado"); setTimeout(() => location.reload(), 1200); return; }
+      if (!u.running || Date.now() - t0 > 600000) { clearInterval(updWatch); if (tab === "ajustes") loadUpdate(); }
+    } catch (e) {}
+  }, 4000);
+};
+
 // ---------- Ajustes ----------
 async function loadConfig() {
   const r = await api("/api/config");
@@ -879,7 +921,9 @@ async function loadConfig() {
   $("#accState").textContent = acc.on ? "Ahora se pide usuario y contraseña." : "Ahora no se pide nada: entra cualquiera de tu red.";
   $("#logout").hidden = !acc.on;
   $("#saveMsg").textContent = r.problems.length ? "Falta: " + r.problems.join("; ") : "";
-  renderChosen(); browse(r.media_root); loadAuto();
+  renderChosen(); browse(r.media_root); loadAuto(); loadUpdate();
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;  // la hora de casa, para los horarios de noche
+  if (tz && cfg.timezone !== tz) api("/api/config", {timezone: tz}).then(() => { cfg.timezone = tz; loadUpdate(); }).catch(() => {});
 }
 function renderChosen() {
   $("#chosen").innerHTML = chosen.length ? chosen.map((p, i) => `<span>${esc(p)}<b onclick="unchoose(${i})">✕</b></span>`).join("")

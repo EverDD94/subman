@@ -10,3 +10,18 @@ services:
     volumes:
       - /volume1/docker/subman:/config     # aquí va subman.toml y la base de datos
       - /volume1/MEDIOS:/media             # la carpeta compartida de medios que usa Jellyfin
+
+  # Actualiza Videotecario solo: cuando lo pide (botón «Actualizar ahora» en Ajustes o cada día a
+  # la hora elegida) baja la imagen nueva y reinicia el contenedor «subman» con la misma configuración.
+  # Sólo toca «subman», no tus otros contenedores. No hace falta cambiar nada de esta parte.
+  subman-actualizar:
+    image: containrrr/watchtower:latest
+    container_name: subman-actualizar
+    restart: unless-stopped
+    command: subman                        # el único contenedor que vigila
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_HTTP_API_UPDATE=true    # sólo actualiza cuando Videotecario se lo pide
+      - WATCHTOWER_HTTP_API_TOKEN=videotecario
+      - WATCHTOWER_CLEANUP=true            # borra la imagen vieja después

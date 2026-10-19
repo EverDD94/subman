@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from pathlib import Path
 
 from . import audio, identify, peek
@@ -173,6 +174,12 @@ def run(lib: Library, cfg: dict, review: dict, progress=lambda msg: None, stop=l
 
     entries = [*review.get("loose", []), *review.get("todo", [])]
     applied, pending, left, unknown = [], [], [], []
+    # las que ya se probaron enteras sin saber qué son no se vuelven a preguntar (gastaría cupo de la IA cada noche)
+    known_unknown = {r["path"]: r["minutes"] for r in lib.db.execute("SELECT path, minutes FROM unknown")}
+    for e in [e for e in entries if e["path"] in known_unknown]:
+        entries.remove(e)
+        left.append({**e, "unknown": True, "options": e.get("options") or [], "minutes": known_unknown[e["path"]],
+                     "why": "no se sabe qué película es"})
 
     ai_state = {"error": None, "off": False, "fails": 0}
 
@@ -245,6 +252,7 @@ def run(lib: Library, cfg: dict, review: dict, progress=lambda msg: None, stop=l
         jf = (e.get("jellyfin") or {}).get("tmdb")
         jname = (e.get("jellyfin") or {}).get("name")
         hits = peek.hash_lookup(osub, m.oshash)  # la huella del archivo en OpenSubtitles
+        e["hashed"] = bool(hits)
         extra = [int(h["tmdb"]) for h in hits[:2]] + ([int(jf)] if jf and str(jf).isdigit() else [])
         more = [x for x in (inf["title"], jname) if x]
         cands = candidates(db, m, minutes, extra, more)
@@ -341,42 +349,71 @@ def run(lib: Library, cfg: dict, review: dict, progress=lambda msg: None, stop=l
                 e["why"] = "la IA cree que no es ninguna de estas"
             left.append(e)
 
-    # Lo que queda: que la IA mire unas fotos del video.
-    if ai and frames_dir and not stop():
-        look, left[:] = list(left), []
-        for n, e in enumerate(look):
-            if stop() or ai_state["off"] or not e.get("_m"):
-                left.append(e)
-                continue
-            progress(f"la IA mira el video: {n + 1} de {len(look)} ({len(applied)} hechas)")
-            m = e["_m"]
-            try:
-                stamp = int(Path(m.path).stat().st_mtime)
-            except OSError:
-                left.append(e)
-                continue
-            imgs = [p.read_bytes() for p in peek.frames(m.path, frames_dir, e["minutes"], f"{m.id}_{stamp}")]
+    def look(e, n, total, second):
+        """La IA mira el video (second: fotos del principio y un minuto de audio). True si se aplicó."""
+        progress(f"la IA {'escucha' if second else 'mira'} el video: {n + 1} de {total} ({len(applied)} hechas)")
+        m = e["_m"]
+        try:
+            stamp = int(Path(m.path).stat().st_mtime)
+        except OSError:
+            return False
+        key = f"{m.id}_{stamp}"
+        if second:
+            imgs = [p.read_bytes() for p in peek.opening(m.path, frames_dir, e["minutes"], key)]
+            mp3 = peek.clip(m.path, frames_dir, e["minutes"], key)
+            sound = mp3.read_bytes() if mp3 else None
+            seen = ask_ai(lambda _: ai.listen(imgs, sound, e["name"], e["minutes"], e.get("options") or []), None) \
+                if imgs or sound else None
+        else:
+            imgs = [p.read_bytes() for p in peek.frames(m.path, frames_dir, e["minutes"], key)]
             seen = ask_ai(lambda _: ai.see(imgs, e["name"], e["minutes"], e.get("options") or []), None) if imgs else None
-            if not seen or not seen[0]:
-                left.append(e)
-                continue
-            names, sure = seen
-            ids: list[int] = []
-            for title, year in names:
-                try:
-                    ids += [x for x in db.search(normalize(title, leet=False) or title, year)[:3] if x not in ids]
-                except Exception as ex:
-                    log.warning("TheMovieDB: no se pudo buscar «%s»: %s", title, ex)
-            known = [int(o["tmdb"]) for o in e.get("options") or []]
-            cands = candidates(db, m, e["minutes"], ids + [k for k in known if k not in ids], [t for t, _ in names]) if ids else []
-            first = [c for c in cands if int(c["tmdb"]) in ids[:1]]
-            if first and sure and first[0]["duration_ok"]:
-                do_apply(e, first[0], "ia")
-                continue
-            if first:
-                e["options"] = first + [c for c in cands if c is not first[0]][:5]
-                e["why"] = f"la IA miró el video y cree que es «{first[0]['name']}», pero no está segura"
-            left.append(e)
+        if seen is not None:
+            e["looked"] = e.get("looked", 0) + 1
+        if not seen or not seen[0]:
+            return False
+        names, sure = seen
+        e["ai_guess"] = True
+        ids: list[int] = []
+        for title, year in names:
+            try:
+                ids += [x for x in db.search(normalize(title, leet=False) or title, year)[:3] if x not in ids]
+            except Exception as ex:
+                log.warning("TheMovieDB: no se pudo buscar «%s»: %s", title, ex)
+        known = [int(o["tmdb"]) for o in e.get("options") or []]
+        cands = candidates(db, m, e["minutes"], ids + [k for k in known if k not in ids], [t for t, _ in names]) if ids else []
+        first = [c for c in cands if int(c["tmdb"]) in ids[:1]]
+        if first and sure and first[0]["duration_ok"]:
+            do_apply(e, first[0], "ia")
+            return True
+        if first:
+            e["options"] = first + [c for c in cands if c is not first[0]][:5]
+            e["why"] = (f"la IA {'escuchó' if second else 'miró'} el video y cree que es «{first[0]['name']}», "
+                        "pero no está segura")
+        return False
+
+    # Lo que queda: que la IA mire unas fotos del video y, si no basta, el principio y un trozo de audio.
+    if ai and frames_dir:
+        for second in (False, True):
+            look_at, left[:] = list(left), []
+            for n, e in enumerate(look_at):
+                if stop() or ai_state["off"] or not e.get("_m") or (second and e.get("ai_guess")):
+                    left.append(e)
+                elif not look(e, n, len(look_at), second):
+                    left.append(e)
+
+    # Ni el nombre, ni la huella, ni el título de dentro, ni la IA mirando y escuchando: no se sabe qué es.
+    now = time.time()
+    for e in left:
+        if "unknown" in e:  # de una pasada anterior
+            continue
+        tried_all = e.get("looked", 0) >= 2 and not e.get("ai_guess")
+        e["unknown"] = bool(not e.get("inside") and not e.get("hashed") and tried_all)
+        for k in ("looked", "ai_guess", "hashed"):
+            e.pop(k, None)
+        if e["unknown"]:
+            e["why"] = "no se sabe qué película es: ni el nombre, ni la huella, ni la IA mirando y escuchando el video"
+            lib.db.execute("INSERT OR REPLACE INTO unknown (path, minutes, at) VALUES (?,?,?)", (e["path"], e.get("minutes"), now))
+    lib.db.commit()
 
     report()
     for e in left:

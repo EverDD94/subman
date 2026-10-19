@@ -59,6 +59,18 @@ reconoces la película sin dudas. Si no tienes idea, lista vacía.
 """
 
 
+LISTEN = """Eres un experto en cine. No sé qué película es este archivo de video de mi biblioteca y
+las fotos de escenas no bastaron. Te paso fotos de los primeros minutos (suelen salir el título, los
+créditos o el logo del estudio) y un trozo de audio con diálogo. Fíjate en los nombres de los
+créditos, en lo que dicen y en las voces. Ayudas: el archivo se llama «{file}» (puede ser basura) y
+dura {minutes} min.{options}
+
+Responde sólo con JSON: {{"peliculas": [{{"titulo": "...", "original": "...", "año": 2001}}],
+"seguro": true|false}}, hasta 3 posibilidades, la más probable primero. «seguro» es true sólo si
+reconoces la película sin dudas. Si no tienes idea, lista vacía.
+"""
+
+
 class GeminiError(RuntimeError):
     """kind: «quota» (sin cupo gratis), «down» (no contesta / saturada) o «key» (clave mala)."""
 
@@ -103,9 +115,11 @@ class Gemini:
             return ("preview" in n, "lite" not in n, -version[0], n)
         return sorted(flash, key=rank)
 
-    def ask(self, text: str, images: list[bytes] = ()) -> str:
+    def ask(self, text: str, images: list[bytes] = (), audio: bytes | None = None) -> str:
         parts = [{"text": text}] + [{"inline_data": {"mime_type": "image/jpeg", "data": base64.b64encode(b).decode()}}
                                     for b in images]
+        if audio:
+            parts.append({"inline_data": {"mime_type": "audio/mpeg", "data": base64.b64encode(audio).decode()}})
         body = {"contents": [{"parts": parts}],
                 "generationConfig": {"temperature": 0, "responseMimeType": "application/json"}}
         if not self._models:
@@ -216,11 +230,16 @@ class Gemini:
 
     def see(self, images: list[bytes], file: str, minutes, options: list[dict] = ()) -> tuple[list, bool]:
         """Qué película es, mirando fotos del video -> ([(título, año), ...], seguro)."""
-        opts = ""
-        if options:
-            opts = "\nPuede que sea una de estas (de TheMovieDB): " + "; ".join(
-                f"«{o['name']}» ({o['year'] or '?'}, {o['runtime'] or '?'} min)" for o in options[:6])
-        raw = self.ask(SEE.format(file=file, minutes=minutes or "?", options=opts), images)
+        return self._movies(self.ask(SEE.format(file=file, minutes=minutes or "?", options=_options(options)), images))
+
+    def listen(self, images: list[bytes], audio: bytes | None, file: str, minutes,
+               options: list[dict] = ()) -> tuple[list, bool]:
+        """Segundo intento: fotos de los primeros minutos (título, créditos) y un trozo de diálogo."""
+        return self._movies(self.ask(LISTEN.format(file=file, minutes=minutes or "?", options=_options(options)),
+                                     images, audio))
+
+    @staticmethod
+    def _movies(raw: str) -> tuple[list, bool]:
         try:
             data = json.loads(raw)
         except ValueError:
@@ -238,3 +257,10 @@ class Gemini:
                 if isinstance(t, str) and t.strip() and (t.strip(), year) not in names:
                     names.append((t.strip(), year))
         return names, bool(data.get("seguro"))
+
+
+def _options(options) -> str:
+    if not options:
+        return ""
+    return "\nPuede que sea una de estas (de TheMovieDB): " + "; ".join(
+        f"«{o['name']}» ({o['year'] or '?'}, {o['runtime'] or '?'} min)" for o in options[:6])

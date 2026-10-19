@@ -192,9 +192,11 @@ def _relative(path: Path, roots: list[str]) -> Path:
     return Path(path.name)
 
 
-def move(lib: Library, media: Media, dest_root: str, media_root: str, roots: list[str], title: str) -> list[str]:
+def move(lib: Library, media: Media, dest_root: str, media_root: str, roots: list[str], title: str,
+         table: str = "moved") -> list[str]:
     """Aparta una película. Si está sola en su carpeta se lleva la carpeta entera (pósters,
-    subtítulos, .nfo); si comparte carpeta, sólo el video y los archivos con su mismo nombre."""
+    subtítulos, .nfo); si comparte carpeta, sólo el video y los archivos con su mismo nombre.
+    table: «moved» para los duplicados, «discarded» para la papelera de videos."""
     video = Path(media.path)
     folder = video.parent
     others = [p for p in folder.iterdir() if p != video and p.is_file() and p.suffix.lower() in VIDEO_EXT]
@@ -212,7 +214,7 @@ def move(lib: Library, media: Media, dest_root: str, media_root: str, roots: lis
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(src), str(dest))
             done.append((src, dest))
-            lib.db.execute("INSERT INTO moved (src, dest, title, moved) VALUES (?,?,?,?)",
+            lib.db.execute(f"INSERT INTO {table} (src, dest, title, moved) VALUES (?,?,?,?)",
                            (str(src), str(dest), title, time.time()))
         lib.db.execute("DELETE FROM media WHERE id=?", (media.id,))
         lib.db.commit()
@@ -225,17 +227,17 @@ def move(lib: Library, media: Media, dest_root: str, media_root: str, roots: lis
                           "prueba otra vez en un momento") from e
         raise
     for src, dest in done:
-        log.info("duplicado apartado: %s -> %s", src, dest)
+        log.info("%s: %s -> %s", "duplicado apartado" if table == "moved" else "a la papelera de videos", src, dest)
     return [str(d) for _, d in done]
 
 
-def moved_list(lib: Library) -> list[dict]:
-    rows = lib.db.execute("SELECT * FROM moved ORDER BY moved DESC").fetchall()
+def moved_list(lib: Library, table: str = "moved") -> list[dict]:
+    rows = lib.db.execute(f"SELECT * FROM {table} ORDER BY moved DESC").fetchall()
     return [{**dict(r), "exists": os.path.exists(r["dest"])} for r in rows]
 
 
-def restore(lib: Library, row_id: int) -> str:
-    r = lib.db.execute("SELECT * FROM moved WHERE id=?", (row_id,)).fetchone()
+def restore(lib: Library, row_id: int, table: str = "moved") -> str:
+    r = lib.db.execute(f"SELECT * FROM {table} WHERE id=?", (row_id,)).fetchone()
     if not r:
         raise ValueError("no está en la lista de apartados")
     src, dest = Path(r["src"]), Path(r["dest"])
@@ -244,12 +246,12 @@ def restore(lib: Library, row_id: int) -> str:
     if src.exists():
         raise ValueError(f"ya hay algo en {src}; muévelo a mano")
     try:
-        lib.db.execute("DELETE FROM moved WHERE id=?", (row_id,))
+        lib.db.execute(f"DELETE FROM {table} WHERE id=?", (row_id,))
     except sqlite3.Error as e:
         lib.db.rollback()
         raise ValueError("subman está ocupado revisando la biblioteca; prueba otra vez en un momento") from e
     src.parent.mkdir(parents=True, exist_ok=True)
     shutil.move(str(dest), str(src))
     lib.db.commit()
-    log.info("duplicado devuelto: %s -> %s", dest, src)
+    log.info("%s: %s -> %s", "duplicado devuelto" if table == "moved" else "devuelto de la papelera de videos", dest, src)
     return str(src)

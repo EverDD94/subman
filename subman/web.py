@@ -55,6 +55,9 @@ class App:
                       "last_start": None, "last_end": None, "next_run": None, "message": "", "scan": None}
         self.dupes = {"running": False, "message": "", "groups": None, "at": None}
         self.names = {"running": False, "message": "", "result": None, "at": None, "auto": None, "stop": False}
+        self.auto = {"message": "", "last": None}
+        self.auto_wake = threading.Event()
+        self.auto_lock = threading.Lock()
         self.fmt = {"running": False, "message": "", "done": 0, "total": 0, "error": None, "stop": False}
         self.conv = {"current": "", "what": "", "progress": 0.0, "message": "apagado", "started": None,
                      "done": 0, "stop": False}
@@ -161,7 +164,7 @@ class App:
         with self.lock:
             cfg = self.cfg()
             for k in ("enabled", "library", "languages", "candidates", "keep_review", "sync_existing",
-                      "retry_hours", "archive_languages", "dry_run", "interval_minutes", "duplicates_dir"):
+                      "retry_hours", "archive_languages", "dry_run", "interval_minutes", "duplicates_dir", "discard_dir"):
                 if k in new:
                     cfg[k] = new[k]
             sections = [(cfg.setdefault("providers", {}).setdefault(name, {}), values)
@@ -368,7 +371,7 @@ class App:
             total = 0
         return {"version": __version__, "state": self.state, "enabled": cfg["enabled"],
                 "problems": config.problems(cfg), "media": total, "counts": counts,
-                "missing": diagnose.summary(reasons)}
+                "missing": diagnose.summary(reasons), "auto": {**self.auto, "settings": cfg["auto"]}}
 
     # --- formatos (qué reproduce Jellyfin directo) ----------------------------------
     def formats_scan(self) -> dict:
@@ -559,30 +562,176 @@ class App:
         return best[1] if best else None
 
 
+    # --- Nombres y Duplicados solos -------------------------------------------------
+    @property
+    def auto_file(self) -> Path:
+        return Path(self.config_path).parent / "automatico.json"
+
+    def _auto_load(self) -> dict:
+        try:
+            return json.loads(self.auto_file.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+
+    def _auto_save(self, **changes) -> dict:
+        with self.auto_lock:
+            st = self._auto_load()
+            st.update(changes)
+            try:
+                self.auto_file.write_text(json.dumps(st, ensure_ascii=False), encoding="utf-8")
+            except OSError as e:
+                log.warning("no se pudo guardar %s: %s", self.auto_file, e)
+            return st
+
+    def _auto_keep(self, kind: str, path: str) -> None:
+        """Lo que deshaces a mano no lo vuelve a tocar el trabajo automático."""
+        with self.auto_lock:
+            keep = self._auto_load().get(kind, [])
+        if path not in keep:
+            self._auto_save(**{kind: [*keep, path][-2000:]})
+
+    def automatic(self) -> None:
+        """Hilo que pasa Nombres y Duplicados solos: cuando llegan videos nuevos y/o una vez por noche."""
+        self.auto["last"] = self._auto_load().get("last")
+        while True:
+            cfg = self.cfg()
+            a = cfg["auto"]
+            wait = 900
+            if not (a["names"] or a["dupes"]):
+                self.auto.update(message="apagado")
+                wait = 3600
+            elif not cfg["library"]:
+                self.auto.update(message="elige primero las carpetas de la biblioteca en Ajustes")
+            elif self.names["running"] or self.dupes["running"]:
+                wait = 120  # ya hay una búsqueda en marcha (pulsada a mano): se espera a que acabe
+            else:
+                try:
+                    self._auto_tick(cfg, a)
+                except Exception as e:
+                    log.exception("trabajo automático")
+                    self.auto.update(message=f"error: {e}")
+            self.auto_wake.wait(wait)
+            self.auto_wake.clear()
+
+    def _auto_tick(self, cfg: dict, a: dict) -> None:
+        lib = self.library(cfg)
+        if not self.state["running"]:
+            lib.scan(cfg["library"], exclude=config.excluded(cfg))
+        top = lib.db.execute("SELECT COALESCE(MAX(id), 0) FROM media").fetchone()[0]
+        st = self._auto_load()
+        if "seen" not in st:  # la primera vez lo que ya había no cuenta como «nuevo»
+            st = self._auto_save(seen=top)
+        start, end = int(a["night_start"]), int(a["night_end"])
+        night = time.strftime("%Y-%m-%d", time.localtime(time.time() - start * 3600))  # la misma para toda la noche
+        new = {m.id for m in lib.media("kind='movie' AND id > ?", (st["seen"],))}
+        if a["nightly"] and convert.in_hours(start, end) and st.get("night") != night:
+            why, only = "noche", None
+        elif a["on_new"] and new:
+            why, only = "nuevo", new
+        else:
+            self.auto.update(message=self._auto_waiting(a))
+            if top > st["seen"]:  # llegaron episodios u otras cosas que no son películas
+                self._auto_save(seen=top)
+            return
+        # se apunta antes de empezar, para no repetirlo si se reinicia a medias
+        st = self._auto_save(seen=top, **({"night": night} if why == "noche" else {}))
+        log.info("trabajo automático: %s", "revisión de la noche" if only is None else f"{len(only)} películas nuevas")
+        out = {"at": time.time(), "why": why, "new": len(only or ())}
+        if a["names"]:
+            out["names"] = self._auto_names(cfg, only, set(st.get("names_keep", [])))
+        if a["dupes"]:
+            out["dupes"] = self._auto_dupes(cfg, only, set(st.get("dupes_keep", [])))
+        out["end"] = time.time()
+        self.auto["last"] = out
+        self._auto_save(last=out)
+        self.auto.update(message=self._auto_waiting(a))
+
+    def _auto_waiting(self, a: dict) -> str:
+        parts = []
+        if a["on_new"]:
+            parts.append("mirando cada 15 minutos si llega algo nuevo")
+        if a["nightly"]:
+            parts.append(f"revisión completa cada noche entre las {a['night_start']}:00 y las {a['night_end']}:00")
+        return "; ".join(parts) or "esperando: marca «al llegar algo nuevo» o «cada noche»"
+
+    def _auto_names(self, cfg: dict, only: set | None, keep: set) -> dict:
+        jf = cfg.get("jellyfin", {})
+        if not (jf.get("url") and jf.get("api_key")):
+            return {"error": "falta Jellyfin en Ajustes"}
+        if not cfg.get("tmdb", {}).get("api_key"):
+            return {"error": "falta la clave de TheMovieDB en Ajustes"}
+        if self.names["running"]:
+            return {"error": "ya se estaba identificando"}
+        self.names.update(running=True, message="trabajo automático: empezando", error=None, stop=False, counts=None)
+        self.auto.update(message="identificando películas")
+        res = self._identify_all(only, skip=keep)
+        if res is None:
+            return {"error": self.names.get("error") or "falló"}
+        return {"applied": len(res["applied"]), "left": len(res["todo"])}
+
+    def _auto_dupes(self, cfg: dict, only: set | None, keep: set) -> dict:
+        if self.dupes["running"]:
+            return {"error": "ya se estaban buscando"}
+        self.dupes.update(running=True, message="trabajo automático: empezando", error=None)
+        self.auto.update(message="buscando duplicados")
+        groups = self._find_dupes()
+        if groups is None:
+            return {"error": self.dupes.get("error") or "falló"}
+        mine = [g for g in groups if only is None or any(f["id"] in only for f in g["files"])]
+        # dudosos, o con una copia que devolviste a mano: los decides tú
+        clear = [g for g in mine if not g["doubtful"] and not any(f["path"] in keep for f in g["files"])]
+        ids = [f["id"] for g in clear for f in g["files"] if f["move"]]
+        r = self.dupes_move(ids) if ids else {"moved": 0, "error": ""}
+        if r.get("error"):
+            log.warning("duplicados automáticos: %s", r["error"])
+        log.info("duplicados automáticos: %d copias apartadas, %d grupos dudosos para revisar",
+                 r["moved"], len(mine) - len(clear))
+        return {"moved": r["moved"], "doubtful": len(mine) - len(clear)}
+
+    def auto_state(self) -> dict:
+        return {**self.auto, "settings": self.cfg()["auto"]}
+
+    def auto_settings(self, b: dict) -> dict:
+        with self.lock:
+            cfg = self.cfg()
+            a = cfg["auto"]
+            for k in ("names", "dupes", "on_new", "nightly"):
+                if k in b:
+                    a[k] = bool(b[k])
+            for k in ("night_start", "night_end"):
+                if k in b:
+                    a[k] = max(0, min(23, int(b[k])))
+            config.save(self.config_path, cfg)
+        log.info("trabajo automático: nombres %s, duplicados %s", "sí" if a["names"] else "no", "sí" if a["dupes"] else "no")
+        self.auto_wake.set()
+        return {"ok": True, **self.auto_state()}
+
     # --- duplicados ----------------------------------------------------------------
     def dupes_scan(self) -> dict:
         if self.dupes["running"]:
             return {"ok": True}
         self.dupes.update(running=True, message="empezando", error=None)
-
-        def work():
-            try:
-                cfg = self.cfg()
-                lib = self.library(cfg)
-                if not self.state["running"] and cfg["library"]:  # lista de videos al día (la pasada ya la hace)
-                    lib.scan(cfg["library"], exclude=config.excluded(cfg), progress=lambda n: self.dupes.update(
-                        message=f"buscando videos: {n} encontrados"))
-                groups = duplicates.find(lib, cfg, lambda msg: self.dupes.update(message=msg))
-                self.dupes.update(groups=groups, at=time.time(), message="")
-                log.info("duplicados: %d grupos", len(groups))
-            except Exception as e:
-                log.exception("duplicados")
-                self.dupes.update(message="", error=str(e))
-            finally:
-                self.dupes.update(running=False)
-
-        threading.Thread(target=work, name="duplicados", daemon=True).start()
+        threading.Thread(target=self._find_dupes, name="duplicados", daemon=True).start()
         return {"ok": True}
+
+    def _find_dupes(self) -> list | None:
+        """Busca duplicados (con self.dupes["running"] ya puesto)."""
+        try:
+            cfg = self.cfg()
+            lib = self.library(cfg)
+            if not self.state["running"] and cfg["library"]:  # lista de videos al día (la pasada ya la hace)
+                lib.scan(cfg["library"], exclude=config.excluded(cfg), progress=lambda n: self.dupes.update(
+                    message=f"buscando videos: {n} encontrados"))
+            groups = duplicates.find(lib, cfg, lambda msg: self.dupes.update(message=msg))
+            self.dupes.update(groups=groups, at=time.time(), message="")
+            log.info("duplicados: %d grupos", len(groups))
+            return groups
+        except Exception as e:
+            log.exception("duplicados")
+            self.dupes.update(message="", error=str(e))
+            return None
+        finally:
+            self.dupes.update(running=False)
 
     def dupes_state(self) -> dict:
         cfg = self.cfg()
@@ -661,33 +810,52 @@ class App:
         if not cfg.get("tmdb", {}).get("api_key"):
             return {"ok": False, "error": "pon la clave de TheMovieDB en Ajustes"}
         self.names.update(running=True, message="empezando", error=None, stop=False, counts=None)
-
-        def work():
-            try:
-                cfg = self.cfg()
-                lib = self.library(cfg)
-                if not self.state["running"] and cfg["library"]:
-                    lib.scan(cfg["library"], exclude=config.excluded(cfg), progress=lambda n: self.names.update(
-                        message=f"buscando videos: {n} encontrados"))
-                rev = identify.review(lib, cfg, lambda msg: self.names.update(message=msg), search=False)
-                res = autoid.run(lib, cfg, rev, lambda msg: self.names.update(message=msg),
-                                 stop=lambda: self.names["stop"], counts=lambda c: self.names.update(counts=c),
-                                 frames_dir=self.frames_dir)
-                now = time.time()
-                self.names.update(result={"todo": res["todo"], "loose": []}, at=now, message="",
-                                  auto={"applied": len(res["applied"]),
-                                        "ai": sum(a["how"] == "ia" for a in res["applied"]), "copies": sum(bool(a.get("copy")) for a in res["applied"]),
-                                        "left": len(res["todo"]), "at": now})
-                if res["applied"]:
-                    self._jellyfin_refresh(cfg)
-            except Exception as e:
-                log.exception("identificar todo")
-                self.names.update(message="", error=str(e))
-            finally:
-                self.names.update(running=False)
-
-        threading.Thread(target=work, name="identificar", daemon=True).start()
+        threading.Thread(target=self._identify_all, name="identificar", daemon=True).start()
         return {"ok": True}
+
+    def _identify_all(self, only: set | None = None, skip: set = frozenset()) -> dict | None:
+        """«Identificar todo» (con self.names["running"] ya puesto). only: sólo esos videos (los recién llegados);
+        skip: rutas que no se tocan solas (las deshiciste a mano)."""
+        try:
+            cfg = self.cfg()
+            lib = self.library(cfg)
+            if not self.state["running"] and cfg["library"]:
+                lib.scan(cfg["library"], exclude=config.excluded(cfg), progress=lambda n: self.names.update(
+                    message=f"buscando videos: {n} encontrados"))
+            rev = identify.review(lib, cfg, lambda msg: self.names.update(message=msg), search=False)
+            held = []
+            if only is not None or skip:
+                held = [e for k in ("todo", "loose") for e in rev.get(k, []) if e["path"] in skip
+                        and (only is None or e["id"] in only)]
+                rev = {k: [e for e in rev.get(k, []) if (only is None or e["id"] in only) and e["path"] not in skip]
+                       for k in ("todo", "loose")}
+            res = autoid.run(lib, cfg, rev, lambda msg: self.names.update(message=msg),
+                             stop=lambda: self.names["stop"], counts=lambda c: self.names.update(counts=c),
+                             frames_dir=self.frames_dir)
+            now = time.time()
+            for e in held:
+                e["why"] = "la deshiciste a mano: no se toca sola"
+                e.setdefault("options", [])
+            res["todo"] += held
+            if only is not None and self.names["result"]:  # se suman a la lista que ya había
+                old = self.names["result"]
+                todo = [e for e in old.get("todo", []) if e["id"] not in only] + res["todo"]
+                self.names.update(result={"todo": todo, "loose": [e for e in old.get("loose", []) if e["id"] not in only]})
+            else:
+                self.names.update(result={"todo": res["todo"], "loose": []})
+            self.names.update(at=now, message="",
+                              auto={"applied": len(res["applied"]),
+                                    "ai": sum(a["how"] == "ia" for a in res["applied"]), "copies": sum(bool(a.get("copy")) for a in res["applied"]),
+                                    "left": len(res["todo"]), "at": now})
+            if res["applied"]:
+                self._jellyfin_refresh(cfg)
+            return res
+        except Exception as e:
+            log.exception("identificar todo")
+            self.names.update(message="", error=str(e))
+            return None
+        finally:
+            self.names.update(running=False)
 
     @property
     def frames_dir(self) -> Path:
@@ -798,10 +966,14 @@ class App:
 
     def names_undo(self, row_id: int) -> dict:
         cfg = self.cfg()
+        lib = self.library(cfg)
+        r = lib.db.execute("SELECT video_from FROM renamed WHERE id=?", (row_id,)).fetchone()
         try:
-            title = identify.undo(self.library(cfg), row_id)
+            title = identify.undo(lib, row_id)
         except (ValueError, OSError) as e:
             return {"ok": False, "error": str(e)}
+        if r and r["video_from"]:
+            self._auto_keep("names_keep", r["video_from"])
         self._jellyfin_refresh(cfg)
         return {"ok": True, "title": title}
 
@@ -811,8 +983,104 @@ class App:
             dest = duplicates.restore(self.library(cfg), row_id)
         except (ValueError, OSError) as e:
             return {"ok": False, "error": str(e)}
+        self._auto_keep("dupes_keep", dest)
         self.wake.set()  # que vuelva a aparecer en la biblioteca
         return {"ok": True, "dest": dest}
+
+    # --- No se sabe qué es: papelera de videos -----------------------------------------
+    def unknown_state(self) -> dict:
+        cfg = self.cfg()
+        lib = self.library(cfg)
+        rows = lib.db.execute("SELECT u.path, u.minutes, u.at, m.id, m.size FROM unknown u "
+                              "JOIN media m ON m.path = u.path ORDER BY u.at DESC").fetchall()
+        items = [{"id": r["id"], "path": r["path"], "name": Path(r["path"]).name, "folder": Path(r["path"]).parent.name,
+                  "minutes": r["minutes"], "size": r["size"], "at": r["at"]} for r in rows if os.path.exists(r["path"])]
+        return {"items": items, "dest": cfg["discard_dir"], "discarded": duplicates.moved_list(lib, "discarded")}
+
+    def _discard_dir_problem(self, cfg: dict) -> str | None:
+        d = Path(cfg["discard_dir"]).resolve()
+        root = Path(MEDIA_ROOT).resolve()
+        if root != d and root not in d.parents:
+            return f"la papelera de videos tiene que estar dentro de {MEDIA_ROOT}"
+        if any(d == Path(r).resolve() or Path(r).resolve() in d.parents for r in cfg["library"]):
+            return "la papelera de videos no puede estar dentro de una carpeta de la biblioteca"
+        return None
+
+    def unknown_discard(self, ids: list[int]) -> dict:
+        cfg = self.cfg()
+        bad = self._discard_dir_problem(cfg)
+        if bad:
+            return {"ok": False, "error": bad}
+        lib = self.library(cfg)
+        done, errors = 0, []
+        for media_id in ids:
+            m = lib.media("id=?", (media_id,))
+            if not m or not Path(m[0].path).exists():
+                errors.append(f"{media_id}: ya no está")
+                continue
+            try:
+                duplicates.move(lib, m[0], cfg["discard_dir"], MEDIA_ROOT, cfg["library"], Path(m[0].path).name, "discarded")
+                lib.db.execute("DELETE FROM unknown WHERE path=?", (m[0].path,))
+                lib.db.commit()
+                done += 1
+            except OSError as e:
+                errors.append(f"{Path(m[0].path).name}: {e}")
+        res = self.names["result"] or {}
+        for k in ("todo", "loose"):
+            res[k] = [e for e in res.get(k, []) if e["id"] not in set(ids)]
+        if done:
+            self._jellyfin_refresh(cfg)
+        return {"ok": not errors, "done": done, "error": "; ".join(errors)}
+
+    def unknown_restore(self, row_id: int) -> dict:
+        try:
+            dest = duplicates.restore(self.library(), row_id, "discarded")
+        except (ValueError, OSError) as e:
+            return {"ok": False, "error": str(e)}
+        self.wake.set()
+        return {"ok": True, "dest": dest}
+
+    def unknown_retry(self, media_id: int) -> dict:
+        lib = self.library()
+        lib.db.execute("DELETE FROM unknown WHERE path IN (SELECT path FROM media WHERE id=?)", (media_id,))
+        lib.db.commit()
+        e = self._names_entry(media_id)
+        if e:  # vuelve a la lista de Nombres para buscarla a mano
+            e["unknown"] = False
+            e["why"] = "la reconoces tú: escribe su nombre"
+        return {"ok": True}
+
+    def unknown_empty(self) -> dict:
+        """Borra de verdad lo que está en la papelera de videos (sólo lo que se mandó desde aquí)."""
+        cfg = self.cfg()
+        lib = self.library(cfg)
+        trash = Path(cfg["discard_dir"]).resolve()
+        n, freed, errors = 0, 0, []
+        for r in lib.db.execute("SELECT * FROM discarded").fetchall():
+            dest = Path(r["dest"])
+            if trash not in dest.resolve().parents:
+                errors.append(f"{dest}: no está en la papelera de videos, no se toca")
+                continue
+            try:
+                if dest.is_dir():
+                    freed += sum(f.stat().st_size for f in dest.rglob("*") if f.is_file())
+                    shutil.rmtree(dest)
+                elif dest.exists():
+                    freed += dest.stat().st_size
+                    dest.unlink()
+                lib.db.execute("DELETE FROM discarded WHERE id=?", (r["id"],))
+                lib.db.commit()
+                n += 1
+                log.info("papelera de videos: borrado %s", dest)
+            except OSError as e:
+                errors.append(f"{dest.name}: {e}")
+        for dirpath, _, _ in sorted(os.walk(trash), key=lambda w: -len(w[0])):  # carpetas que quedaron vacías
+            if Path(dirpath) != trash:
+                try:
+                    os.rmdir(dirpath)
+                except OSError:
+                    pass
+        return {"ok": not errors, "done": n, "freed": freed, "error": "; ".join(errors)}
 
     # --- Descubrir -------------------------------------------------------------------
     def _discover(self):
@@ -864,6 +1132,8 @@ def make_handler(app: App):
         "/api/dupes": lambda q: app.dupes_state(),
         "/api/formats": lambda q: app.formats_state(),
         "/api/names": lambda q: app.names_state(),
+        "/api/auto": lambda q: app.auto_state(),
+        "/api/unknown": lambda q: app.unknown_state(),
         "/api/discover": lambda q: app.discover_list(q.get("section", ["novedades"])[0], int(q.get("page", ["1"])[0])),
         "/api/discover/search": lambda q: app.discover_search(q.get("q", [""])[0]),
         "/api/discover/detail": lambda q: app._dsc(lambda d: {"item": d.detail(q["kind"][0], int(q["tmdb"][0]))}),
@@ -896,6 +1166,11 @@ def make_handler(app: App):
         "/api/names/search": lambda b: app.names_search(int(b["id"]), b["query"]),
         "/api/names/undo": lambda b: app.names_undo(int(b["id"])),
         "/api/names/auto": lambda b: app.names_auto(),
+        "/api/auto/settings": lambda b: app.auto_settings(b),
+        "/api/unknown/discard": lambda b: app.unknown_discard([int(x) for x in b["ids"]]),
+        "/api/unknown/restore": lambda b: app.unknown_restore(int(b["id"])),
+        "/api/unknown/retry": lambda b: app.unknown_retry(int(b["id"])),
+        "/api/unknown/empty": lambda b: app.unknown_empty(),
         "/api/names/stop": lambda b: app.names_stop(),
         "/api/test-tmdb": lambda b: app.test_tmdb(b),
         "/api/test-gemini": lambda b: app.test_gemini(b),
@@ -1016,6 +1291,7 @@ def serve(config_path: str, port: int | None = None) -> None:
     port = port or cfg["web_port"]
     threading.Thread(target=app.worker, name="trabajador", daemon=True).start()
     threading.Thread(target=app.converter, name="conversión", daemon=True).start()
+    threading.Thread(target=app.automatic, name="automático", daemon=True).start()
     httpd = ThreadingHTTPServer(("0.0.0.0", port), make_handler(app))
     log.info("Videotecario en http://<ip-del-nas>:%d%s", port,
              " (pide usuario y contraseña)" if auth.enabled(cfg) else "")

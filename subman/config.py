@@ -27,6 +27,8 @@ DEFAULTS: dict = {
     "gemini": {"api_key": ""},
     # usuario y contraseña de la página (vacío = sin contraseña). Olvidada: borra password_hash.
     "access": {"user": "", "password_hash": "", "secret": ""},
+    # Nombres y Duplicados solos: al llegar videos nuevos y/o una vez cada noche dentro del horario
+    "auto": {"names": False, "dupes": False, "on_new": True, "nightly": True, "night_start": 1, "night_end": 8},
     # convertir videos al formato que Jellyfin reproduce directo (pestaña «Formatos»)
     "convert": {"enabled": False, "groups": ["caja", "sonido", "video"], "allow_hevc": True,
                 "night_only": False, "night_start": 1, "night_end": 8,

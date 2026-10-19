@@ -313,8 +313,12 @@ def restore(lib: Library, row_id: int, originals_dir: str, media_root: str, root
 def in_window(conv: dict, now: float | None = None) -> bool:
     if not conv.get("night_only"):
         return True
+    return in_hours(int(conv["night_start"]), int(conv["night_end"]), now)
+
+
+def in_hours(a: int, b: int, now: float | None = None) -> bool:
+    """¿Estamos entre las a:00 y las b:00? (si a > b, el horario pasa por medianoche)."""
     h = time.localtime(now).tm_hour
-    a, b = int(conv["night_start"]), int(conv["night_end"])
     return a <= h < b if a < b else (h >= a or h < b)
 
 

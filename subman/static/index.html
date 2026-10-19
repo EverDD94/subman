@@ -385,6 +385,7 @@ dialog.sheet .foot{display:none}
     </div>
     <div style="margin-top:14px" id="stateBox"></div>
   </div>
+  <div class="card" id="autoHomeCard" hidden><h2>Nombres y duplicados solos</h2><div id="autoHome"></div></div>
   <div class="card"><h2>Subtítulos</h2><div class="grid" id="counts"></div></div>
   <div class="card" id="missingCard" hidden><h2 id="missingTitle">Lo que falta</h2>
     <p class="muted" style="margin-top:0">Por qué no tienen todavía un subtítulo bueno y qué puedes hacer. Pulsa <b>Ver</b> para la lista.</p>
@@ -472,6 +473,26 @@ dialog.sheet .foot{display:none}
       <label class="switch"><input type="checkbox" id="keep_review"><span>Guardar también los dudosos (quedan en <i>Revisar</i>)</span></label>
       <label class="switch"><input type="checkbox" id="dry_run"><span>Modo ensayo: no mueve ni descarga nada, sólo escribe en el registro lo que haría</span></label>
     </div>
+  </div>
+
+  <div class="card">
+    <h2>Nombres y duplicados solos</h2>
+    <div class="hint" style="margin-top:0">Hace lo mismo que los botones «Identificar todo» y «Buscar duplicados», sin que tengas que pulsarlos.
+      Sólo aplica lo que está claro: las películas dudosas te quedan en <i>Nombres</i> para revisar, y los duplicados dudosos (las copias no duran lo mismo) en <i>Duplicados</i>.
+      Nada se borra: los duplicados se apartan a su carpeta con el botón Devolver y los nombres se pueden deshacer. Lo que deshagas o devuelvas a mano no lo vuelve a tocar solo.</div>
+    <div class="row" style="margin-top:12px;gap:18px">
+      <label class="switch"><input type="checkbox" data-auto="names"><span>Ordenar los nombres</span></label>
+      <label class="switch"><input type="checkbox" data-auto="dupes"><span>Apartar los duplicados claros</span></label>
+    </div>
+    <div class="row" style="margin-top:12px;gap:18px">
+      <label class="switch"><input type="checkbox" data-auto="on_new"><span>Cuando llegue algo nuevo</span></label>
+    </div>
+    <div class="row" style="margin-top:12px;gap:10px">
+      <label class="switch"><input type="checkbox" data-auto="nightly"><span>Revisión completa cada noche, de</span></label>
+      <select id="autoFrom"></select><span>a</span><select id="autoTo"></select>
+    </div>
+    <div class="hint">«Cuando llegue algo nuevo» mira cada 15 minutos y sólo trabaja con lo recién llegado. La revisión de la noche lo repasa todo una vez, al empezar el horario.</div>
+    <div id="autoState" class="muted" style="margin-top:10px"></div>
   </div>
 
   <div class="card">
@@ -714,6 +735,9 @@ async function loadStatus() {
     if (ig.length) html += `<div class="muted">No se procesan (formato no compatible): ${ig.map(([k, v]) => v + " " + esc(k)).join(", ")}</div>`;
   }
   $("#stateBox").innerHTML = html;
+  const au = s.auto || {}, aus = au.settings || {};
+  $("#autoHomeCard").hidden = !(aus.names || aus.dupes);
+  $("#autoHome").innerHTML = autoSummary(au);
   const c = s.counts;
   $("#counts").innerHTML = [["Videos", s.media], ["Bien", c.ok || 0], ["Revisar", c.revisar || 0], ["Fallan", (c.falla || 0) + (c.error || 0)], ["Pendientes", c.pendiente || 0]]
     .map(([k, v]) => `<div class="stat"><span class="muted">${k}</span><b>${v}</b></div>`).join("");
@@ -798,6 +822,34 @@ async function act(what, id, lang) {
   dlg.close(); loadLibrary();
 }
 
+// ---------- Nombres y duplicados solos ----------
+function autoSummary(au) {
+  const l = au.last;
+  let html = `<div class="muted">${esc(au.message || "")}</div>`;
+  if (!l) return html + `<div class="muted">Todavía no ha hecho ninguna pasada.</div>`;
+  const parts = [];
+  if (l.names) parts.push(l.names.error ? `Nombres: ${esc(l.names.error)}`
+    : `<b>${l.names.applied}</b> ordenadas, <b>${l.names.left}</b> para revisar en <a href="#" onclick="show('nombres');return false">Nombres</a>`);
+  if (l.dupes) parts.push(l.dupes.error ? `Duplicados: ${esc(l.dupes.error)}`
+    : `<b>${l.dupes.moved}</b> copias apartadas${l.dupes.doubtful ? `, <b>${l.dupes.doubtful}</b> dudosas en <a href="#" onclick="show('duplicados');return false">Duplicados</a>` : ""}`);
+  return html + `<div style="margin-top:6px">${l.why === "noche" ? "Revisión de la noche" : `Al llegar ${l.new} ${l.new === 1 ? "película nueva" : "películas nuevas"}`} (${when(l.at)}): ${parts.join(" · ") || "nada que hacer"}.</div>`;
+}
+for (let h = 0; h < 24; h++) { $("#autoFrom").add(new Option(h + ":00", h)); $("#autoTo").add(new Option(h + ":00", h)); }
+async function loadAuto() {
+  const r = await api("/api/auto");
+  const a = r.settings;
+  document.querySelectorAll("[data-auto]").forEach(x => x.checked = a[x.dataset.auto]);
+  $("#autoFrom").value = a.night_start; $("#autoTo").value = a.night_end;
+  $("#autoState").innerHTML = (a.names || a.dupes) ? autoSummary(r) : "Apagado.";
+}
+async function autoSave(body) {
+  try { const r = await api("/api/auto/settings", body); if (r.ok === false) toast(r.error); else toast("Guardado"); } catch (e) { toast(e.message); }
+  setTimeout(loadAuto, 600);
+}
+document.querySelectorAll("[data-auto]").forEach(x => x.onchange = () => autoSave({[x.dataset.auto]: x.checked}));
+$("#autoFrom").onchange = e => autoSave({night_start: +e.target.value});
+$("#autoTo").onchange = e => autoSave({night_end: +e.target.value});
+
 // ---------- Ajustes ----------
 async function loadConfig() {
   const r = await api("/api/config");
@@ -814,7 +866,7 @@ async function loadConfig() {
   $("#accState").textContent = acc.on ? "Ahora se pide usuario y contraseña." : "Ahora no se pide nada: entra cualquiera de tu red.";
   $("#logout").hidden = !acc.on;
   $("#saveMsg").textContent = r.problems.length ? "Falta: " + r.problems.join("; ") : "";
-  renderChosen(); browse(r.media_root);
+  renderChosen(); browse(r.media_root); loadAuto();
 }
 function renderChosen() {
   $("#chosen").innerHTML = chosen.length ? chosen.map((p, i) => `<span>${esc(p)}<b onclick="unchoose(${i})">✕</b></span>`).join("")

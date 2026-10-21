@@ -479,11 +479,11 @@ dialog.sheet .foot{display:none}
 
   <div class="card">
     <h2>Nombres y duplicados solos</h2>
-    <div class="hint" style="margin-top:0">Hace lo mismo que los botones «Identificar todo» y «Buscar duplicados», sin que tengas que pulsarlos.
-      Sólo aplica lo que está claro: las películas dudosas te quedan en <i>Nombres</i> para revisar, y los duplicados dudosos (las copias no duran lo mismo) en <i>Duplicados</i>.
+    <div class="hint" style="margin-top:0">Hace lo mismo que los botones «Identificar todo», «Revisar series» y «Buscar duplicados», sin que tengas que pulsarlos.
+      Sólo aplica lo que está claro: las películas y los capítulos dudosos te quedan en <i>Nombres</i> para revisar, y los duplicados dudosos (las copias no duran lo mismo) en <i>Duplicados</i>.
       Nada se borra: los duplicados se apartan a su carpeta con el botón Devolver y los nombres se pueden deshacer. Lo que deshagas o devuelvas a mano no lo vuelve a tocar solo.</div>
     <div class="row" style="margin-top:12px;gap:18px">
-      <label class="switch"><input type="checkbox" data-auto="names"><span>Ordenar los nombres</span></label>
+      <label class="switch"><input type="checkbox" data-auto="names"><span>Ordenar los nombres (películas y series)</span></label>
       <label class="switch"><input type="checkbox" data-auto="dupes"><span>Apartar los duplicados claros</span></label>
     </div>
     <div class="row" style="margin-top:12px;gap:18px">
@@ -579,8 +579,19 @@ dialog.sheet .foot{display:none}
     <div class="row" style="margin-bottom:8px"><label class="switch"><input type="checkbox" id="nmAll" checked><span>Todas</span></label>
       <button class="btn" id="nmOrganize">Ordenar las marcadas en carpetas</button></div>
     <table><thead><tr><th></th><th>Ahora</th><th>Quedará en</th></tr></thead><tbody id="nmLoose"></tbody></table></div>
+  <div class="card" id="srCard">
+    <div class="row" style="justify-content:space-between"><h2 style="margin:0">Series</h2>
+      <button class="btn" id="srScan">Revisar series</button></div>
+    <p class="muted">Cada capítulo queda como lo entiende mejor Jellyfin:
+      <span class="path">2 Broke Girls (2011) [tmdbid-39340]/Season 01/2 Broke Girls - S01E01 - Piloto.mkv</span>.
+      La temporada y el capítulo salen del nombre del archivo (S01E01, 1x01, Capitulo 5, Cap 105...) o de la carpeta de la temporada;
+      el nombre de la serie y el título de cada capítulo, de TheMovieDB. Los subtítulos se mueven con su capítulo y cada serie se puede deshacer de una vez.</p>
+    <p class="muted">Nada cambia hasta que pulses <b>Renombrar</b>. Los dudosos salen sin marcar: corrige la temporada o el capítulo en sus cajas si hace falta.</p>
+    <div id="srState"></div>
+  </div>
+  <div id="srGroups"></div>
   <div class="card" id="nmHistCard" hidden><h2>Cambios hechos</h2>
-    <table><thead><tr><th>Película</th><th>Antes → ahora</th><th></th></tr></thead><tbody id="nmHist"></tbody></table></div>
+    <table><thead><tr><th>Película o serie</th><th>Antes → ahora</th><th></th></tr></thead><tbody id="nmHist"></tbody></table></div>
 </section>
 
 <section id="duplicados" hidden>
@@ -855,9 +866,11 @@ function autoSummary(au) {
   const parts = [];
   if (l.names) parts.push(l.names.error ? `Nombres: ${esc(l.names.error)}`
     : `<b>${l.names.applied}</b> ordenadas, <b>${l.names.left}</b> para revisar en <a href="#" onclick="show('nombres');return false">Nombres</a>`);
+  if (l.series) parts.push(l.series.error ? `Series: ${esc(l.series.error)}`
+    : `<b>${l.series.applied}</b> capítulos renombrados${l.series.left ? `, <b>${l.series.left}</b> para revisar en <a href="#" onclick="show('nombres');return false">Nombres › Series</a>` : ""}`);
   if (l.dupes) parts.push(l.dupes.error ? `Duplicados: ${esc(l.dupes.error)}`
     : `<b>${l.dupes.moved}</b> copias apartadas${l.dupes.doubtful ? `, <b>${l.dupes.doubtful}</b> dudosas en <a href="#" onclick="show('duplicados');return false">Duplicados</a>` : ""}`);
-  return html + `<div style="margin-top:6px">${l.why === "noche" ? "Revisión de la noche" : `Al llegar ${l.new} ${l.new === 1 ? "película nueva" : "películas nuevas"}`} (${when(l.at)}): ${parts.join(" · ") || "nada que hacer"}.</div>`;
+  return html + `<div style="margin-top:6px">${l.why === "noche" ? "Revisión de la noche" : `Al llegar ${l.new} ${l.new === 1 ? "video nuevo" : "videos nuevos"}`} (${when(l.at)}): ${parts.join(" · ") || "nada que hacer"}.</div>`;
 }
 for (let h = 0; h < 24; h++) { $("#autoFrom").add(new Option(h + ":00", h)); $("#autoTo").add(new Option(h + ":00", h)); }
 async function loadAuto() {
@@ -1058,6 +1071,7 @@ async function loadNames() {
     toast(x.ok ? "Deshecho: " + x.title : "No se pudo: " + x.error); loadNames();
   });
   if (nm.running) setTimeout(() => tab === "nombres" && loadNames(), 2000);
+  if (!sr || !sr.running) loadSeries();
 }
 function optCard(e, o, i) {
   const on = (nmPick[e.id] ?? 0) === i;
@@ -1142,6 +1156,92 @@ $("#nmOrganize").onclick = async () => {
   const gone = r.gone ? ` ${r.gone} ya estaban en su carpeta.` : "";
   toast(r.ok ? `Ordenadas ${r.done}.${gone}` : `Ordenadas ${r.done}.${gone} ${r.error}`); loadNames();
 };
+
+// ---------- Series ----------
+let sr = null, srShown = null;
+async function loadSeries() {
+  sr = await api("/api/series");
+  $("#srScan").disabled = sr.running || !sr.tmdb;
+  const res = sr.result, n = res ? res.series.reduce((a, g) => a + g.episodes.length, 0) : 0;
+  $("#srState").innerHTML = !sr.tmdb ? `<span class="pill revisar">falta la clave</span> Necesita la clave de TheMovieDB guardada en Ajustes.`
+    : sr.running ? `<b>${esc(sr.message || "revisando...")}</b>`
+    : sr.error ? `<span class="pill falla">error</span> ${esc(sr.error)}`
+    : res ? `<span class="muted">Revisado ${when(sr.at)}.</span> ${sr.auto && sr.auto.at === sr.at ? `<span class="pill ok">automático</span> Renombrados solos: <b>${sr.auto.applied}</b>. ` : ""}${n ? `Por renombrar: <b>${n}</b> capítulos de <b>${res.series.length}</b> series.` : "Todos los capítulos tienen ya su nombre."}`
+    : `<span class="muted">Pulsa «Revisar series».</span>`;
+  if (sr.at !== srShown || !sr.running) renderSeries();
+  srShown = sr.at;
+  if (sr.running) setTimeout(() => tab === "nombres" && loadSeries(), 2000);
+}
+function srCode(e) { return `S${String(e.season).padStart(2, "0")}E${String(e.episode).padStart(2, "0")}${e.last ? "-E" + String(e.last).padStart(2, "0") : ""}`; }
+function srGroup(g, gi) {
+  const show = g.show, opts = g.options || [];
+  const head = show ? `${show.image ? `<img src="${esc(show.image)}" alt="" style="width:46px;border-radius:6px">` : ""}
+      <div><b>${esc(show.name)}</b> ${show.year ? "(" + show.year + ")" : ""} <span class="muted">· TheMovieDB</span>
+        <div class="path">${esc(g.series_dir)}</div></div>`
+    : `<div><b>${esc(g.title)}</b><div class="path">${esc(g.series_dir)}</div></div>`;
+  const pickBox = g.why || !show ? `<div style="margin-top:10px"><span class="pill revisar">${esc(g.why || "no se sabe qué serie es")}</span>
+      Elige la serie correcta${opts.length ? "" : " (escribe su nombre y pulsa Buscar)"}:
+      <div class="opts">${opts.map((o, i) => `<div class="opt ${show && o.tmdb === show.tmdb ? "on" : ""}" data-sp="${gi}" data-t="${o.tmdb}">
+        ${o.image ? `<img loading="lazy" src="${esc(o.image)}" alt="">` : `<div class="noimg"></div>`}<b>${esc(o.name)}</b> ${o.year ? "(" + o.year + ")" : ""}</div>`).join("")}</div>
+      <div class="row"><input type="text" style="max-width:320px" placeholder="Otro nombre, p. ej. Shameless 2011" data-sq="${gi}">
+        <button class="btn sec" data-ss="${gi}">Buscar</button></div></div>` : "";
+  const rows = g.episodes.map(e => `<tr${e.why ? ' style="background:var(--chip)"' : ""}>
+      <td><input type="checkbox" data-se="${e.id}" ${e.ok ? "checked" : ""} ${!show ? "disabled" : ""}></td>
+      <td style="white-space:nowrap"><input type="number" min="0" max="99" value="${e.season}" data-rs="${e.id}" style="width:58px" title="Temporada">
+        <input type="number" min="0" max="999" value="${e.episode}" data-re="${e.id}" style="width:64px" title="Capítulo"></td>
+      <td>${esc(e.name)}${e.why ? `<div><span class="pill revisar">${esc(e.why)}</span></div>` : ""}</td>
+      <td class="path">${show ? esc(e.target) : "—"}</td></tr>`).join("");
+  return `<div class="card" data-g="${gi}"><div class="row" style="gap:12px;align-items:center">${head}</div>${pickBox}
+    <table style="margin-top:10px"><thead><tr><th></th><th>T · E</th><th>Ahora</th><th>Quedará como</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="row" style="margin-top:10px"><button class="btn" data-sa="${gi}" ${show ? "" : "disabled"}>Renombrar los marcados</button>
+      <span class="muted" data-sn="${gi}"></span></div></div>`;
+}
+function renderSeries() {
+  const list = sr && sr.result ? sr.result.series : [];
+  $("#srGroups").innerHTML = sr && sr.running ? "" : list.map(srGroup).join("");
+  const count = gi => { const c = document.querySelector(`[data-g="${gi}"]`); const k = c.querySelectorAll("[data-se]:checked").length;
+    c.querySelector("[data-sn]").textContent = `${k} de ${list[gi].episodes.length} marcados`; };
+  list.forEach((g, gi) => count(gi));
+  document.querySelectorAll("#srGroups [data-se]").forEach(c => c.onchange = () => count(+c.closest("[data-g]").dataset.g));
+  const replace = (gi, group) => { sr.result.series[gi] = group; renderSeries(); };
+  document.querySelectorAll("#srGroups [data-sp]").forEach(d => d.onclick = async () => {
+    const gi = +d.dataset.sp, r = await api("/api/series/pick", {key: list[gi].key, tmdb: d.dataset.t});
+    r.ok ? replace(gi, r.group) : toast(r.error);
+  });
+  const search = async gi => {
+    const q = document.querySelector(`[data-sq="${gi}"]`).value.trim(); if (!q) return;
+    const r = await api("/api/series/search", {key: list[gi].key, query: q});
+    if (!r.ok) return toast(r.error);
+    if (!r.options.length) return toast("No se encontró nada con ese nombre");
+    list[gi].options = r.options; renderSeries();
+  };
+  document.querySelectorAll("#srGroups [data-ss]").forEach(b => b.onclick = () => search(+b.dataset.ss));
+  document.querySelectorAll("#srGroups [data-sq]").forEach(i => i.onkeydown = ev => { if (ev.key === "Enter") search(+i.dataset.sq); });
+  document.querySelectorAll("#srGroups [data-rs], #srGroups [data-re]").forEach(i => i.onchange = async () => {
+    const card = i.closest("[data-g]"), gi = +card.dataset.g, id = +(i.dataset.rs || i.dataset.re);
+    const season = +card.querySelector(`[data-rs="${id}"]`).value, episode = +card.querySelector(`[data-re="${id}"]`).value;
+    if (!list[gi].show) return toast("Elige primero qué serie es");
+    const r = await api("/api/series/renumber", {key: list[gi].key, changes: [{id, season, episode}]});
+    if (!r.ok) return toast(r.error);
+    const keep = new Set([...card.querySelectorAll("[data-se]:checked")].map(c => +c.dataset.se));
+    replace(gi, r.group);
+    const e = r.group.episodes.find(x => x.id === id);
+    document.querySelectorAll(`[data-g="${gi}"] [data-se]`).forEach(c => {
+      const x = +c.dataset.se; c.checked = x === id ? !e.why || e.why === "TheMovieDB no tiene este capítulo" : keep.has(x); });
+    count(gi);
+  });
+  document.querySelectorAll("#srGroups [data-sa]").forEach(b => b.onclick = async () => {
+    const gi = +b.dataset.sa, card = b.closest("[data-g]");
+    const ids = [...card.querySelectorAll("[data-se]:checked")].map(c => +c.dataset.se);
+    if (!ids.length) return toast("No hay ninguno marcado");
+    b.disabled = true; b.textContent = `Renombrando ${ids.length}...`;  // sin preguntar: se puede deshacer en «Cambios hechos»
+    let r; try { r = await api("/api/series/apply", {key: list[gi].key, ids}); } catch (err) { r = {ok: false, error: err.message}; }
+    if (!r.ok) { b.disabled = false; b.textContent = "Renombrar los marcados"; return toast("No se pudo: " + r.error); }
+    toast(`Renombrados ${r.done}. Jellyfin los actualizará en unos minutos.`);
+    srShown = null; loadNames();
+  });
+}
+$("#srScan").onclick = async () => { const r = await api("/api/series/scan", {}); if (r.ok === false) return toast(r.error); loadSeries(); };
 
 // ---------- Duplicados ----------
 let dup = null;

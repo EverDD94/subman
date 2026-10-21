@@ -1,4 +1,5 @@
-"""TheMovieDB: buscar películas y saber su duración y a qué saga pertenecen (y en qué orden).
+"""TheMovieDB: buscar películas y saber su duración y a qué saga pertenecen (y en qué orden);
+buscar series y los títulos de sus capítulos.
 
 La clave es gratis: themoviedb.org > Ajustes > API. Vale la «clave de la API» (v3) o el
 «token de acceso de lectura» (v4, empieza por «eyJ»).
@@ -6,6 +7,7 @@ La clave es gratis: themoviedb.org > Ajustes > API. Vale la «clave de la API» 
 from __future__ import annotations
 
 import logging
+import re
 import time
 
 import requests
@@ -26,6 +28,8 @@ class TMDb:
         self.timeout = timeout
         self._movies: dict[int, dict] = {}
         self._collections: dict[int, list[int]] = {}
+        self._shows: dict[int, dict] = {}
+        self._seasons: dict[tuple[int, int], dict[int, str]] = {}
 
     def _get(self, path: str, **params) -> dict:
         for attempt in range(4):
@@ -67,3 +71,46 @@ class TMDb:
             parts = [p for p in parts if p.get("release_date")]
             self._collections[collection_id] = [p["id"] for p in sorted(parts, key=lambda p: p["release_date"])]
         return self._collections[collection_id]
+
+    def search_tv(self, query: str, year: int | None = None) -> list[int]:
+        params = {"query": query, "include_adult": "false"}
+        if year:
+            params["first_air_date_year"] = year
+        return [r["id"] for r in self._get("/search/tv", **params).get("results", [])[:8]]
+
+    def tv(self, tv_id: int) -> dict:
+        """La serie y cuántos capítulos tiene cada temporada."""
+        if tv_id not in self._shows:
+            d = self._get(f"/tv/{tv_id}")
+            self._shows[tv_id] = {
+                "tmdb": str(d["id"]), "name": d.get("name", ""), "original": d.get("original_name", ""),
+                "year": int(d["first_air_date"][:4]) if d.get("first_air_date") else None,
+                "image": IMG + d["poster_path"] if d.get("poster_path") else "",
+                "seasons": {s["season_number"]: s.get("episode_count") or 0 for s in d.get("seasons", [])}}
+        return self._shows[tv_id]
+
+    def season(self, tv_id: int, number: int) -> dict[int, str]:
+        """{capítulo: título}. Si en el idioma elegido sólo pone «Episodio 5», se usa el título en inglés."""
+        key = (tv_id, number)
+        if key not in self._seasons:
+            try:
+                eps = self._get(f"/tv/{tv_id}/season/{number}").get("episodes", [])
+            except requests.HTTPError as e:
+                if e.response is not None and e.response.status_code == 404:
+                    eps = []
+                else:
+                    raise
+            names = {e["episode_number"]: (e.get("name") or "").strip() for e in eps}
+            if any(_placeholder(n) for n in names.values()):
+                try:
+                    en = {e["episode_number"]: (e.get("name") or "").strip()
+                          for e in self._get(f"/tv/{tv_id}/season/{number}", language="en-US").get("episodes", [])}
+                    names = {k: en.get(k) or v if _placeholder(v) else v for k, v in names.items()}
+                except requests.RequestException as e:
+                    log.warning("TheMovieDB: títulos en inglés de la temporada %s: %s", number, e)
+            self._seasons[key] = {k: "" if _placeholder(v) else v for k, v in names.items()}
+        return self._seasons[key]
+
+
+def _placeholder(name: str) -> bool:
+    return not name or bool(re.fullmatch(r"(episodio|episode|cap[ií]tulo|folge|épisode)\s*\d+", name, re.I))

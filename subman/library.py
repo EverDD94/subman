@@ -18,12 +18,19 @@ VIDEO_EXT = {".mkv", ".mp4", ".avi", ".m4v", ".mov", ".ts", ".wmv", ".webm", ".m
              ".divx", ".ogm", ".3gp"}
 OTHER_VIDEO_EXT = {".iso", ".vob", ".rmvb", ".rm", ".strm"}  # no se procesan, sólo se cuentan
 SUB_EXT = {".srt", ".vtt", ".ass", ".ssa", ".sub"}
-_EP = re.compile(r"[Ss](\d{1,2})[ ._-]*[Ee](\d{1,3})|\b(\d{1,2})x(\d{2,3})\b")
+_EP = re.compile(r"[Ss](\d{1,2})[ ._-]*[Ee](\d{1,3})|\b(\d{1,2})x(\d{2,3})\b"
+                 r"|(?<![A-Za-z])[Tt](\d{1,2})[ ._-]*[Ee][Pp]?(\d{1,3})(?!\d)"  # T01E05
+                 r"|(?:temporada|season|temp)[ ._-]*(\d{1,2})[ ._-]*(?:cap[ií]tulo|cap|episodio|episode|ep|e)[ ._-]*(\d{1,3})(?!\d)",
+                 re.I)
 _YEAR = re.compile(r"[(\[ ._-]((?:19|20)\d{2})[)\] ._-]?")
-# Capítulo sin temporada: «Spartacus.Gods.of.the.Arena.E01.720p», «Serie - Ep 05» (temporada 1 o la de la carpeta).
-_EP_ONLY = re.compile(r"(?:^|[ ._-])[Ee][Pp]?[ ._]?(\d{1,3})(?=[ ._-]|$)")
+# Capítulo sin temporada: «Spartacus.Gods.of.the.Arena.E01.720p», «Serie - Ep 05», «Capitulo 5», «Cap.105»
+# (temporada 1 o la de la carpeta; «Cap 105» es T1 E05).
+_EP_ONLY = re.compile(r"(?:^|[ ._-])(?:(cap[ií]tulo|cap|chapter)|episodio|episode|[Ee][Pp]?)[ ._]*(\d{1,4})(?=[ ._-]|$)", re.I)
+# Dentro de una carpeta de temporada basta un número suelto: «Temporada 1/05.mkv», «Temporada 1/Serie 05 720p.mkv».
+_LONE_NUM = re.compile(r"(?<![\dA-Za-z])(\d{1,4})(?![\dA-Za-z])")
 _SEASON_NUM = re.compile(r"(\d+)")
-_SEASON_DIR = re.compile(r"^(season|temporada|s)\s*\d+$", re.I)
+_SEASON_DIR = re.compile(r"^(season|temporada|temp|t|s)[ ._-]*\d{1,2}(?!\d)([ ._-].*)?$", re.I)
+_TAG = re.compile(r"\s*\[(tmdbid|imdbid|tvdbid)-[^\]]*\]", re.I)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS media (
@@ -75,7 +82,7 @@ CREATE TABLE IF NOT EXISTS unknown (  -- «Identificar todo» lo probó todo y n
     minutes REAL,
     at REAL
 );
-CREATE TABLE IF NOT EXISTS renamed (  -- películas ordenadas en su carpeta desde la web (se pueden deshacer)
+CREATE TABLE IF NOT EXISTS renamed (  -- películas y series ordenadas desde la web (se pueden deshacer)
     id INTEGER PRIMARY KEY,
     title TEXT,
     moves TEXT NOT NULL,           -- JSON [[antes, después], ...] en el orden en que se hicieron
@@ -83,7 +90,8 @@ CREATE TABLE IF NOT EXISTS renamed (  -- películas ordenadas en su carpeta desd
     video_from TEXT,
     video_to TEXT,
     at REAL,
-    how TEXT                       -- manual | auto | ia
+    how TEXT,                      -- manual | auto | ia
+    extra TEXT                     -- series: JSON {"videos": [[antes, después], ...], "dirs": [carpetas creadas]}
 );
 """
 
@@ -108,26 +116,49 @@ class Media:
 
 
 def _clean(name: str) -> str:
+    name = _TAG.sub("", name)
     name = re.sub(r"[._]", " ", name)
     name = re.sub(r"\s*[\[(]?(19|20)\d{2}[\])]?\s*$", "", name.strip(" -"))
     return re.sub(r"\s+", " ", name).strip(" -")
 
 
+def season_dir(name: str) -> int | None:
+    """«Season 01», «Temporada 1», «S1», «T2 (2012)» -> número de temporada."""
+    return int(_SEASON_NUM.search(name).group(1)) if _SEASON_DIR.match(name) else None
+
+
+def episode_numbers(path: Path) -> tuple[int, int, int, int] | None:
+    """(temporada, capítulo, inicio, fin) del número de capítulo en el nombre del archivo, o None."""
+    stem = path.stem
+    folder = season_dir(path.parent.name)
+    m = _EP.search(stem)
+    if m:
+        g = [x for x in m.groups() if x is not None]
+        return int(g[0]), int(g[1]), m.start(), m.end()
+    m = _EP_ONLY.search(stem)
+    if not m and folder is not None:
+        m = next((x for x in _LONE_NUM.finditer(stem) if not 1900 <= int(x.group(1)) <= 2099), None)
+        if m:
+            n = m.group(1)
+            if len(n) >= 3 and int(n[:-2]) == folder:  # «Temporada 1/105.mkv»
+                return folder, int(n[-2:]), m.start(), m.end()
+            return folder, int(n), m.start(), m.end()
+    if not m:
+        return None
+    n = m.group(m.lastindex)
+    if len(n) >= 3 and ((folder is not None and int(n[:-2]) == folder) or (folder is None and m.group(1))):
+        return int(n[:-2]), int(n[-2:]), m.start(), m.end()
+    return (folder if folder is not None else 1), int(n), m.start(), m.end()
+
+
 def parse_path(path: Path) -> dict:
     stem = path.stem
-    m = _EP.search(stem)
-    lone = None if m else _EP_ONLY.search(stem)
-    if m or lone:
-        if m:
-            season = int(m.group(1) or m.group(3))
-            episode = int(m.group(2) or m.group(4))
-        else:
-            sd = _SEASON_NUM.search(path.parent.name) if _SEASON_DIR.match(path.parent.name) else None
-            season, episode = (int(sd.group(1)) if sd else 1), int(lone.group(1))
-            m = lone
+    ep = episode_numbers(path)
+    if ep:
+        season, episode, start, _ = ep
         parent = path.parent
         series_dir = parent.parent if _SEASON_DIR.match(parent.name) else parent
-        title = _clean(stem[: m.start()]) or _clean(series_dir.name)
+        title = _clean(stem[:start]) or _clean(series_dir.name)
         if series_dir.name and not _SEASON_DIR.match(series_dir.name):
             title = _clean(series_dir.name)  # la carpeta de la serie es más fiable que el archivo
         y = _YEAR.search(series_dir.name + " ")
@@ -191,6 +222,9 @@ class Library:
         cols = {r[1] for r in self.db.execute("PRAGMA table_info(renamed)")}
         if "how" not in cols:  # bases de datos de antes
             self.db.execute("ALTER TABLE renamed ADD COLUMN how TEXT")
+            self.db.commit()
+        if "extra" not in cols:
+            self.db.execute("ALTER TABLE renamed ADD COLUMN extra TEXT")
             self.db.commit()
 
     def scan(self, roots: list[str | Path], hash_files: bool = True, progress=None, exclude=()) -> dict:

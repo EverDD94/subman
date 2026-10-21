@@ -243,13 +243,16 @@ def _undo(moves: list, created: Path | None) -> None:
 def history(lib: Library) -> list[dict]:
     rows = lib.db.execute("SELECT * FROM renamed ORDER BY at DESC LIMIT 500").fetchall()
     return [{"id": r["id"], "title": r["title"], "at": r["at"], "before": r["video_from"], "after": r["video_to"],
-             "how": r["how"] or "manual", "exists": os.path.exists(r["video_to"])} for r in rows]
+             "how": r["how"] or "manual", "exists": os.path.exists(r["video_to"]), "series": bool(r["extra"])} for r in rows]
 
 
 def undo(lib: Library, row_id: int) -> str:
     r = lib.db.execute("SELECT * FROM renamed WHERE id=?", (row_id,)).fetchone()
     if not r:
         raise ValueError("no está en la lista de cambios")
+    if r["extra"]:  # una serie entera
+        from . import series
+        return series.undo(lib, r)
     moves = json.loads(r["moves"])
     for src, dest in moves:
         if not os.path.exists(dest):

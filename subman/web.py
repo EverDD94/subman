@@ -20,7 +20,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, auth, autoid, config, convert, diagnose, discover, duplicates, formats, gemini, identify, jellyfin, manager, peek, providers, tmdb, updater
+from . import __version__, auth, autoid, config, convert, diagnose, discover, duplicates, formats, gemini, identify, jellyfin, manager, peek, providers, series, tmdb, updater
 from .library import Library
 
 log = logging.getLogger(__name__)
@@ -55,6 +55,7 @@ class App:
                       "last_start": None, "last_end": None, "next_run": None, "message": "", "scan": None}
         self.dupes = {"running": False, "message": "", "groups": None, "at": None}
         self.names = {"running": False, "message": "", "result": None, "at": None, "auto": None, "stop": False}
+        self.series = {"running": False, "message": "", "error": None, "result": None, "at": None, "auto": None}
         self.auto = {"message": "", "last": None}
         self.upd = {"running": False, "message": "", "asked": None}
         self.auto_wake = threading.Event()
@@ -616,7 +617,8 @@ class App:
                     due = time.time()
                 if due is None:
                     continue
-                busy = self.conv["current"] or self.names["running"] or self.dupes["running"] or self.state["running"]
+                busy = (self.conv["current"] or self.names["running"] or self.dupes["running"] or self.state["running"]
+                        or self.series["running"])
                 if busy and time.time() - due < 20 * 3600:
                     continue
                 self._auto_save(updated=today)
@@ -665,7 +667,7 @@ class App:
                 wait = 3600
             elif not cfg["library"]:
                 self.auto.update(message="elige primero las carpetas de la biblioteca en Ajustes")
-            elif self.names["running"] or self.dupes["running"]:
+            elif self.names["running"] or self.dupes["running"] or self.series["running"]:
                 wait = 120  # ya hay una búsqueda en marcha (pulsada a mano): se espera a que acabe
             else:
                 try:
@@ -686,22 +688,27 @@ class App:
             st = self._auto_save(seen=top)
         start, end = int(a["night_start"]), int(a["night_end"])
         night = time.strftime("%Y-%m-%d", time.localtime(time.time() - start * 3600))  # la misma para toda la noche
-        new = {m.id for m in lib.media("kind='movie' AND id > ?", (st["seen"],))}
+        new = {m.id for m in lib.media("id > ?", (st["seen"],))}
         if a["nightly"] and convert.in_hours(start, end) and st.get("night") != night:
             why, only = "noche", None
         elif a["on_new"] and new:
             why, only = "nuevo", new
         else:
             self.auto.update(message=self._auto_waiting(a))
-            if top > st["seen"]:  # llegaron episodios u otras cosas que no son películas
-                self._auto_save(seen=top)
             return
         # se apunta antes de empezar, para no repetirlo si se reinicia a medias
+        st_seen = st["seen"]
         st = self._auto_save(seen=top, **({"night": night} if why == "noche" else {}))
-        log.info("trabajo automático: %s", "revisión de la noche" if only is None else f"{len(only)} películas nuevas")
+        log.info("trabajo automático: %s", "revisión de la noche" if only is None else f"{len(only)} videos nuevos")
         out = {"at": time.time(), "why": why, "new": len(only or ())}
         if a["names"]:
-            out["names"] = self._auto_names(cfg, only, set(st.get("names_keep", [])))
+            keep = set(st.get("names_keep", []))
+            movies = only if only is None else {m.id for m in lib.media("kind='movie' AND id > ?", (st_seen,))}
+            if movies is None or movies:
+                out["names"] = self._auto_names(cfg, movies, keep)
+            eps = only if only is None else {m.id for m in lib.media("kind='episode' AND id > ?", (st_seen,))}
+            if eps is None or eps:
+                out["series"] = self._auto_series(cfg, eps, keep)
         if a["dupes"]:
             out["dupes"] = self._auto_dupes(cfg, only, set(st.get("dupes_keep", [])))
         out["end"] = time.time()
@@ -731,6 +738,34 @@ class App:
         if res is None:
             return {"error": self.names.get("error") or "falló"}
         return {"applied": len(res["applied"]), "left": len(res["todo"])}
+
+    def _auto_series(self, cfg: dict, only: set | None, keep: set) -> dict:
+        """Capítulos: sólo los de series sin dudas y que no deshiciste a mano; el resto queda en Nombres › Series."""
+        if not cfg.get("tmdb", {}).get("api_key"):
+            return {"error": "falta la clave de TheMovieDB en Ajustes"}
+        if self.series["running"]:
+            return {"error": "ya se estaban revisando"}
+        self.series.update(running=True, message="trabajo automático: empezando", error=None)
+        self.auto.update(message="ordenando capítulos de series")
+        res = self._series_review(only)
+        if res is None:
+            return {"error": self.series.get("error") or "falló"}
+        lib = self.library(cfg)
+        applied = 0
+        for g in res["series"]:
+            ids = {e["id"] for e in g["episodes"] if e["ok"] and e["path"] not in keep}
+            if g.get("why") or not ids:
+                continue
+            try:
+                applied += series.apply(lib, g, ids, list(cfg["library"]), how="auto")["done"]
+            except (ValueError, OSError) as e:
+                log.warning("series automáticas: %s: %s", g["title"], e)
+        self.series["result"]["series"] = [g for g in self.series["result"]["series"] if g["episodes"]]
+        left = sum(len(g["episodes"]) for g in self.series["result"]["series"])
+        self.series.update(auto={"applied": applied, "left": left, "at": self.series["at"]})
+        if applied:
+            self._jellyfin_refresh(cfg)
+        return {"applied": applied, "left": left}
 
     def _auto_dupes(self, cfg: dict, only: set | None, keep: set) -> dict:
         if self.dupes["running"]:
@@ -1030,15 +1065,105 @@ class App:
     def names_undo(self, row_id: int) -> dict:
         cfg = self.cfg()
         lib = self.library(cfg)
-        r = lib.db.execute("SELECT video_from FROM renamed WHERE id=?", (row_id,)).fetchone()
+        r = lib.db.execute("SELECT video_from, extra FROM renamed WHERE id=?", (row_id,)).fetchone()
         try:
             title = identify.undo(lib, row_id)
         except (ValueError, OSError) as e:
             return {"ok": False, "error": str(e)}
-        if r and r["video_from"]:
+        if r and r["extra"]:  # una serie: ninguno de sus capítulos se vuelve a tocar solo
+            for old, _ in json.loads(r["extra"]).get("videos", []):
+                self._auto_keep("names_keep", old)
+        elif r and r["video_from"]:
             self._auto_keep("names_keep", r["video_from"])
         self._jellyfin_refresh(cfg)
         return {"ok": True, "title": title}
+
+    # --- series: capítulos con su nombre ----------------------------------------------
+    def series_scan(self) -> dict:
+        if self.series["running"]:
+            return {"ok": True}
+        if not self.cfg().get("tmdb", {}).get("api_key"):
+            return {"ok": False, "error": "pon la clave de TheMovieDB en Ajustes"}
+        self.series.update(running=True, message="empezando", error=None)
+        threading.Thread(target=self._series_review, name="series", daemon=True).start()
+        return {"ok": True}
+
+    def _series_review(self, only: set | None = None) -> dict | None:
+        """Revisa los capítulos (con self.series["running"] ya puesto). only: sólo esos (los recién llegados)."""
+        try:
+            cfg = self.cfg()
+            lib = self.library(cfg)
+            if not self.state["running"] and cfg["library"] and only is None:
+                lib.scan(cfg["library"], exclude=config.excluded(cfg), progress=lambda n: self.series.update(
+                    message=f"buscando videos: {n} encontrados"))
+            res = series.review(lib, cfg, lambda msg: self.series.update(message=msg), only)
+            if only is not None and self.series["result"]:  # se suman a la lista que ya había
+                keys = {g["key"] for g in res["series"]}
+                res = {"series": [g for g in self.series["result"]["series"] if g["key"] not in keys] + res["series"]}
+            self.series.update(result=res, at=time.time(), message="")
+            log.info("series: %d con capítulos por renombrar", len(res["series"]))
+            return res
+        except Exception as e:
+            log.exception("series")
+            self.series.update(message="", error=str(e))
+            return None
+        finally:
+            self.series.update(running=False)
+
+    def series_state(self) -> dict:
+        return {**self.series, "tmdb": bool(self.cfg().get("tmdb", {}).get("api_key"))}
+
+    def _series_group(self, key: str) -> dict:
+        g = next((g for g in (self.series["result"] or {}).get("series", []) if g["key"] == key), None)
+        if not g:
+            raise ValueError("vuelve a pulsar «Revisar series»")
+        return g
+
+    def series_search(self, key: str, query: str) -> dict:
+        try:
+            self._series_group(key)
+            return {"ok": True, "options": series.search(self.cfg(), query)}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def series_pick(self, key: str, tmdb_id: str) -> dict:
+        try:
+            g = series.pick(self.cfg(), self._series_group(key), tmdb_id)
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+        return {"ok": True, "group": g}
+
+    def series_renumber(self, key: str, changes: list) -> dict:
+        try:
+            g = self._series_group(key)
+            if not g.get("show"):
+                raise ValueError("elige primero qué serie es")
+            g = series.renumber(self.cfg(), g, {int(c["id"]): (int(c["season"]), int(c["episode"])) for c in changes})
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+        return {"ok": True, "group": g}
+
+    def series_apply(self, key: str, ids: list[int]) -> dict:
+        if self.series["running"]:
+            return {"ok": False, "error": "espera a que termine de revisar las series"}
+        cfg = self.cfg()
+        lib = self.library(cfg)
+        try:
+            g = self._series_group(key)
+            for e in g["episodes"]:
+                if e["id"] in ids:
+                    m = lib.media("id=?", (e["id"],))
+                    if not m or m[0].path != e["path"]:
+                        raise ValueError(f"{e['name']}: ya no está donde estaba; vuelve a pulsar «Revisar series»")
+                    if self.state["running"] and self.state["current"] == m[0].label:
+                        raise ValueError(f"{e['name']}: se está procesando ahora mismo; prueba en un momento")
+            r = series.apply(lib, g, set(ids), list(cfg["library"]))
+        except (ValueError, OSError) as e:
+            return {"ok": False, "error": str(e)}
+        if not g["episodes"]:
+            self.series["result"]["series"] = [x for x in self.series["result"]["series"] if x is not g]
+        self._jellyfin_refresh(cfg)
+        return {"ok": True, **r}
 
     def dupes_restore(self, row_id: int) -> dict:
         cfg = self.cfg()
@@ -1195,6 +1320,7 @@ def make_handler(app: App):
         "/api/dupes": lambda q: app.dupes_state(),
         "/api/formats": lambda q: app.formats_state(),
         "/api/names": lambda q: app.names_state(),
+        "/api/series": lambda q: app.series_state(),
         "/api/auto": lambda q: app.auto_state(),
         "/api/unknown": lambda q: app.unknown_state(),
         "/api/update": lambda q: app.update_state(),
@@ -1230,6 +1356,11 @@ def make_handler(app: App):
         "/api/names/search": lambda b: app.names_search(int(b["id"]), b["query"]),
         "/api/names/undo": lambda b: app.names_undo(int(b["id"])),
         "/api/names/auto": lambda b: app.names_auto(),
+        "/api/series/scan": lambda b: app.series_scan(),
+        "/api/series/search": lambda b: app.series_search(b["key"], b["query"]),
+        "/api/series/pick": lambda b: app.series_pick(b["key"], str(b["tmdb"])),
+        "/api/series/renumber": lambda b: app.series_renumber(b["key"], b["changes"]),
+        "/api/series/apply": lambda b: app.series_apply(b["key"], [int(x) for x in b["ids"]]),
         "/api/auto/settings": lambda b: app.auto_settings(b),
         "/api/unknown/discard": lambda b: app.unknown_discard([int(x) for x in b["ids"]]),
         "/api/unknown/restore": lambda b: app.unknown_restore(int(b["id"])),

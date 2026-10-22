@@ -1083,7 +1083,7 @@ $("#dlSave").onclick = async () => {
     auto: $("#dl_auto").checked, enabled: $("#dl_enabled").checked};
   if (body.enabled && (!body.movies_dir || !body.series_dir)) return toast("Pon las carpetas de películas y de series");
   try { const r = await api("/api/downloads/settings", body); if (r.ok === false) return toast(r.error); toast("Guardado"); } catch (e) { toast(e.message); }
-  loadDlSettings();
+  loadDlSettings(); setTimeout(loadDlSettings, 2500);  // el estado cambia cuando las descargas despiertan
 };
 
 // ---------- Descargas (Descubrir) ----------

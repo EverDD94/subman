@@ -142,7 +142,10 @@ En **Ajustes › Descargas de Phono**:
    **@BotFather**, escribe `/newbot`, ponle un nombre y un usuario que acabe en «bot», y copia el token.
    Pégalo en *Bot de avisos* y pulsa **Conectar el bot**: te llega un mensaje de prueba. En ese chat,
    toca el nombre del bot › *Notificaciones* y déjalas activadas. Cada aviso trae un botón que abre
-   el chat donde está el «Watch Ads».
+   el chat donde está el «Watch Ads». Al bot también le puedes escribir el nombre de una película o serie
+   para pedirla con un botón, `/cola` para ver qué se está bajando y `/hoy` para el resumen del día.
+   Te avisa de problemas, de temporadas nuevas de tus series y, cada noche, te manda un resumen
+   (la hora se elige en Ajustes).
 
 Desde entonces, lo que agregas a tu lista en **Descubrir** («Agregar a mi lista» o «No la tengo»)
 se busca en phono.cc por su número de TheMovieDB, se elige el archivo (audio en español si lo hay,

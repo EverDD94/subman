@@ -569,6 +569,12 @@ dialog.sheet .foot{display:none}
         <div style="align-self:end"><button class="btn sec" id="botSave">Conectar el bot</button></div>
       </div>
     </div>
+    <div class="hint">Al bot también le puedes escribir el nombre de una película o serie para pedirla con un botón,
+      <b>/cola</b> para ver qué se está bajando y <b>/hoy</b> para el resumen del día. Te avisa de problemas, de temporadas nuevas
+      de tus series y, si quieres, te manda un resumen cada noche.</div>
+    <div class="two" style="margin-top:8px">
+      <div><label class="f">Resumen del día por el bot</label><select id="dl_summary_hour"><option value="-1">No mandar</option></select></div>
+    </div>
     <h3 style="margin:18px 0 6px">2. Dónde van</h3>
     <div class="two">
       <div><label class="f">Carpeta de películas</label><input type="text" id="dl_movies_dir" placeholder="/media/Peliculas"></div>
@@ -581,7 +587,7 @@ dialog.sheet .foot{display:none}
     </div>
     <div style="margin-top:14px;display:grid;gap:12px">
       <label class="switch"><input type="checkbox" id="dl_auto"><span>Pedir solo lo que agregue a mi lista (si no, sólo lo que mande con el botón «Descargar»)</span></label>
-      <label class="switch"><input type="checkbox" id="dl_remind"><span>Avisarme cuando me toque pulsar el anuncio (por el bot de avisos; sin bot, llega como recordatorio a «Mensajes guardados»)</span></label>
+      <label class="switch"><input type="checkbox" id="dl_remind"><span>Avisarme por el bot: cuando me toque pulsar el anuncio (y otra vez si a los 20 min sigo sin pulsarlo), cuando algo llegue a la biblioteca y si hay problemas. Sin bot, sólo el anuncio, como recordatorio en «Mensajes guardados».</span></label>
       <label class="switch"><input type="checkbox" id="dl_enabled"><span><b>Activar las descargas</b></span></label>
     </div>
     <div class="row" style="margin-top:12px"><button class="btn sec" id="dlSave">Guardar</button><span id="dlMsg" class="muted"></span></div>
@@ -1187,6 +1193,8 @@ async function loadDlSettings() {
   if (tg.user) $("#tgOut").onclick = async () => { const r = await api("/api/telegram/logout", {}); if (r.ok === false) toast(r.error); loadDlSettings(); };
   for (const k of ["movies_dir", "series_dir", "tmp_dir", "gap_minutes", "daily"]) $("#dl_" + k).value = st[k];
   $("#dl_audio").value = st.audio.join(",");
+  if ($("#dl_summary_hour").options.length < 2) for (let h = 0; h < 24; h++) $("#dl_summary_hour").add(new Option(`A las ${h}:00`, h));
+  $("#dl_summary_hour").value = st.summary_hour ?? 22;
   $("#dl_auto").checked = st.auto; $("#dl_enabled").checked = st.enabled; $("#dl_remind").checked = st.remind !== false;
   $("#dlMsg").textContent = st.enabled ? dlInfo.state.message : "";
 }
@@ -1219,7 +1227,8 @@ $("#tgLogin").onclick = async () => {
 $("#dlSave").onclick = async () => {
   const body = {movies_dir: $("#dl_movies_dir").value, series_dir: $("#dl_series_dir").value, tmp_dir: $("#dl_tmp_dir").value,
     gap_minutes: +$("#dl_gap_minutes").value || 2, daily: +$("#dl_daily").value || 20, audio: $("#dl_audio").value.split(","),
-    auto: $("#dl_auto").checked, enabled: $("#dl_enabled").checked, remind: $("#dl_remind").checked};
+    auto: $("#dl_auto").checked, enabled: $("#dl_enabled").checked, remind: $("#dl_remind").checked,
+    summary_hour: +$("#dl_summary_hour").value};
   if (body.enabled && (!body.movies_dir || !body.series_dir)) return toast("Pon las carpetas de películas y de series");
   try { const r = await api("/api/downloads/settings", body); if (r.ok === false) return toast(r.error); toast("Guardado"); } catch (e) { toast(e.message); }
   loadDlSettings(); setTimeout(loadDlSettings, 2500);  // el estado cambia cuando las descargas despiertan

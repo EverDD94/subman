@@ -29,6 +29,8 @@ _TAG = re.compile(r"\[tmdbid-(\d+)\]", re.I)
 # Varios capítulos en un archivo: «S01E01E02», «S01E01-E02», «S01E01-02», «1x01-02».
 _MORE = re.compile(r"^(?:[ ._-]*[Ee]|-|[ ._-]*-[ ._-]*[Ee]?)(\d{1,3})(?!\d)")
 SURE = 0.85
+# palabras que la gente pone en la carpeta y no son parte del nombre
+_NOISE = re.compile(r"\b(?:la\s+)?(?:series?|tv|completa|complete|temporadas?|seasons?|full|hd|1080p|720p|latino|castellano|español|espanol|dual)\b", re.I)
 
 
 def _db(cfg: dict) -> TMDb:
@@ -85,7 +87,9 @@ def _fit(show: dict, eps: list[dict]) -> float:
 def find_show(db: TMDb, title: str, year: int | None, eps: list[dict]) -> tuple[list[dict], str | None]:
     """Opciones de TheMovieDB, la mejor primero, y por qué hay duda (None si está clara)."""
     ids: list[int] = []
-    for q, y in ((title, year), (title, None), (re.sub(r"\s+(us|uk)$", "", title, flags=re.I), None)):
+    bare = _NOISE.sub(" ", title).strip()  # «Daredevil Serie», «Friends Serie Completa» → «Daredevil», «Friends»
+    for q, y in ((title, year), (title, None), (bare, year), (bare, None),
+                 (re.sub(r"\s+(us|uk)$", "", bare, flags=re.I), None)):
         if q and not ids:
             try:
                 ids = db.search_tv(q, y)
@@ -98,7 +102,7 @@ def find_show(db: TMDb, title: str, year: int | None, eps: list[dict]) -> tuple[
         except Exception as e:
             log.warning("TheMovieDB: serie %s: %s", i, e)
             continue
-        sim = max(similarity(title, s["name"]), similarity(title, s["original"] or ""))
+        sim = max(similarity(t, n) for t in {title, bare} if t for n in (s["name"], s["original"] or ""))
         score = sim + (0 if not (year and s["year"]) else 0.3 if abs(year - s["year"]) <= 1 else -0.3)
         fit = _fit(s, eps)
         opts.append({**s, "sim": round(sim, 3), "fit": round(fit, 3), "score": round(score + 0.5 * fit, 3)})

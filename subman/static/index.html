@@ -1850,13 +1850,14 @@ function srGroup(g, gi) {
         <button class="btn" data-sa="${gi}" ${show ? "" : "disabled"}>Renombrar los marcados</button>
         <span class="muted" data-st style="font-size:20px">${closed ? "▸" : "▾"}</span></div></div>
     <div data-sb ${closed ? "hidden" : ""}>${pickBox}
-    <table style="margin-top:10px"><thead><tr><th></th><th>T · E</th><th>Ahora</th><th>Quedará como (dentro de la carpeta de la serie)</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+    <table style="margin-top:10px"><thead><tr><th><input type="checkbox" data-sall title="Marcar o desmarcar todos" ${show ? "" : "disabled"}></th><th>T · E</th><th>Ahora</th><th>Quedará como (dentro de la carpeta de la serie)</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
 function renderSeries() {
   const list = sr && sr.result ? sr.result.series : [];
   $("#srGroups").innerHTML = sr && sr.running ? "" : list.map(srGroup).join("");
   const count = gi => { const c = document.querySelector(`[data-g="${gi}"]`); const k = c.querySelectorAll("[data-se]:checked").length;
-    c.querySelector("[data-sn]").textContent = `${k} de ${list[gi].episodes.length} marcados`; };
+    c.querySelector("[data-sn]").textContent = `${k} de ${list[gi].episodes.length} marcados`;
+    const all = c.querySelector("[data-sall]"); all.checked = k === list[gi].episodes.length; all.indeterminate = k > 0 && !all.checked; };
   list.forEach((g, gi) => count(gi));
   document.querySelectorAll("#srGroups [data-sh]").forEach(h => h.onclick = ev => {
     if (ev.target.closest("button, input")) return;
@@ -1870,6 +1871,11 @@ function renderSeries() {
   document.querySelectorAll("#srGroups [data-sc]").forEach(b => b.onclick = () => {
     const g = list[+b.dataset.sc]; g.change = !g.change;
     srClosed.delete(g.key); renderSeries();
+  });
+  document.querySelectorAll("#srGroups [data-sall]").forEach(a => a.onchange = () => {
+    const card = a.closest("[data-g]");
+    card.querySelectorAll("[data-se]:not(:disabled)").forEach(c => c.checked = a.checked);
+    count(+card.dataset.g);
   });
   document.querySelectorAll("#srGroups [data-se]").forEach(c => c.onchange = () => count(+c.closest("[data-g]").dataset.g));
   const replace = (gi, group) => { sr.result.series[gi] = group; renderSeries(); };

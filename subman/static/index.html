@@ -532,6 +532,7 @@ dialog.sheet .foot{display:none}
     </div>
     <div style="margin-top:14px;display:grid;gap:12px">
       <label class="switch"><input type="checkbox" id="dl_auto"><span>Pedir solo lo que agregue a mi lista (si no, sólo lo que mande con el botón «Descargar»)</span></label>
+      <label class="switch"><input type="checkbox" id="dl_remind"><span>Avisarme en Telegram cuando me toque pulsar el anuncio (llega como recordatorio a «Mensajes guardados»)</span></label>
       <label class="switch"><input type="checkbox" id="dl_enabled"><span><b>Activar las descargas</b></span></label>
     </div>
     <div class="row" style="margin-top:12px"><button class="btn sec" id="dlSave">Guardar</button><span id="dlMsg" class="muted"></span></div>
@@ -1058,7 +1059,7 @@ async function loadDlSettings() {
   if (tg.user) $("#tgOut").onclick = async () => { const r = await api("/api/telegram/logout", {}); if (r.ok === false) toast(r.error); loadDlSettings(); };
   for (const k of ["movies_dir", "series_dir", "tmp_dir", "gap_minutes", "daily"]) $("#dl_" + k).value = st[k];
   $("#dl_audio").value = st.audio.join(",");
-  $("#dl_auto").checked = st.auto; $("#dl_enabled").checked = st.enabled;
+  $("#dl_auto").checked = st.auto; $("#dl_enabled").checked = st.enabled; $("#dl_remind").checked = st.remind !== false;
   $("#dlMsg").textContent = st.enabled ? dlInfo.state.message : "";
 }
 $("#tgCode").onclick = async () => {
@@ -1080,7 +1081,7 @@ $("#tgLogin").onclick = async () => {
 $("#dlSave").onclick = async () => {
   const body = {movies_dir: $("#dl_movies_dir").value, series_dir: $("#dl_series_dir").value, tmp_dir: $("#dl_tmp_dir").value,
     gap_minutes: +$("#dl_gap_minutes").value || 2, daily: +$("#dl_daily").value || 20, audio: $("#dl_audio").value.split(","),
-    auto: $("#dl_auto").checked, enabled: $("#dl_enabled").checked};
+    auto: $("#dl_auto").checked, enabled: $("#dl_enabled").checked, remind: $("#dl_remind").checked};
   if (body.enabled && (!body.movies_dir || !body.series_dir)) return toast("Pon las carpetas de películas y de series");
   try { const r = await api("/api/downloads/settings", body); if (r.ok === false) return toast(r.error); toast("Guardado"); } catch (e) { toast(e.message); }
   loadDlSettings(); setTimeout(loadDlSettings, 2500);  // el estado cambia cuando las descargas despiertan
@@ -1136,7 +1137,43 @@ async function dlClear() {
 async function dlRetry(id) { try { await api("/api/downloads/retry", {id}); } catch (e) { toast(e.message); } loadDownloads(); }
 async function dlAdd(k) {
   const c = dscFind(k); if (!c) return;
-  try { const r = await api("/api/downloads/add", {kind: c.kind, tmdb: c.tmdb, title: c.title, year: c.year}); toast(r.ok === false ? r.error : "En la cola de descargas"); } catch (e) { toast(e.message); }
+  const body = {kind: c.kind, tmdb: c.tmdb, title: c.title, year: c.year};
+  if (c.kind === "tv") {
+    const seasons = await dlPickSeasons(c);
+    if (!seasons) return;
+    body.seasons = seasons;
+  }
+  try { const r = await api("/api/downloads/add", body); toast(r.ok === false ? r.error : "En la cola de descargas"); } catch (e) { toast(e.message); }
+}
+// series: qué temporadas pedir (las que ya están en Descargas salen marcadas y sin poder tocarlas)
+async function dlPickSeasons(c) {
+  toast("Mirando qué temporadas tiene Phono…");
+  let r;
+  try { r = await api("/api/downloads/seasons", {tmdb: c.tmdb, title: c.title, year: c.year}); } catch (e) { toast(e.message); return null; }
+  if (r.ok === false) { toast(r.error); return null; }
+  if (!r.seasons.length) { toast("Phono no tiene temporadas para descargar"); return null; }
+  return new Promise(done => {
+    const d = document.createElement("dialog");
+    d.className = "ask";
+    const box = r.seasons.map(n => {
+      const had = r.have.includes(n);
+      return `<label class="switch"><input type="checkbox" value="${n}" ${had ? "checked disabled" : r.seasons.length - r.have.length === 1 ? "checked" : ""}><span>Temporada ${n}${had ? ` <span class="muted">· ya en Descargas</span>` : ""}</span></label>`;
+    }).join("");
+    d.innerHTML = `<p style="margin-top:0"><b>${esc(c.title)}</b>: ¿qué temporadas quieres?</p>
+      <div class="row" style="gap:8px;margin-bottom:8px"><button class="btn sec" value="all">Marcar todas</button><button class="btn sec" value="none">Ninguna</button></div>
+      <div class="col" style="display:grid;gap:6px">${box}</div>
+      <div class="row" style="justify-content:flex-end;gap:8px;margin-top:14px"><button class="btn sec" value="no">Cancelar</button><button class="btn" value="yes">Pedir</button></div>`;
+    const boxes = () => [...d.querySelectorAll("input:not(:disabled)")];
+    d.querySelector('[value="all"]').onclick = () => boxes().forEach(x => x.checked = true);
+    d.querySelector('[value="none"]').onclick = () => boxes().forEach(x => x.checked = false);
+    d.querySelector('[value="no"]').onclick = () => d.close("no");
+    d.querySelector('[value="yes"]').onclick = () => {
+      if (!boxes().some(x => x.checked)) return toast("Marca al menos una temporada");
+      d.close("yes");
+    };
+    d.onclose = () => { done(d.returnValue === "yes" ? boxes().filter(x => x.checked).map(x => +x.value) : null); d.remove(); };
+    document.body.appendChild(d); d.showModal();
+  });
 }
 
 // ---------- Registro ----------

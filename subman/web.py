@@ -1323,7 +1323,7 @@ class App:
         with self.lock:
             cfg = self.cfg()
             d = cfg["downloads"]
-            for k in ("enabled", "auto"):
+            for k in ("enabled", "auto", "remind"):
                 if k in b:
                     d[k] = bool(b[k])
             for k in ("movies_dir", "series_dir", "tmp_dir"):
@@ -1385,11 +1385,36 @@ class App:
     def downloads_add(self, b: dict) -> dict:
         cfg = self.cfg()
         dl = downloads.Downloads(self.library(cfg), cfg)
-        if dl.has(b["kind"], int(b["tmdb"])):
+        tid, title, year = int(b["tmdb"]), b.get("title") or "", b.get("year")
+        if b["kind"] == "tv" and b.get("seasons"):  # sólo las temporadas que marcaste
+            have = dl.seasons_in(tid)
+            new = sorted({int(n) for n in b["seasons"]} - have)
+            if not new:
+                return {"ok": False, "error": "esas temporadas ya están en Descargas"}
+            for n in new:
+                dl.add("tv", tid, title, year, "manual", season=n)
+            self.dl_wake.set()
+            return {"ok": True, "done": len(new)}
+        if dl.has(b["kind"], tid):
             return {"ok": False, "error": "ya está en Descargas"}
-        dl.add(b["kind"], int(b["tmdb"]), b.get("title") or "", b.get("year"), "manual")
+        dl.add(b["kind"], tid, title, year, "manual")
         self.dl_wake.set()
         return {"ok": True}
+
+    def downloads_seasons(self, b: dict) -> dict:
+        """Las temporadas que tiene Phono de una serie, para elegir cuáles pedir."""
+        cfg = self.cfg()
+        if not cfg.get("tmdb", {}).get("api_key"):
+            return {"ok": False, "error": "falta la clave de TheMovieDB"}
+        dl = downloads.Downloads(self.library(cfg), cfg)
+        row = {"kind": "tv", "tmdb": int(b["tmdb"]), "title": b.get("title") or "", "year": b.get("year")}
+        db = tmdb.TMDb(cfg["tmdb"]["api_key"], cfg["tmdb"].get("language") or "es-MX")
+        api = phono.Phono()
+        card = dl.find(row, api, db)
+        if not card:
+            return {"ok": False, "error": "Phono aún no tiene esta serie"}
+        seasons = phono.seasons(api.buttons(card["content_id"]))
+        return {"ok": True, "seasons": sorted(seasons), "have": sorted(dl.seasons_in(row["tmdb"]))}
 
     def downloads_cancel(self, row_id: int) -> dict:
         cfg = self.cfg()
@@ -1536,6 +1561,28 @@ class App:
             def note(**kw):  # el cliente de Telegram llama desde su hilo: conexión a la base aparte
                 downloads.Downloads(self.library(cfg), cfg).set(rid, **kw)
 
+            # lo ya recibido (antes de un reinicio o un error) no se vuelve a bajar
+            got_names = json.loads(row.get("got") or "[]")
+            placed = json.loads(row.get("dest") or "[]")
+
+            def put(path: Path, _info=None):
+                """Cada video pasa a la biblioteca en cuanto termina, sin esperar al resto de la temporada."""
+                final = downloads.place(path, dl.target(row, path, db))
+                downloads.extract_subs(final, cfg.get("languages") or ["es"])
+                got_names.append(path.name)
+                placed.append(str(final))
+                note(got=json.dumps(got_names, ensure_ascii=False), dest=json.dumps(placed, ensure_ascii=False))
+                log.info("descargas: %s -> %s", path.name, final)
+                self.wake.set()  # que busque y compruebe los subtítulos ya
+                self._jellyfin_refresh(cfg)
+
+            if tmp.is_dir():  # lo que quedó en la carpeta de espera de una versión anterior
+                for p in sorted(tmp.iterdir()):
+                    if p.suffix == ".part":
+                        p.unlink(missing_ok=True)
+                    elif p.is_file() and downloads.videos([p]) and p.name not in got_names:
+                        put(p)
+
             started = set()
 
             rate = {"name": None, "t": 0.0, "done": 0}
@@ -1559,17 +1606,14 @@ class App:
                 note(state="manual", bot=bot, detail=f"pulsa tú «Watch Ads» y «I have clicked ads» en el chat de @{bot}")
                 self.dl.update(message=f"{row['title']}: esperando que pulses el anuncio en Telegram")
 
-            got = self._telegram(cfg).fetch(link[1], tmp, bot=link[0], progress=progress,
-                                            stop=lambda: self.dl["stop"] == rid, on_manual=manual)
+            label = row["title"] + (f" (temporada {row['season']})" if row["season"] else "")
+            self._telegram(cfg).fetch(link[1], tmp, bot=link[0], progress=progress,
+                                      stop=lambda: self.dl["stop"] == rid, on_manual=manual,
+                                      skip=lambda name, size: name in got_names, on_file=put,
+                                      remind=label if d.get("remind", True) else "")
             if self.dl["stop"] == rid:
                 shutil.rmtree(tmp, ignore_errors=True)
                 return
-            placed = []
-            for path, _info in got:
-                final = downloads.place(path, dl.target(row, path, db))
-                downloads.extract_subs(final, cfg.get("languages") or ["es"])
-                placed.append(str(final))
-                log.info("descargas: %s -> %s", path.name, final)
             for p in tmp.glob("*") if tmp.exists() else []:  # lo que no es video (avisos, fotos)
                 if p.is_file():
                     p.unlink()
@@ -1581,8 +1625,6 @@ class App:
             self.dl.update(message=f"{row['title']}: lista", done=0, total=0, speed=0.0)
             dl.db.execute("UPDATE discover SET have=1 WHERE kind=? AND tmdb=? AND have=0", (row["kind"], row["tmdb"]))
             dl.db.commit()
-            self.wake.set()  # que busque y compruebe los subtítulos ya
-            self._jellyfin_refresh(cfg)
         except Exception as e:
             if self.dl["stop"] == rid:  # la cancelaste a medias
                 shutil.rmtree(Path(d["tmp_dir"]) / str(rid), ignore_errors=True)
@@ -1699,6 +1741,7 @@ def make_handler(app: App):
         "/api/downloads/cancel": lambda b: app.downloads_cancel(int(b["id"])),
         "/api/downloads/retry": lambda b: app.downloads_retry(int(b["id"])),
         "/api/downloads/clear": lambda b: app.downloads_clear(),
+        "/api/downloads/seasons": lambda b: app.downloads_seasons(b),
         "/api/downloads/settings": lambda b: app.downloads_settings(b),
         "/api/telegram/code": lambda b: app.telegram_code(b),
         "/api/telegram/login": lambda b: app.telegram_login(b),

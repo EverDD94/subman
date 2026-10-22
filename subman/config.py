@@ -40,7 +40,7 @@ DEFAULTS: dict = {
     "telegram": {"api_id": "", "api_hash": ""},
     "downloads": {"enabled": False, "auto": True, "movies_dir": "", "series_dir": "",
                   "tmp_dir": "/media/Descargando", "gap_minutes": 2, "daily": 20, "audio": ["es", "en"],
-                  "min_free_gb": 20},                     # IA gratis para las películas difíciles  # opcional: avisar a Jellyfin para que vea los subtítulos nuevos
+                  "min_free_gb": 20, "remind": True},
 }
 
 HEADER = """# Configuración de Videotecario (antes subman). Se puede editar a mano o desde la web (puerto 8787).

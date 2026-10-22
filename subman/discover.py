@@ -398,7 +398,8 @@ class Discover:
         return self._decorate(out[:limit], idx, marks)
 
     def wanted(self) -> list[dict]:
-        """Por conseguir: lo que marcaste «No la tengo», o te gusta y no está en la biblioteca."""
+        """Por conseguir: sólo lo que marcaste «No la tengo» / «Agregar a mi lista». Lo que puntúas va a
+        Mis gustos: que algo te encante no quiere decir que lo quieras bajar."""
         idx = self.owned_index()
         marks = self.marks()
         out = []
@@ -407,7 +408,7 @@ class Discover:
             c.setdefault("title", "")
             c.setdefault("genre_ids", [])
             c.setdefault("year", None)
-            if v["have"] == 0 or ((v["rating"] or 0) > 0 and v["have"] is None and not self.in_library(c, idx)):
+            if v["have"] == 0:
                 out.append(c)
         out.sort(key=lambda c: (-(marks[(c["kind"], c["tmdb"])]["rating"] or 0), c["title"]))
         return self._decorate(out, idx, marks)

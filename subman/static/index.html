@@ -83,7 +83,7 @@ main > section{animation:enter .28s var(--ease-out)}
 .stat{background:var(--card-2);border-radius:var(--r-sm);padding:14px 16px}
 .stat span{font-size:13px}
 .stat b{display:block;font:600 30px/1.1 var(--display);font-variant-numeric:tabular-nums;margin-top:4px}
-button.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--accent);color:var(--accent-ink);border:0;border-radius:var(--r-sm);
+button.btn,a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--accent);color:var(--accent-ink);border:0;border-radius:var(--r-sm);
   padding:10px 16px;font-weight:600;cursor:pointer;min-height:40px;transition:transform .16s var(--ease-out),background-color .16s var(--ease-out),opacity .16s}
 button.btn:active:not(:disabled){transform:scale(.97)}
 button.btn.sec{background:var(--card-2);color:var(--text)}
@@ -520,6 +520,17 @@ dialog.sheet .foot{display:none}
       </div>
       <div class="hint">La sesión se guarda en <span class="path">docker/subman/telegram.session</span>. El código y la contraseña no se guardan.</div>
     </div>
+    <h3 style="margin:18px 0 6px">Bot de avisos <span class="muted" style="font-weight:400">(opcional)</span></h3>
+    <div id="botState" class="muted"></div>
+    <div id="botForm">
+      <div class="hint" style="margin-top:0">Un chat sólo para avisarte de que te toca pulsar el anuncio, que puedes dejar con sonido aunque tengas Telegram silenciado.
+        En Telegram abre <b>@BotFather</b>, escribe <b>/newbot</b>, ponle un nombre (por ejemplo <i>Avisos Videotecario</i>) y un usuario que acabe en «bot»,
+        y copia el <b>token</b> que te da (algo como <i>123456:ABC-…</i>). Pégalo aquí.</div>
+      <div class="two" style="margin-top:8px">
+        <div><label class="f">Token del bot</label><input type="password" id="tg_bot_token" autocomplete="off"></div>
+        <div style="align-self:end"><button class="btn sec" id="botSave">Conectar el bot</button></div>
+      </div>
+    </div>
     <h3 style="margin:18px 0 6px">2. Dónde van</h3>
     <div class="two">
       <div><label class="f">Carpeta de películas</label><input type="text" id="dl_movies_dir" placeholder="/media/Peliculas"></div>
@@ -532,6 +543,7 @@ dialog.sheet .foot{display:none}
     </div>
     <div style="margin-top:14px;display:grid;gap:12px">
       <label class="switch"><input type="checkbox" id="dl_auto"><span>Pedir solo lo que agregue a mi lista (si no, sólo lo que mande con el botón «Descargar»)</span></label>
+      <label class="switch"><input type="checkbox" id="dl_remind"><span>Avisarme cuando me toque pulsar el anuncio (por el bot de avisos; sin bot, llega como recordatorio a «Mensajes guardados»)</span></label>
       <label class="switch"><input type="checkbox" id="dl_enabled"><span><b>Activar las descargas</b></span></label>
     </div>
     <div class="row" style="margin-top:12px"><button class="btn sec" id="dlSave">Guardar</button><span id="dlMsg" class="muted"></span></div>
@@ -1055,10 +1067,18 @@ async function loadDlSettings() {
   $("#tgState").innerHTML = tg.user ? `<span class="pill ok">conectado</span> como <b>${esc(tg.user.name)}</b> <button class="btn sec" id="tgOut" style="margin-left:8px">Desconectar</button>`
     : `<span class="pill revisar">sin conectar</span>`;
   $("#tgForm").hidden = !!tg.user;
+  $("#botState").innerHTML = tg.bot ? `<span class="pill ok">conectado</span> te avisa <b>@${esc(tg.bot)}</b>
+    <a class="btn sec" href="https://t.me/${encodeURIComponent(tg.bot)}" target="_blank" rel="noopener" style="margin-left:8px">Abrir</a>
+    <button class="btn sec" id="botTest">Probar</button> <button class="btn sec" id="botOff">Quitar</button>` : "";
+  $("#botForm").hidden = !!tg.bot;
+  if (tg.bot) {
+    $("#botTest").onclick = () => botConnect("__MASK__");
+    $("#botOff").onclick = () => botConnect("");
+  }
   if (tg.user) $("#tgOut").onclick = async () => { const r = await api("/api/telegram/logout", {}); if (r.ok === false) toast(r.error); loadDlSettings(); };
   for (const k of ["movies_dir", "series_dir", "tmp_dir", "gap_minutes", "daily"]) $("#dl_" + k).value = st[k];
   $("#dl_audio").value = st.audio.join(",");
-  $("#dl_auto").checked = st.auto; $("#dl_enabled").checked = st.enabled;
+  $("#dl_auto").checked = st.auto; $("#dl_enabled").checked = st.enabled; $("#dl_remind").checked = st.remind !== false;
   $("#dlMsg").textContent = st.enabled ? dlInfo.state.message : "";
 }
 $("#tgCode").onclick = async () => {
@@ -1069,6 +1089,16 @@ $("#tgCode").onclick = async () => {
     $("#tgCodeBox").hidden = false; $("#tg_code").focus(); toast("Mira tu Telegram: te llegó un código");
   } catch (e) { toast(e.message); } finally { $("#tgCode").disabled = false; }
 };
+async function botConnect(token) {
+  try {
+    const r = await api("/api/telegram/bot", {token: token === "__MASK__" ? "••••••••" : token});
+    if (r.ok === false) return toast(r.error);
+    toast(r.bot ? "Mira tu Telegram: el bot te mandó un mensaje de prueba" : "Bot de avisos quitado");
+    $("#tg_bot_token").value = "";
+  } catch (e) { toast(e.message); }
+  loadDlSettings();
+}
+$("#botSave").onclick = () => { const t = $("#tg_bot_token").value.trim(); if (!t) return toast("Pega el token que te dio @BotFather"); botConnect(t); };
 $("#tgLogin").onclick = async () => {
   try {
     const r = await api("/api/telegram/login", {code: $("#tg_code").value, password: $("#tg_password").value});
@@ -1080,10 +1110,10 @@ $("#tgLogin").onclick = async () => {
 $("#dlSave").onclick = async () => {
   const body = {movies_dir: $("#dl_movies_dir").value, series_dir: $("#dl_series_dir").value, tmp_dir: $("#dl_tmp_dir").value,
     gap_minutes: +$("#dl_gap_minutes").value || 2, daily: +$("#dl_daily").value || 20, audio: $("#dl_audio").value.split(","),
-    auto: $("#dl_auto").checked, enabled: $("#dl_enabled").checked};
+    auto: $("#dl_auto").checked, enabled: $("#dl_enabled").checked, remind: $("#dl_remind").checked};
   if (body.enabled && (!body.movies_dir || !body.series_dir)) return toast("Pon las carpetas de películas y de series");
   try { const r = await api("/api/downloads/settings", body); if (r.ok === false) return toast(r.error); toast("Guardado"); } catch (e) { toast(e.message); }
-  loadDlSettings();
+  loadDlSettings(); setTimeout(loadDlSettings, 2500);  // el estado cambia cuando las descargas despiertan
 };
 
 // ---------- Descargas (Descubrir) ----------
@@ -1091,6 +1121,13 @@ const DL_STATE = {cola: ["", "en cola"], buscando: ["", "buscando en Phono"], pi
   manual: ["revisar", "pulsa el anuncio en Telegram"], descargando: ["", "descargando"], listo: ["ok", "lista"],
   "no-esta": ["revisar", "no está en Phono"], error: ["falla", "error"], cancelado: ["", "cancelada"]};
 let dlTimer = null;
+function dlSpeed(st) {
+  if (!st.speed) return "";
+  const left = (st.total - st.done) / st.speed, mb = st.speed / 2 ** 20;
+  const eta = left < 60 ? "menos de 1 min" : left < 3600 ? `${Math.round(left / 60)} min` : `${Math.floor(left / 3600)} h ${Math.round(left % 3600 / 60)} min`;
+  return ` · <b>${mb >= 10 ? mb.toFixed(0) : mb.toFixed(1)} MB/s</b> · faltan ${eta}`;
+}
+
 async function loadDownloads() {
   clearTimeout(dlTimer);
   let r;
@@ -1100,28 +1137,72 @@ async function loadDownloads() {
   const st = r.state, rows = r.rows.filter(x => x.state !== "cancelado")
     .sort((a, b) => order.indexOf(a.state) - order.indexOf(b.state) || (a.state === "listo" ? b.updated - a.updated : a.created - b.created || (a.season || 0) - (b.season || 0)));
   const head = !r.settings.enabled ? `<div class="card"><p style="margin-top:0">Las descargas están apagadas.</p><button class="btn sec" onclick="show('ajustes');setTimeout(()=>$('#dlCard').scrollIntoView(),300)">Ir a Ajustes</button></div>`
-    : `<p class="muted">Ahora: ${esc(st.message)}${st.total ? ` · ${Math.round(100 * st.done / st.total)} % de ${(st.total / 2 ** 30).toFixed(2)} GB` : ""}</p>`;
-  const manual = rows.some(x => x.state === "manual") ? `<div class="card"><b>Te toca a ti:</b> abre el chat del bot en tu Telegram y pulsa «Watch Ads» y después «I have clicked ads». En cuanto mande el archivo, se descarga solo.</div>` : "";
+    : `<p class="muted">Ahora: ${esc(st.message)}${st.total ? ` · ${Math.round(100 * st.done / st.total)} % de ${(st.total / 2 ** 30).toFixed(2)} GB${dlSpeed(st)}` : ""}</p>`;
+  const manual = rows.some(x => x.state === "manual") ? `<div class="card"><b>Te toca a ti:</b> pulsa «Abrir el chat» (o abre en Telegram el primer chat de tu lista) y pulsa «Watch Ads» y después «I have clicked ads». En cuanto mande el archivo, se descarga solo.</div>` : "";
   const items = rows.map(x => {
     const [cls, label] = DL_STATE[x.state] || ["", x.state];
     const name = x.title + (x.year ? ` (${x.year})` : "") + (x.season ? ` · temporada ${x.season}` : "");
     const pct = x.id === st.current && st.total ? `<div class="bar"><i style="width:${(100 * st.done / st.total).toFixed(1)}%"></i></div>` : "";
-    const btn = ["listo"].includes(x.state) ? `<button class="btn sec" onclick="dlCancel(${x.id})">Quitar de la lista</button>`
+    const chat = x.state === "manual" && x.bot ? `<a class="btn" href="https://t.me/${encodeURIComponent(x.bot)}" target="_blank" rel="noopener">Abrir el chat</a> ` : "";
+    const btn = chat + (["listo"].includes(x.state) ? `<button class="btn sec" onclick="dlCancel(${x.id})">Quitar de la lista</button>`
       : ["error", "no-esta"].includes(x.state) ? `<button class="btn sec" onclick="dlRetry(${x.id})">Reintentar</button> <button class="btn sec" onclick="dlCancel(${x.id})">Cancelar</button>`
-      : `<button class="btn sec" onclick="dlCancel(${x.id})">Cancelar</button>`;
+      : `<button class="btn sec" onclick="dlCancel(${x.id})">Cancelar</button>`);
     return `<div class="card"><div class="row" style="justify-content:space-between;gap:10px;flex-wrap:wrap">
       <div><b>${esc(name)}</b> <span class="pill ${cls}">${esc(label)}</span>${x.how === "auto" ? ` <span class="muted">· de tu lista</span>` : ""}
         <div class="muted">${esc(x.detail || "")}${x.file ? ` · ${esc(x.file)}` : ""}${x.size ? ` · ${(x.size / 2 ** 30).toFixed(2)} GB` : ""}</div>${pct}</div>
       <div>${btn}</div></div></div>`;
   }).join("");
-  $("#dscBox").innerHTML = head + manual + (items || `<p class="empty">Nada en descargas. Agrega algo a tu lista o pulsa «Descargar» en Por conseguir.</p>`);
+  const waiting = rows.filter(x => ["cola", "no-esta", "error"].includes(x.state) && x.id !== st.current).length;
+  const clear = waiting > 1 ? `<div class="row" style="margin-bottom:12px"><button class="btn sec" onclick="dlClear()">Vaciar la cola (${waiting})</button></div>` : "";
+  $("#dscBox").innerHTML = head + clear + manual + (items || `<p class="empty">Nada en descargas. Agrega algo a tu lista o pulsa «Descargar» en Por conseguir.</p>`);
   if (rows.some(x => !["listo", "error", "no-esta"].includes(x.state))) dlTimer = setTimeout(loadDownloads, 4000);
 }
 async function dlCancel(id) { try { await api("/api/downloads/cancel", {id}); } catch (e) { toast(e.message); } loadDownloads(); }
+async function dlClear() {
+  if (!confirm("¿Quitar de Descargas todo lo que espera turno? Lo que se está bajando sigue.")) return;
+  try { const r = await api("/api/downloads/clear", {}); toast(`${r.done} quitadas de la cola`); } catch (e) { toast(e.message); }
+  loadDownloads();
+}
 async function dlRetry(id) { try { await api("/api/downloads/retry", {id}); } catch (e) { toast(e.message); } loadDownloads(); }
 async function dlAdd(k) {
   const c = dscFind(k); if (!c) return;
-  try { const r = await api("/api/downloads/add", {kind: c.kind, tmdb: c.tmdb, title: c.title, year: c.year}); toast(r.ok === false ? r.error : "En la cola de descargas"); } catch (e) { toast(e.message); }
+  const body = {kind: c.kind, tmdb: c.tmdb, title: c.title, year: c.year};
+  if (c.kind === "tv") {
+    const seasons = await dlPickSeasons(c);
+    if (!seasons) return;
+    body.seasons = seasons;
+  }
+  try { const r = await api("/api/downloads/add", body); toast(r.ok === false ? r.error : "En la cola de descargas"); } catch (e) { toast(e.message); }
+}
+// series: qué temporadas pedir (las que ya están en Descargas salen marcadas y sin poder tocarlas)
+async function dlPickSeasons(c) {
+  toast("Mirando qué temporadas tiene Phono…");
+  let r;
+  try { r = await api("/api/downloads/seasons", {tmdb: c.tmdb, title: c.title, year: c.year}); } catch (e) { toast(e.message); return null; }
+  if (r.ok === false) { toast(r.error); return null; }
+  if (!r.seasons.length) { toast("Phono no tiene temporadas para descargar"); return null; }
+  return new Promise(done => {
+    const d = document.createElement("dialog");
+    d.className = "ask";
+    const box = r.seasons.map(n => {
+      const had = r.have.includes(n);
+      return `<label class="switch"><input type="checkbox" value="${n}" ${had ? "checked disabled" : r.seasons.length - r.have.length === 1 ? "checked" : ""}><span>Temporada ${n}${had ? ` <span class="muted">· ya en Descargas</span>` : ""}</span></label>`;
+    }).join("");
+    d.innerHTML = `<p style="margin-top:0"><b>${esc(c.title)}</b>: ¿qué temporadas quieres?</p>
+      <div class="row" style="gap:8px;margin-bottom:8px"><button class="btn sec" value="all">Marcar todas</button><button class="btn sec" value="none">Ninguna</button></div>
+      <div class="col" style="display:grid;gap:6px">${box}</div>
+      <div class="row" style="justify-content:flex-end;gap:8px;margin-top:14px"><button class="btn sec" value="no">Cancelar</button><button class="btn" value="yes">Pedir</button></div>`;
+    const boxes = () => [...d.querySelectorAll("input:not(:disabled)")];
+    d.querySelector('[value="all"]').onclick = () => boxes().forEach(x => x.checked = true);
+    d.querySelector('[value="none"]').onclick = () => boxes().forEach(x => x.checked = false);
+    d.querySelector('[value="no"]').onclick = () => d.close("no");
+    d.querySelector('[value="yes"]').onclick = () => {
+      if (!boxes().some(x => x.checked)) return toast("Marca al menos una temporada");
+      d.close("yes");
+    };
+    d.onclose = () => { done(d.returnValue === "yes" ? boxes().filter(x => x.checked).map(x => +x.value) : null); d.remove(); };
+    document.body.appendChild(d); d.showModal();
+  });
 }
 
 // ---------- Registro ----------
@@ -1565,7 +1646,7 @@ const DSC_HELP = {
   "novedades": "Lo que acaba de salir o sale pronto. Toca el póster para ver la ficha completa.",
   "clasicos": "Lo más visto esta semana y lo mejor valorado de siempre.",
   "para-ti": "Aprende de lo que calificas y de «Mis gustos». No salen las que ya tienes ni las que ya calificaste.",
-  "por-conseguir": "Lo que marcaste «No la tengo» y lo que te gusta y no está en tu biblioteca. Cuando la consigas, pulsa «La tengo».",
+  "por-conseguir": "Lo que marcaste «No la tengo» o «Agregar a mi lista». Cuando la consigas, pulsa «La tengo».",
   "calificadas": "Todo lo que has calificado. Puedes cambiarlo cuando quieras.",
   "descargas": "Lo que se está pidiendo a Phono. Cuando salga «pulsa el anuncio en Telegram», abre el chat del bot y pulsa sus dos botones.",
   "gustos": "",
@@ -1642,6 +1723,7 @@ function rateButtons(c, k, labels = true) {
   const r = (v, icon, tip) => `<button title="${tip}" aria-label="${tip}" aria-pressed="${c.rating === v}" class="${c.rating === v ? "on" : ""} ${v < 0 ? "down" : ""}" onclick="dscRate('${k}',${v})">${ico(icon)}${labels ? `<span>${tip}</span>` : ""}</button>`;
   return `<div class="rate">${r(2, "heart", "Me encanta")}${r(1, "up", "Me gusta")}${r(-1, "down", "No me gusta")}</div>`;
 }
+function dlButton(k) { return `<button class="havebtn" onclick="dlAdd('${k}')">${ico("download")}Descargar de Phono</button>`; }
 function haveButton(c, k) {
   return `<button class="havebtn ${c.have ? "yes" : ""}" onclick="dscHave('${k}')">${c.have ? ico("check") + "La tengo" : "No la tengo"}</button>`;
 }
@@ -1659,7 +1741,7 @@ function dscCard(c) {
     ${c.overview ? `<p class="ov ${long && !open ? "clamp" : ""}">${esc(c.overview)}</p>${long ? `<button class="more" onclick="dscMoreText('${k}')">${open ? "Leer menos" : "Leer toda la sinopsis"}</button>` : ""}`
       : `<p class="ov muted">Sin resumen en español. <a href="#" onclick="dscOpen('${k}');return false">Ver la ficha</a></p>`}
     ${rateButtons(c, k)}
-    ${haveButton(c, k)}${dsc.section === "por-conseguir" && !c.have ? `<button class="havebtn" onclick="dlAdd('${k}')">${ico("download")}Descargar</button>` : ""}</article>`;
+    ${haveButton(c, k)}${dsc.section === "por-conseguir" && !c.have ? dlButton(k) : ""}</article>`;
 }
 function dscMoreText(k) { dsc.more.has(k) ? dsc.more.delete(k) : dsc.more.add(k); renderDiscover(); }
 async function dscMark(k, change) {
@@ -1720,7 +1802,7 @@ function renderDetail(partial) {
         <p class="ov">${esc(c.overview) || (partial ? "" : "<i>No hay resumen.</i>")}${c.overview_lang === "en" ? ` <span class="hint">(en inglés: no hay resumen en español)</span>` : ""}</p>
         ${facts.length ? `<dl class="facts">${facts.map(([a, b]) => `<dt>${a}</dt><dd>${esc(b)}</dd>`).join("")}</dl>` : ""}
         ${c.trailer ? `<a class="trailer" href="${esc(c.trailer)}" target="_blank" rel="noopener">${ico("play", "fill")}Ver el tráiler</a>` : ""}
-        <div class="dacts">${rateButtons(c, k)}${haveButton(c, k)}</div>
+        <div class="dacts">${rateButtons(c, k)}${haveButton(c, k)}${c.have ? "" : dlButton(k)}</div>
       </div></div>
     ${cast ? `<div class="castwrap"><h3>Reparto</h3><div class="cast">${cast}</div></div>` : partial ? `<p class="empty">Cargando la ficha…</p>` : ""}`;
 }

@@ -51,7 +51,9 @@ CREATE TABLE IF NOT EXISTS downloads (
     how TEXT,                      -- auto | manual
     created REAL,
     updated REAL,
-    retry REAL                     -- no-esta / error: cuándo volver a intentarlo
+    retry REAL,                    -- no-esta / error: cuándo volver a intentarlo
+    bot TEXT,                      -- el bot de Telegram en el que hay que pulsar el anuncio
+    got TEXT                       -- JSON: archivos ya recibidos del bot (para no volver a bajarlos)
 );
 """
 
@@ -62,6 +64,11 @@ class Downloads:
         self.cfg = cfg
         self.db.executescript(SCHEMA)
         self.db.executescript(discover.SCHEMA)  # «Por conseguir» vive ahí
+        cols = {r[1] for r in self.db.execute("PRAGMA table_info(downloads)")}
+        for col in ("bot", "got"):  # bases de antes
+            if col not in cols:
+                self.db.execute(f"ALTER TABLE downloads ADD COLUMN {col} TEXT")
+                self.db.commit()
 
     # --- la cola ------------------------------------------------------------------------
     def rows(self) -> list[dict]:
@@ -71,9 +78,15 @@ class Downloads:
         r = self.db.execute("SELECT * FROM downloads WHERE id=?", (row_id,)).fetchone()
         return dict(r) if r else None
 
-    def has(self, kind: str, tmdb: int) -> bool:
-        return self.db.execute("SELECT 1 FROM downloads WHERE kind=? AND tmdb=? AND state!='cancelado'",
-                               (kind, tmdb)).fetchone() is not None
+    def has(self, kind: str, tmdb: int, cancelled: bool = False) -> bool:
+        """¿Ya se está pidiendo (o se pidió)? Con ``cancelled`` también cuentan las que cancelaste."""
+        q = "SELECT 1 FROM downloads WHERE kind=? AND tmdb=?" + ("" if cancelled else " AND state!='cancelado'")
+        return self.db.execute(q, (kind, tmdb)).fetchone() is not None
+
+    def seasons_in(self, tmdb: int) -> set[int]:
+        """Temporadas de una serie que ya están en Descargas (sin contar las canceladas)."""
+        return {r[0] for r in self.db.execute("SELECT season FROM downloads WHERE kind='tv' AND tmdb=? "
+                                              "AND state!='cancelado' AND season IS NOT NULL", (tmdb,))}
 
     def add(self, kind: str, tmdb: int, title: str, year: int | None, how: str = "manual",
             season: int | None = None) -> int:

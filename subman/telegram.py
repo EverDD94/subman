@@ -18,9 +18,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import re
 import threading
 import time
+from datetime import timedelta
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -28,6 +30,8 @@ BOT = "phonofilmbot"
 ASK_AFTER = 120         # si en 2 minutos no llega nada (ni el anuncio), se te avisa igual
 GIVE_UP = 12 * 3600     # cuánto se espera como mucho a que llegue el archivo
 QUIET = 120             # tras el último archivo, cuánto se espera por si manda más (capítulos)
+PARALLEL = 8           # trozos que se piden a la vez (como tdl); uno solo va a 1-3 MB/s
+PIECE = 512 * 1024     # lo más que Telegram da por petición
 _SAMPLE = re.compile(r"\bsample\b", re.I)
 _VIDEO_NAME = re.compile(r"\.(mkv|mp4|avi|m4v|mov|ts|webm)$", re.I)
 
@@ -123,7 +127,8 @@ class Telegram:
             if not await self.client.is_user_authorized():
                 return None
             u = await self.client.get_me()
-            return {"name": " ".join(x for x in (u.first_name, u.last_name) if x) or u.username or "", "phone": u.phone}
+            return {"name": " ".join(x for x in (u.first_name, u.last_name) if x) or u.username or "", "phone": u.phone,
+                    "id": u.id}
         return self._run(go())
 
     def send_code(self, phone: str) -> None:
@@ -148,17 +153,43 @@ class Telegram:
             return "ok"
         return self._run(go())
 
+    def say(self, to: str, text: str) -> None:
+        """Escribe desde tu cuenta (p. ej. «/start» a tu bot de avisos, para que pueda escribirte)."""
+        self._run(self.client.send_message(to, text))
+
     def log_out(self) -> None:
         self._run(self.client.log_out())
 
     # --- pedir al bot -------------------------------------------------------------------
     def fetch(self, code: str, dest: Path, bot: str = BOT, progress=lambda what, done, total: None,
-              stop=lambda: False, on_manual=lambda: None) -> list[tuple[Path, dict]]:
+              stop=lambda: False, on_manual=lambda bot: None, skip=lambda name, size: False,
+              on_file=lambda path, info: None, remind: str = "") -> list[tuple[Path, dict]]:
         """Pide ``code`` al bot y descarga lo que mande en ``dest`` (una película o los capítulos de
-        una temporada). Devuelve [(ruta, info)]."""
-        return self._run(self._fetch(bot, code, Path(dest), progress, stop, on_manual), timeout=None)
+        una temporada). Devuelve [(ruta, info)].
 
-    async def _fetch(self, name, code, dest, progress, stop, on_manual):
+        ``skip(nombre, tamaño)``: los que ya se bajaron antes (tras un reinicio) no se vuelven a bajar.
+        ``on_file(ruta, info)``: se llama en cuanto termina cada archivo (en otro hilo).
+        ``remind``: si se pasa, cuando toca pulsar el anuncio te llega un recordatorio a «Mensajes guardados»
+        con ese nombre."""
+        return self._run(self._fetch(bot, code, Path(dest), progress, stop, on_manual, skip, on_file, remind),
+                         timeout=None)
+
+    async def _remind(self, bot: str, what: str) -> None:
+        """Recordatorio en «Mensajes guardados». Un mensaje normal a ti mismo no suena; uno programado
+        («recordatorio») sí avisa, por eso sale programado para dentro de unos segundos."""
+        text = (f"🎬 Videotecario: {what} está esperando.\n"
+                f"Abre @{bot} y pulsa «Watch Ads» y después «I have clicked ads».\nhttps://t.me/{bot}")
+        try:
+            await self.client.send_message("me", text, schedule=timedelta(seconds=15), link_preview=False)
+        except Exception as e:
+            log.warning("Telegram: no se pudo programar el recordatorio (%s); va como mensaje normal", e)
+            try:
+                await self.client.send_message("me", text, link_preview=False)
+            except Exception as e2:
+                log.warning("Telegram: no se pudo mandar el aviso: %s", e2)
+
+    async def _fetch(self, name, code, dest, progress, stop, on_manual, skip=lambda n, s: False,
+                     on_file=lambda p, i: None, remind=""):
         bot = await self.client.get_entity(name)
         last = await self.client.get_messages(bot, limit=1)
         last_id = last[0].id if last else 0
@@ -166,7 +197,7 @@ class Telegram:
         log.info("Telegram: pedido %s a @%s", code, name)
         progress("esperando al bot", 0, 0)
         start = time.time()
-        asked = chose = False
+        asked = chose = seen_file = False
         got: list[tuple[Path, dict]] = []
         last_file = None
         while not stop():
@@ -178,7 +209,9 @@ class Telegram:
                 kind = classify(m)
                 if kind == "ad" and not asked:
                     asked = True
-                    on_manual()
+                    on_manual(name)
+                    if remind:
+                        await self._remind(name, remind)
                 elif kind == "options" and not chose:
                     text, other, code2 = choose(options(m))
                     chose = True
@@ -191,19 +224,28 @@ class Telegram:
                     await self.client.send_message(bot, f"/start {code2}")
                     break
                 elif kind == "file":
-                    got.append((await self._download(m, dest, progress, stop), info(m)))
+                    fname = _safe(m.file.name or f"phono-{m.id}.mkv")
+                    if skip(fname, m.file.size or 0):
+                        log.info("Telegram: %s ya estaba bajado", fname)
+                    else:
+                        path, inf = await self._download(m, dest, progress, stop), info(m)
+                        got.append((path, inf))
+                        await asyncio.get_running_loop().run_in_executor(None, on_file, path, inf)
+                    seen_file = True
                     last_file = time.time()
                 elif kind == "sample":
                     log.info("Telegram: muestra ignorada")
                 elif m.message:
                     log.info("Telegram: el bot dice: %s", m.message[:200].replace("\n", " "))
             now = time.time()
-            if got and now - last_file > QUIET:
+            if seen_file and now - last_file > QUIET:
                 break
-            if not got and not asked and now - start > ASK_AFTER:
+            if not seen_file and not asked and now - start > ASK_AFTER:
                 asked = True
-                on_manual()
-            if not got and now - start > GIVE_UP:
+                on_manual(name)
+                if remind:
+                    await self._remind(name, remind)
+            if not seen_file and now - start > GIVE_UP:
                 raise TimeoutError("el bot no mandó el archivo")
             await asyncio.sleep(5)
         return got
@@ -219,7 +261,13 @@ class Telegram:
                 raise InterruptedError("cancelada")
             progress(name, done, total)
         try:
-            await self.client.download_media(m, file=str(part), progress_callback=each)
+            try:
+                await self._parallel(m, part, m.file.size or 0, each)
+            except InterruptedError:
+                raise
+            except Exception as e:  # si falla en paralelo, a la manera de siempre (de uno en uno)
+                log.warning("Telegram: descarga en paralelo falló (%s); sigo de uno en uno", e)
+                await self.client.download_media(m, file=str(part), progress_callback=each)
         except InterruptedError:
             part.unlink(missing_ok=True)
             raise
@@ -227,6 +275,41 @@ class Telegram:
         part.replace(final)
         log.info("Telegram: descargado %s (%.0f MB)", name, (m.file.size or 0) / 2**20)
         return final
+
+
+    async def _parallel(self, m, part: Path, size: int, each) -> None:
+        """Descarga pidiendo ``PARALLEL`` trozos a la vez; cada uno se escribe en su sitio del archivo."""
+        if size <= 0:
+            raise ValueError("tamaño desconocido")
+        pieces = (size + PIECE - 1) // PIECE
+        done = 0
+        with open(part, "wb") as f:
+            f.truncate(size)
+        fd = os.open(part, os.O_WRONLY)
+        try:
+            async def worker(i: int):
+                nonlocal done
+                n, pos = len(range(i, pieces, PARALLEL)), i * PIECE
+                if not n:
+                    return
+                async for chunk in self.client.iter_download(m.media, offset=pos, stride=PARALLEL * PIECE, limit=n,
+                                                             request_size=PIECE, chunk_size=PIECE, file_size=size):
+                    os.pwrite(fd, chunk, pos)
+                    pos += PARALLEL * PIECE
+                    done += len(chunk)
+                    each(done, size)
+            tasks = [asyncio.ensure_future(worker(i)) for i in range(PARALLEL)]
+            try:
+                await asyncio.gather(*tasks)
+            except BaseException:
+                for t in tasks:
+                    t.cancel()
+                await asyncio.gather(*tasks, return_exceptions=True)
+                raise
+        finally:
+            os.close(fd)
+        if done != size:
+            raise IOError(f"llegaron {done} de {size} bytes")
 
 
 def _safe(name: str) -> str:

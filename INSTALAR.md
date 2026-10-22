@@ -138,6 +138,11 @@ En **Ajustes › Descargas de Phono**:
 2. Pégalos en Videotecario con tu número de Telegram, pulsa **Mandarme el código** y escribe el
    código que te llega a Telegram (y tu contraseña de verificación en dos pasos, si la tienes).
 3. Pon las carpetas de películas y de series (las mismas que ve Jellyfin) y activa las descargas.
+4. Opcional, **bot de avisos** (para enterarte aunque tengas Telegram silenciado): en Telegram abre
+   **@BotFather**, escribe `/newbot`, ponle un nombre y un usuario que acabe en «bot», y copia el token.
+   Pégalo en *Bot de avisos* y pulsa **Conectar el bot**: te llega un mensaje de prueba. En ese chat,
+   toca el nombre del bot › *Notificaciones* y déjalas activadas. Cada aviso trae un botón que abre
+   el chat donde está el «Watch Ads».
 
 Desde entonces, lo que agregas a tu lista en **Descubrir** («Agregar a mi lista» o «No la tengo»)
 se busca en phono.cc por su número de TheMovieDB, se elige el archivo (audio en español si lo hay,
@@ -145,8 +150,12 @@ si no en inglés; 1080p) y se le pide al bot. **El anuncio lo pulsas tú**: abre
 tu Telegram y pulsa «Watch Ads» y después «I have clicked ads». En cuanto el bot manda el archivo,
 Videotecario lo baja, lo deja en `Película (Año) [tmdbid-N]/` o `Serie (Año) [tmdbid-N]/Season 01/`,
 saca los subtítulos en español que traiga dentro y le busca subtítulos como siempre.
-Las series se piden por temporadas (Phono sólo tiene un botón por temporada). En **Descubrir ›
-Descargas** ves en qué va cada una. Va de una en una, con una pausa entre pedidos y un máximo al día.
+Las series se piden por temporadas (Phono sólo tiene un botón por temporada); con «Descargar de Phono»
+eliges cuáles. Cada capítulo pasa a la biblioteca en cuanto termina. Si Videotecario se reinicia o se
+actualiza a mitad, al volver sigue por donde iba: lo ya bajado no se vuelve a bajar (el anuncio sí hay que
+pulsarlo otra vez). Con «Avisarme en Telegram» te llega un recordatorio a *Mensajes guardados* cuando
+te toca pulsar el anuncio. En **Descubrir › Descargas** ves en qué va cada una, con su velocidad.
+Va de una en una, con una pausa entre pedidos y un máximo al día.
 
 ## Otros detalles
 

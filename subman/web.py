@@ -1414,17 +1414,23 @@ class App:
             config.save(self.config_path, cfg)
         return {"ok": True, "bot": name}
 
-    def _notify(self, cfg: dict, label: str, bot: str) -> bool:
+    @staticmethod
+    def _dl_label(row: dict) -> str:
+        """«🎬 Película: Título (2026)» o «📺 Serie: Título (2026) · temporada 1», para ver de un vistazo qué es."""
+        name = row["title"] + (f" ({row['year']})" if row.get("year") else "")
+        if row["kind"] == "movie":
+            return f"🎬 Película: {name}"
+        return f"📺 Serie: {name}" + (f" · temporada {row['season']}" if row.get("season") else "")
+
+    def _notify(self, cfg: dict, text: str, link: tuple[str, str] | None = None) -> bool:
         """Aviso por tu bot (en otro hilo, para no frenar la descarga). False si no hay bot puesto."""
         t = cfg.get("telegram", {})
-        if not (t.get("bot_token") and t.get("chat_id")):
+        if not (t.get("bot_token") and t.get("chat_id")) or not cfg["downloads"].get("remind", True):
             return False
 
         def go():
             try:
-                notify.send(t["bot_token"], t["chat_id"],
-                            f"🎬 {label}\nTe toca: abre el chat y pulsa «Watch Ads» y después «I have clicked ads».",
-                            link=(f"Abrir @{bot}", f"https://t.me/{bot}"))
+                notify.send(t["bot_token"], t["chat_id"], text, link=link)
             except Exception as e:
                 log.warning("bot de avisos: %s", e)
         threading.Thread(target=go, name="aviso", daemon=True).start()
@@ -1650,13 +1656,13 @@ class App:
                     started.add(name)
                     note(state="descargando", detail=f"descargando {name}", size=total)
 
-            label = row["title"] + (f" (temporada {row['season']})" if row["season"] else "")
+            label = self._dl_label(row)
             by_bot = bool(cfg["telegram"].get("bot_token") and cfg["telegram"].get("chat_id"))
 
             def manual(bot):
                 note(state="manual", bot=bot, detail=f"pulsa tú «Watch Ads» y «I have clicked ads» en el chat de @{bot}")
-                if d.get("remind", True):
-                    self._notify(cfg, label, bot)
+                self._notify(cfg, f"🚨 Te toca pulsar el anuncio\n\n{label}\n\nPulsa el botón, luego «Watch Ads» "
+                                  "y después «I have clicked ads».", link=(f"👉 Ir a Watch Ads (@{bot})", f"https://t.me/{bot}"))
                 self.dl.update(message=f"{row['title']}: esperando que pulses el anuncio en Telegram")
 
             self._telegram(cfg).fetch(link[1], tmp, bot=link[0], progress=progress,
@@ -1674,6 +1680,8 @@ class App:
             if not placed:
                 raise ValueError("el bot no mandó ningún video")
             dl.set(rid, state="listo", detail=f"{len(placed)} video(s) en la biblioteca", dest=json.dumps(placed, ensure_ascii=False))
+            n = f"{len(placed)} capítulos" if row["kind"] == "tv" and len(placed) != 1 else ""
+            self._notify(cfg, f"✅ Ya está en tu biblioteca\n\n{self._dl_label(row)}" + (f"\n{n}" if n else ""))
             self.dl.update(message=f"{row['title']}: lista", done=0, total=0, speed=0.0)
             dl.db.execute("UPDATE discover SET have=1 WHERE kind=? AND tmdb=? AND have=0", (row["kind"], row["tmdb"]))
             dl.db.commit()

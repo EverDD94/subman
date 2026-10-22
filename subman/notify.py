@@ -62,3 +62,20 @@ def updates(token: str, offset: int, wait: int = 50) -> list[dict]:
     if not j.get("ok"):
         raise ValueError(j.get("description") or f"Telegram respondió {r.status_code}")
     return j["result"]
+
+
+def edit(token: str, chat_id: int | str, message_id: int, text: str, buttons: list[list[dict]] | None = None) -> None:
+    """Cambia el texto de un mensaje que ya mandó el bot (sin botones si no se pasan)."""
+    try:
+        _call(token, "editMessageText", chat_id=chat_id, message_id=message_id, text=text,
+              disable_web_page_preview=True, **_markup(None, buttons))
+    except ValueError as e:
+        if "not modified" not in str(e):
+            raise
+
+
+def delete(token: str, chat_id: int | str, message_id: int) -> None:
+    try:
+        _call(token, "deleteMessage", chat_id=chat_id, message_id=message_id)
+    except Exception as e:
+        log.info("bot: no se pudo borrar un mensaje: %s", e)

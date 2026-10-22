@@ -321,3 +321,83 @@ class Bot:
                 time.sleep(2)  # sin prisa: no cargar a Phono
             except Exception as e:
                 log.info("bot: temporadas nuevas de %s: %s", tid, e)
+
+
+def bar(frac: float, width: int = 12) -> str:
+    n = max(0, min(width, round(frac * width)))
+    return "▓" * n + "░" * (width - n)
+
+
+class Status:
+    """Un solo mensaje por descarga en tu bot, que se va editando: 🚨 el anuncio → ⬇️ descargando
+    (capítulo, barra, velocidad) → ✅ finalizado. Los recordatorios ⏰ son mensajes aparte (para que
+    suenen) y se borran en cuanto empieza a bajar. Sin bot conectado no hace nada."""
+    EVERY = 6  # segundos entre ediciones (Telegram no deja editar mucho más seguido)
+
+    def __init__(self, cfg: dict):
+        t = cfg.get("telegram", {})
+        on = t.get("bot_token") and t.get("chat_id") and cfg["downloads"].get("remind", True)
+        self.token, self.chat = (t["bot_token"], t["chat_id"]) if on else (None, None)
+        self.mid = None
+        self.want = self.shown = None
+        self.final = False
+        self.nags: list[int] = []
+        self.cv = threading.Condition()
+        if self.token:
+            threading.Thread(target=self._run, name="bot-estado", daemon=True).start()
+
+    def show(self, text: str, buttons: list[list[dict]] | None = None, final: bool = False) -> None:
+        if not self.token:
+            return
+        with self.cv:
+            if self.final:
+                return
+            self.want = (text, buttons)
+            self.final = final
+            self.cv.notify()
+
+    def close(self) -> None:
+        """Termina: lo que quede por mostrar se muestra y el hilo se acaba."""
+        if self.token:
+            with self.cv:
+                self.final = True
+                self.cv.notify()
+
+    def nag(self, text: str, link: tuple[str, str]) -> None:
+        """Recordatorio aparte (un mensaje nuevo sí suena; una edición no)."""
+        if not self.token or self.final:
+            return
+        try:
+            self.nags.append(notify.send(self.token, self.chat, text, link=link)["message_id"])
+        except Exception as e:
+            log.warning("bot: %s", e)
+
+    def _run(self) -> None:
+        while True:
+            with self.cv:
+                while self.want == self.shown:
+                    if self.final:
+                        return self._clean()
+                    self.cv.wait(60)
+                want, final = self.want, self.final
+            text, buttons = want
+            try:
+                if self.mid is None:
+                    self.mid = notify.send(self.token, self.chat, text, buttons=buttons)["message_id"]
+                else:
+                    notify.edit(self.token, self.chat, self.mid, text, buttons=buttons)
+                self.shown = want
+            except Exception as e:
+                log.info("bot: estado: %s", e)
+                if "Too Many Requests" in str(e):
+                    time.sleep(self.EVERY)
+                else:
+                    self.shown = want  # no insistir con el mismo texto
+            if text.startswith("⬇️"):
+                self._clean()
+            if not final:
+                time.sleep(self.EVERY)
+
+    def _clean(self) -> None:
+        while self.nags:
+            notify.delete(self.token, self.chat, self.nags.pop())

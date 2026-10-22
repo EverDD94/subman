@@ -1472,16 +1472,31 @@ class App:
         threading.Thread(target=go, name="aviso", daemon=True).start()
         return True
 
-    def _nag(self, cfg: dict, rid: int, label: str, bot_name: str, every: float = 20 * 60, times: int = 3) -> None:
-        """Si a los 20 minutos sigue esperando el anuncio, te lo recuerda (hasta 3 veces)."""
+    @staticmethod
+    def _dl_progress(row: dict, label: str, name: str, done: int, total: int, speed: float, ready: int) -> str:
+        """El texto del mensaje que se va editando mientras baja: qué capítulo, barra, velocidad y lo que ya está."""
+        m = re.search(r"[Ss](\d{1,2})[ ._-]?[Ee](\d{1,3})", name)
+        what = (f"Temporada {int(m.group(1))} · capítulo {int(m.group(2))}" if m and row["kind"] == "tv"
+                else "Película" if row["kind"] == "movie" else name)
+        frac = done / total if total else 0
+        line = f"{done / 2**30:.2f} de {total / 2**30:.2f} GB"
+        if speed:
+            left = (total - done) / speed
+            line += f" · {speed / 2**20:.1f} MB/s · " + ("menos de 1 min" if left < 60 else f"faltan {int(left // 60) + 1} min")
+        extra = f"\n\n✅ {ready} capítulo{'s' if ready != 1 else ''} ya en la biblioteca" if ready and row["kind"] == "tv" else ""
+        return f"⬇️ Descargando\n\n{label}\n\n{what}\n{bot.bar(frac)} {frac * 100:.0f} %\n{line}{extra}"
+
+    def _nag(self, cfg: dict, rid: int, label: str, bot_name: str, status, every: float = 20 * 60, times: int = 3) -> None:
+        """Si a los 20 minutos sigue esperando el anuncio, te lo recuerda (hasta 3 veces). Los recordatorios
+        se borran solos en cuanto empieza a bajar."""
         def go():
             for k in range(times):
                 time.sleep(every)
                 r = downloads.Downloads(self.library(cfg), cfg).get(rid)
                 if not r or r["state"] != "manual":
                     return
-                self._notify(cfg, f"⏰ Sigue esperando el anuncio ({(k + 1) * int(every // 60)} min)\n\n{label}",
-                             link=(f"👉 Ir a Watch Ads (@{bot_name})", f"https://t.me/{bot_name}"))
+                status.nag(f"⏰ Sigue esperando el anuncio ({(k + 1) * int(every // 60)} min)\n\n{label}",
+                           link=(f"👉 Ir a Watch Ads (@{bot_name})", f"https://t.me/{bot_name}"))
         threading.Thread(target=go, name="recordatorio", daemon=True).start()
 
     def downloads_add(self, b: dict) -> dict:
@@ -1605,10 +1620,8 @@ class App:
         before = row["state"]
         self._dl_one(cfg, dl, row)
         after = dl.get(row["id"]) or {}
-        if after.get("state") in ("no-esta", "error") and after["state"] != before:  # sólo la primera vez, no a diario
-            icon = "❌" if after["state"] == "no-esta" else "⚠️"
-            when = "Lo vuelvo a mirar mañana." if after["state"] == "no-esta" else "Lo reintento en unas horas."
-            self._notify(cfg, f"{icon} {self._dl_label(after)}\n\n{after.get('detail') or ''}\n{when}")
+        if after.get("state") == "no-esta" and after["state"] != before:  # sólo la primera vez, no a diario
+            self._notify(cfg, f"❌ {self._dl_label(after)}\n\n{after.get('detail') or ''}\nLo vuelvo a mirar mañana.")
         return 5
 
     def _dl_enqueue(self, cfg: dict, dl) -> None:
@@ -1627,6 +1640,9 @@ class App:
         d = cfg["downloads"]
         rid = row["id"]
         self.dl.update(current=rid, what=row["title"], done=0, total=0, speed=0.0, stop=None, message=f"{row['title']}: buscando en Phono")
+        label = self._dl_label(row)
+        status = bot.Status(cfg)  # el mensaje que se va editando en tu bot
+        placed: list[str] = []
         try:
             dl.set(rid, state="buscando", detail="buscando en Phono")
             api = phono.Phono()
@@ -1684,6 +1700,9 @@ class App:
                 got_names.append(path.name)
                 placed.append(str(final))
                 note(got=json.dumps(got_names, ensure_ascii=False), dest=json.dumps(placed, ensure_ascii=False))
+                if row["kind"] == "tv":
+                    status.show(f"⬇️ Descargando\n\n{label}\n\n✅ {len(placed)} capítulo{'s' if len(placed) != 1 else ''} ya en la biblioteca\n"
+                                "⏳ esperando el siguiente…")
                 log.info("descargas: %s -> %s", path.name, final)
                 self.wake.set()  # que busque y compruebe los subtítulos ya
                 self._jellyfin_refresh(cfg)
@@ -1710,19 +1729,21 @@ class App:
                     self.dl["speed"] = v if not old else 0.6 * old + 0.4 * v
                     rate.update(t=now, done=done)
                 self.dl.update(done=done, total=total, message=f"{row['title']}: {name}")
+                if total:
+                    status.show(self._dl_progress(row, label, name, done, total, self.dl.get("speed") or 0, len(placed)))
                 if total and name not in started:
                     started.add(name)
                     note(state="descargando", detail=f"descargando {name}", size=total)
 
-            label = self._dl_label(row)
             by_bot = bool(cfg["telegram"].get("bot_token") and cfg["telegram"].get("chat_id"))
 
-            def manual(bot):
-                note(state="manual", bot=bot, detail=f"pulsa tú «Watch Ads» y «I have clicked ads» en el chat de @{bot}")
-                self._notify(cfg, f"🚨 Te toca pulsar el anuncio\n\n{label}\n\nPulsa el botón, luego «Watch Ads» "
-                                  "y después «I have clicked ads».", link=(f"👉 Ir a Watch Ads (@{bot})", f"https://t.me/{bot}"))
+            def manual(name):
+                note(state="manual", bot=name, detail=f"pulsa tú «Watch Ads» y «I have clicked ads» en el chat de @{name}")
+                status.show(f"🚨 Te toca pulsar el anuncio\n\n{label}\n\nPulsa el botón, luego «Watch Ads» y después "
+                            "«I have clicked ads». Este mensaje irá cambiando con lo que se descarga.",
+                            buttons=[[{"text": f"👉 Ir a Watch Ads (@{name})", "url": f"https://t.me/{name}"}]])
                 self.dl.update(message=f"{row['title']}: esperando que pulses el anuncio en Telegram")
-                self._nag(cfg, rid, label, bot)
+                self._nag(cfg, rid, label, name, status)
 
             self._telegram(cfg).fetch(link[1], tmp, bot=link[0], progress=progress,
                                       stop=lambda: self.dl["stop"] == rid, on_manual=manual,
@@ -1730,6 +1751,7 @@ class App:
                                       remind=label if d.get("remind", True) and not by_bot else "")
             if self.dl["stop"] == rid:
                 shutil.rmtree(tmp, ignore_errors=True)
+                status.show(f"✖️ Cancelada\n\n{label}", final=True)
                 return
             for p in tmp.glob("*") if tmp.exists() else []:  # lo que no es video (avisos, fotos)
                 if p.is_file():
@@ -1739,18 +1761,22 @@ class App:
             if not placed:
                 raise ValueError("el bot no mandó ningún video")
             dl.set(rid, state="listo", detail=f"{len(placed)} video(s) en la biblioteca", dest=json.dumps(placed, ensure_ascii=False))
-            n = f"{len(placed)} capítulos" if row["kind"] == "tv" and len(placed) != 1 else ""
-            self._notify(cfg, f"✅ Ya está en tu biblioteca\n\n{self._dl_label(row)}" + (f"\n{n}" if n else ""))
+            n = f"\n{len(placed)} capítulos" if row["kind"] == "tv" and len(placed) != 1 else ""
+            status.show(f"✅ Finalizado: ya está en tu biblioteca\n\n{label}{n}", final=True)
             self.dl.update(message=f"{row['title']}: lista", done=0, total=0, speed=0.0)
             dl.db.execute("UPDATE discover SET have=1 WHERE kind=? AND tmdb=? AND have=0", (row["kind"], row["tmdb"]))
             dl.db.commit()
         except Exception as e:
             if self.dl["stop"] == rid:  # la cancelaste a medias
                 shutil.rmtree(Path(d["tmp_dir"]) / str(rid), ignore_errors=True)
+                status.show(f"✖️ Cancelada\n\n{label}", final=True)
                 return
             log.exception("descargas: %s", row["title"])
             dl.set(rid, state="error", detail=str(e)[:300], retry=time.time() + 6 * 3600)
+            done_n = f"\n✅ {len(placed)} capítulo(s) ya están en la biblioteca; el resto se reintenta." if row["kind"] == "tv" and placed else ""
+            status.show(f"⚠️ Se cortó la descarga\n\n{label}\n\n{str(e)[:300]}\nLo reintento en unas horas.{done_n}", final=True)
         finally:
+            status.close()
             self.dl.update(current=None, what="", stop=None)
 
     # --- Descubrir -------------------------------------------------------------------

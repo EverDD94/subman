@@ -1406,6 +1406,17 @@ class App:
         dl.set(row_id, state="cancelado", detail="cancelada")
         return {"ok": True}
 
+    def downloads_clear(self) -> dict:
+        """Vaciar la cola: cancela lo que espera turno; lo que se está bajando o espera tu toque sigue."""
+        cfg = self.cfg()
+        dl = downloads.Downloads(self.library(cfg), cfg)
+        n = 0
+        for r in dl.rows():
+            if r["state"] in ("cola", "no-esta", "error") and r["id"] != self.dl["current"]:
+                dl.set(r["id"], state="cancelado", detail="cancelada")
+                n += 1
+        return {"ok": True, "done": n}
+
     def downloads_retry(self, row_id: int) -> dict:
         cfg = self.cfg()
         downloads.Downloads(self.library(cfg), cfg).set(row_id, state="cola", detail="", retry=None)
@@ -1464,7 +1475,8 @@ class App:
         return 5
 
     def _dl_enqueue(self, cfg: dict, dl) -> None:
-        wanted = [w for w in dl.wanted() if not dl.has(w["kind"], w["tmdb"])]
+        # lo que cancelaste no vuelve solo a la cola; con «Descargar de Phono» sí se puede volver a pedir
+        wanted = [w for w in dl.wanted() if not dl.has(w["kind"], w["tmdb"], cancelled=True)]
         if not wanted:
             return
         dsc = discover.Discover(self.library(cfg), cfg)
@@ -1686,6 +1698,7 @@ def make_handler(app: App):
         "/api/downloads/add": lambda b: app.downloads_add(b),
         "/api/downloads/cancel": lambda b: app.downloads_cancel(int(b["id"])),
         "/api/downloads/retry": lambda b: app.downloads_retry(int(b["id"])),
+        "/api/downloads/clear": lambda b: app.downloads_clear(),
         "/api/downloads/settings": lambda b: app.downloads_settings(b),
         "/api/telegram/code": lambda b: app.telegram_code(b),
         "/api/telegram/login": lambda b: app.telegram_login(b),

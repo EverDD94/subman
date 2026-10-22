@@ -75,9 +75,10 @@ class Downloads:
         r = self.db.execute("SELECT * FROM downloads WHERE id=?", (row_id,)).fetchone()
         return dict(r) if r else None
 
-    def has(self, kind: str, tmdb: int) -> bool:
-        return self.db.execute("SELECT 1 FROM downloads WHERE kind=? AND tmdb=? AND state!='cancelado'",
-                               (kind, tmdb)).fetchone() is not None
+    def has(self, kind: str, tmdb: int, cancelled: bool = False) -> bool:
+        """¿Ya se está pidiendo (o se pidió)? Con ``cancelled`` también cuentan las que cancelaste."""
+        q = "SELECT 1 FROM downloads WHERE kind=? AND tmdb=?" + ("" if cancelled else " AND state!='cancelado'")
+        return self.db.execute(q, (kind, tmdb)).fetchone() is not None
 
     def add(self, kind: str, tmdb: int, title: str, year: int | None, how: str = "manual",
             season: int | None = None) -> int:

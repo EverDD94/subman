@@ -1122,10 +1122,17 @@ async function loadDownloads() {
         <div class="muted">${esc(x.detail || "")}${x.file ? ` · ${esc(x.file)}` : ""}${x.size ? ` · ${(x.size / 2 ** 30).toFixed(2)} GB` : ""}</div>${pct}</div>
       <div>${btn}</div></div></div>`;
   }).join("");
-  $("#dscBox").innerHTML = head + manual + (items || `<p class="empty">Nada en descargas. Agrega algo a tu lista o pulsa «Descargar» en Por conseguir.</p>`);
+  const waiting = rows.filter(x => ["cola", "no-esta", "error"].includes(x.state) && x.id !== st.current).length;
+  const clear = waiting > 1 ? `<div class="row" style="margin-bottom:12px"><button class="btn sec" onclick="dlClear()">Vaciar la cola (${waiting})</button></div>` : "";
+  $("#dscBox").innerHTML = head + clear + manual + (items || `<p class="empty">Nada en descargas. Agrega algo a tu lista o pulsa «Descargar» en Por conseguir.</p>`);
   if (rows.some(x => !["listo", "error", "no-esta"].includes(x.state))) dlTimer = setTimeout(loadDownloads, 4000);
 }
 async function dlCancel(id) { try { await api("/api/downloads/cancel", {id}); } catch (e) { toast(e.message); } loadDownloads(); }
+async function dlClear() {
+  if (!confirm("¿Quitar de Descargas todo lo que espera turno? Lo que se está bajando sigue.")) return;
+  try { const r = await api("/api/downloads/clear", {}); toast(`${r.done} quitadas de la cola`); } catch (e) { toast(e.message); }
+  loadDownloads();
+}
 async function dlRetry(id) { try { await api("/api/downloads/retry", {id}); } catch (e) { toast(e.message); } loadDownloads(); }
 async function dlAdd(k) {
   const c = dscFind(k); if (!c) return;
@@ -1573,7 +1580,7 @@ const DSC_HELP = {
   "novedades": "Lo que acaba de salir o sale pronto. Toca el póster para ver la ficha completa.",
   "clasicos": "Lo más visto esta semana y lo mejor valorado de siempre.",
   "para-ti": "Aprende de lo que calificas y de «Mis gustos». No salen las que ya tienes ni las que ya calificaste.",
-  "por-conseguir": "Lo que marcaste «No la tengo» y lo que te gusta y no está en tu biblioteca. Cuando la consigas, pulsa «La tengo».",
+  "por-conseguir": "Lo que marcaste «No la tengo» o «Agregar a mi lista». Cuando la consigas, pulsa «La tengo».",
   "calificadas": "Todo lo que has calificado. Puedes cambiarlo cuando quieras.",
   "descargas": "Lo que se está pidiendo a Phono. Cuando salga «pulsa el anuncio en Telegram», abre el chat del bot y pulsa sus dos botones.",
   "gustos": "",

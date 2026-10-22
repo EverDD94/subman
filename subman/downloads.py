@@ -51,7 +51,8 @@ CREATE TABLE IF NOT EXISTS downloads (
     how TEXT,                      -- auto | manual
     created REAL,
     updated REAL,
-    retry REAL                     -- no-esta / error: cuándo volver a intentarlo
+    retry REAL,                    -- no-esta / error: cuándo volver a intentarlo
+    bot TEXT                       -- el bot de Telegram en el que hay que pulsar el anuncio
 );
 """
 
@@ -62,6 +63,9 @@ class Downloads:
         self.cfg = cfg
         self.db.executescript(SCHEMA)
         self.db.executescript(discover.SCHEMA)  # «Por conseguir» vive ahí
+        if "bot" not in {r[1] for r in self.db.execute("PRAGMA table_info(downloads)")}:  # bases de antes
+            self.db.execute("ALTER TABLE downloads ADD COLUMN bot TEXT")
+            self.db.commit()
 
     # --- la cola ------------------------------------------------------------------------
     def rows(self) -> list[dict]:

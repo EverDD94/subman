@@ -153,7 +153,7 @@ class Telegram:
 
     # --- pedir al bot -------------------------------------------------------------------
     def fetch(self, code: str, dest: Path, bot: str = BOT, progress=lambda what, done, total: None,
-              stop=lambda: False, on_manual=lambda: None) -> list[tuple[Path, dict]]:
+              stop=lambda: False, on_manual=lambda bot: None) -> list[tuple[Path, dict]]:
         """Pide ``code`` al bot y descarga lo que mande en ``dest`` (una película o los capítulos de
         una temporada). Devuelve [(ruta, info)]."""
         return self._run(self._fetch(bot, code, Path(dest), progress, stop, on_manual), timeout=None)
@@ -178,7 +178,7 @@ class Telegram:
                 kind = classify(m)
                 if kind == "ad" and not asked:
                     asked = True
-                    on_manual()
+                    on_manual(name)
                 elif kind == "options" and not chose:
                     text, other, code2 = choose(options(m))
                     chose = True
@@ -202,7 +202,7 @@ class Telegram:
                 break
             if not got and not asked and now - start > ASK_AFTER:
                 asked = True
-                on_manual()
+                on_manual(name)
             if not got and now - start > GIVE_UP:
                 raise TimeoutError("el bot no mandó el archivo")
             await asyncio.sleep(5)

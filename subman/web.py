@@ -1532,8 +1532,8 @@ class App:
                     started.add(name)
                     note(state="descargando", detail=f"descargando {name}", size=total)
 
-            def manual():
-                note(state="manual", detail="pulsa tú «Watch Ads» y «I have clicked ads» en el chat del bot")
+            def manual(bot):
+                note(state="manual", bot=bot, detail=f"pulsa tú «Watch Ads» y «I have clicked ads» en el chat de @{bot}")
                 self.dl.update(message=f"{row['title']}: esperando que pulses el anuncio en Telegram")
 
             got = self._telegram(cfg).fetch(link[1], tmp, bot=link[0], progress=progress,

@@ -83,7 +83,7 @@ main > section{animation:enter .28s var(--ease-out)}
 .stat{background:var(--card-2);border-radius:var(--r-sm);padding:14px 16px}
 .stat span{font-size:13px}
 .stat b{display:block;font:600 30px/1.1 var(--display);font-variant-numeric:tabular-nums;margin-top:4px}
-button.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--accent);color:var(--accent-ink);border:0;border-radius:var(--r-sm);
+button.btn,a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--accent);color:var(--accent-ink);border:0;border-radius:var(--r-sm);
   padding:10px 16px;font-weight:600;cursor:pointer;min-height:40px;transition:transform .16s var(--ease-out),background-color .16s var(--ease-out),opacity .16s}
 button.btn:active:not(:disabled){transform:scale(.97)}
 button.btn.sec{background:var(--card-2);color:var(--text)}
@@ -1101,14 +1101,15 @@ async function loadDownloads() {
     .sort((a, b) => order.indexOf(a.state) - order.indexOf(b.state) || (a.state === "listo" ? b.updated - a.updated : a.created - b.created || (a.season || 0) - (b.season || 0)));
   const head = !r.settings.enabled ? `<div class="card"><p style="margin-top:0">Las descargas están apagadas.</p><button class="btn sec" onclick="show('ajustes');setTimeout(()=>$('#dlCard').scrollIntoView(),300)">Ir a Ajustes</button></div>`
     : `<p class="muted">Ahora: ${esc(st.message)}${st.total ? ` · ${Math.round(100 * st.done / st.total)} % de ${(st.total / 2 ** 30).toFixed(2)} GB` : ""}</p>`;
-  const manual = rows.some(x => x.state === "manual") ? `<div class="card"><b>Te toca a ti:</b> abre el chat del bot en tu Telegram y pulsa «Watch Ads» y después «I have clicked ads». En cuanto mande el archivo, se descarga solo.</div>` : "";
+  const manual = rows.some(x => x.state === "manual") ? `<div class="card"><b>Te toca a ti:</b> pulsa «Abrir el chat» (o abre en Telegram el primer chat de tu lista) y pulsa «Watch Ads» y después «I have clicked ads». En cuanto mande el archivo, se descarga solo.</div>` : "";
   const items = rows.map(x => {
     const [cls, label] = DL_STATE[x.state] || ["", x.state];
     const name = x.title + (x.year ? ` (${x.year})` : "") + (x.season ? ` · temporada ${x.season}` : "");
     const pct = x.id === st.current && st.total ? `<div class="bar"><i style="width:${(100 * st.done / st.total).toFixed(1)}%"></i></div>` : "";
-    const btn = ["listo"].includes(x.state) ? `<button class="btn sec" onclick="dlCancel(${x.id})">Quitar de la lista</button>`
+    const chat = x.state === "manual" && x.bot ? `<a class="btn" href="https://t.me/${encodeURIComponent(x.bot)}" target="_blank" rel="noopener">Abrir el chat</a> ` : "";
+    const btn = chat + (["listo"].includes(x.state) ? `<button class="btn sec" onclick="dlCancel(${x.id})">Quitar de la lista</button>`
       : ["error", "no-esta"].includes(x.state) ? `<button class="btn sec" onclick="dlRetry(${x.id})">Reintentar</button> <button class="btn sec" onclick="dlCancel(${x.id})">Cancelar</button>`
-      : `<button class="btn sec" onclick="dlCancel(${x.id})">Cancelar</button>`;
+      : `<button class="btn sec" onclick="dlCancel(${x.id})">Cancelar</button>`);
     return `<div class="card"><div class="row" style="justify-content:space-between;gap:10px;flex-wrap:wrap">
       <div><b>${esc(name)}</b> <span class="pill ${cls}">${esc(label)}</span>${x.how === "auto" ? ` <span class="muted">· de tu lista</span>` : ""}
         <div class="muted">${esc(x.detail || "")}${x.file ? ` · ${esc(x.file)}` : ""}${x.size ? ` · ${(x.size / 2 ** 30).toFixed(2)} GB` : ""}</div>${pct}</div>

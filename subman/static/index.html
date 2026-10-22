@@ -1796,7 +1796,15 @@ $("#nmOrganize").onclick = async () => {
 };
 
 // ---------- Series ----------
+function zoomImg(src) {  // carátula en grande; se cierra tocando en cualquier sitio
+  const d = document.createElement("div");
+  d.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;z-index:999;cursor:zoom-out";
+  d.innerHTML = `<img src="${esc(src.replace("/w185/", "/w780/").replace("/w342/", "/w780/"))}" alt="" style="max-width:92vw;max-height:92vh;border-radius:10px">`;
+  d.onclick = () => d.remove();
+  document.body.appendChild(d);
+}
 let sr = null, srShown = null;
+const srClosed = new Set();  // series plegadas (por su clave), se mantienen al volver a pintar
 async function loadSeries() {
   sr = await api("/api/series");
   $("#srScan").disabled = sr.running || !sr.tmdb;
@@ -1814,7 +1822,7 @@ async function loadSeries() {
 function srCode(e) { return `S${String(e.season).padStart(2, "0")}E${String(e.episode).padStart(2, "0")}${e.last ? "-E" + String(e.last).padStart(2, "0") : ""}`; }
 function srGroup(g, gi) {
   const show = g.show, opts = g.options || [];
-  const head = show ? `${show.image ? `<img src="${esc(show.image)}" alt="" style="width:46px;border-radius:6px">` : ""}
+  const head = show ? `${show.image ? `<img src="${esc(show.image)}" alt="" data-zoom style="width:46px;border-radius:6px;cursor:zoom-in" title="Ver en grande">` : ""}
       <div><b>${esc(show.name)}</b> ${show.year ? "(" + show.year + ")" : ""} <span class="muted">· TheMovieDB</span>
         <div class="path">${esc(g.series_dir)}${g.dest_dir ? " → " + esc(g.dest_dir.split("/").pop()) : ""}</div></div>`
     : `<div><b>${esc(g.title)}</b><div class="path">${esc(g.series_dir)}</div></div>`;
@@ -1830,10 +1838,14 @@ function srGroup(g, gi) {
         <input type="number" min="0" max="999" value="${e.episode}" data-re="${e.id}" style="width:64px" title="Capítulo"></td>
       <td>${esc(e.name)}${e.why ? `<div><span class="pill revisar">${esc(e.why)}</span></div>` : ""}</td>
       <td class="path">${show ? esc(e.target.split("/").slice(1).join("/")) : "—"}</td></tr>`).join("");
-  return `<div class="card" data-g="${gi}"><div class="row" style="gap:12px;align-items:center">${head}</div>${pickBox}
-    <table style="margin-top:10px"><thead><tr><th></th><th>T · E</th><th>Ahora</th><th>Quedará como (dentro de la carpeta de la serie)</th></tr></thead><tbody>${rows}</tbody></table>
-    <div class="row" style="margin-top:10px"><button class="btn" data-sa="${gi}" ${show ? "" : "disabled"}>Renombrar los marcados</button>
-      <span class="muted" data-sn="${gi}"></span></div></div>`;
+  const closed = srClosed.has(g.key);
+  return `<div class="card" data-g="${gi}">
+    <div class="row" data-sh style="gap:12px;align-items:center;cursor:pointer" title="Toca para plegar o desplegar">${head}
+      <div class="row" style="margin-left:auto;gap:10px;align-items:center"><span class="muted" data-sn="${gi}"></span>
+        <button class="btn" data-sa="${gi}" ${show ? "" : "disabled"}>Renombrar los marcados</button>
+        <span class="muted" data-st style="font-size:20px">${closed ? "▸" : "▾"}</span></div></div>
+    <div data-sb ${closed ? "hidden" : ""}>${pickBox}
+    <table style="margin-top:10px"><thead><tr><th></th><th>T · E</th><th>Ahora</th><th>Quedará como (dentro de la carpeta de la serie)</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
 function renderSeries() {
   const list = sr && sr.result ? sr.result.series : [];
@@ -1841,6 +1853,14 @@ function renderSeries() {
   const count = gi => { const c = document.querySelector(`[data-g="${gi}"]`); const k = c.querySelectorAll("[data-se]:checked").length;
     c.querySelector("[data-sn]").textContent = `${k} de ${list[gi].episodes.length} marcados`; };
   list.forEach((g, gi) => count(gi));
+  document.querySelectorAll("#srGroups [data-sh]").forEach(h => h.onclick = ev => {
+    if (ev.target.closest("button, input")) return;
+    const card = h.closest("[data-g]"), g = list[+card.dataset.g];
+    if (ev.target.matches("[data-zoom]")) return zoomImg(ev.target.src);
+    const closed = !srClosed.delete(g.key) && !!srClosed.add(g.key);
+    card.querySelector("[data-sb]").hidden = closed;
+    card.querySelector("[data-st]").textContent = closed ? "▸" : "▾";
+  });
   document.querySelectorAll("#srGroups [data-se]").forEach(c => c.onchange = () => count(+c.closest("[data-g]").dataset.g));
   const replace = (gi, group) => { sr.result.series[gi] = group; renderSeries(); };
   document.querySelectorAll("#srGroups [data-sp]").forEach(d => d.onclick = async () => {

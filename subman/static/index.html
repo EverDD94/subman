@@ -752,7 +752,7 @@ dialog.sheet .foot{display:none}
     <p class="muted">Cada capítulo queda como lo entiende mejor Jellyfin:
       <span class="path">2 Broke Girls (2011) [tmdbid-39340]/Season 01/2 Broke Girls - S01E01 - Piloto.mkv</span>.
       La temporada y el capítulo salen del nombre del archivo (S01E01, 1x01, Capitulo 5, Cap 105...) o de la carpeta de la temporada;
-      el nombre de la serie (el original, sin traducir) y el título de cada capítulo, de TheMovieDB. Los subtítulos se mueven con su capítulo y cada serie se puede deshacer de una vez.</p>
+      el nombre de la serie (en el idioma que ya tiene; si no, el original) y el título de cada capítulo, de TheMovieDB. Los subtítulos se mueven con su capítulo y cada serie se puede deshacer de una vez.</p>
     <p class="muted">Nada cambia hasta que pulses <b>Renombrar</b>. Los dudosos salen sin marcar: corrige la temporada o el capítulo en sus cajas si hace falta.</p>
     <div id="srState"></div>
   </div>
@@ -1600,7 +1600,7 @@ function srGroup(g, gi) {
   const show = g.show, opts = g.options || [];
   const head = show ? `${show.image ? `<img src="${esc(show.image)}" alt="" style="width:46px;border-radius:6px">` : ""}
       <div><b>${esc(show.name)}</b> ${show.year ? "(" + show.year + ")" : ""} <span class="muted">· TheMovieDB</span>
-        <div class="path">${esc(g.series_dir)}</div></div>`
+        <div class="path">${esc(g.series_dir)}${g.dest_dir ? " → " + esc(g.dest_dir.split("/").pop()) : ""}</div></div>`
     : `<div><b>${esc(g.title)}</b><div class="path">${esc(g.series_dir)}</div></div>`;
   const pickBox = g.why || !show ? `<div style="margin-top:10px"><span class="pill revisar">${esc(g.why || "no se sabe qué serie es")}</span>
       Elige la serie correcta${opts.length ? "" : " (escribe su nombre y pulsa Buscar)"}:
@@ -1613,9 +1613,9 @@ function srGroup(g, gi) {
       <td style="white-space:nowrap"><input type="number" min="0" max="99" value="${e.season}" data-rs="${e.id}" style="width:58px" title="Temporada">
         <input type="number" min="0" max="999" value="${e.episode}" data-re="${e.id}" style="width:64px" title="Capítulo"></td>
       <td>${esc(e.name)}${e.why ? `<div><span class="pill revisar">${esc(e.why)}</span></div>` : ""}</td>
-      <td class="path">${show ? esc(e.target) : "—"}</td></tr>`).join("");
+      <td class="path">${show ? esc(e.target.split("/").slice(1).join("/")) : "—"}</td></tr>`).join("");
   return `<div class="card" data-g="${gi}"><div class="row" style="gap:12px;align-items:center">${head}</div>${pickBox}
-    <table style="margin-top:10px"><thead><tr><th></th><th>T · E</th><th>Ahora</th><th>Quedará como</th></tr></thead><tbody>${rows}</tbody></table>
+    <table style="margin-top:10px"><thead><tr><th></th><th>T · E</th><th>Ahora</th><th>Quedará como (dentro de la carpeta de la serie)</th></tr></thead><tbody>${rows}</tbody></table>
     <div class="row" style="margin-top:10px"><button class="btn" data-sa="${gi}" ${show ? "" : "disabled"}>Renombrar los marcados</button>
       <span class="muted" data-sn="${gi}"></span></div></div>`;
 }

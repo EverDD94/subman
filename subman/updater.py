@@ -30,19 +30,81 @@ def available() -> bool:
         return False
 
 
-def update() -> None:
+def update() -> bool:
     """Pide la actualización. Si hay imagen nueva, Watchtower para este contenedor (esta llamada
-    se corta) y arranca el nuevo con la misma configuración."""
+    se corta: devuelve False) y arranca el nuevo con la misma configuración."""
     log.info("actualización: preguntando a Watchtower si hay versión nueva")
     try:
         r = requests.get(f"{URL}/v1/update", headers={"Authorization": f"Bearer {TOKEN}"}, timeout=600)
         r.raise_for_status()
         log.info("actualización: ya está la última versión")
+        return True
     except requests.ConnectionError:
-        pass  # normal si nos reinicia a mitad
+        return False  # normal si nos reinicia a mitad
     except requests.RequestException as e:
         log.warning("actualización: Watchtower dio un error: %s", e)
         raise
+
+
+# --- cuánto hay que bajar y cuánto tardará (para la barra de progreso) -------------------------
+IMAGE = os.environ.get("SUBMAN_IMAGE", "everdd94/subman")
+_ACCEPT = ", ".join(["application/vnd.oci.image.index.v1+json", "application/vnd.docker.distribution.manifest.list.v2+json",
+                     "application/vnd.oci.image.manifest.v1+json", "application/vnd.docker.distribution.manifest.v2+json"])
+
+
+def _registry(token: str, path: str) -> dict:
+    r = requests.get(f"https://ghcr.io/v2/{IMAGE}/{path}", timeout=15,
+                     headers={"Authorization": f"Bearer {token}", "Accept": _ACCEPT})
+    r.raise_for_status()
+    return r.json()
+
+
+def _image(token: str, tag: str) -> dict:
+    """El manifiesto de la imagen linux/amd64 de esa etiqueta (las capas y su configuración)."""
+    m = _registry(token, f"manifests/{tag}")
+    if "manifests" in m:  # índice multiplataforma: la de amd64
+        d = next(x["digest"] for x in m["manifests"] if (x.get("platform") or {}).get("architecture") == "amd64")
+        m = _registry(token, f"manifests/{d}")
+    return m
+
+
+def check() -> dict:
+    """¿La imagen «latest» de ghcr.io es distinta de la instalada, y cuántos bytes nuevos hay que bajar?
+    Sólo cuentan las capas que no tiene ya la versión instalada (Docker reutiliza las demás)."""
+    token = requests.get("https://ghcr.io/token", params={"scope": f"repository:{IMAGE}:pull"}, timeout=15).json()["token"]
+    latest = _image(token, "latest")
+    mine = None
+    if BUILD != "dev":
+        try:
+            mine = _image(token, f"sha-{BUILD[:7]}")
+        except Exception:
+            pass  # no está la etiqueta de la instalada: se cuenta todo
+    if mine and mine["config"]["digest"] == latest["config"]["digest"]:
+        return {"new": False, "bytes": 0}
+    have = {x["digest"] for x in mine["layers"]} if mine else set()
+    return {"new": True, "bytes": sum(x.get("size", 0) for x in latest["layers"] if x["digest"] not in have)}
+
+
+SPEED = 4_000_000  # bytes/s al principio (se va aprendiendo)
+OVERHEAD = 30      # segundos de parar el contenedor, arrancar el nuevo y que conteste
+
+
+def estimate(nbytes: int, learned: dict) -> float:
+    """Segundos que tardará todo: bajar ``nbytes`` + reiniciar, con lo aprendido de las veces anteriores."""
+    return learned.get("overhead", OVERHEAD) + nbytes / max(learned.get("speed", SPEED), 100_000)
+
+
+def learn(learned: dict, nbytes: int, seconds: float) -> dict:
+    """Tras una actualización que tardó ``seconds`` en total, ajusta la velocidad (media suave)."""
+    over = learned.get("overhead", OVERHEAD)
+    if nbytes > 5_000_000 and seconds > over + 3:
+        speed = nbytes / (seconds - over)
+        old = learned.get("speed")
+        learned["speed"] = round(speed if old is None else 0.5 * old + 0.5 * speed)
+    elif nbytes <= 5_000_000 and seconds > 5:  # casi nada que bajar: lo que tardó es el reinicio
+        old = learned.get("overhead")
+        learned["overhead"] = round(seconds if old is None else 0.5 * old + 0.5 * seconds, 1)
+    return learned
 
 
 def apply_timezone(tz: str) -> None:

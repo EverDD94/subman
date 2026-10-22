@@ -58,7 +58,7 @@ class App:
         self.names = {"running": False, "message": "", "result": None, "at": None, "auto": None, "stop": False}
         self.series = {"running": False, "message": "", "error": None, "result": None, "at": None, "auto": None}
         self.auto = {"message": "", "last": None}
-        self.upd = {"running": False, "message": "", "asked": None}
+        self.upd = {"running": False, "phase": None, "message": "", "asked": None, "bytes": None, "eta": None}
         self.auto_wake = threading.Event()
         self.auto_lock = threading.Lock()
         self.fmt = {"running": False, "message": "", "done": 0, "total": 0, "error": None, "stop": False}
@@ -575,7 +575,9 @@ class App:
     # --- actualizarse sola (Watchtower) ----------------------------------------------
     def update_state(self) -> dict:
         cfg = self.cfg()
-        return {**self.upd, "build": updater.BUILD, "built": updater.BUILT, "watchtower": updater.available(),
+        u = self.upd
+        return {**u, "elapsed": time.time() - u["asked"] if u["running"] and u["asked"] else None,
+                "build": updater.BUILD, "built": updater.BUILT, "watchtower": updater.available(),
                 "settings": cfg["update"], "now": time.strftime("%H:%M"), "timezone": cfg.get("timezone", "")}
 
     def update_now(self) -> dict:
@@ -583,19 +585,55 @@ class App:
             return {"ok": False, "error": "falta Watchtower en el proyecto de Container Manager (mira INSTALAR.md)"}
         if self.upd["running"]:
             return {"ok": True}
-        self.upd.update(running=True, message="buscando versión nueva", asked=time.time())
+        self.upd.update(running=True, phase="buscando", message="buscando versión nueva", asked=time.time(),
+                        bytes=None, eta=None)
 
         def work():
             try:
-                updater.update()
-                self.upd.update(message="ya tienes la última versión")
+                try:
+                    found = updater.check()
+                except Exception as e:  # sin respuesta de ghcr.io: que lo mire Watchtower, sin saber el tamaño
+                    log.info("actualización: no se pudo mirar el tamaño en ghcr.io: %s", e)
+                    found = {"new": True, "bytes": None}
+                if not found["new"]:
+                    self.upd.update(message="ya tienes la última versión")
+                    return
+                learned = self._auto_load().get("update_learned") or {}
+                nbytes = found["bytes"]
+                eta = updater.estimate(nbytes if nbytes is not None else 150_000_000, learned)
+                self.upd.update(phase="descargando", bytes=nbytes, eta=eta, asked=time.time(),
+                                message="descargando versión nueva")
+                self._auto_save(update_pending={"asked": self.upd["asked"], "bytes": nbytes, "from": updater.BUILD})
+                log.info("actualización: versión nueva, %s MB por bajar, unos %d s",
+                         "?" if nbytes is None else round(nbytes / 1e6), eta)
+                if updater.update():
+                    self._auto_save(update_pending=None)  # Watchtower contestó: no había nada que reiniciar
+                    self.upd.update(message="ya tienes la última versión")
+                else:
+                    self.upd.update(phase="reiniciando", message="reiniciando")
             except Exception as e:
+                self._auto_save(update_pending=None)
                 self.upd.update(message=f"no se pudo: {e}")
             finally:
-                self.upd.update(running=False)
+                self.upd.update(running=False, phase=None)
 
         threading.Thread(target=work, name="actualizar", daemon=True).start()
         return {"ok": True}
+
+    def update_finished(self) -> None:
+        """Al arrancar: si venimos de una actualización, apunta cuánto tardó para calcular mejor la próxima."""
+        st = self._auto_load()
+        p = st.get("update_pending")
+        if not p:
+            return
+        took = time.time() - p["asked"]
+        if p.get("from") != updater.BUILD and 0 < took < 3600:
+            learned = updater.learn(st.get("update_learned") or {}, p.get("bytes") or 0, took)
+            self._auto_save(update_pending=None, update_learned=learned)
+            self.upd.update(message=f"actualizado en {round(took)} s", asked=time.time())
+            log.info("actualización: terminada en %d s", took)
+        else:
+            self._auto_save(update_pending=None)
 
     def update_settings(self, b: dict) -> dict:
         with self.lock:
@@ -1947,6 +1985,7 @@ def serve(config_path: str, port: int | None = None) -> None:
     threading.Thread(target=app.worker, name="trabajador", daemon=True).start()
     threading.Thread(target=app.converter, name="conversión", daemon=True).start()
     threading.Thread(target=app.automatic, name="automático", daemon=True).start()
+    app.update_finished()
     threading.Thread(target=app.updates, name="actualizaciones", daemon=True).start()
     threading.Thread(target=app.downloader, name="descargas", daemon=True).start()
     threading.Thread(target=bot.Bot(app).run, name="bot", daemon=True).start()

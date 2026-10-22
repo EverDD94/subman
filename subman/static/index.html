@@ -685,11 +685,12 @@ dialog.sheet .foot{display:none}
     <table><thead><tr><th></th><th>Ahora</th><th>Quedará en</th></tr></thead><tbody id="nmLoose"></tbody></table></div>
   <div class="card" id="srCard">
     <div class="row" style="justify-content:space-between"><h2 style="margin:0">Series</h2>
-      <button class="btn" id="srScan">Revisar series</button></div>
+      <div class="row"><button class="btn sec" id="srAll" hidden>Renombrar todo lo marcado</button>
+        <button class="btn" id="srScan">Revisar series</button></div></div>
     <p class="muted">Cada capítulo queda como lo entiende mejor Jellyfin:
       <span class="path">2 Broke Girls (2011) [tmdbid-39340]/Season 01/2 Broke Girls - S01E01 - Piloto.mkv</span>.
       La temporada y el capítulo salen del nombre del archivo (S01E01, 1x01, Capitulo 5, Cap 105...) o de la carpeta de la temporada;
-      el nombre de la serie y el título de cada capítulo, de TheMovieDB. Los subtítulos se mueven con su capítulo y cada serie se puede deshacer de una vez.</p>
+      el nombre de la serie (el original, sin traducir) y el título de cada capítulo, de TheMovieDB. Los subtítulos se mueven con su capítulo y cada serie se puede deshacer de una vez.</p>
     <p class="muted">Nada cambia hasta que pulses <b>Renombrar</b>. Los dudosos salen sin marcar: corrige la temporada o el capítulo en sus cajas si hace falta.</p>
     <div id="srState"></div>
   </div>
@@ -1529,6 +1530,7 @@ async function loadSeries() {
     : `<span class="muted">Pulsa «Revisar series».</span>`;
   if (sr.at !== srShown || !sr.running) renderSeries();
   srShown = sr.at;
+  $("#srAll").hidden = sr.running || !n;
   if (sr.running) setTimeout(() => tab === "nombres" && loadSeries(), 2000);
 }
 function srCode(e) { return `S${String(e.season).padStart(2, "0")}E${String(e.episode).padStart(2, "0")}${e.last ? "-E" + String(e.last).padStart(2, "0") : ""}`; }
@@ -1600,6 +1602,26 @@ function renderSeries() {
     srShown = null; loadNames();
   });
 }
+// todas las series de una vez: sólo los capítulos marcados y las series sin duda (las dudosas, cuando elijas cuál es)
+$("#srAll").onclick = async () => {
+  const b = $("#srAll"), jobs = [];
+  (sr && sr.result ? sr.result.series : []).forEach((g, gi) => {
+    if (!g.show || g.why) return;
+    const ids = [...document.querySelectorAll(`[data-g="${gi}"] [data-se]:checked`)].map(c => +c.dataset.se);
+    if (ids.length) jobs.push({key: g.key, title: g.show.name, ids});
+  });
+  if (!jobs.length) return toast("No hay nada marcado en series sin dudas");
+  b.disabled = true;
+  let done = 0; const bad = [];
+  for (const [i, j] of jobs.entries()) {
+    b.textContent = `Renombrando ${i + 1} de ${jobs.length}...`;
+    let r; try { r = await api("/api/series/apply", {key: j.key, ids: j.ids}); } catch (err) { r = {ok: false, error: err.message}; }
+    r.ok ? done += r.done : bad.push(`${j.title}: ${r.error}`);
+  }
+  b.disabled = false; b.textContent = "Renombrar todo lo marcado";
+  toast(`Renombrados ${done} capítulos.` + (bad.length ? ` No se pudo con ${bad.length}: ${bad[0]}` : " Jellyfin los actualizará en unos minutos."));
+  srShown = null; loadNames();
+};
 $("#srScan").onclick = async () => { const r = await api("/api/series/scan", {}); if (r.ok === false) return toast(r.error); loadSeries(); };
 
 // ---------- Duplicados ----------

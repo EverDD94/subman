@@ -325,7 +325,17 @@ class Discover:
         dec = sorted(((d, w) for d, w in L["decades"].items() if w >= 0.5), key=lambda kv: -kv[1])[:3]
         label = lambda d: f"años {d}" if d >= 2000 else f"años {d % 100:02d}"
         kinds = L["kinds"]
+        dec_n: dict[int, int] = {}
+        kind_n = {k: 0 for k in KINDS}
+        for (kind, _), v in self.marks().items():  # para las gráficas: lo que te gusta, por década y tipo
+            if (v["rating"] or 0) > 0:
+                kind_n[kind] = kind_n.get(kind, 0) + 1
+                if _decade(v["info"].get("year")):
+                    dec_n[_decade(v["info"].get("year"))] = dec_n.get(_decade(v["info"].get("year")), 0) + 1
         return {"count": L["count"],
+                "genre_w": {str(k): round(w, 2) for k, w in L["genres"].items()},
+                "decade_n": [{"label": f"{d}" if d >= 2000 else f"{d % 100:02d}", "n": n} for d, n in sorted(dec_n.items()) if d >= 1950],
+                "kind_n": kind_n,
                 "likes": [names[k] for k, w in g if w >= 0.5 and k in names][:6],
                 "dislikes": [names[k] for k, w in reversed(g) if w <= -0.5 and k in names][:6],
                 "decades": [label(d) for d, _ in dec],

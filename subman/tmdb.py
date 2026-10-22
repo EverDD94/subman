@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import re
 import time
+import unicodedata
 
 import requests
 
@@ -82,8 +83,10 @@ class TMDb:
         """La serie y cuántos capítulos tiene cada temporada."""
         if tv_id not in self._shows:
             d = self._get(f"/tv/{tv_id}")
-            self._shows[tv_id] = {
-                "tmdb": str(d["id"]), "name": d.get("name", ""), "original": d.get("original_name", ""),
+            local, original = d.get("name", ""), d.get("original_name", "")
+            self._shows[tv_id] = {  # el título original («2 Broke Girls»), salvo que esté en otro alfabeto
+                "tmdb": str(d["id"]), "name": original if _latin(original) else local or original,
+                "original": local,  # el otro nombre, para comparar con el de la carpeta
                 "year": int(d["first_air_date"][:4]) if d.get("first_air_date") else None,
                 "image": IMG + d["poster_path"] if d.get("poster_path") else "",
                 "seasons": {s["season_number"]: s.get("episode_count") or 0 for s in d.get("seasons", [])}}
@@ -110,6 +113,11 @@ class TMDb:
                     log.warning("TheMovieDB: títulos en inglés de la temporada %s: %s", number, e)
             self._seasons[key] = {k: "" if _placeholder(v) else v for k, v in names.items()}
         return self._seasons[key]
+
+
+def _latin(text: str) -> bool:
+    """¿Se escribe con nuestras letras? (no japonés, coreano, cirílico...)."""
+    return bool(text) and all(unicodedata.name(c, "").startswith("LATIN") for c in text if c.isalpha())
 
 
 def _placeholder(name: str) -> bool:

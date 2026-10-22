@@ -89,7 +89,7 @@ button.btn:active:not(:disabled){transform:scale(.97)}
 button.btn.sec{background:var(--card-2);color:var(--text)}
 button.btn.bad{background:var(--bad);color:#fff}
 button.btn:disabled{opacity:.45;cursor:default}
-input[type=text],input[type=password],input[type=number],input[type=search]{background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:var(--r-sm);
+input[type=text],input[type=password],input[type=number],input[type=search],input[type=tel]{background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:var(--r-sm);
   padding:10px 12px;font:inherit;font-size:16px;width:100%;transition:border-color .16s,box-shadow .16s}
 input:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent)}
 select{background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:var(--r-sm);padding:8px 10px;font:inherit;font-size:16px}
@@ -1096,7 +1096,9 @@ async function loadDownloads() {
   let r;
   try { r = await api("/api/downloads"); } catch (e) { return dscError(e.message); }
   if (dsc.section !== "descargas") return;
-  const st = r.state, rows = r.rows.filter(x => x.state !== "cancelado");
+  const order = ["manual", "descargando", "pidiendo", "buscando", "cola", "error", "no-esta", "listo"];
+  const st = r.state, rows = r.rows.filter(x => x.state !== "cancelado")
+    .sort((a, b) => order.indexOf(a.state) - order.indexOf(b.state) || (a.state === "listo" ? b.updated - a.updated : a.created - b.created || (a.season || 0) - (b.season || 0)));
   const head = !r.settings.enabled ? `<div class="card"><p style="margin-top:0">Las descargas están apagadas.</p><button class="btn sec" onclick="show('ajustes');setTimeout(()=>$('#dlCard').scrollIntoView(),300)">Ir a Ajustes</button></div>`
     : `<p class="muted">Ahora: ${esc(st.message)}${st.total ? ` · ${Math.round(100 * st.done / st.total)} % de ${(st.total / 2 ** 30).toFixed(2)} GB` : ""}</p>`;
   const manual = rows.some(x => x.state === "manual") ? `<div class="card"><b>Te toca a ti:</b> abre el chat del bot en tu Telegram y pulsa «Watch Ads» y después «I have clicked ads». En cuanto mande el archivo, se descarga solo.</div>` : "";
@@ -1613,13 +1615,15 @@ async function loadDiscover() {
   if (dsc.section === "estrenos") return renderEst();
   $("#dscBox").innerHTML = loading("Cargando…");
   dsc.page = 1;
+  const sec = dsc.section;
   try {
     const r = dsc.section === "buscar" ? await api("/api/discover/search?q=" + encodeURIComponent(dsc.q))
                                        : await api(`/api/discover?section=${dsc.section}&page=1`);
+    if (dsc.section !== sec) return;  // mientras tanto cambiaste de pestaña
     if (!r.ok) return dscError(r.error);
     dsc.items = r.items;
     renderDiscover();
-  } catch (e) { dscError("No se pudo hablar con TheMovieDB: " + e.message); }
+  } catch (e) { if (dsc.section === sec) dscError("No se pudo hablar con TheMovieDB: " + e.message); }
 }
 function renderDiscover() {
   if (["gustos", "estrenos", "descargas"].includes(dsc.section)) return;

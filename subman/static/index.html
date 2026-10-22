@@ -1642,6 +1642,7 @@ function rateButtons(c, k, labels = true) {
   const r = (v, icon, tip) => `<button title="${tip}" aria-label="${tip}" aria-pressed="${c.rating === v}" class="${c.rating === v ? "on" : ""} ${v < 0 ? "down" : ""}" onclick="dscRate('${k}',${v})">${ico(icon)}${labels ? `<span>${tip}</span>` : ""}</button>`;
   return `<div class="rate">${r(2, "heart", "Me encanta")}${r(1, "up", "Me gusta")}${r(-1, "down", "No me gusta")}</div>`;
 }
+function dlButton(k) { return `<button class="havebtn" onclick="dlAdd('${k}')">${ico("download")}Descargar de Phono</button>`; }
 function haveButton(c, k) {
   return `<button class="havebtn ${c.have ? "yes" : ""}" onclick="dscHave('${k}')">${c.have ? ico("check") + "La tengo" : "No la tengo"}</button>`;
 }
@@ -1659,7 +1660,7 @@ function dscCard(c) {
     ${c.overview ? `<p class="ov ${long && !open ? "clamp" : ""}">${esc(c.overview)}</p>${long ? `<button class="more" onclick="dscMoreText('${k}')">${open ? "Leer menos" : "Leer toda la sinopsis"}</button>` : ""}`
       : `<p class="ov muted">Sin resumen en español. <a href="#" onclick="dscOpen('${k}');return false">Ver la ficha</a></p>`}
     ${rateButtons(c, k)}
-    ${haveButton(c, k)}${dsc.section === "por-conseguir" && !c.have ? `<button class="havebtn" onclick="dlAdd('${k}')">${ico("download")}Descargar</button>` : ""}</article>`;
+    ${haveButton(c, k)}${dsc.section === "por-conseguir" && !c.have ? dlButton(k) : ""}</article>`;
 }
 function dscMoreText(k) { dsc.more.has(k) ? dsc.more.delete(k) : dsc.more.add(k); renderDiscover(); }
 async function dscMark(k, change) {
@@ -1720,7 +1721,7 @@ function renderDetail(partial) {
         <p class="ov">${esc(c.overview) || (partial ? "" : "<i>No hay resumen.</i>")}${c.overview_lang === "en" ? ` <span class="hint">(en inglés: no hay resumen en español)</span>` : ""}</p>
         ${facts.length ? `<dl class="facts">${facts.map(([a, b]) => `<dt>${a}</dt><dd>${esc(b)}</dd>`).join("")}</dl>` : ""}
         ${c.trailer ? `<a class="trailer" href="${esc(c.trailer)}" target="_blank" rel="noopener">${ico("play", "fill")}Ver el tráiler</a>` : ""}
-        <div class="dacts">${rateButtons(c, k)}${haveButton(c, k)}</div>
+        <div class="dacts">${rateButtons(c, k)}${haveButton(c, k)}${c.have ? "" : dlButton(k)}</div>
       </div></div>
     ${cast ? `<div class="castwrap"><h3>Reparto</h3><div class="cast">${cast}</div></div>` : partial ? `<p class="empty">Cargando la ficha…</p>` : ""}`;
 }

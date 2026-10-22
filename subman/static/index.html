@@ -296,6 +296,44 @@ dialog .x:active{transform:scale(.92)}
 .skel .tmedia{animation:skel 1.2s ease-in-out infinite alternate}
 @keyframes skel{to{opacity:.55}}
 
+/* Con ratón y pantalla ancha, Descubrir ocupa todo el ancho: pósters a la izquierda y, a la derecha, la ficha grande
+   del que tienes debajo del ratón. Al pinchar un póster salen sus botones encima. */
+.peek{display:none}
+.tacts{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;justify-content:flex-end;gap:6px;padding:10px;
+  background:linear-gradient(0deg,rgb(22 18 43/.94) 45%,rgb(22 18 43/.5));animation:tactsin .22s var(--ease-out)}
+@keyframes tactsin{from{opacity:0}}
+.tacts .rate{display:flex;gap:6px;flex:none}
+.tacts button,.tacts .rate button,.tacts .havebtn{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;flex:1;min-height:38px;border:0;border-radius:12px;padding:0 8px;
+  background:rgb(255 255 255/.15);color:#fff;font:600 13.5px var(--sans);cursor:pointer;transition:background-color .15s}
+.tacts button svg.i,.tacts .tbtn svg.i{width:17px;height:17px}
+.tacts > button,.tacts > .tbtn{flex:none}
+.tacts .tbtn{display:flex;align-items:center;justify-content:center;gap:7px;min-height:38px;border-radius:12px;background:#fff;color:#16122b;font:700 13.5px var(--sans);text-decoration:none}
+.tacts .rate button.on{background:#ff6b2c;color:#fff;border:0}
+.tacts .rate button.on.down{background:#fff;color:#16122b}
+.tacts .havebtn.yes{background:#fff;color:#1c7a4a}
+.tacts button:hover:not(.on):not(.yes){background:rgb(255 255 255/.28)}
+.tile.open .tmedia{box-shadow:0 0 0 3px var(--accent)}
+.tile.cur .tt{color:var(--accent)}
+@media (min-width:1100px) and (hover:hover) and (pointer:fine){
+  main:has(> #descubrir.peekon:not([hidden])){max-width:none;padding-left:clamp(24px,3vw,56px);padding-right:clamp(24px,3vw,56px)}
+  #descubrir.peekon{display:grid;grid-template-columns:minmax(0,1fr) clamp(360px,27vw,460px);column-gap:clamp(28px,3vw,52px);align-items:start}
+  #descubrir.peekon > *{grid-column:1;min-width:0}
+  #descubrir.peekon > .peek{display:block;grid-column:2;grid-row:1 / span 4;position:sticky;top:calc(var(--head,64px) + 16px)}
+}
+.peek{background:var(--card);border-radius:28px;padding:24px;box-shadow:var(--shadow);max-height:calc(100dvh - var(--head,64px) - 32px);overflow:auto;overscroll-behavior:contain}
+.peek .pk{animation:pkin .3s var(--ease-out)}
+@keyframes pkin{from{opacity:0;transform:translateX(10px)}}
+.pk-top{display:grid;grid-template-columns:minmax(0,46%) 1fr;gap:20px;align-items:end}
+.pk-top img,.pk-top .noimg{width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:18px;display:block;box-shadow:var(--shadow-lg);background:var(--chip)}
+.pk-t{font:800 clamp(28px,2.4vw,40px)/.92 var(--display);letter-spacing:-.04em;margin:0 0 10px;text-wrap:balance}
+.peek .meta{font-size:14px;gap:4px 12px}
+.pk-why{margin:18px 0 0;font-weight:700;color:var(--accent)}
+.pk-ov{margin:12px 0 0;font-size:15.5px;line-height:1.62;white-space:pre-line}
+.peek .facts{margin-top:14px}
+.pk-acts{display:flex;flex-direction:column;gap:8px;margin-top:20px}
+.pk-acts .btn{width:100%}
+.pk-empty{color:var(--muted);margin:0}
+
 /* ficha a pantalla completa */
 dialog.sheet{padding:0;max-width:1000px;width:min(1000px,96vw);overflow:auto;overscroll-behavior:contain}
 dialog.sheet .foot{display:none}
@@ -736,6 +774,7 @@ dialog.sheet .foot{display:none}
   </div>
   <div id="dscBox"></div>
   <div class="row" style="justify-content:center;margin-top:28px"><button class="btn sec" id="dscMore" hidden>Ver más</button></div>
+  <aside class="peek" id="dscPeek" aria-live="polite"></aside>
 </section>
 <section id="registro" hidden>
   <div class="card">
@@ -1943,6 +1982,8 @@ function dscError(msg) {
 }
 function loading(text) { return `<p class="empty">${esc(text)}</p>`; }
 async function loadDiscover() {
+  dsc.openTile = null; dsc.peekUser = false;
+  renderPeek(false);
   if (!dsc.checked) {  // la primera vez: si no has contestado «Mis gustos», empieza por ahí
     dsc.checked = true;
     try { const t = await api("/api/discover/taste"); if (t.ok) { taste = t; if (!t.profile.done) dsc.section = "gustos"; } } catch (e) {}
@@ -1986,6 +2027,12 @@ function renderDiscover() {
   setTimeout(dscWallShown);
   $("#dscBox").innerHTML = (dsc.section === "para-ti" ? billboard(items.filter(c => c.backdrop).slice(0, 5)) : "")
     + `<div class="wall ${dsc.wallShown === dsc.section ? "" : "fresh"}">${items.map(c => tile(c, true)).join("")}</div>`;
+  peekSync(items[0]);
+}
+// la ficha de la derecha empieza por el primero de la lista y se queda en el que mirabas si sigue ahí
+function peekSync(first) {
+  if (!dsc.peekUser || !dsc.items.some(c => c.kind + c.tmdb === dsc.peek)) dsc.peek = first ? first.kind + first.tmdb : null;
+  renderPeek(false);
 }
 
 // Portada: el cartel con lo mejor para ti y una fila por sección, como en las apps de cine
@@ -2027,6 +2074,7 @@ function renderPortada() {
   const shelves = renderShelves(pick);
   $("#dscBox").innerHTML = billboard(top) + (shelves || `<p class="empty">Nada con ese ánimo en lo que hay cargado. Prueba otro o quítalo.</p>`);
   document.querySelectorAll("#dscBox .rail").forEach((r, i) => { if (pos[i]) r.scrollLeft = pos[i]; });
+  peekSync(top[0] || dsc.items.find(pick));
 }
 function renderShelves(pick) {
   return SHELVES.map(([s, name]) => {
@@ -2060,7 +2108,7 @@ function billboard(list) {
       <h2 class="bbt">${esc(c.title)}</h2>
       <div class="meta">${meta}</div>
       ${c.overview ? `<p class="bbov">${esc(c.overview)}</p>` : ""}
-      <div class="bbacts"><button class="btn main" onclick="dscOpen('${k}')">${ico("play", "fill")}Ver la ficha</button>${rateButtons(c, k, false)}${haveButton(c, k)}</div>
+      <div class="bbacts"><button class="btn main" onclick="dscOpen('${k}')">${ico("play", "fill")}Ver la ficha</button>${rateButtons(c, k, false)}${c.have ? "" : `<button class="havebtn" onclick="dlAdd('${k}')">${ico("download")}Descargar</button>`}</div>
     </div>
     <button class="bbpost" onclick="dscOpen('${k}')" aria-label="Ver la ficha de ${esc(c.title)}" style="border:0;padding:0;cursor:pointer">${c.poster ? `<img src="${esc(c.poster)}" alt="">` : ""}</button>
     ${list.length > 1 ? `<div class="bbdots">${list.map((x, i) => `<button class="${i === dsc.bb ? "on" : ""}" onclick="bbShow(${i})" aria-label="${esc(x.title)}"></button>`).join("")}</div>` : ""}
@@ -2089,13 +2137,94 @@ function becauseText(c) {
   return "Porque " + c.because.map(w => w.startsWith("te gusta") || w.startsWith("sale") || w.startsWith("parecida") || w === "popular" ? w : "te gustó " + w).join(", ");
 }
 function tile(c, quick) {
-  const k = c.kind + c.tmdb;
+  const k = c.kind + c.tmdb, open = dsc.openTile === k;
   const img = c.poster ? `<img loading="lazy" src="${esc(c.poster)}" alt="" draggable="false">` : `<div class="noimg">${esc(c.title)}</div>`;
   const sub = [c.year, (c.genres || [])[0], c.kind === "tv" ? "Serie" : ""].filter(Boolean).join(" · ");
-  const acts = quick ? `<div class="tquick">${rateButtons(c, k, false)}<button class="havebtn ${c.have ? "yes" : ""}" onclick="dscHave('${k}')" title="${c.have ? "La tengo" : "No la tengo"}" aria-label="${c.have ? "La tengo" : "No la tengo"}" aria-pressed="${!!c.have}">${ico(c.have ? "check" : "plus")}</button>${dsc.section === "por-conseguir" && !c.have ? `<button class="havebtn" onclick="dlAdd('${k}')" title="Descargar de Phono" aria-label="Descargar de Phono">${ico("download")}</button>` : ""}</div>` : "";
-  return `<article class="tile"><div class="tbox"><div class="tmedia"><button onclick="dscOpen('${k}')" aria-label="${esc(c.title)}">${img}</button>${c.have ? `<span class="own" title="La tengo">${ico("check")}</span>` : ""}</div>${acts}</div>
+  const acts = quick && !peekOn() ? `<div class="tquick">${rateButtons(c, k, false)}<button class="havebtn ${c.have ? "yes" : ""}" onclick="dscHave('${k}')" title="${c.have ? "La tengo" : "No la tengo"}" aria-label="${c.have ? "La tengo" : "No la tengo"}" aria-pressed="${!!c.have}">${ico(c.have ? "check" : "plus")}</button>${dsc.section === "por-conseguir" && !c.have ? `<button class="havebtn" onclick="dlAdd('${k}')" title="Descargar de Phono" aria-label="Descargar de Phono">${ico("download")}</button>` : ""}</div>` : "";
+  return `<article class="tile ${open ? "open" : ""} ${dsc.peek === k ? "cur" : ""}" data-k="${k}"><div class="tbox"><div class="tmedia"><button onclick="tileClick(this)" aria-label="${esc(c.title)}" aria-expanded="${open}">${img}</button>${c.have ? `<span class="own" title="La tengo">${ico("check")}</span>` : ""}${open ? tileActs(c, k) : ""}</div>${acts}</div>
     <h3 class="tt">${esc(c.title)}</h3><p class="ts">${esc(sub)}</p>${dsc.section === "para-ti" && c.because && c.because.length ? `<p class="tw">${esc(becauseText(c))}</p>` : ""}</article>`;
 }
+// los botones que salen encima del póster al pincharlo
+function tileActs(c, k) {
+  return `<div class="tacts">${rateButtons(c, k, false)}
+    ${c.have ? "" : `<button onclick="dlAdd('${k}')">${ico("download")}Descargar de Phono</button>`}
+    ${c.trailer ? `<a class="tbtn" href="${esc(c.trailer)}" target="_blank" rel="noopener">${ico("play", "fill")}Ver el tráiler</a>` : ""}
+    <button onclick="dscOpen('${k}')">${ico("more")}Ver la ficha</button></div>`;
+}
+const PEEK_MQ = matchMedia("(min-width:1100px) and (hover:hover) and (pointer:fine)");
+const PEEK_SECTIONS = ["portada", "novedades", "clasicos", "para-ti", "por-conseguir", "calificadas", "buscar"];
+function peekOn() { return PEEK_MQ.matches && PEEK_SECTIONS.includes(dsc.section); }
+function tileClick(b) {
+  const k = b.closest(".tile").dataset.k;
+  if (!peekOn()) return dscOpen(k);
+  dsc.openTile = dsc.openTile === k ? null : k;
+  document.querySelectorAll("#dscBox .tile.open").forEach(t => { t.classList.remove("open"); t.querySelector(".tacts")?.remove(); t.querySelector(".tmedia > button").ariaExpanded = "false"; });
+  if (dsc.openTile) {
+    const t = b.closest(".tile"), c = dscFind(k);
+    t.classList.add("open"); b.ariaExpanded = "true";
+    t.querySelector(".tmedia").insertAdjacentHTML("beforeend", tileActs(c, k));
+  }
+  peekShow(k, true);
+}
+document.addEventListener("click", e => {  // pinchar fuera cierra los botones del póster
+  if (dsc.openTile && e.target.isConnected && !e.target.closest("#dscBox .tile, dialog")) { dsc.openTile = null; document.querySelectorAll("#dscBox .tile.open").forEach(t => { t.classList.remove("open"); t.querySelector(".tacts")?.remove(); }); }
+});
+// la ficha de la derecha sigue al ratón, pero sólo cuando se para un momento encima de un póster
+let peekTimer = null;
+$("#dscBox").addEventListener("mouseover", e => {
+  const t = e.target.closest(".tile[data-k]");
+  if (!t || !peekOn() || t.dataset.k === dsc.peek) return;
+  clearTimeout(peekTimer);
+  peekTimer = setTimeout(() => peekShow(t.dataset.k), 140);
+});
+$("#dscBox").addEventListener("mouseout", e => { if (!e.relatedTarget || !e.relatedTarget.closest?.(".tile")) clearTimeout(peekTimer); });
+function peekShow(k, now) {
+  dsc.peekUser = true;
+  const changed = dsc.peek !== k;
+  dsc.peek = k;
+  document.querySelectorAll("#dscBox .tile.cur").forEach(t => t.classList.remove("cur"));
+  document.querySelectorAll(`#dscBox .tile[data-k="${k}"]`).forEach(t => t.classList.add("cur"));
+  renderPeek(changed);
+  const c = dscFind(k);
+  if (c && !c.detailed) {
+    clearTimeout(peekShow.t);
+    peekShow.t = setTimeout(async () => {
+      try {
+        const r = await api(`/api/discover/detail?kind=${c.kind}&tmdb=${c.tmdb}`);
+        if (r.ok) {
+          Object.assign(c, r.item, {rating: c.rating, have: c.have, detailed: true});
+          if (dsc.peek === k) renderPeek(false);
+          if (dsc.openTile === k) document.querySelectorAll(`#dscBox .tile.open[data-k="${k}"] .tacts`).forEach(t => t.outerHTML = tileActs(c, k));
+        }
+      } catch (e) {}
+    }, now ? 0 : 350);
+  }
+}
+function renderPeek(anim) {
+  const box = $("#dscPeek");
+  $("#descubrir").classList.toggle("peekon", peekOn());
+  if (!peekOn()) return;
+  const c = dsc.peek && dscFind(dsc.peek);
+  if (!c) { box.innerHTML = `<p class="pk-empty">Pasa el ratón por encima de un póster para ver aquí su ficha.</p>`; return; }
+  const k = c.kind + c.tmdb, facts = [];
+  if (c.directors && c.directors.length) facts.push(["Dirección", c.directors.join(", ")]);
+  if (c.creators && c.creators.length) facts.push(["Creada por", c.creators.join(", ")]);
+  if (c.runtime) facts.push(["Duración", `${Math.floor(c.runtime / 60) ? Math.floor(c.runtime / 60) + " h " : ""}${c.runtime % 60} min${c.kind === "tv" ? " por capítulo" : ""}`]);
+  if (c.seasons) facts.push(["Temporadas", `${c.seasons}${c.episodes ? " (" + c.episodes + " capítulos)" : ""}`]);
+  if (c.cast && c.cast.length) facts.push(["Reparto", c.cast.slice(0, 4).map(p => p.name).join(", ")]);
+  const meta = [kindLabel(c), c.year, (c.genres || []).slice(0, 3).join(", ")].filter(Boolean).map(x => `<span>${esc(x)}</span>`).join("")
+    + (c.vote ? `<span class="star">${ico("star", "fill")}${c.vote}</span>` : "");
+  box.innerHTML = `<div class="${anim ? "pk" : ""}">
+    <div class="pk-top">${c.poster ? `<img src="${esc(c.poster)}" alt="">` : `<div class="noimg"></div>`}<div><h2 class="pk-t">${esc(c.title)}</h2><div class="meta">${meta}</div></div></div>
+    ${c.because && c.because.length ? `<p class="pk-why">${esc(becauseText(c))}</p>` : ""}
+    ${c.tagline ? `<p class="tagline">${esc(c.tagline)}</p>` : ""}
+    <p class="pk-ov">${esc(c.overview) || "<i>No hay resumen en español.</i>"}</p>
+    ${facts.length ? `<dl class="facts">${facts.map(([a, b]) => `<dt>${a}</dt><dd>${esc(b)}</dd>`).join("")}</dl>` : ""}
+    <div class="pk-acts">${rateButtons(c, k)}${c.have ? "" : dlButton(k)}
+      ${c.trailer ? `<a class="btn main" href="${esc(c.trailer)}" target="_blank" rel="noopener">${ico("play", "fill")}Ver el tráiler</a>` : ""}
+      <button class="btn sec" onclick="dscOpen('${k}')">Ver la ficha completa</button></div></div>`;
+}
+PEEK_MQ.addEventListener("change", () => { if (tab === "descubrir") renderDiscover(); });
 async function dscMark(k, change) {
   const c = dscFind(k);
   if (!c) return;
@@ -2109,6 +2238,7 @@ async function dscMark(k, change) {
 }
 function dscRefresh(k) {
   renderDiscover();
+  if (dsc.peek === k) renderPeek(false);
   if (dlg.open && dsc.open && dsc.open.kind + dsc.open.tmdb === k) renderDetail();
   if (dsc.section === "gustos" && quiz && quiz.step === "deck") renderDeck(true);
   if (dsc.section === "estrenos" && est.kind) renderEst(true);

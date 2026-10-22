@@ -15,6 +15,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import sqlite3
 import time
 from pathlib import Path
@@ -244,6 +245,7 @@ def review(lib: Library, cfg: dict, progress=lambda msg: None, only: set | None 
     """Las series con capítulos que no tienen todavía el nombre correcto. only: sólo esos ids.
     frames: carpeta de las fotos; con ella (y la clave de Gemini) la IA ayuda en las dudosas."""
     db = _db(cfg)
+    prune(list(cfg["library"]))
     gkey = cfg.get("gemini", {}).get("api_key")
     ai = None
     if gkey:
@@ -349,6 +351,45 @@ def _has_video(folder: Path) -> bool:
     return any(Path(d, f).suffix.lower() in VIDEO_EXT for d, _, fs in os.walk(folder) for f in fs)
 
 
+# lo que el sistema deja solo en las carpetas (miniaturas del Synology, de Windows o del Mac): no cuenta
+_JUNK_DIRS = {"@eadir", ".appledouble"}
+_JUNK_FILES = {".ds_store", "thumbs.db", "desktop.ini"}
+
+
+def _empty(folder: Path) -> bool:
+    """¿No queda nada de verdad dentro (ni un archivo, salvo la basura del sistema)?"""
+    for p in folder.iterdir():
+        if p.is_symlink():
+            return False
+        if p.is_dir():
+            if p.name.lower() not in _JUNK_DIRS and not _empty(p):
+                return False
+        elif p.name.lower() not in _JUNK_FILES and not p.name.startswith("._"):
+            return False
+    return True
+
+
+def prune(roots: list[str]) -> list[str]:
+    """Quita las carpetas de series que se quedaron vacías (sus «Season 01»... sin nada dentro), p. ej. de
+    renombrados anteriores. Sólo las que tienen carpetas de temporada y ni un archivo de verdad."""
+    gone = []
+    for r in roots:
+        try:
+            kids = [d for d in Path(r).iterdir() if d.is_dir() and not d.is_symlink()]
+        except OSError:
+            continue
+        for d in kids:
+            try:
+                if any(season_dir(x.name) is not None for x in d.iterdir() if x.is_dir()) and _empty(d):
+                    shutil.rmtree(d)
+                    gone.append(str(d))
+            except OSError as e:
+                log.warning("no se pudo quitar la carpeta vacía %s: %s", d, e)
+    if gone:
+        log.info("carpetas de series vacías quitadas: %s", ", ".join(gone))
+    return gone
+
+
 def apply(lib: Library, g: dict, ids: set[int], roots: list[str], how: str = "manual") -> dict:
     """Mueve los capítulos marcados (con sus subtítulos) a su sitio y lo anota todo en una fila para deshacer."""
     if not g.get("show"):
@@ -401,8 +442,8 @@ def apply(lib: Library, g: dict, ids: set[int], roots: list[str], how: str = "ma
                 if p.is_file() and target.exists() and not (target / p.name).exists():
                     os.rename(p, target / p.name)
                     moves.append((str(p), str(target / p.name)))
-            if not any(d.iterdir()):
-                d.rmdir()
+            if _empty(d):  # vacía del todo (como mucho, miniaturas del sistema): fuera, con sus «Season» vacías
+                shutil.rmtree(d)
     except Exception:
         undo_moves(moves, created)
         raise

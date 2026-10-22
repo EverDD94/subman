@@ -21,7 +21,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, auth, autoid, config, convert, diagnose, discover, downloads, duplicates, formats, gemini, identify, jellyfin, manager, notify, peek, phono, providers, series, tmdb, updater
+from . import __version__, auth, autoid, bot, config, convert, diagnose, discover, downloads, duplicates, formats, gemini, identify, jellyfin, manager, notify, peek, phono, providers, series, tmdb, updater
 from .library import Library
 
 log = logging.getLogger(__name__)
@@ -1330,7 +1330,7 @@ class App:
             for k in ("movies_dir", "series_dir", "tmp_dir"):
                 if k in b:
                     d[k] = (b[k] or "").strip()
-            for k, lo, hi in (("gap_minutes", 1, 1440), ("daily", 1, 200), ("min_free_gb", 0, 10000)):
+            for k, lo, hi in (("gap_minutes", 1, 1440), ("daily", 1, 200), ("min_free_gb", 0, 10000), ("summary_hour", -1, 23)):
                 if k in b:
                     d[k] = max(lo, min(hi, int(b[k])))
             if "audio" in b:
@@ -1417,12 +1417,10 @@ class App:
     @staticmethod
     def _dl_label(row: dict) -> str:
         """«🎬 Película: Título (2026)» o «📺 Serie: Título (2026) · temporada 1», para ver de un vistazo qué es."""
-        name = row["title"] + (f" ({row['year']})" if row.get("year") else "")
-        if row["kind"] == "movie":
-            return f"🎬 Película: {name}"
-        return f"📺 Serie: {name}" + (f" · temporada {row['season']}" if row.get("season") else "")
+        return bot.label(row["kind"], row["title"], row.get("year"), row.get("season"))
 
-    def _notify(self, cfg: dict, text: str, link: tuple[str, str] | None = None) -> bool:
+    def _notify(self, cfg: dict, text: str, link: tuple[str, str] | None = None,
+                buttons: list | None = None) -> bool:
         """Aviso por tu bot (en otro hilo, para no frenar la descarga). False si no hay bot puesto."""
         t = cfg.get("telegram", {})
         if not (t.get("bot_token") and t.get("chat_id")) or not cfg["downloads"].get("remind", True):
@@ -1430,11 +1428,23 @@ class App:
 
         def go():
             try:
-                notify.send(t["bot_token"], t["chat_id"], text, link=link)
+                notify.send(t["bot_token"], t["chat_id"], text, link=link, buttons=buttons)
             except Exception as e:
                 log.warning("bot de avisos: %s", e)
         threading.Thread(target=go, name="aviso", daemon=True).start()
         return True
+
+    def _nag(self, cfg: dict, rid: int, label: str, bot_name: str, every: float = 20 * 60, times: int = 3) -> None:
+        """Si a los 20 minutos sigue esperando el anuncio, te lo recuerda (hasta 3 veces)."""
+        def go():
+            for k in range(times):
+                time.sleep(every)
+                r = downloads.Downloads(self.library(cfg), cfg).get(rid)
+                if not r or r["state"] != "manual":
+                    return
+                self._notify(cfg, f"⏰ Sigue esperando el anuncio ({(k + 1) * int(every // 60)} min)\n\n{label}",
+                             link=(f"👉 Ir a Watch Ads (@{bot_name})", f"https://t.me/{bot_name}"))
+        threading.Thread(target=go, name="recordatorio", daemon=True).start()
 
     def downloads_add(self, b: dict) -> dict:
         cfg = self.cfg()
@@ -1549,8 +1559,18 @@ class App:
             return 1800
         if downloads.free_gb(d["tmp_dir"]) < d["min_free_gb"]:
             self.dl.update(message=f"queda poco espacio (menos de {d['min_free_gb']} GB)")
+            if time.time() - self.dl.get("space_warned", 0) > 12 * 3600:  # como mucho dos veces al día
+                self.dl["space_warned"] = time.time()
+                self._notify(cfg, f"⚠️ Queda poco espacio en el NAS\n\nMenos de {d['min_free_gb']} GB libres: "
+                                  "las descargas esperan hasta que hagas sitio.")
             return 1800
+        before = row["state"]
         self._dl_one(cfg, dl, row)
+        after = dl.get(row["id"]) or {}
+        if after.get("state") in ("no-esta", "error") and after["state"] != before:  # sólo la primera vez, no a diario
+            icon = "❌" if after["state"] == "no-esta" else "⚠️"
+            when = "Lo vuelvo a mirar mañana." if after["state"] == "no-esta" else "Lo reintento en unas horas."
+            self._notify(cfg, f"{icon} {self._dl_label(after)}\n\n{after.get('detail') or ''}\n{when}")
         return 5
 
     def _dl_enqueue(self, cfg: dict, dl) -> None:
@@ -1664,6 +1684,7 @@ class App:
                 self._notify(cfg, f"🚨 Te toca pulsar el anuncio\n\n{label}\n\nPulsa el botón, luego «Watch Ads» "
                                   "y después «I have clicked ads».", link=(f"👉 Ir a Watch Ads (@{bot})", f"https://t.me/{bot}"))
                 self.dl.update(message=f"{row['title']}: esperando que pulses el anuncio en Telegram")
+                self._nag(cfg, rid, label, bot)
 
             self._telegram(cfg).fetch(link[1], tmp, bot=link[0], progress=progress,
                                       stop=lambda: self.dl["stop"] == rid, on_manual=manual,
@@ -1928,6 +1949,7 @@ def serve(config_path: str, port: int | None = None) -> None:
     threading.Thread(target=app.automatic, name="automático", daemon=True).start()
     threading.Thread(target=app.updates, name="actualizaciones", daemon=True).start()
     threading.Thread(target=app.downloader, name="descargas", daemon=True).start()
+    threading.Thread(target=bot.Bot(app).run, name="bot", daemon=True).start()
     httpd = ThreadingHTTPServer(("0.0.0.0", port), make_handler(app))
     log.info("Videotecario en http://<ip-del-nas>:%d%s", port,
              " (pide usuario y contraseña)" if auth.enabled(cfg) else "")

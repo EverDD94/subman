@@ -32,6 +32,8 @@ GIVE_UP = 12 * 3600     # cuánto se espera como mucho a que llegue el archivo
 QUIET = 120             # tras el último archivo, cuánto se espera por si manda más (capítulos)
 PARALLEL = 8           # trozos que se piden a la vez (como tdl); uno solo va a 1-3 MB/s
 PIECE = 512 * 1024     # lo más que Telegram da por petición
+CONNECTIONS = 4        # conexiones propias a Telegram para un archivo (como tdl); una sola se queda en ~5 MB/s
+PER_CONNECTION = 3     # trozos pedidos a la vez por cada conexión
 _SAMPLE = re.compile(r"\bsample\b", re.I)
 _VIDEO_NAME = re.compile(r"\.(mkv|mp4|avi|m4v|mov|ts|webm)$", re.I)
 
@@ -261,13 +263,20 @@ class Telegram:
                 raise InterruptedError("cancelada")
             progress(name, done, total)
         try:
-            try:
-                await self._parallel(m, part, m.file.size or 0, each)
+            size = m.file.size or 0
+            try:  # 1) varias conexiones; 2) una conexión con varios trozos; 3) de uno en uno
+                await self._multi(m, part, size, each)
             except InterruptedError:
                 raise
-            except Exception as e:  # si falla en paralelo, a la manera de siempre (de uno en uno)
-                log.warning("Telegram: descarga en paralelo falló (%s); sigo de uno en uno", e)
-                await self.client.download_media(m, file=str(part), progress_callback=each)
+            except Exception as e:
+                log.warning("Telegram: con varias conexiones falló (%s); sigo con una", e)
+                try:
+                    await self._parallel(m, part, size, each)
+                except InterruptedError:
+                    raise
+                except Exception as e:
+                    log.warning("Telegram: descarga en paralelo falló (%s); sigo de uno en uno", e)
+                    await self.client.download_media(m, file=str(part), progress_callback=each)
         except InterruptedError:
             part.unlink(missing_ok=True)
             raise
@@ -278,7 +287,81 @@ class Telegram:
 
 
     async def _parallel(self, m, part: Path, size: int, each) -> None:
-        """Descarga pidiendo ``PARALLEL`` trozos a la vez; cada uno se escribe en su sitio del archivo."""
+        """Descarga por la conexión de siempre pidiendo ``PARALLEL`` trozos a la vez."""
+        async def reader(i: int, workers: int, pieces: int):
+            n, pos = len(range(i, pieces, workers)), i * PIECE
+            if not n:
+                return
+            async for chunk in self.client.iter_download(m.media, offset=pos, stride=workers * PIECE, limit=n,
+                                                         request_size=PIECE, chunk_size=PIECE, file_size=size):
+                yield pos, chunk
+                pos += workers * PIECE
+        await self._pieces(part, size, each, PARALLEL, reader)
+
+    async def _multi(self, m, part: Path, size: int, each) -> None:
+        """Como tdl: abre ``CONNECTIONS`` conexiones propias al centro de datos donde está el archivo y
+        reparte los trozos entre ellas (una sola conexión no pasa de unos 5 MB/s)."""
+        from telethon import utils
+        from telethon.errors import RPCError
+        from telethon.tl import types
+        from telethon.tl.functions.upload import GetFileRequest
+
+        dc_id, location = utils.get_input_location(m.media)
+        senders = await self._senders(dc_id or self.client.session.dc_id, CONNECTIONS)
+        try:
+            async def reader(i: int, workers: int, pieces: int):
+                sender = senders[i % len(senders)]
+                for k in range(i, pieces, workers):
+                    req = GetFileRequest(location, offset=k * PIECE, limit=PIECE)
+                    for attempt in range(3):
+                        try:
+                            r = await sender.send(req)
+                            break
+                        except (ConnectionError, asyncio.TimeoutError, RPCError) as e:
+                            if attempt == 2 or (isinstance(e, RPCError) and "FLOOD" not in str(e) and "TIMEOUT" not in str(e)):
+                                raise
+                            await asyncio.sleep(2 * (attempt + 1))
+                    if isinstance(r, types.upload.FileCdnRedirect):
+                        raise ValueError("el archivo está en la red de reparto (CDN)")
+                    yield k * PIECE, r.bytes
+            await self._pieces(part, size, each, len(senders) * PER_CONNECTION, reader)
+        finally:
+            for s in senders:
+                try:
+                    await s.disconnect()
+                except Exception:
+                    pass
+
+    async def _senders(self, dc_id: int, n: int) -> list:
+        """``n`` conexiones nuevas al centro de datos ``dc_id`` con tu sesión (lo mismo que hace Telethon
+        para una, pero varias)."""
+        from telethon import functions
+        from telethon.network import MTProtoSender
+        from telethon.tl.alltlobjects import LAYER
+        c = self.client
+        same = dc_id == c.session.dc_id
+        dc = await c._get_dc(dc_id)
+        auth = None if same else await c(functions.auth.ExportAuthorizationRequest(dc_id))
+        out = []
+        try:
+            for _ in range(n):
+                s = MTProtoSender(c.session.auth_key if same else None, loggers=c._log)
+                await s.connect(c._connection(dc.ip_address, dc.port, dc.id, loggers=c._log,
+                                              proxy=c._proxy, local_addr=c._local_addr))
+                out.append(s)
+                if not same:
+                    c._init_request.query = functions.auth.ImportAuthorizationRequest(id=auth.id, bytes=auth.bytes)
+                    await s.send(functions.InvokeWithLayerRequest(LAYER, c._init_request))
+        except Exception:
+            for s in out:
+                await s.disconnect()
+            raise
+        log.info("Telegram: %d conexiones al centro de datos %s", len(out), dc_id)
+        return out
+
+    async def _pieces(self, part: Path, size: int, each, workers: int, reader) -> None:
+        """Reparte el archivo en trozos de ``PIECE`` entre ``workers`` tareas; cada trozo se escribe en su
+        sitio. ``reader(i, workers, trozos)`` da (posición, bytes) de los trozos i, i+workers, i+2·workers…"""
         if size <= 0:
             raise ValueError("tamaño desconocido")
         pieces = (size + PIECE - 1) // PIECE
@@ -289,16 +372,11 @@ class Telegram:
         try:
             async def worker(i: int):
                 nonlocal done
-                n, pos = len(range(i, pieces, PARALLEL)), i * PIECE
-                if not n:
-                    return
-                async for chunk in self.client.iter_download(m.media, offset=pos, stride=PARALLEL * PIECE, limit=n,
-                                                             request_size=PIECE, chunk_size=PIECE, file_size=size):
+                async for pos, chunk in reader(i, workers, pieces):
                     os.pwrite(fd, chunk, pos)
-                    pos += PARALLEL * PIECE
                     done += len(chunk)
                     each(done, size)
-            tasks = [asyncio.ensure_future(worker(i)) for i in range(PARALLEL)]
+            tasks = [asyncio.ensure_future(worker(i)) for i in range(workers)]
             try:
                 await asyncio.gather(*tasks)
             except BaseException:

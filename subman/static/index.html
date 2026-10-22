@@ -1091,6 +1091,13 @@ const DL_STATE = {cola: ["", "en cola"], buscando: ["", "buscando en Phono"], pi
   manual: ["revisar", "pulsa el anuncio en Telegram"], descargando: ["", "descargando"], listo: ["ok", "lista"],
   "no-esta": ["revisar", "no está en Phono"], error: ["falla", "error"], cancelado: ["", "cancelada"]};
 let dlTimer = null;
+function dlSpeed(st) {
+  if (!st.speed) return "";
+  const left = (st.total - st.done) / st.speed, mb = st.speed / 2 ** 20;
+  const eta = left < 60 ? "menos de 1 min" : left < 3600 ? `${Math.round(left / 60)} min` : `${Math.floor(left / 3600)} h ${Math.round(left % 3600 / 60)} min`;
+  return ` · <b>${mb >= 10 ? mb.toFixed(0) : mb.toFixed(1)} MB/s</b> · faltan ${eta}`;
+}
+
 async function loadDownloads() {
   clearTimeout(dlTimer);
   let r;
@@ -1100,7 +1107,7 @@ async function loadDownloads() {
   const st = r.state, rows = r.rows.filter(x => x.state !== "cancelado")
     .sort((a, b) => order.indexOf(a.state) - order.indexOf(b.state) || (a.state === "listo" ? b.updated - a.updated : a.created - b.created || (a.season || 0) - (b.season || 0)));
   const head = !r.settings.enabled ? `<div class="card"><p style="margin-top:0">Las descargas están apagadas.</p><button class="btn sec" onclick="show('ajustes');setTimeout(()=>$('#dlCard').scrollIntoView(),300)">Ir a Ajustes</button></div>`
-    : `<p class="muted">Ahora: ${esc(st.message)}${st.total ? ` · ${Math.round(100 * st.done / st.total)} % de ${(st.total / 2 ** 30).toFixed(2)} GB` : ""}</p>`;
+    : `<p class="muted">Ahora: ${esc(st.message)}${st.total ? ` · ${Math.round(100 * st.done / st.total)} % de ${(st.total / 2 ** 30).toFixed(2)} GB${dlSpeed(st)}` : ""}</p>`;
   const manual = rows.some(x => x.state === "manual") ? `<div class="card"><b>Te toca a ti:</b> pulsa «Abrir el chat» (o abre en Telegram el primer chat de tu lista) y pulsa «Watch Ads» y después «I have clicked ads». En cuanto mande el archivo, se descarga solo.</div>` : "";
   const items = rows.map(x => {
     const [cls, label] = DL_STATE[x.state] || ["", x.state];

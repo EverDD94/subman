@@ -1477,7 +1477,7 @@ class App:
     def _dl_one(self, cfg: dict, dl, row: dict) -> None:
         d = cfg["downloads"]
         rid = row["id"]
-        self.dl.update(current=rid, what=row["title"], done=0, total=0, stop=None, message=f"{row['title']}: buscando en Phono")
+        self.dl.update(current=rid, what=row["title"], done=0, total=0, speed=0.0, stop=None, message=f"{row['title']}: buscando en Phono")
         try:
             dl.set(rid, state="buscando", detail="buscando en Phono")
             api = phono.Phono()
@@ -1526,7 +1526,18 @@ class App:
 
             started = set()
 
+            rate = {"name": None, "t": 0.0, "done": 0}
+
             def progress(name, done, total):
+                now = time.time()
+                if name != rate["name"] or done < rate["done"]:
+                    rate.update(name=name, t=now, done=done)
+                    self.dl["speed"] = 0.0
+                elif now - rate["t"] >= 2:  # velocidad media de los últimos segundos, suavizada
+                    v = (done - rate["done"]) / (now - rate["t"])
+                    old = self.dl.get("speed") or 0.0
+                    self.dl["speed"] = v if not old else 0.6 * old + 0.4 * v
+                    rate.update(t=now, done=done)
                 self.dl.update(done=done, total=total, message=f"{row['title']}: {name}")
                 if total and name not in started:
                     started.add(name)
@@ -1555,7 +1566,7 @@ class App:
             if not placed:
                 raise ValueError("el bot no mandó ningún video")
             dl.set(rid, state="listo", detail=f"{len(placed)} video(s) en la biblioteca", dest=json.dumps(placed, ensure_ascii=False))
-            self.dl.update(message=f"{row['title']}: lista", done=0, total=0)
+            self.dl.update(message=f"{row['title']}: lista", done=0, total=0, speed=0.0)
             dl.db.execute("UPDATE discover SET have=1 WHERE kind=? AND tmdb=? AND have=0", (row["kind"], row["tmdb"]))
             dl.db.commit()
             self.wake.set()  # que busque y compruebe los subtítulos ya

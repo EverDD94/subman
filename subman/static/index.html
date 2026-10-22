@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Videotecario</title>
-<meta name="theme-color" content="#f6f1e8" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#14110e" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f2f3f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0c0f16" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -16,37 +16,38 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wdth,wght@75..100,400..700&display=swap" rel="stylesheet">
 <style>
-/* Videotecario. Tonos cálidos de sala de cine: papel y tinta de día, casi negro de noche, un solo acento ámbar. */
+/* Videotecario. Sala de proyección: azul tinta de noche, gris frío de día; un solo acento, la luz cálida del proyector.
+   Una sola familia (Instrument Sans): estrecha y gruesa en los títulos, como un cartel de cine; normal en el texto. */
 :root{
-  --bg:#f6f1e8;--card:#fffcf6;--card-2:#efe8dc;--chip:#ece4d6;--line:#e2d8c8;
-  --text:#1f1a14;--muted:#6a5f52;--accent:#a65d0c;--accent-ink:#fff;--accent-soft:#f3e2c9;
-  --ok:#2e7d4f;--warn:#9a6a00;--bad:#b4402f;
-  --shadow:0 1px 2px rgb(60 40 15/.06),0 8px 24px -10px rgb(60 40 15/.18);
-  --shadow-lg:0 2px 6px rgb(40 25 10/.08),0 24px 60px -20px rgb(40 25 10/.35);
-  --display:"Fraunces",ui-serif,Georgia,serif;
-  --sans:"Geist",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --bg:#f2f3f6;--card:#fff;--card-2:#eceef3;--chip:#e4e7ee;--line:#dde1e9;
+  --text:#11141b;--muted:#5d6577;--accent:#2b3a7a;--accent-ink:#fff;--accent-soft:#e2e6f5;
+  --ok:#1f7a4a;--warn:#946300;--bad:#c03a2b;
+  --shadow:0 1px 2px rgb(15 20 35/.06),0 10px 28px -12px rgb(15 20 35/.22);
+  --shadow-lg:0 2px 6px rgb(15 20 35/.08),0 28px 70px -22px rgb(15 20 35/.4);
+  --display:"Instrument Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --sans:"Instrument Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
   --mono:ui-monospace,"SF Mono",Consolas,monospace;
   --ease-out:cubic-bezier(0.23,1,0.32,1);--ease-in-out:cubic-bezier(0.77,0,0.175,1);
-  --r:16px;--r-sm:10px;--bar:64px;
+  --r:14px;--r-sm:10px;--bar:64px;
   color-scheme:light;
 }
 /* modo oscuro: el del sistema, salvo que elijas claro u oscuro con el botón de arriba */
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
-  --bg:#14110e;--card:#1c1814;--card-2:#26211b;--chip:#2a241d;--line:#332c24;
-  --text:#f3ece1;--muted:#a89d8e;--accent:#eaa648;--accent-ink:#1b1206;--accent-soft:#3a2a15;
-  --ok:#6cc58f;--warn:#e8b65a;--bad:#f08070;
-  --shadow:0 1px 2px rgb(0 0 0/.3),0 10px 30px -12px rgb(0 0 0/.6);
-  --shadow-lg:0 2px 8px rgb(0 0 0/.4),0 30px 80px -20px rgb(0 0 0/.75);
+  --bg:#0c0f16;--card:#151a24;--card-2:#1c2230;--chip:#222938;--line:#283043;
+  --text:#edf0f6;--muted:#8f98ab;--accent:#e8d6a4;--accent-ink:#17140b;--accent-soft:#2f2b20;
+  --ok:#6fd39a;--warn:#e8c06a;--bad:#ff8a7a;
+  --shadow:0 1px 2px rgb(0 0 0/.35),0 12px 32px -14px rgb(0 0 0/.7);
+  --shadow-lg:0 2px 8px rgb(0 0 0/.45),0 34px 90px -24px rgb(0 0 0/.85);
   color-scheme:dark;
 }}
 :root[data-theme=dark]{
-  --bg:#14110e;--card:#1c1814;--card-2:#26211b;--chip:#2a241d;--line:#332c24;
-  --text:#f3ece1;--muted:#a89d8e;--accent:#eaa648;--accent-ink:#1b1206;--accent-soft:#3a2a15;
-  --ok:#6cc58f;--warn:#e8b65a;--bad:#f08070;
-  --shadow:0 1px 2px rgb(0 0 0/.3),0 10px 30px -12px rgb(0 0 0/.6);
-  --shadow-lg:0 2px 8px rgb(0 0 0/.4),0 30px 80px -20px rgb(0 0 0/.75);
+  --bg:#0c0f16;--card:#151a24;--card-2:#1c2230;--chip:#222938;--line:#283043;
+  --text:#edf0f6;--muted:#8f98ab;--accent:#e8d6a4;--accent-ink:#17140b;--accent-soft:#2f2b20;
+  --ok:#6fd39a;--warn:#e8c06a;--bad:#ff8a7a;
+  --shadow:0 1px 2px rgb(0 0 0/.35),0 12px 32px -14px rgb(0 0 0/.7);
+  --shadow-lg:0 2px 8px rgb(0 0 0/.45),0 34px 90px -24px rgb(0 0 0/.85);
   color-scheme:dark;
 }
 *{box-sizing:border-box}
@@ -57,7 +58,7 @@ body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 var(--sans);
 ::selection{background:var(--accent);color:var(--accent-ink)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
 a{color:var(--accent);text-underline-offset:3px}
-h1,h2,h3{font-family:var(--display);font-weight:600;letter-spacing:-.01em;text-wrap:balance;font-optical-sizing:auto}
+h1,h2,h3{font-family:var(--display);font-weight:680;font-stretch:82%;letter-spacing:-.012em;text-wrap:balance}
 p{text-wrap:pretty}
 svg.i{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;vertical-align:-3px}
 svg.i.fill{fill:currentColor;stroke:none}
@@ -115,7 +116,7 @@ main > section{animation:enter .28s var(--ease-out)}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
 .stat{background:var(--card-2);border-radius:var(--r-sm);padding:14px 16px}
 .stat span{font-size:13px}
-.stat b{display:block;font:600 30px/1.1 var(--display);font-variant-numeric:tabular-nums;margin-top:4px}
+.stat b{display:block;font:680 semi-condensed 30px/1.1 var(--display);font-variant-numeric:tabular-nums;margin-top:4px}
 button.btn,a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--accent);color:var(--accent-ink);border:0;border-radius:var(--r-sm);
   padding:10px 16px;font-weight:600;cursor:pointer;min-height:40px;transition:transform .16s var(--ease-out),background-color .16s var(--ease-out),opacity .16s}
 button.btn:active:not(:disabled){transform:scale(.97)}
@@ -179,7 +180,7 @@ dialog .x:active{transform:scale(.92)}
 .filters button.on{background:var(--text);color:var(--bg)}
 .reason{display:grid;grid-template-columns:64px 1fr auto;gap:14px;align-items:start;padding:14px 0;border-top:1px solid var(--line)}
 .reason:first-child{border-top:0}
-.reason .n{font:600 28px/1.1 var(--display);font-variant-numeric:tabular-nums}
+.reason .n{font:680 semi-condensed 28px/1.1 var(--display);font-variant-numeric:tabular-nums}
 .reason p{margin:3px 0}
 .dup td{vertical-align:middle}
 .dup tr.keep{background:color-mix(in srgb,var(--ok) 8%,transparent)}
@@ -203,20 +204,7 @@ dialog .x:active{transform:scale(.92)}
 .search svg.i{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)}
 .search input{padding-left:38px;border-radius:999px;background:var(--card)}
 #dscHelp{margin:0;max-width:70ch}
-.dsc{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:26px 22px}
-.dc{display:flex;flex-direction:column;gap:12px;min-width:0}
-.dc .poster{position:relative;cursor:pointer;border-radius:var(--r);overflow:hidden;aspect-ratio:2/3;background:var(--chip);box-shadow:var(--shadow);isolation:isolate}
-.dc .poster img,.dc .poster .noimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s var(--ease-out)}
-.dc .poster::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 45%,rgb(12 8 4/.25) 62%,rgb(12 8 4/.92));pointer-events:none}
-.dc .cap{position:absolute;left:0;right:0;bottom:0;padding:16px;z-index:1;color:#fbf6ee}
-.dc .t{font:600 22px/1.12 var(--display);letter-spacing:-.015em;text-wrap:balance;margin:0}
-.dc .sub{font-size:13px;color:rgb(251 246 238/.78);margin-top:5px;font-variant-numeric:tabular-nums}
-.badge{position:absolute;top:12px;z-index:1;display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;
   background:rgb(15 10 5/.55);color:#fbf6ee;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
-.badge.kind{left:12px}
-.badge.own{right:12px;background:color-mix(in srgb,var(--ok) 88%,black);color:#fff}
-.badge svg.i{width:13px;height:13px}
-.dc .why{font-size:13px;color:var(--accent);font-weight:500;margin:0}
 .ov{font-size:14.5px;line-height:1.6;color:color-mix(in srgb,var(--text) 86%,var(--muted));margin:0}
 .ov.clamp{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
 .more{background:none;border:0;padding:0;color:var(--accent);font-weight:600;font-size:13.5px;cursor:pointer;align-self:flex-start}
@@ -229,9 +217,69 @@ dialog .x:active{transform:scale(.92)}
 .rate button.on.down{background:color-mix(in srgb,var(--bad) 14%,transparent);border-color:var(--bad);color:var(--bad)}
 .rate button.on svg.i{fill:currentColor;fill-opacity:.18}
 .havebtn{flex:none;width:100%}
-.dc .rate button{flex-direction:column;gap:2px;min-height:56px;font-size:12.5px;padding:6px 4px}
 .havebtn.yes{background:color-mix(in srgb,var(--ok) 15%,transparent);color:var(--ok)}
 .empty{padding:40px 10px;text-align:center;color:var(--muted)}
+
+/* Portada de Descubrir: un cartel grande arriba y filas de pósters que se deslizan de lado */
+.bb{position:relative;display:grid;align-items:end;min-height:min(62vh,560px);border-radius:20px;overflow:hidden;background:#0c0f16;color:#f4f5f8;isolation:isolate;margin-bottom:34px;
+  box-shadow:var(--shadow-lg)}
+.bb .bbimg{position:absolute;inset:0;z-index:-1}
+.bb .bbimg img{width:100%;height:100%;object-fit:cover;object-position:center 20%;display:block}
+.bb .bbimg.anim img{animation:bbin .9s var(--ease-out)}
+@keyframes bbin{from{opacity:0;transform:scale(1.03)}}
+.bb .bbimg::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgb(8 10 16/.92) 0%,rgb(8 10 16/.6) 38%,transparent 70%),linear-gradient(0deg,rgb(8 10 16/.85),transparent 45%)}
+.bbtxt{padding:clamp(22px,4vw,48px);max-width:620px}
+.bbwhy{margin:0 0 10px;font-size:14px;font-weight:600;color:#e8d6a4}
+.bbt{font:700 condensed clamp(38px,6vw,74px)/.95 var(--display);letter-spacing:-.02em;margin:0;text-wrap:balance}
+.bb .meta{color:rgb(244 245 248/.75);margin-top:14px}
+.bb .meta .star{color:#e8d6a4}
+.bbov{margin:12px 0 0;font-size:15.5px;line-height:1.55;color:rgb(244 245 248/.86);max-width:56ch;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.bbacts{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:22px}
+.bbacts .btn.main{background:#f4f5f8;color:#0c0f16;border-radius:999px;padding:0 22px;min-height:46px;font-size:15.5px}
+.bbacts .rate{flex:none}
+.bbacts .rate button,.bbacts .havebtn{flex:none;width:46px;min-height:46px;border-radius:50%;padding:0;background:rgb(255 255 255/.14);color:#f4f5f8;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.bbacts .havebtn{width:auto;border-radius:999px;padding:0 16px}
+.bbacts .rate button.on{background:#e8d6a4;border-color:transparent;color:#17140b}
+.bbacts .rate button.on.down{background:#ff8a7a;color:#2a0c08}
+.bbacts .havebtn.yes{background:rgb(111 211 154/.22);color:#8ee6b3}
+.bbdots{position:absolute;right:clamp(18px,3vw,36px);bottom:clamp(22px,4vw,48px);display:flex;gap:6px}
+.bbdots button{width:26px;height:4px;border:0;padding:0;border-radius:2px;background:rgb(255 255 255/.3);cursor:pointer;transition:background-color .2s,width .3s var(--ease-out)}
+.bbdots button.on{background:#f4f5f8;width:40px}
+
+.shelf{margin:0 0 34px}
+.shelfhead{display:flex;align-items:baseline;gap:14px;margin:0 0 12px}
+.shelfhead h3{font-size:22px;margin:0}
+.shelfhead .all{background:none;border:0;padding:4px 0;color:var(--muted);font-weight:600;font-size:14px;cursor:pointer}
+.shelfhead .arrows{margin-left:auto;display:none;gap:6px}
+.shelfhead .arrows button{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--text);display:grid;place-items:center;cursor:pointer}
+.shelfhead .arrows button:first-child svg{transform:scaleX(-1)}
+.rail{display:grid;grid-auto-flow:column;grid-auto-columns:clamp(132px,15vw,176px);gap:14px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;
+  scrollbar-width:none;padding-bottom:4px}
+.rail::-webkit-scrollbar{display:none}
+.rail .tile{scroll-snap-align:start}
+.wall{display:grid;grid-template-columns:repeat(auto-fill,minmax(164px,1fr));gap:30px 16px}
+
+/* un póster: la imagen manda; título y año debajo, en pequeño */
+.tile{min-width:0;display:flex;flex-direction:column;gap:2px}
+.tbox{position:relative}
+.tmedia{position:relative;border-radius:10px;overflow:hidden;aspect-ratio:2/3;background:var(--chip);box-shadow:var(--shadow);margin-bottom:8px;isolation:isolate}
+.tmedia > button{all:unset;position:absolute;inset:0;cursor:pointer;display:block}
+.tmedia > button:focus-visible{outline:3px solid var(--accent);outline-offset:-3px;border-radius:10px}
+.tmedia img,.tmedia .noimg{width:100%;height:100%;object-fit:cover;display:block;transition:transform .45s var(--ease-out)}
+.tmedia .noimg{display:grid;place-items:center;padding:12px;text-align:center;font:680 semi-condensed 17px/1.1 var(--display);color:var(--muted)}
+.tmedia .own{position:absolute;top:8px;right:8px;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--ok);color:#fff;box-shadow:0 2px 6px rgb(0 0 0/.35)}
+.tmedia .own svg.i{width:14px;height:14px;stroke-width:2.6}
+.tquick{display:flex;gap:4px;margin:2px 0 6px}
+.tquick .rate{gap:4px;flex:3}
+.tquick .rate button,.tquick .havebtn{min-height:34px;border-radius:9px;padding:0;flex:1}
+.tquick .havebtn{flex:1;width:auto}
+.tquick svg.i{width:16px;height:16px}
+.tt{font:600 15px/1.25 var(--sans);margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ts{margin:0;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.tw{margin:2px 0 0;font-size:12.5px;line-height:1.35;color:var(--accent);font-weight:500}
+.rail .tquick{display:none}
+.skel .tmedia{animation:skel 1.2s ease-in-out infinite alternate}
+@keyframes skel{to{opacity:.55}}
 
 /* ficha a pantalla completa */
 dialog.sheet{padding:0;max-width:1000px;width:min(1000px,96vw);overflow:auto;overscroll-behavior:contain}
@@ -245,7 +293,7 @@ dialog.sheet .foot{display:none}
 .meta{display:flex;flex-wrap:wrap;gap:6px 14px;color:var(--muted);font-size:14px;font-variant-numeric:tabular-nums}
 .meta .star{color:var(--accent);font-weight:600;display:inline-flex;align-items:center;gap:4px}
 .meta .star svg.i{width:14px;height:14px}
-.tagline{font:italic 500 18px/1.4 var(--display);margin:14px 0 0;color:color-mix(in srgb,var(--text) 80%,var(--muted))}
+.tagline{font:500 18px/1.4 var(--sans);margin:14px 0 0;color:color-mix(in srgb,var(--text) 80%,var(--muted))}
 .dbody .ov{font-size:16px;max-width:68ch;margin:14px 0 0;white-space:pre-line}
 .facts{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:16px 0 0;font-size:14px}
 .facts dt{color:var(--muted)}
@@ -297,7 +345,7 @@ dialog.sheet .foot{display:none}
 .pick2 button{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:8px;text-align:left;border:1px solid var(--line);background:var(--card-2);border-radius:18px;padding:22px;cursor:pointer;
   transition:transform .18s var(--ease-out),border-color .18s}
 .pick2 button:active{transform:scale(.98)}
-.pick2 button b{font:600 24px/1.1 var(--display)}
+.pick2 button b{font:680 semi-condensed 24px/1.1 var(--display)}
 .pick2 button span{color:var(--muted);font-size:14px}
 .pick2 svg.i{width:28px;height:28px;color:var(--accent)}
 .gchips{display:flex;flex-wrap:wrap;gap:8px}
@@ -321,8 +369,16 @@ dialog.sheet .foot{display:none}
   button.btn.sec:hover:not(:disabled){background:var(--chip)}
   tr.click:hover{background:var(--card-2)}
   .filters button:hover:not(.on){background:var(--line)}
-  .dc .poster:hover img{transform:scale(1.04)}
   .rate button:hover:not(.on),.havebtn:hover:not(.yes){background:var(--chip)}
+  .tmedia:hover img{transform:scale(1.045)}
+  .shelfhead .arrows{display:flex}
+  .shelfhead .all:hover{color:var(--text)}
+  .bbacts .rate button:hover:not(.on),.bbacts .havebtn:hover:not(.yes){background:rgb(255 255 255/.24)}
+  .wall .tmedia::after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,rgb(8 10 16/.75),transparent 40%);opacity:0;transition:opacity .2s;pointer-events:none}
+  .wall .tbox:hover .tmedia::after,.wall .tbox:focus-within .tmedia::after{opacity:1}
+  .wall .tquick{position:absolute;left:8px;right:8px;bottom:16px;margin:0;opacity:0;transform:translateY(4px);transition:opacity .18s var(--ease-out),transform .18s var(--ease-out);pointer-events:none}
+.wall .tquick button:not(.on):not(.yes){background:rgb(16 20 30/.72);color:#f4f5f8;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+  .wall .tbox:hover .tquick,.wall .tbox:focus-within .tquick{opacity:1;transform:none;pointer-events:auto}
   .person.pick:hover,.pick2 button:hover{border-color:var(--accent)}
   .gchips button:hover:not(.yes):not(.no){background:var(--line)}
 }
@@ -366,10 +422,15 @@ dialog.sheet .foot{display:none}
   td,th{padding:9px 6px;font-size:14px}
   #toast{bottom:calc(var(--bar) + 20px + env(safe-area-inset-bottom))}
   .reason{grid-template-columns:44px 1fr}
+  .bb{min-height:min(62vh,540px);border-radius:18px;margin:0 -4px 30px}
+  .bb .bbimg::after{background:linear-gradient(0deg,rgb(8 10 16/.96) 12%,rgb(8 10 16/.45) 55%,transparent 82%)}
+  .bbtxt{padding:22px 20px 24px}
+  .bbov{-webkit-line-clamp:4;font-size:15px}
+  .bbdots{top:16px;bottom:auto;right:16px}
+  .rail{margin:0 -14px;padding:0 14px 4px;scroll-padding:0 14px;grid-auto-columns:36vw;gap:10px}
+  .wall{grid-template-columns:repeat(2,1fr);gap:26px 12px}
+  .shelfhead h3{font-size:20px}
   .reason > button{grid-column:2;justify-self:start}
-  .dsc{grid-template-columns:1fr;gap:34px}
-  .dc .poster{aspect-ratio:3/4}
-  .dc .t{font-size:26px}
   .dtabs{margin:0 -14px;padding:2px 14px}
   dialog{width:100vw;max-width:100vw;max-height:100dvh;height:auto;margin:auto 0 0;border-radius:22px 22px 0 0;border-bottom:0;padding:22px 18px calc(22px + env(safe-area-inset-bottom))}
   dialog[open]{animation:up .32s var(--ease-out)}
@@ -633,8 +694,9 @@ dialog.sheet .foot{display:none}
   <div class="dhead">
     <h2 id="dscTitle">Descubrir</h2>
     <div class="dtabs filters" id="dscTabs">
+      <button data-s="portada" class="on">Portada</button>
       <button data-s="estrenos">Estrenos</button>
-      <button data-s="novedades" class="on">Novedades</button>
+      <button data-s="novedades">Novedades</button>
       <button data-s="para-ti">Para ti</button>
       <button data-s="clasicos">Populares y clásicos</button>
       <button data-s="por-conseguir">Por conseguir</button>
@@ -1085,7 +1147,7 @@ function paintTools() {
   $("#newsBtn").innerHTML = ico("gift") + dot;
   $("#themeBtn").innerHTML = ico(darkNow() ? "sun" : "moon");
   $("#themeBtn").title = darkNow() ? "Pasar a claro" : "Pasar a oscuro";
-  for (const m of document.querySelectorAll('meta[name="theme-color"]')) m.content = darkNow() ? "#14110e" : "#f6f1e8";
+  for (const m of document.querySelectorAll('meta[name="theme-color"]')) m.content = darkNow() ? "#0c0f16" : "#f2f3f6";
 }
 $("#themeBtn").onclick = () => setTheme(darkNow() ? "light" : "dark");
 matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", paintTools);
@@ -1823,6 +1885,7 @@ $("#fmtStop").onclick = async () => { await api("/api/formats/stop", {}); toast(
 setInterval(() => { if (tab === "inicio") loadStatus(); if (tab === "registro" && $("#follow").checked) loadLog(); }, 4000);
 // ---------- Descubrir ----------
 const DSC_HELP = {
+  "portada": "",
   "novedades": "Lo que acaba de salir o sale pronto. Toca el póster para ver la ficha completa.",
   "clasicos": "Lo más visto esta semana y lo mejor valorado de siempre.",
   "para-ti": "Aprende de lo que calificas y de «Mis gustos». No salen las que ya tienes ni las que ya calificaste.",
@@ -1832,10 +1895,10 @@ const DSC_HELP = {
   "gustos": "",
   "estrenos": "",
   "buscar": ""};
-const DSC_TITLE = {novedades: "Novedades", clasicos: "Populares y clásicos", "para-ti": "Para ti", "por-conseguir": "Por conseguir",
+const DSC_TITLE = {portada: "Descubrir", novedades: "Novedades", clasicos: "Populares y clásicos", "para-ti": "Para ti", "por-conseguir": "Por conseguir",
   calificadas: "Mis calificaciones", descargas: "Descargas", gustos: "Mis gustos", estrenos: "Estrenos del año", buscar: "Resultados"};
 const RATE = {2: "Me encanta", 1: "Me gusta", "-1": "No me gusta", 0: "No la he visto"};
-let dsc = {section: "novedades", kind: "", page: 1, items: [], q: "", checked: false, open: null, more: new Set()};
+let dsc = {section: "portada", rows: {}, bb: 0, kind: "", page: 1, items: [], q: "", checked: false, open: null, more: new Set()};
 let taste = null, quiz = null, deck = {items: [], i: 0, count: 0, loading: false};
 document.querySelectorAll("#dscTabs button").forEach(b => b.onclick = () => { dsc.section = b.dataset.s; dsc.q = ""; $("#dscQ").value = ""; loadDiscover(); });
 document.querySelectorAll("#dscKind button").forEach(b => b.onclick = () => {
@@ -1866,6 +1929,7 @@ async function loadDiscover() {
   document.querySelectorAll("#dscTabs button").forEach(x => x.classList.toggle("on", x.dataset.s === dsc.section));
   const onb = document.querySelector(`#dscTabs button[data-s="${dsc.section}"]`);
   if (onb) onb.scrollIntoView({block: "nearest", inline: "nearest"});
+  $("#dscTitle").hidden = dsc.section === "portada";
   $("#dscTitle").textContent = dsc.section === "buscar" ? `«${dsc.q}»` : DSC_TITLE[dsc.section];
   $("#dscHelp").textContent = DSC_HELP[dsc.section];
   $("#dscHelp").hidden = !DSC_HELP[dsc.section];
@@ -1874,6 +1938,7 @@ async function loadDiscover() {
   if (dsc.section === "descargas") { $("#dscBox").innerHTML = loading("Cargando…"); return loadDownloads(); }
   if (dsc.section === "gustos") return loadTaste();
   if (dsc.section === "estrenos") return renderEst();
+  if (dsc.section === "portada") return loadPortada();
   $("#dscBox").innerHTML = loading("Cargando…");
   dsc.page = 1;
   const sec = dsc.section;
@@ -1888,6 +1953,7 @@ async function loadDiscover() {
 }
 function renderDiscover() {
   if (["gustos", "estrenos", "descargas"].includes(dsc.section)) return;
+  if (dsc.section === "portada") return renderPortada();
   const items = dsc.items.filter(c => !dsc.kind || c.kind === dsc.kind);
   $("#dscMore").hidden = !["novedades", "clasicos"].includes(dsc.section);
   if (!items.length) {
@@ -1895,7 +1961,78 @@ function renderDiscover() {
                    "por-conseguir": "Nada por conseguir.", "calificadas": "Aún no has calificado nada."}[dsc.section] || "No hay nada aquí.";
     $("#dscBox").innerHTML = `<p class="empty">${empty}</p>`; return;
   }
-  $("#dscBox").innerHTML = `<div class="dsc">${items.map(dscCard).join("")}</div>`;
+  $("#dscBox").innerHTML = (dsc.section === "para-ti" ? billboard(items.filter(c => c.backdrop).slice(0, 5)) : "")
+    + `<div class="wall">${items.map(c => tile(c, true)).join("")}</div>`;
+}
+
+// Portada: el cartel con lo mejor para ti y una fila por sección, como en las apps de cine
+const SHELVES = [["para-ti", "Para ti"], ["novedades", "Novedades"], ["clasicos", "Populares y clásicos"], ["por-conseguir", "En tu lista"]];
+let bbTimer = null;
+async function loadPortada() {
+  if (!Object.keys(dsc.rows).length) $("#dscBox").innerHTML = renderShelves();
+  else renderPortada();
+  const sec = dsc.section;
+  const got = await Promise.allSettled(SHELVES.map(async ([s]) => {
+    const r = await api(`/api/discover?section=${s}&page=1`);
+    if (!r.ok) throw new Error(r.error);
+    dsc.rows[s] = r.items || [];
+    if (dsc.section === sec) renderPortada();
+  }));
+  if (dsc.section !== sec) return;
+  const bad = got.find(g => g.status === "rejected");
+  if (bad && got.every(g => g.status === "rejected")) dscError(bad.reason.message.includes("Ajustes") ? bad.reason.message : "No se pudo hablar con TheMovieDB: " + bad.reason.message);
+}
+function renderPortada() {
+  // una sola ficha por título aunque salga en dos filas, para que calificarla se vea en todas
+  const seen = new Map();
+  for (const [s] of SHELVES) dsc.rows[s] = (dsc.rows[s] || []).map(c => { const k = c.kind + c.tmdb; if (!seen.has(k)) seen.set(k, c); return seen.get(k); });
+  dsc.items = [...seen.values()];
+  const pick = c => !dsc.kind || c.kind === dsc.kind;
+  const top = [...(dsc.rows["para-ti"] || []), ...(dsc.rows.novedades || [])].filter(c => pick(c) && c.backdrop && c.rating == null).slice(0, 5);
+  const pos = [...document.querySelectorAll("#dscBox .rail")].map(r => r.scrollLeft);  // al calificar no vuelve cada fila al principio
+  $("#dscBox").innerHTML = billboard(top) + renderShelves(pick);
+  document.querySelectorAll("#dscBox .rail").forEach((r, i) => { if (pos[i]) r.scrollLeft = pos[i]; });
+}
+function renderShelves(pick) {
+  return SHELVES.map(([s, name]) => {
+    const rows = dsc.rows[s];
+    if (rows && !rows.filter(pick).length) return "";
+    const tiles = rows ? rows.filter(pick).map(c => tile(c, false)).join("")
+                       : Array.from({length: 8}, () => `<div class="tile skel"><div class="tmedia"></div></div>`).join("");
+    return `<section class="shelf"><div class="shelfhead"><h3>${name}</h3><button class="all" onclick="dscGo('${s}')">Ver todo</button>
+      <div class="arrows"><button onclick="railGo(this,-1)" aria-label="Anteriores">${ico("next")}</button><button onclick="railGo(this,1)" aria-label="Siguientes">${ico("next")}</button></div></div>
+      <div class="rail">${tiles}</div></section>`;
+  }).join("");
+}
+function railGo(b, dir) { const r = b.closest(".shelf").querySelector(".rail"); r.scrollBy({left: dir * r.clientWidth * .85, behavior: "smooth"}); }
+function billboard(list) {
+  clearInterval(bbTimer);
+  if (!list.length) return "";
+  dsc.bbList = list;
+  if (dsc.bb >= list.length) dsc.bb = 0;
+  const c = list[dsc.bb], k = c.kind + c.tmdb;
+  const meta = [kindLabel(c), c.year, (c.genres || []).slice(0, 2).join(", ")].filter(Boolean).map(x => `<span>${esc(x)}</span>`).join("")
+    + (c.vote ? `<span class="star">${ico("star", "fill")}${c.vote}</span>` : "");
+  setTimeout(() => { dsc.bbSeen = k; });
+  if (list.length > 1 && !matchMedia("(prefers-reduced-motion: reduce)").matches)
+    bbTimer = setInterval(() => { const b = document.querySelector(".bb"); if (!b || b.matches(":hover, :focus-within") || document.hidden) return; bbShow(dsc.bb + 1); }, 9000);
+  return `<div class="bb">
+    <div class="bbimg ${dsc.bbSeen === k ? "" : "anim"}"><img src="${esc(c.backdrop)}" alt=""></div>
+    <div class="bbtxt">
+      <p class="bbwhy">${c.because && c.because.length ? esc(becauseText(c)) : c.have ? "Ya la tienes" : "Recomendada para ti"}</p>
+      <h2 class="bbt">${esc(c.title)}</h2>
+      <div class="meta">${meta}</div>
+      ${c.overview ? `<p class="bbov">${esc(c.overview)}</p>` : ""}
+      <div class="bbacts"><button class="btn main" onclick="dscOpen('${k}')">${ico("play", "fill")}Ver la ficha</button>${rateButtons(c, k, false)}${haveButton(c, k)}</div>
+    </div>
+    ${list.length > 1 ? `<div class="bbdots">${list.map((x, i) => `<button class="${i === dsc.bb ? "on" : ""}" onclick="bbShow(${i})" aria-label="${esc(x.title)}"></button>`).join("")}</div>` : ""}
+  </div>`;
+}
+function bbShow(i) {
+  const b = document.querySelector(".bb");
+  if (!b || !dsc.bbList) return;
+  dsc.bb = (i + dsc.bbList.length) % dsc.bbList.length;
+  b.outerHTML = billboard(dsc.bbList);
 }
 function dscGo(section) { dsc.section = section; loadDiscover(); }
 function dscFind(k) { return dsc.items.find(x => x.kind + x.tmdb === k) || deck.items.find(x => x.kind + x.tmdb === k) || est.items.find(x => x.kind + x.tmdb === k) || (dsc.open && dsc.open.kind + dsc.open.tmdb === k ? dsc.open : null); }
@@ -1907,23 +2044,19 @@ function dlButton(k) { return `<button class="havebtn" onclick="dlAdd('${k}')">$
 function haveButton(c, k) {
   return `<button class="havebtn ${c.have ? "yes" : ""}" onclick="dscHave('${k}')">${c.have ? ico("check") + "La tengo" : "No la tengo"}</button>`;
 }
-function dscSub(c) { return [c.year, (c.genres || []).slice(0, 3).join(", ")].filter(Boolean).join(" · ") + (c.vote ? " · ★ " + c.vote : ""); }
 function kindLabel(c) { return c.kind === "tv" ? "Serie" : "Película"; }
 function poster(c, cls = "") { return c.poster ? `<img class="${cls}" loading="lazy" src="${esc(c.poster)}" alt="" draggable="false">` : `<div class="noimg ${cls}"></div>`; }
-function dscCard(c) {
-  const k = c.kind + c.tmdb, long = (c.overview || "").length > 220, open = dsc.more.has(k);
-  const because = c.because && c.because.length ? `<p class="why">Porque ${esc(c.because.map(w => w.startsWith("te gusta") || w.startsWith("sale") || w.startsWith("parecida") || w === "popular" ? w : "te gustó " + w).join(", "))}</p>` : "";
-  return `<article class="dc">
-    <div class="poster" onclick="dscOpen('${k}')">${poster(c)}
-      <span class="badge kind">${ico(c.kind === "tv" ? "tv" : "film")}${kindLabel(c)}</span>${c.have ? `<span class="badge own">${ico("check")}La tengo</span>` : ""}
-      <div class="cap"><h3 class="t">${esc(c.title)}</h3><div class="sub">${esc(dscSub(c))}</div></div></div>
-    ${because}
-    ${c.overview ? `<p class="ov ${long && !open ? "clamp" : ""}">${esc(c.overview)}</p>${long ? `<button class="more" onclick="dscMoreText('${k}')">${open ? "Leer menos" : "Leer toda la sinopsis"}</button>` : ""}`
-      : `<p class="ov muted">Sin resumen en español. <a href="#" onclick="dscOpen('${k}');return false">Ver la ficha</a></p>`}
-    ${rateButtons(c, k)}
-    ${haveButton(c, k)}${dsc.section === "por-conseguir" && !c.have ? dlButton(k) : ""}</article>`;
+function becauseText(c) {
+  return "Porque " + c.because.map(w => w.startsWith("te gusta") || w.startsWith("sale") || w.startsWith("parecida") || w === "popular" ? w : "te gustó " + w).join(", ");
 }
-function dscMoreText(k) { dsc.more.has(k) ? dsc.more.delete(k) : dsc.more.add(k); renderDiscover(); }
+function tile(c, quick) {
+  const k = c.kind + c.tmdb;
+  const img = c.poster ? `<img loading="lazy" src="${esc(c.poster)}" alt="" draggable="false">` : `<div class="noimg">${esc(c.title)}</div>`;
+  const sub = [c.year, (c.genres || [])[0], c.kind === "tv" ? "Serie" : ""].filter(Boolean).join(" · ");
+  const acts = quick ? `<div class="tquick">${rateButtons(c, k, false)}<button class="havebtn ${c.have ? "yes" : ""}" onclick="dscHave('${k}')" title="${c.have ? "La tengo" : "No la tengo"}" aria-label="${c.have ? "La tengo" : "No la tengo"}" aria-pressed="${!!c.have}">${ico(c.have ? "check" : "plus")}</button>${dsc.section === "por-conseguir" && !c.have ? `<button class="havebtn" onclick="dlAdd('${k}')" title="Descargar de Phono" aria-label="Descargar de Phono">${ico("download")}</button>` : ""}</div>` : "";
+  return `<article class="tile"><div class="tbox"><div class="tmedia"><button onclick="dscOpen('${k}')" aria-label="${esc(c.title)}">${img}</button>${c.have ? `<span class="own" title="La tengo">${ico("check")}</span>` : ""}</div>${acts}</div>
+    <h3 class="tt">${esc(c.title)}</h3><p class="ts">${esc(sub)}</p>${dsc.section === "para-ti" && c.because && c.because.length ? `<p class="tw">${esc(becauseText(c))}</p>` : ""}</article>`;
+}
 async function dscMark(k, change) {
   const c = dscFind(k);
   if (!c) return;

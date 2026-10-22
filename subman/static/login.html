@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Videotecario</title>
-<meta name="theme-color" content="#f6f1e8" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#14110e" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f2f3f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0c0f16" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Videotecario">
 <link rel="manifest" href="/manifest.webmanifest">
@@ -13,19 +13,19 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wdth,wght@75..100,400..700&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#f6f1e8;--card:#fffcf6;--line:#e2d8c8;--text:#1f1a14;--muted:#6a5f52;--accent:#a65d0c;--accent-ink:#fff;--bad:#b4402f;
+:root{--bg:#f2f3f6;--card:#fff;--line:#dde1e9;--text:#11141b;--muted:#5d6577;--accent:#2b3a7a;--accent-ink:#fff;--bad:#b4402f;
   --shadow:0 2px 6px rgb(40 25 10/.08),0 24px 60px -20px rgb(40 25 10/.3);--ease-out:cubic-bezier(0.23,1,0.32,1);color-scheme:light}
-@media (prefers-color-scheme:dark){:root{--bg:#14110e;--card:#1c1814;--line:#332c24;--text:#f3ece1;--muted:#a89d8e;--accent:#eaa648;--accent-ink:#1b1206;--bad:#f08070;
+@media (prefers-color-scheme:dark){:root{--bg:#0c0f16;--card:#151a24;--line:#283043;--text:#edf0f6;--muted:#8f98ab;--accent:#e8d6a4;--accent-ink:#17140b;--bad:#f08070;
   --shadow:0 2px 8px rgb(0 0 0/.4),0 30px 80px -20px rgb(0 0 0/.75);color-scheme:dark}}
 *{box-sizing:border-box}
-body{margin:0;min-height:100dvh;display:grid;place-items:center;background:var(--bg);color:var(--text);font:15px/1.5 "Geist",ui-sans-serif,system-ui,sans-serif;
+body{margin:0;min-height:100dvh;display:grid;place-items:center;background:var(--bg);color:var(--text);font:15px/1.5 "Instrument Sans",ui-sans-serif,system-ui,sans-serif;
   -webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;padding:24px max(18px,env(safe-area-inset-left)) calc(24px + env(safe-area-inset-bottom))}
 form{width:min(380px,100%);background:var(--card);border:1px solid var(--line);border-radius:22px;padding:32px 28px;box-shadow:var(--shadow);animation:in .35s var(--ease-out)}
 @keyframes in{from{opacity:0;transform:translateY(10px)}}
 img{width:56px;height:56px;border-radius:14px;display:block}
-h1{font:600 30px/1.1 "Fraunces",ui-serif,Georgia,serif;letter-spacing:-.02em;margin:18px 0 4px}
+h1{font:700 semi-condensed 30px/1.1 "Instrument Sans",ui-sans-serif,system-ui,sans-serif;letter-spacing:-.02em;margin:18px 0 4px}
 p{color:var(--muted);margin:0 0 22px}
 label{display:block;font-weight:600;font-size:14px;margin:14px 0 6px}
 input{width:100%;font:inherit;font-size:16px;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--text);transition:border-color .16s,box-shadow .16s}

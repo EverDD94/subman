@@ -88,6 +88,12 @@ nav #moreBtn{display:none}
 .tool .dot{position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--bg)}
 .tool.spin svg.i{animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+/* barra de la actualización: a lo ancho, justo debajo del menú */
+#updBar{position:absolute;left:0;right:0;top:100%;pointer-events:none}
+#updBar .track{height:4px;background:var(--accent-soft)}
+#updBar .track i{display:block;height:100%;width:0;background:var(--accent);border-radius:0 2px 2px 0;transition:width .6s linear}
+#updBar .txt{display:block;width:max-content;max-width:calc(100% - 28px);margin:6px auto 0;padding:4px 12px;border-radius:999px;font-size:13px;
+  background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow-lg);font-variant-numeric:tabular-nums}
 .pop{position:fixed;z-index:40;top:calc(var(--head,64px) + 6px);right:max(14px,env(safe-area-inset-right));width:min(400px,calc(100vw - 28px));max-height:min(70vh,560px);overflow:auto;
   background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-lg);padding:16px 18px;transform-origin:top right;animation:pop .18s var(--ease-out)}
 @keyframes pop{from{opacity:0;transform:translateY(-4px) scale(.97)}}
@@ -410,6 +416,7 @@ dialog.sheet .foot{display:none}
     <button id="themeBtn" class="tool" type="button" title="Cambiar entre claro y oscuro" aria-label="Claro u oscuro"></button>
   </div>
   <div id="newsPop" class="pop" hidden role="dialog" aria-label="Novedades"></div>
+  <div id="updBar" hidden role="progressbar" aria-label="Actualización" aria-valuemin="0" aria-valuemax="100"><div class="track"><i></i></div><span class="txt"></span></div>
 </header>
 <main>
 
@@ -1001,29 +1008,62 @@ async function loadUpdate() {
   $("#updNow").disabled = !upd.watchtower || upd.running;
   $("#updState").innerHTML = !upd.watchtower
     ? `<span class="pill revisar">falta Watchtower</span> Para que se actualice sola hay que añadir una vez el bloque «subman-actualizar» al proyecto en Container Manager (ver INSTALAR.md).`
-    : upd.running ? `<b>Buscando versión nueva...</b> <span class="muted">si la hay, la página se recarga sola cuando vuelva.</span>`
+    : upd.running ? `<b>${upd.phase === "descargando" ? "Descargando versión nueva..." : "Buscando versión nueva..."}</b> <span class="muted">la barra de arriba dice cuánto falta; la página se recarga sola cuando vuelva.</span>`
     : upd.message ? `<span class="muted">${esc(upd.message)}${upd.asked ? " · " + when(upd.asked) : ""}</span>` : "";
 }
 async function updSave(body) { try { await api("/api/update/settings", body); toast("Guardado"); } catch (e) { toast(e.message); } loadUpdate(); }
 $("#updAuto").onchange = e => updSave({auto: e.target.checked});
 $("#updHour").onchange = e => updSave({hour: +e.target.value});
-async function startUpdate() {
-  const r = await api("/api/update/now", {}); if (r.ok === false) return toast(r.error);
-  const before = (upd || await api("/api/update")).build; loadUpdate(); clearInterval(updWatch);
-  $("#updBtn").classList.add("spin"); toast("Buscando versión nueva…");
-  const t0 = Date.now();
+// la barra de arriba: avanza con el tiempo que se calcula que tardará (bajar los MB nuevos + reiniciar)
+let updRun = null;
+function updAgo(sec) { sec = Math.max(0, sec); return sec < 55 ? `${Math.max(5, Math.round(sec / 5) * 5)} s` : `${Math.round(sec / 60)} min`; }
+function updDraw() {
+  const r = updRun, bar = $("#updBar");
+  if (!r) { bar.hidden = true; return; }
+  let p, txt;
+  if (r.done) { p = 1; txt = "Actualizado. Recargando…"; }
+  else if (!r.eta) { p = .03; txt = "Buscando versión nueva…"; }
+  else {
+    const el = (Date.now() - r.t0) / 1000, f = el / r.eta, rest = r.eta - el;
+    p = f <= 1 ? .95 * f : .95 + .04 * (1 - Math.exp(-(f - 1) * 2));  // si tarda más de lo previsto, sigue moviéndose sin llegar al final
+    txt = (r.down ? "Reiniciando Videotecario" : "Descargando versión nueva" + (r.bytes ? ` (${Math.max(1, Math.round(r.bytes / 1e6))} MB)` : ""))
+      + (rest > 0 ? ` · faltan unos ${updAgo(rest)}` : " · tarda un poco más de lo previsto…");
+  }
+  bar.hidden = false;
+  bar.querySelector("i").style.width = (p * 100).toFixed(1) + "%";
+  bar.querySelector(".txt").textContent = txt;
+  bar.setAttribute("aria-valuenow", Math.round(p * 100));
+}
+function updStop(msg) {
+  clearInterval(updWatch); clearInterval(updRun && updRun.tick); updRun = null; updDraw();
+  $("#updBtn").classList.remove("spin");
+  if (msg) toast(msg);
+  if (tab === "ajustes") loadUpdate();
+}
+function watchUpdate(before) {
+  clearInterval(updWatch); if (updRun) clearInterval(updRun.tick);
+  updRun = {t0: Date.now(), eta: null, bytes: null, down: false, done: false, started: Date.now(), tick: setInterval(updDraw, 500)};
+  $("#updBtn").classList.add("spin"); updDraw();
   updWatch = setInterval(async () => {  // mientras se reinicia la página no contesta; luego trae otra versión
+    const r = updRun; if (!r) return;
     try {
       const u = await api("/api/update");
-      if (u.build !== before) { clearInterval(updWatch); toast("Actualizado"); setTimeout(() => location.reload(), 1200); return; }
-      if (!u.running || Date.now() - t0 > 600000) {
-        clearInterval(updWatch); $("#updBtn").classList.remove("spin");
-        if (u.message) toast(u.message);
-        if (tab === "ajustes") loadUpdate();
+      if (u.build !== before || (r.down && !u.running)) {  // ya volvió: la versión nueva
+        clearInterval(updWatch); r.done = true; updDraw(); setTimeout(() => location.reload(), 1500); return;
       }
-    } catch (e) {}
-  }, 4000);
+      if (u.eta) { r.eta = u.eta; r.bytes = u.bytes; r.t0 = Date.now() - (u.elapsed || 0) * 1000; }
+      if (u.phase === "reiniciando" || (!u.running && u.message === "reiniciando")) r.down = true;
+      else if (!u.running) return updStop(u.message);
+    } catch (e) { if (r.eta) r.down = true; }  // no contesta: se está reiniciando
+    if (Date.now() - r.started > 20 * 60000) updStop("La actualización está tardando mucho; mira Container Manager en el NAS.");
+  }, 2000);
 }
+async function startUpdate() {
+  const r = await api("/api/update/now", {}); if (r.ok === false) return toast(r.error);
+  const before = (upd || await api("/api/update")).build; loadUpdate();
+  watchUpdate(before);
+}
+api("/api/update").then(u => { upd = upd || u; if (u.running) watchUpdate(u.build); }).catch(() => {});  // ya iba (p.ej. desde otra pestaña)
 $("#updNow").onclick = startUpdate;
 
 // ---------- Arriba a la derecha: actualizar, novedades, claro/oscuro ----------

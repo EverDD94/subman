@@ -351,12 +351,10 @@ dialog .x:active{transform:scale(.92)}
 body:has(#descubrir.peekon:not([hidden])) #dscGlow{opacity:1}
 body:has(#descubrir.peekon:not([hidden])) > main{position:relative;z-index:1}
 body:has(#descubrir.peekon:not([hidden])) > header{background:color-mix(in srgb,var(--bg) 55%,transparent)}
-#dscGlow i{position:absolute;inset:-10%;background:center/cover no-repeat;filter:blur(90px) saturate(1.7);opacity:0;transition:opacity .9s var(--ease-out)}
+#dscGlow i{position:absolute;left:37.5%;top:37.5%;width:25%;height:25%;transform:scale(5.2);background:center/cover no-repeat;filter:blur(18px) saturate(2.2) brightness(1.05);opacity:0;transition:opacity .9s var(--ease-out)}
 #dscGlow i.on{opacity:1}
 #dscGlow::after{content:"";position:absolute;inset:0;
-  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.25'/%3E%3C/svg%3E"),
-    linear-gradient(90deg,color-mix(in srgb,var(--bg) 72%,transparent),color-mix(in srgb,var(--bg) 50%,transparent) 55%,color-mix(in srgb,var(--bg) 22%,transparent));
-  background-blend-mode:soft-light,normal}
+  background:linear-gradient(90deg,color-mix(in srgb,var(--bg) 62%,transparent),color-mix(in srgb,var(--bg) 38%,transparent) 55%,color-mix(in srgb,var(--bg) 12%,transparent))}
 @media (prefers-reduced-motion:reduce){#dscGlow i{transition:none}}
 /* Estrenos: dos puertas enormes, películas y series */
 .esthelp{margin:-6px 0 18px;font-size:17px;max-width:60ch}

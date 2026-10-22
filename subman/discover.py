@@ -652,6 +652,24 @@ class Discover:
                     pass
         return self._decorate(cards, self.owned_index(), marks)
 
+    def releases_summary(self) -> dict:
+        """Para la portada de Estrenos: cuántos hay este año, cuántos llevas contestados, y los pósters de los más vistos."""
+        today = date.today()
+        since = (today - timedelta(days=365)).isoformat()
+        marks = self.marks()
+        out = {}
+        for kind in KINDS:
+            field = "primary_release_date" if kind == "movie" else "first_air_date"
+            res = self.api._get(f"/discover/{kind}", page=1, sort_by="popularity.desc", include_adult="false",
+                                **{f"{field}.gte": since, f"{field}.lte": today.isoformat(), "vote_count.gte": 5})
+            top = [card(kind, d, self.genres()) for d in res.get("results", []) if d.get("id") and d.get("poster_path")]
+            done = sum(1 for (k, _), m in marks.items() if k == kind and m["rating"] is not None
+                       and (m["info"].get("date") or "") >= since)
+            total = int(res.get("total_results") or 0)
+            out[kind] = {"total": total, "done": done, "left": max(total - done, 0),
+                         "posters": [c["poster"] for c in top[:5]], "top": [c["title"] for c in top[:3]]}
+        return out
+
     def stats(self) -> dict:
         rows = self.db.execute("SELECT rating, COUNT(*) n FROM discover WHERE rating IS NOT NULL GROUP BY rating")
         return {str(r["rating"]): r["n"] for r in rows}

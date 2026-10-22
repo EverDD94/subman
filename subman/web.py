@@ -1842,6 +1842,7 @@ def make_handler(app: App):
         "/api/discover/popular-people": lambda q: app._dsc(lambda d: {"people": d.popular_people(int(q.get("page", ["1"])[0]))}),
         "/api/discover/deck": lambda q: app._dsc(lambda d: {"items": d.deck()}),
         "/api/downloads": lambda q: app.downloads_state(),
+        "/api/discover/releases/summary": lambda q: app._dsc(lambda d: {"summary": d.releases_summary()}),
         "/api/discover/releases": lambda q: app._dsc(lambda d: {"items": d.releases(q.get("kind", ["movie"])[0], int(q.get("page", ["1"])[0]))}),
     }
     routes_post = {

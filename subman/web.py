@@ -12,6 +12,7 @@ import json
 import logging
 import logging.handlers
 import os
+import re
 import shutil
 import threading
 import time
@@ -20,13 +21,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, auth, autoid, config, convert, diagnose, discover, duplicates, formats, gemini, identify, jellyfin, manager, peek, providers, series, tmdb, updater
+from . import __version__, auth, autoid, config, convert, diagnose, discover, downloads, duplicates, formats, gemini, identify, jellyfin, manager, peek, phono, providers, series, tmdb, updater
 from .library import Library
 
 log = logging.getLogger(__name__)
 STATIC = Path(__file__).parent / "static"
 MEDIA_ROOT = os.environ.get("SUBMAN_MEDIA_ROOT", "/media")
-SECRET_FIELDS = ("api_key", "password")
+SECRET_FIELDS = ("api_key", "password", "api_hash")
 # lo que se sirve sin haber entrado (la pantalla de entrada necesita el icono)
 PUBLIC = {"/manifest.webmanifest": ("manifest.webmanifest", "application/manifest+json"),
           "/icon.svg": ("icon.svg", "image/svg+xml"),
@@ -64,6 +65,11 @@ class App:
         self.conv = {"current": "", "what": "", "progress": 0.0, "message": "apagado", "started": None,
                      "done": 0, "stop": False}
         self.conv_wake = threading.Event()
+        self.dl = {"message": "apagado", "current": None, "what": "", "done": 0, "total": 0, "last": 0.0, "stop": None}
+        self.dl_wake = threading.Event()
+        self.tg = None          # telegram.Telegram (se crea al poner el API ID y el API hash)
+        self.tg_key = None
+        self.tg_lock = threading.Lock()
         self.logs = LogBuffer()
         logging.getLogger().addHandler(self.logs)
         try:  # registro también en /config/subman.log (sobrevive a reinicios)
@@ -153,7 +159,7 @@ class App:
         cfg = self.cfg()
         pub = json.loads(json.dumps(cfg))
         for prov in [*pub.get("providers", {}).values(), pub.get("jellyfin", {}), pub.get("tmdb", {}),
-                     pub.get("gemini", {})]:
+                     pub.get("gemini", {}), pub.get("telegram", {})]:
             for f in SECRET_FIELDS:
                 if f in prov:
                     prov[f] = MASK if prov.get(f) else ""
@@ -1270,6 +1276,299 @@ class App:
                     pass
         return {"ok": not errors, "done": n, "freed": freed, "error": "; ".join(errors)}
 
+    # --- Descargas (Phono por Telegram) -------------------------------------------------
+    @property
+    def tg_session(self) -> Path:
+        return Path(self.config_path).parent / "telegram.session"
+
+    def _telegram(self, cfg: dict | None = None):
+        """El cliente de Telegram (o None si faltan el API ID y el hash)."""
+        t = (cfg or self.cfg()).get("telegram", {})
+        key = (str(t.get("api_id") or "").strip(), (t.get("api_hash") or "").strip())
+        if not all(key):
+            return None
+        with self.tg_lock:
+            if self.tg is None or self.tg_key != key:
+                from . import telegram
+                if self.tg is not None:
+                    self.tg.close()
+                self.tg = telegram.Telegram(self.tg_session, *key)
+                self.tg_key = key
+            return self.tg
+
+    def _tg_user(self, cfg: dict | None = None, fresh: bool = False) -> dict | None:
+        """Con quién está conectado Telegram (se recuerda un minuto: la página pregunta a menudo)."""
+        hit = getattr(self, "_tg_me", None)
+        if hit and not fresh and time.time() - hit[0] < 60:
+            return hit[1]
+        try:
+            tg = self._telegram(cfg)
+            user = tg.me() if tg else None
+        except Exception as e:
+            log.info("Telegram: %s", e)
+            user = None
+        self._tg_me = (time.time(), user)
+        return user
+
+    def downloads_state(self) -> dict:
+        cfg = self.cfg()
+        t = cfg.get("telegram", {})
+        rows = downloads.Downloads(self.library(cfg), cfg).rows()
+        return {"rows": rows, "state": {k: v for k, v in self.dl.items() if k != "stop"},
+                "settings": cfg["downloads"], "telegram": {"api_id": str(t.get("api_id") or ""),
+                                                           "api_hash": MASK if t.get("api_hash") else "",
+                                                           "user": self._tg_user(cfg)}}
+
+    def downloads_settings(self, b: dict) -> dict:
+        with self.lock:
+            cfg = self.cfg()
+            d = cfg["downloads"]
+            for k in ("enabled", "auto"):
+                if k in b:
+                    d[k] = bool(b[k])
+            for k in ("movies_dir", "series_dir", "tmp_dir"):
+                if k in b:
+                    d[k] = (b[k] or "").strip()
+            for k, lo, hi in (("gap_minutes", 1, 1440), ("daily", 1, 200), ("min_free_gb", 0, 10000)):
+                if k in b:
+                    d[k] = max(lo, min(hi, int(b[k])))
+            if "audio" in b:
+                d["audio"] = [x for x in b["audio"] if x in phono.LANG] or ["es", "en"]
+            config.save(self.config_path, cfg)
+        self.dl_wake.set()
+        return {"ok": True, **self.downloads_state()}
+
+    def telegram_code(self, b: dict) -> dict:
+        api_id = re.sub(r"\D", "", str(b.get("api_id") or ""))
+        api_hash = (b.get("api_hash") or "").strip()
+        with self.lock:
+            cfg = self.cfg()
+            t = cfg.setdefault("telegram", {})
+            if api_hash == MASK:
+                api_hash = t.get("api_hash", "")
+            if not api_id or not api_hash:
+                return {"ok": False, "error": "faltan el API ID y el API hash (de my.telegram.org)"}
+            t.update(api_id=api_id, api_hash=api_hash)
+            config.save(self.config_path, cfg)
+        if not (b.get("phone") or "").strip():
+            return {"ok": False, "error": "falta tu número de teléfono, con el +34, +52…"}
+        try:
+            self._telegram(cfg).send_code(b["phone"])
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+        return {"ok": True}
+
+    def telegram_login(self, b: dict) -> dict:
+        try:
+            tg = self._telegram()
+            if not tg:
+                return {"ok": False, "error": "pide primero el código"}
+            res = tg.sign_in(b.get("code", ""), b.get("password", ""))
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+        if res == "password":
+            return {"ok": True, "password": True}
+        log.info("Telegram: conectado")
+        self.dl_wake.set()
+        return {"ok": True, "user": self._tg_user(fresh=True)}
+
+    def telegram_logout(self) -> dict:
+        try:
+            tg = self._telegram()
+            if tg:
+                tg.log_out()
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+        self._tg_user(fresh=True)
+        return {"ok": True}
+
+    def downloads_add(self, b: dict) -> dict:
+        cfg = self.cfg()
+        dl = downloads.Downloads(self.library(cfg), cfg)
+        if dl.has(b["kind"], int(b["tmdb"])):
+            return {"ok": False, "error": "ya está en Descargas"}
+        dl.add(b["kind"], int(b["tmdb"]), b.get("title") or "", b.get("year"), "manual")
+        self.dl_wake.set()
+        return {"ok": True}
+
+    def downloads_cancel(self, row_id: int) -> dict:
+        cfg = self.cfg()
+        dl = downloads.Downloads(self.library(cfg), cfg)
+        r = dl.get(row_id)
+        if not r:
+            return {"ok": False, "error": "no existe"}
+        if r["state"] == "listo":
+            dl.db.execute("DELETE FROM downloads WHERE id=?", (row_id,))  # quitarla de la lista
+            dl.db.commit()
+            return {"ok": True}
+        if self.dl["current"] == row_id:
+            self.dl["stop"] = row_id
+        dl.set(row_id, state="cancelado", detail="cancelada")
+        return {"ok": True}
+
+    def downloads_retry(self, row_id: int) -> dict:
+        cfg = self.cfg()
+        downloads.Downloads(self.library(cfg), cfg).set(row_id, state="cola", detail="", retry=None)
+        self.dl_wake.set()
+        return {"ok": True}
+
+    def downloader(self) -> None:
+        """Hilo: de uno en uno, con una pausa entre pedido y pedido y un máximo al día."""
+        cleaned = False
+        while True:
+            wait = 600
+            try:
+                wait = self._dl_tick(cleaned)
+                cleaned = True
+            except Exception as e:
+                log.exception("descargas")
+                self.dl.update(message=f"error: {e}")
+            self.dl_wake.wait(wait)
+            self.dl_wake.clear()
+
+    def _dl_tick(self, cleaned: bool) -> float:
+        cfg = self.cfg()
+        d = cfg["downloads"]
+        if not d["enabled"]:
+            self.dl.update(message="apagado")
+            return 3600
+        why = ("conecta tu Telegram" if not self._tg_user(cfg) else
+               "falta la clave de TheMovieDB" if not cfg.get("tmdb", {}).get("api_key") else
+               "elige las carpetas de películas y de series" if not (d["movies_dir"] and d["series_dir"]) else "")
+        if why:
+            self.dl.update(message=why)
+            return 600
+        dl = downloads.Downloads(self.library(cfg), cfg)
+        if not cleaned:
+            downloads.cleanup(Path(d["tmp_dir"]))
+            for r in dl.rows():  # se reinició a medias: vuelve a la cola
+                if r["state"] in downloads.ACTIVE:
+                    dl.set(r["id"], state="cola", detail="")
+        if d["auto"]:
+            self._dl_enqueue(cfg, dl)
+        row = dl.next()
+        if not row:
+            self.dl.update(message="nada pendiente")
+            return 600
+        left = self.dl["last"] + d["gap_minutes"] * 60 - time.time()
+        if left > 0:
+            self.dl.update(message=f"siguiente pedido en {int(left // 60) + 1} min")
+            return left
+        if dl.today() >= d["daily"]:
+            self.dl.update(message=f"ya van {d['daily']} pedidos hoy; sigue mañana")
+            return 1800
+        if downloads.free_gb(d["tmp_dir"]) < d["min_free_gb"]:
+            self.dl.update(message=f"queda poco espacio (menos de {d['min_free_gb']} GB)")
+            return 1800
+        self._dl_one(cfg, dl, row)
+        return 5
+
+    def _dl_enqueue(self, cfg: dict, dl) -> None:
+        wanted = [w for w in dl.wanted() if not dl.has(w["kind"], w["tmdb"])]
+        if not wanted:
+            return
+        dsc = discover.Discover(self.library(cfg), cfg)
+        idx = dsc.owned_index()
+        for w in wanted:
+            if not dsc.in_library(w, idx):
+                dl.add(w["kind"], w["tmdb"], w["title"], w["year"], "auto")
+                log.info("descargas: %s en la cola", w["title"])
+
+    def _dl_one(self, cfg: dict, dl, row: dict) -> None:
+        d = cfg["downloads"]
+        rid = row["id"]
+        self.dl.update(current=rid, what=row["title"], done=0, total=0, stop=None, message=f"{row['title']}: buscando en Phono")
+        try:
+            dl.set(rid, state="buscando", detail="buscando en Phono")
+            api = phono.Phono()
+            db = tmdb.TMDb(cfg["tmdb"]["api_key"], cfg["tmdb"].get("language") or "es-MX")
+            card = dl.find(row, api, db)
+            if not card:
+                dl.set(rid, state="no-esta", detail="Phono aún no la tiene; se vuelve a mirar mañana",
+                       retry=time.time() + downloads.RETRY_MISSING)
+                return
+            cid = card["content_id"]
+            if row["kind"] == "movie":
+                f = phono.pick(api.files(cid), d["audio"])
+                link = phono.bot_link(f["download_url"]) if f else None
+                if not link:
+                    dl.set(rid, state="no-esta", detail="Phono no tiene una versión en español ni en inglés",
+                           retry=time.time() + downloads.RETRY_MISSING)
+                    return
+                dl.set(rid, file=f["file_name"], size=f.get("file_size_bytes"))
+                what = f["file_name"]
+            else:
+                seasons = phono.seasons(api.buttons(cid))
+                if not seasons:
+                    dl.set(rid, state="no-esta", detail="Phono no tiene temporadas para descargar",
+                           retry=time.time() + downloads.RETRY_MISSING)
+                    return
+                if row["season"] is None:  # una fila por temporada
+                    first, *rest = sorted(seasons)
+                    for n in rest:
+                        dl.add("tv", row["tmdb"], row["title"], row["year"], row["how"], season=n)
+                    dl.set(rid, season=first)
+                    row["season"] = first
+                s = seasons.get(row["season"])
+                if not s:
+                    dl.set(rid, state="no-esta", detail=f"Phono no tiene la temporada {row['season']}",
+                           retry=time.time() + downloads.RETRY_MISSING)
+                    return
+                link = (s["bot"], s["code"])
+                what = f"temporada {row['season']}"
+                dl.set(rid, file=s["text"])
+            dl.set(rid, state="pidiendo", detail=f"pidiendo {what} al bot")
+            self.dl.update(message=f"{row['title']}: pidiendo al bot", last=time.time())
+            tmp = Path(d["tmp_dir"]) / str(rid)
+
+            def note(**kw):  # el cliente de Telegram llama desde su hilo: conexión a la base aparte
+                downloads.Downloads(self.library(cfg), cfg).set(rid, **kw)
+
+            started = set()
+
+            def progress(name, done, total):
+                self.dl.update(done=done, total=total, message=f"{row['title']}: {name}")
+                if total and name not in started:
+                    started.add(name)
+                    note(state="descargando", detail=f"descargando {name}", size=total)
+
+            def manual():
+                note(state="manual", detail="pulsa tú «Watch Ads» y «I have clicked ads» en el chat del bot")
+                self.dl.update(message=f"{row['title']}: esperando que pulses el anuncio en Telegram")
+
+            got = self._telegram(cfg).fetch(link[1], tmp, bot=link[0], progress=progress,
+                                            stop=lambda: self.dl["stop"] == rid, on_manual=manual)
+            if self.dl["stop"] == rid:
+                shutil.rmtree(tmp, ignore_errors=True)
+                return
+            placed = []
+            for path, _info in got:
+                final = downloads.place(path, dl.target(row, path, db))
+                downloads.extract_subs(final, cfg.get("languages") or ["es"])
+                placed.append(str(final))
+                log.info("descargas: %s -> %s", path.name, final)
+            for p in tmp.glob("*") if tmp.exists() else []:  # lo que no es video (avisos, fotos)
+                if p.is_file():
+                    p.unlink()
+            if tmp.exists():
+                tmp.rmdir()
+            if not placed:
+                raise ValueError("el bot no mandó ningún video")
+            dl.set(rid, state="listo", detail=f"{len(placed)} video(s) en la biblioteca", dest=json.dumps(placed, ensure_ascii=False))
+            self.dl.update(message=f"{row['title']}: lista", done=0, total=0)
+            dl.db.execute("UPDATE discover SET have=1 WHERE kind=? AND tmdb=? AND have=0", (row["kind"], row["tmdb"]))
+            dl.db.commit()
+            self.wake.set()  # que busque y compruebe los subtítulos ya
+            self._jellyfin_refresh(cfg)
+        except Exception as e:
+            if self.dl["stop"] == rid:  # la cancelaste a medias
+                shutil.rmtree(Path(d["tmp_dir"]) / str(rid), ignore_errors=True)
+                return
+            log.exception("descargas: %s", row["title"])
+            dl.set(rid, state="error", detail=str(e)[:300], retry=time.time() + 6 * 3600)
+        finally:
+            self.dl.update(current=None, what="", stop=None)
+
     # --- Descubrir -------------------------------------------------------------------
     def _discover(self):
         cfg = self.cfg()
@@ -1331,6 +1630,7 @@ def make_handler(app: App):
         "/api/discover/people": lambda q: app._dsc(lambda d: {"people": d.people(q.get("q", [""])[0])}),
         "/api/discover/popular-people": lambda q: app._dsc(lambda d: {"people": d.popular_people(int(q.get("page", ["1"])[0]))}),
         "/api/discover/deck": lambda q: app._dsc(lambda d: {"items": d.deck()}),
+        "/api/downloads": lambda q: app.downloads_state(),
         "/api/discover/releases": lambda q: app._dsc(lambda d: {"items": d.releases(q.get("kind", ["movie"])[0], int(q.get("page", ["1"])[0]))}),
     }
     routes_post = {
@@ -1372,6 +1672,13 @@ def make_handler(app: App):
         "/api/test-tmdb": lambda b: app.test_tmdb(b),
         "/api/test-gemini": lambda b: app.test_gemini(b),
         "/api/discover/mark": lambda b: app.discover_mark(b),
+        "/api/downloads/add": lambda b: app.downloads_add(b),
+        "/api/downloads/cancel": lambda b: app.downloads_cancel(int(b["id"])),
+        "/api/downloads/retry": lambda b: app.downloads_retry(int(b["id"])),
+        "/api/downloads/settings": lambda b: app.downloads_settings(b),
+        "/api/telegram/code": lambda b: app.telegram_code(b),
+        "/api/telegram/login": lambda b: app.telegram_login(b),
+        "/api/telegram/logout": lambda b: app.telegram_logout(),
         "/api/discover/taste": lambda b: app._dsc(lambda d: {"profile": d.save_profile(b)}),
         "/api/discover/taste/reset": lambda b: app._dsc(lambda d: (d.reset_profile(), {})[1]),
     }
@@ -1491,6 +1798,7 @@ def serve(config_path: str, port: int | None = None) -> None:
     threading.Thread(target=app.converter, name="conversión", daemon=True).start()
     threading.Thread(target=app.automatic, name="automático", daemon=True).start()
     threading.Thread(target=app.updates, name="actualizaciones", daemon=True).start()
+    threading.Thread(target=app.downloader, name="descargas", daemon=True).start()
     httpd = ThreadingHTTPServer(("0.0.0.0", port), make_handler(app))
     log.info("Videotecario en http://<ip-del-nas>:%d%s", port,
              " (pide usuario y contraseña)" if auth.enabled(cfg) else "")

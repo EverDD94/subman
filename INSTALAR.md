@@ -129,6 +129,25 @@ con **Devolver**, y cuando las hayas revisado las borras tú desde File Station.
 Si tienes Jellyfin puesto en Ajustes, lo usa para reconocer la película aunque el nombre
 del archivo sea raro.
 
+## Descargar de Phono lo que agregas a tu lista
+
+En **Ajustes › Descargas de Phono**:
+
+1. Entra en **my.telegram.org** con tu número, pulsa *API development tools*, rellena
+   «App title» (por ejemplo *Videotecario*) y «Short name», y copia el **api_id** y el **api_hash**.
+2. Pégalos en Videotecario con tu número de Telegram, pulsa **Mandarme el código** y escribe el
+   código que te llega a Telegram (y tu contraseña de verificación en dos pasos, si la tienes).
+3. Pon las carpetas de películas y de series (las mismas que ve Jellyfin) y activa las descargas.
+
+Desde entonces, lo que agregas a tu lista en **Descubrir** («Agregar a mi lista» o «No la tengo»)
+se busca en phono.cc por su número de TheMovieDB, se elige el archivo (audio en español si lo hay,
+si no en inglés; 1080p) y se le pide al bot. **El anuncio lo pulsas tú**: abre el chat del bot en
+tu Telegram y pulsa «Watch Ads» y después «I have clicked ads». En cuanto el bot manda el archivo,
+Videotecario lo baja, lo deja en `Película (Año) [tmdbid-N]/` o `Serie (Año) [tmdbid-N]/Season 01/`,
+saca los subtítulos en español que traiga dentro y le busca subtítulos como siempre.
+Las series se piden por temporadas (Phono sólo tiene un botón por temporada). En **Descubrir ›
+Descargas** ves en qué va cada una. Va de una en una, con una pausa entre pedidos y un máximo al día.
+
 ## Otros detalles
 
 - Empieza por lo más reciente (lo que acaba de bajar Sonarr) y sigue hacia atrás.

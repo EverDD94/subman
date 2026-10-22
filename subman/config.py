@@ -35,7 +35,12 @@ DEFAULTS: dict = {
     # convertir videos al formato que Jellyfin reproduce directo (pestaña «Formatos»)
     "convert": {"enabled": False, "groups": ["caja", "sonido", "video"], "allow_hevc": True,
                 "night_only": False, "night_start": 1, "night_end": 8,
-                "originals_dir": "/media/Originales", "min_free_gb": 50},                     # IA gratis para las películas difíciles  # opcional: avisar a Jellyfin para que vea los subtítulos nuevos
+                "originals_dir": "/media/Originales", "min_free_gb": 50},
+    # descargar de Phono (por Telegram) lo que pones en «Por conseguir» (pestaña Descubrir)
+    "telegram": {"api_id": "", "api_hash": ""},
+    "downloads": {"enabled": False, "auto": True, "movies_dir": "", "series_dir": "",
+                  "tmp_dir": "/media/Descargando", "gap_minutes": 2, "daily": 20, "audio": ["es", "en"],
+                  "min_free_gb": 20},                     # IA gratis para las películas difíciles  # opcional: avisar a Jellyfin para que vea los subtítulos nuevos
 }
 
 HEADER = """# Configuración de Videotecario (antes subman). Se puede editar a mano o desde la web (puerto 8787).
@@ -100,8 +105,9 @@ def save(path: str | Path, cfg: dict) -> None:
 
 
 def excluded(cfg: dict) -> list[str]:
-    """Carpetas que no son biblioteca aunque estén dentro: duplicados apartados y originales convertidos."""
-    return [d for d in (cfg.get("duplicates_dir"), cfg.get("discard_dir"), cfg.get("convert", {}).get("originals_dir")) if d]
+    """Carpetas que no son biblioteca aunque estén dentro: duplicados apartados, originales convertidos y descargas a medias."""
+    return [d for d in (cfg.get("duplicates_dir"), cfg.get("discard_dir"), cfg.get("convert", {}).get("originals_dir"),
+                        cfg.get("downloads", {}).get("tmp_dir")) if d]
 
 
 def problems(cfg: dict) -> list[str]:

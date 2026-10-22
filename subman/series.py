@@ -19,6 +19,7 @@ import sqlite3
 import time
 from pathlib import Path
 
+from . import peek
 from .duplicates import normalize
 from .identify import BUSY, _companions, _repath, folder_name, safe_name, similarity
 from .library import VIDEO_EXT, Library, _clean, _YEAR, episode_numbers, season_dir
@@ -58,8 +59,10 @@ def _read(path: Path, roots: list[str]) -> dict | None:
     m = _MORE.match(path.stem[end:])
     last = int(m.group(1)) if m and episode < int(m.group(1)) <= episode + 3 else None
     y = None if loose else _YEAR.search(series_dir.name + " ")
+    fy = _YEAR.search(" " + path.stem[:start])  # «Dark.Matter.2024.S01E01»: el año sólo está en el archivo
     tag = None if loose else _TAG.search(series_dir.name)
-    return {"title": title, "year": int(y.group(1)) if y else None, "season": season, "episode": episode,
+    return {"title": title, "year": int(y.group(1)) if y else None, "file_year": int(fy.group(1)) if fy else None,
+            "season": season, "episode": episode,
             "last": last, "series_dir": str(series_dir), "loose": loose, "tmdb": tag.group(1) if tag else None}
 
 
@@ -84,8 +87,9 @@ def _fit(show: dict, eps: list[dict]) -> float:
     return ok / len(eps)
 
 
-def find_show(db: TMDb, title: str, year: int | None, eps: list[dict]) -> tuple[list[dict], str | None]:
-    """Opciones de TheMovieDB, la mejor primero, y por qué hay duda (None si está clara)."""
+def find_show(db: TMDb, title: str, year: int | None, eps: list[dict], soft: bool = False) -> tuple[list[dict], str | None]:
+    """Opciones de TheMovieDB, la mejor primero, y por qué hay duda (None si está clara).
+    soft: el año sale del nombre de los archivos (ayuda si coincide, pero no resta si no)."""
     ids: list[int] = []
     bare = _NOISE.sub(" ", title).strip()  # «Daredevil Serie», «Friends Serie Completa» → «Daredevil», «Friends»
     for q, y in ((title, year), (title, None), (bare, year), (bare, None),
@@ -103,7 +107,7 @@ def find_show(db: TMDb, title: str, year: int | None, eps: list[dict]) -> tuple[
             log.warning("TheMovieDB: serie %s: %s", i, e)
             continue
         sim = max(similarity(t, n) for t in {title, bare} if t for n in (s["name"], s["original"] or ""))
-        score = sim + (0 if not (year and s["year"]) else 0.3 if abs(year - s["year"]) <= 1 else -0.3)
+        score = sim + (0 if not (year and s["year"]) else 0.3 if abs(year - s["year"]) <= 1 else 0 if soft else -0.3)
         fit = _fit(s, eps)
         opts.append({**s, "sim": round(sim, 3), "fit": round(fit, 3), "score": round(score + 0.5 * fit, 3)})
     opts.sort(key=lambda o: o["score"], reverse=True)
@@ -115,9 +119,76 @@ def find_show(db: TMDb, title: str, year: int | None, eps: list[dict]) -> tuple[
     if best["fit"] < 0.5:  # uno suelto que no existe se marca en su fila; si fallan muchos, quizá es otra serie
         return opts, "TheMovieDB no tiene muchos de estos capítulos"
     rivals = [o for o in opts[1:] if o["sim"] >= SURE and o["fit"] >= 0.5 and o["score"] > best["score"] - 0.15]
-    if rivals and not year:
+    if rivals and not (year and best["year"] and abs(year - best["year"]) <= 1):
         return opts, "hay varias series que se llaman así"
     return opts, None
+
+
+def _minutes(g: dict) -> float | None:
+    """Lo que duran los capítulos de verdad (mediana de unos pocos)."""
+    if "minutes" not in g:
+        mins = sorted(m for m in (peek.info(e["path"])["minutes"] for e in g["episodes"][:3]) if m)
+        g["minutes"] = mins[len(mins) // 2] if mins else None
+    return g["minutes"]
+
+
+def _inner(title: str | None) -> str:
+    """El nombre de la serie en el título guardado dentro del video («Dark Matter S01E01 - ...» → «Dark Matter»)."""
+    if not title:
+        return ""
+    return _clean(re.split(r"[ ._-]+(?:S\d{1,2}E\d|\d{1,2}x\d)", title, maxsplit=1, flags=re.I)[0])
+
+
+def settle(db: TMDb, g: dict, opts: list[dict], why: str, ai=None, frames: Path | None = None,
+           memo: dict | None = None) -> tuple[list[dict], str | None, str | None]:
+    """Cuando hay duda, intenta decidir solo, de lo más barato a lo más caro: duración de los capítulos,
+    título guardado dentro del video y, como último recurso, la IA mirando el principio de un capítulo.
+    -> (opciones con la elegida primero, por qué sigue la duda o None, cómo se decidió)."""
+    cands = [o for o in opts if o["fit"] >= 0.5 and o["sim"] >= 0.6]
+    if not cands:
+        return opts, why, None
+    first = lambda o: ([o] + [x for x in opts if x is not o], None)
+    minutes = _minutes(g)
+    season = max({e["season"] for e in g["episodes"]}, key=lambda s: sum(e["season"] == s for e in g["episodes"]))
+    for o in cands:
+        try:
+            o["runtime"] = db.runtime(int(o["tmdb"]), season) if season in (o.get("seasons") or {}) else None
+        except Exception as e:
+            log.warning("TheMovieDB: duración de %s: %s", o["name"], e)
+            o["runtime"] = None
+    if minutes:  # las que duran claramente otra cosa (un podcast, capítulos de 20 min...) fuera
+        near = lambda o: abs(o["runtime"] - minutes) <= max(6, 0.2 * o["runtime"])
+        cands = [o for o in cands if not o["runtime"] or near(o)] or cands
+        if len(cands) == 1 and cands[0]["runtime"] and cands[0]["sim"] >= SURE:
+            return (*first(cands[0]), "por la duración de los capítulos")
+    inner = _inner(peek.info(g["episodes"][0]["path"])["title"])
+    if inner:
+        hits = [o for o in cands if max(similarity(inner, o["name"]), similarity(inner, o["original"] or "")) >= SURE]
+        if len(hits) == 1:
+            return (*first(hits[0]), "por el título guardado en el video")
+    if not ai or frames is None or (memo or {}).get("_off"):
+        return opts, why, None
+    e = g["episodes"][0]
+    ck = f"{e['path']}|{','.join(sorted(o['tmdb'] for o in cands))}"
+    if memo is not None and ck in memo:
+        pick, sure = memo[ck]
+    else:
+        try:
+            stamp = int(os.stat(e["path"]).st_mtime)
+            imgs = [p.read_bytes() for p in peek.opening(e["path"], frames, minutes, f"{e['id']}_{stamp}")[:5]]
+            pick, sure = ai.show(imgs, Path(g["series_dir"]).name, e["name"], minutes, inner or None, cands) \
+                if imgs else (None, False)
+        except Exception as ex:  # sin cupo, sin conexión...: no se le vuelve a preguntar en esta pasada
+            log.warning("Gemini (series): %s", ex)
+            if memo is not None:
+                memo["_off"] = True
+            return opts, why, None
+        if memo is not None:
+            memo[ck] = [pick, sure]
+    o = next((o for o in cands if o["tmdb"] == pick), None)
+    if not o:
+        return opts, why, None
+    return [o] + [x for x in opts if x is not o], None if sure else why, "la IA, mirando el principio de un capítulo"
 
 
 def _plan_group(db: TMDb, g: dict, show: dict | None) -> dict:
@@ -168,9 +239,21 @@ def _targets(g: dict, show: dict) -> None:
     g["episodes"].sort(key=lambda e: (e["season"], e["episode"], e["name"]))
 
 
-def review(lib: Library, cfg: dict, progress=lambda msg: None, only: set | None = None) -> dict:
-    """Las series con capítulos que no tienen todavía el nombre correcto. only: sólo esos ids."""
+def review(lib: Library, cfg: dict, progress=lambda msg: None, only: set | None = None,
+           frames: Path | None = None) -> dict:
+    """Las series con capítulos que no tienen todavía el nombre correcto. only: sólo esos ids.
+    frames: carpeta de las fotos; con ella (y la clave de Gemini) la IA ayuda en las dudosas."""
     db = _db(cfg)
+    gkey = cfg.get("gemini", {}).get("api_key")
+    ai = None
+    if gkey:
+        from .gemini import Gemini
+        ai = Gemini(gkey)
+    memo_file = frames.parent / "series_ia.json" if frames else None
+    try:
+        memo = json.loads(memo_file.read_text()) if memo_file and memo_file.exists() else {}
+    except (OSError, ValueError):
+        memo = {}
     roots = list(cfg["library"])
     groups: dict[str, dict] = {}
     for m in lib.media("kind='episode'"):
@@ -184,7 +267,8 @@ def review(lib: Library, cfg: dict, progress=lambda msg: None, only: set | None 
             continue
         key = r["series_dir"] + ("|" + normalize(r["title"]) if r["loose"] else "")
         g = groups.setdefault(key, {"key": key, "title": r["title"], "year": r["year"], "series_dir": r["series_dir"],
-                                    "loose": r["loose"], "tmdb": r["tmdb"], "episodes": []})
+                                    "loose": r["loose"], "tmdb": r["tmdb"], "file_year": None, "episodes": []})
+        g["file_year"] = g["file_year"] or r["file_year"]
         g["episodes"].append({"id": m.id, "path": m.path, "name": p.name, "season": r["season"],
                               "episode": r["episode"], "last": r["last"]})
     out = []
@@ -196,15 +280,27 @@ def review(lib: Library, cfg: dict, progress=lambda msg: None, only: set | None 
                 show = db.tv(int(g["tmdb"]))
             except Exception as e:
                 log.warning("TheMovieDB: serie %s: %s", g["tmdb"], e)
+        how = None
         if not show:
-            opts, why = find_show(db, g["title"], g["year"], g["episodes"])
+            year, soft = (g["year"], False) if g["year"] else (g["file_year"], True)
+            opts, why = find_show(db, g["title"], year, g["episodes"], soft)
+            if why and opts:
+                progress(f"mirando series: {n + 1} de {len(groups)} ({g['title']}): buscando cuál es")
+                opts, why, how = settle(db, g, opts, why, ai, frames, memo)
             show = opts[0] if opts else None
-        g["why"] = why
+        g["why"], g["how"] = why, how
         g["options"] = [{k: o[k] for k in ("tmdb", "name", "year", "image")} for o in opts[:6]]
         _plan_group(db, g, show)
         if not all(e.get("same") for e in g["episodes"]):
             g["episodes"] = [e for e in g["episodes"] if not e.get("same")]
             out.append(g)
+    if memo_file:
+        memo.pop("_off", None)
+        try:
+            memo_file.parent.mkdir(parents=True, exist_ok=True)
+            memo_file.write_text(json.dumps(memo))
+        except OSError as e:
+            log.warning("no se pudo guardar %s: %s", memo_file, e)
     return {"series": out}
 
 
@@ -226,7 +322,7 @@ def pick(cfg: dict, g: dict, tmdb: str) -> dict:
     """La persona eligió la serie: se vuelve a calcular el grupo con ella (ya no hay duda de la serie)."""
     db = _db(cfg)
     show = db.tv(int(tmdb))
-    g["why"] = None
+    g["why"], g["how"] = None, None
     return _plan_group(db, g, show)
 
 

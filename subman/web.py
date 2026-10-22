@@ -1016,6 +1016,19 @@ class App:
             jpg = peek.frame(m[0].path, self.frames_dir, peek.info(m[0].path)["minutes"], key, n)
         return jpg.read_bytes() if jpg else None
 
+    def series_frame(self, media_id: int, n: int) -> bytes | None:
+        """Una foto del principio de un capítulo (para elegir la serie a ojo)."""
+        if not 0 <= n < len(peek.OPENING):
+            return None
+        m = self.library(self.cfg()).media("id=?", (media_id,))
+        if not m or not os.path.exists(m[0].path):
+            return None
+        key = f"{m[0].id}_{int(os.stat(m[0].path).st_mtime)}"
+        jpg = self.frames_dir / f"{key}_p{n}.jpg"
+        if not jpg.exists():
+            peek.opening(m[0].path, self.frames_dir, peek.info(m[0].path)["minutes"], key)
+        return jpg.read_bytes() if jpg.exists() and jpg.stat().st_size else None
+
     def names_stop(self) -> dict:
         self.names["stop"] = True
         return {"ok": True}
@@ -1140,7 +1153,7 @@ class App:
             if not self.state["running"] and cfg["library"] and only is None:
                 lib.scan(cfg["library"], exclude=config.excluded(cfg), progress=lambda n: self.series.update(
                     message=f"buscando videos: {n} encontrados"))
-            res = series.review(lib, cfg, lambda msg: self.series.update(message=msg), only)
+            res = series.review(lib, cfg, lambda msg: self.series.update(message=msg), only, self.frames_dir)
             if only is not None and self.series["result"]:  # se suman a la lista que ya había
                 keys = {g["key"] for g in res["series"]}
                 res = {"series": [g for g in self.series["result"]["series"] if g["key"] not in keys] + res["series"]}
@@ -1939,10 +1952,11 @@ def make_handler(app: App):
                 return self._static("login.html", "text/html; charset=utf-8")
             if u.path in routes_get:
                 return self._json(routes_get[u.path], parse_qs(u.query))
-            if u.path == "/api/names/frame":
+            if u.path in ("/api/names/frame", "/api/series/frame"):
                 q = parse_qs(u.query)
+                get = app.names_frame if u.path == "/api/names/frame" else app.series_frame
                 try:
-                    img = app.names_frame(int(q["id"][0]), int(q["n"][0]))
+                    img = get(int(q["id"][0]), int(q["n"][0]))
                 except (KeyError, ValueError):
                     img = None
                 if not img:

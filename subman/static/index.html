@@ -1824,10 +1824,14 @@ function srGroup(g, gi) {
   const show = g.show, opts = g.options || [];
   const head = show ? `${show.image ? `<img src="${esc(show.image)}" alt="" data-zoom style="width:46px;border-radius:6px;cursor:zoom-in" title="Ver en grande">` : ""}
       <div><b>${esc(show.name)}</b> ${show.year ? "(" + show.year + ")" : ""} <span class="muted">· TheMovieDB</span>
+        ${g.how ? `<span class="pill ok" title="Había varias parecidas; se eligió sola">elegida ${esc(g.how)}</span>` : ""}
         <div class="path">${esc(g.series_dir)}${g.dest_dir ? " → " + esc(g.dest_dir.split("/").pop()) : ""}</div></div>`
     : `<div><b>${esc(g.title)}</b><div class="path">${esc(g.series_dir)}</div></div>`;
   const pickBox = g.why || !show || g.change ? `<div style="margin-top:10px">${g.change && !g.why ? "" : `<span class="pill revisar">${esc(g.why || "no se sabe qué serie es")}</span>`}
       Elige la serie correcta${opts.length ? "" : " (escribe su nombre y pulsa Buscar)"}:
+      ${g.episodes.length ? `<div class="row" style="gap:6px;margin:8px 0">${[1, 2, 3, 4].map(n => `<img loading="lazy" alt=""
+        src="/api/series/frame?id=${g.episodes[0].id}&n=${n}" data-zoom style="height:84px;border-radius:6px;cursor:zoom-in"
+        onerror="this.remove()">`).join("")}</div>` : ""}
       <div class="opts">${opts.map((o, i) => `<div class="opt ${show && o.tmdb === show.tmdb ? "on" : ""}" data-sp="${gi}" data-t="${o.tmdb}">
         ${o.image ? `<img loading="lazy" src="${esc(o.image)}" alt="">` : `<div class="noimg"></div>`}<b>${esc(o.name)}</b> ${o.year ? "(" + o.year + ")" : ""}</div>`).join("")}</div>
       <div class="row"><input type="text" style="max-width:320px" placeholder="Otro nombre, p. ej. Shameless 2011" data-sq="${gi}">
@@ -1862,6 +1866,7 @@ function renderSeries() {
     card.querySelector("[data-sb]").hidden = closed;
     card.querySelector("[data-st]").textContent = closed ? "▸" : "▾";
   });
+  document.querySelectorAll("#srGroups [data-sb] [data-zoom]").forEach(i => i.onclick = () => zoomImg(i.src));
   document.querySelectorAll("#srGroups [data-sc]").forEach(b => b.onclick = () => {
     const g = list[+b.dataset.sc]; g.change = !g.change;
     srClosed.delete(g.key); renderSeries();

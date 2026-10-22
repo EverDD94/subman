@@ -327,15 +327,9 @@ dialog .x:active{transform:scale(.92)}
 }
 /* la ficha de la derecha: sin caja; la carátula grande y sus colores difuminados de fondo */
 .peek{position:relative;height:calc(100dvh - var(--head,64px) - 16px)}
-.pk-bg{position:absolute;z-index:0;top:-40px;bottom:-40px;left:-30%;right:calc(-1 * clamp(24px,3vw,56px));background:center/cover no-repeat;pointer-events:none;
-  filter:blur(70px) saturate(1.6);opacity:.6;transform:scale(1.1);transition:background-image .5s;
-  -webkit-mask-image:radial-gradient(farthest-side at 62% 40%,#000 30%,transparent);mask-image:radial-gradient(farthest-side at 62% 40%,#000 30%,transparent)}
-:root[data-theme="light"] .pk-bg{opacity:.38}
-@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .pk-bg{opacity:.38}}
 .pk-scroll{position:relative;z-index:1;height:100%;overflow:auto;overscroll-behavior:contain;scrollbar-width:none;padding:8px 4px 32px}
 .pk-scroll::-webkit-scrollbar{display:none}
 .peek .pk{animation:pkin .35s var(--ease-out)}
-.peek .pk-bg.pk{animation:pkfade .6s var(--ease-out)}
 @keyframes pkin{from{opacity:0;transform:translateY(10px)}}
 @keyframes pkfade{from{opacity:0}}
 .pk-top{display:flex;flex-direction:column;gap:22px}
@@ -351,6 +345,17 @@ dialog .x:active{transform:scale(.92)}
 .peek .pk-acts .btn.sec,.peek .rate button{background:color-mix(in srgb,var(--card) 55%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
 .pk-empty{color:var(--muted);margin:0}
 
+
+/* Descubrir: la carátula de la ficha, enorme y difuminada, de fondo de toda la pantalla */
+#dscGlow{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0;transition:opacity .6s var(--ease-out)}
+body:has(#descubrir.peekon:not([hidden])) #dscGlow{opacity:1}
+body:has(#descubrir.peekon:not([hidden])) > main{position:relative;z-index:1}
+body:has(#descubrir.peekon:not([hidden])) > header{background:color-mix(in srgb,var(--bg) 55%,transparent)}
+#dscGlow i{position:absolute;left:37.5%;top:37.5%;width:25%;height:25%;transform:scale(5.2);background:center/cover no-repeat;filter:blur(18px) saturate(2.2) brightness(1.05);opacity:0;transition:opacity .9s var(--ease-out)}
+#dscGlow i.on{opacity:1}
+#dscGlow::after{content:"";position:absolute;inset:0;
+  background:linear-gradient(90deg,color-mix(in srgb,var(--bg) 62%,transparent),color-mix(in srgb,var(--bg) 38%,transparent) 55%,color-mix(in srgb,var(--bg) 12%,transparent))}
+@media (prefers-reduced-motion:reduce){#dscGlow i{transition:none}}
 /* Estrenos: dos puertas enormes, películas y series */
 .esthelp{margin:-6px 0 18px;font-size:17px;max-width:60ch}
 .doors{display:flex;gap:18px;height:min(620px,68vh);min-height:460px}
@@ -650,6 +655,7 @@ dialog.sheet .foot{display:none}
 </style>
 </head>
 <body>
+<div id="dscGlow" aria-hidden="true"><i></i><i></i></div>
 <header>
   <div class="brand"><img src="/icon.svg" alt=""><h1>Videotecario</h1></div>
   <nav id="tabs">
@@ -2393,12 +2399,19 @@ function peekShow(k, now) {
     }, now ? 0 : 350);
   }
 }
+function glowTo(url) {  // fundido entre dos capas para que el fondo cambie suave
+  const [a, b] = document.querySelectorAll("#dscGlow i"), cur = a.classList.contains("on") ? a : b, nxt = cur === a ? b : a;
+  const css = url ? `url("${url.replace(/"/g, "%22")}")` : "none";
+  if (cur.style.backgroundImage === css) return;
+  nxt.style.backgroundImage = css; nxt.classList.add("on"); cur.classList.remove("on");
+}
 function renderPeek(anim) {
   const box = $("#dscPeek");
   $("#descubrir").classList.toggle("peekon", peekOn());
   if (!peekOn()) return;
   const c = dsc.peek && dscFind(dsc.peek);
   if (!c) { box.innerHTML = `<p class="pk-empty">Pasa el ratón por encima de un póster para ver aquí su ficha.</p>`; return; }
+  glowTo(c.poster);
   const k = c.kind + c.tmdb, facts = [];
   if (c.directors && c.directors.length) facts.push(["Dirección", c.directors.join(", ")]);
   if (c.creators && c.creators.length) facts.push(["Creada por", c.creators.join(", ")]);
@@ -2407,7 +2420,7 @@ function renderPeek(anim) {
   if (c.cast && c.cast.length) facts.push(["Reparto", c.cast.slice(0, 4).map(p => p.name).join(", ")]);
   const meta = [kindLabel(c), c.year, (c.genres || []).slice(0, 3).join(", ")].filter(Boolean).map(x => `<span>${esc(x)}</span>`).join("")
     + (c.vote ? `<span class="star">${ico("star", "fill")}${c.vote}</span>` : "");
-  box.innerHTML = `${c.poster ? `<div class="pk-bg ${anim ? "pk" : ""}" style="background-image:url('${esc(c.poster)}')"></div>` : ""}<div class="pk-scroll"><div class="${anim ? "pk" : ""}">
+  box.innerHTML = `<div class="pk-scroll"><div class="${anim ? "pk" : ""}">
     <div class="pk-top">${c.poster ? `<img src="${esc(c.poster)}" alt="">` : `<div class="noimg"></div>`}<div><h2 class="pk-t">${esc(c.title)}</h2><div class="meta">${meta}</div></div></div>
     ${c.because && c.because.length ? `<p class="pk-why">${esc(becauseText(c))}</p>` : ""}
     ${c.tagline ? `<p class="tagline">${esc(c.tagline)}</p>` : ""}

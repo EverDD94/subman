@@ -138,6 +138,11 @@ En **Ajustes › Descargas de Phono**:
 2. Pégalos en Videotecario con tu número de Telegram, pulsa **Mandarme el código** y escribe el
    código que te llega a Telegram (y tu contraseña de verificación en dos pasos, si la tienes).
 3. Pon las carpetas de películas y de series (las mismas que ve Jellyfin) y activa las descargas.
+4. Opcional, **bot de avisos** (para enterarte aunque tengas Telegram silenciado): en Telegram abre
+   **@BotFather**, escribe `/newbot`, ponle un nombre y un usuario que acabe en «bot», y copia el token.
+   Pégalo en *Bot de avisos* y pulsa **Conectar el bot**: te llega un mensaje de prueba. En ese chat,
+   toca el nombre del bot › *Notificaciones* y déjalas activadas. Cada aviso trae un botón que abre
+   el chat donde está el «Watch Ads».
 
 Desde entonces, lo que agregas a tu lista en **Descubrir** («Agregar a mi lista» o «No la tengo»)
 se busca en phono.cc por su número de TheMovieDB, se elige el archivo (audio en español si lo hay,

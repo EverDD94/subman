@@ -21,13 +21,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, auth, autoid, config, convert, diagnose, discover, downloads, duplicates, formats, gemini, identify, jellyfin, manager, peek, phono, providers, series, tmdb, updater
+from . import __version__, auth, autoid, config, convert, diagnose, discover, downloads, duplicates, formats, gemini, identify, jellyfin, manager, notify, peek, phono, providers, series, tmdb, updater
 from .library import Library
 
 log = logging.getLogger(__name__)
 STATIC = Path(__file__).parent / "static"
 MEDIA_ROOT = os.environ.get("SUBMAN_MEDIA_ROOT", "/media")
-SECRET_FIELDS = ("api_key", "password", "api_hash")
+SECRET_FIELDS = ("api_key", "password", "api_hash", "bot_token")
 # lo que se sirve sin haber entrado (la pantalla de entrada necesita el icono)
 PUBLIC = {"/manifest.webmanifest": ("manifest.webmanifest", "application/manifest+json"),
           "/icon.svg": ("icon.svg", "image/svg+xml"),
@@ -1317,7 +1317,8 @@ class App:
         return {"rows": rows, "state": {k: v for k, v in self.dl.items() if k != "stop"},
                 "settings": cfg["downloads"], "telegram": {"api_id": str(t.get("api_id") or ""),
                                                            "api_hash": MASK if t.get("api_hash") else "",
-                                                           "user": self._tg_user(cfg)}}
+                                                           "user": self._tg_user(cfg),
+                                                           "bot": t.get("bot_name") or ""}}
 
     def downloads_settings(self, b: dict) -> dict:
         with self.lock:
@@ -1381,6 +1382,53 @@ class App:
             return {"ok": False, "error": str(e)}
         self._tg_user(fresh=True)
         return {"ok": True}
+
+    def telegram_bot(self, b: dict) -> dict:
+        """Conecta (o quita, con el token vacío) tu bot de avisos y manda un mensaje de prueba."""
+        cfg = self.cfg()
+        token = (b.get("token") or "").strip()
+        if token == MASK:
+            token = cfg["telegram"].get("bot_token") or ""
+        if not token:
+            with self.lock:
+                cfg = self.cfg()
+                cfg["telegram"].update(bot_token="", bot_name="", chat_id="")
+                config.save(self.config_path, cfg)
+            return {"ok": True}
+        try:
+            name = notify.bot_name(token)
+        except Exception as e:
+            return {"ok": False, "error": f"ese token no vale: {e}"}
+        user = self._tg_user(cfg, fresh=True)
+        if not user:
+            return {"ok": False, "error": "conecta primero tu Telegram (arriba)"}
+        try:
+            self._telegram(cfg).say(name, "/start")  # para que el bot pueda escribirte
+            notify.send(token, user["id"], "✅ Listo: por aquí te avisaré cuando te toque pulsar el anuncio. "
+                        "Deja este chat con sonido.")
+        except Exception as e:
+            return {"ok": False, "error": f"no se pudo mandar el mensaje de prueba: {e}"}
+        with self.lock:
+            cfg = self.cfg()
+            cfg["telegram"].update(bot_token=token, bot_name=name, chat_id=str(user["id"]))
+            config.save(self.config_path, cfg)
+        return {"ok": True, "bot": name}
+
+    def _notify(self, cfg: dict, label: str, bot: str) -> bool:
+        """Aviso por tu bot (en otro hilo, para no frenar la descarga). False si no hay bot puesto."""
+        t = cfg.get("telegram", {})
+        if not (t.get("bot_token") and t.get("chat_id")):
+            return False
+
+        def go():
+            try:
+                notify.send(t["bot_token"], t["chat_id"],
+                            f"🎬 {label}\nTe toca: abre el chat y pulsa «Watch Ads» y después «I have clicked ads».",
+                            link=(f"Abrir @{bot}", f"https://t.me/{bot}"))
+            except Exception as e:
+                log.warning("bot de avisos: %s", e)
+        threading.Thread(target=go, name="aviso", daemon=True).start()
+        return True
 
     def downloads_add(self, b: dict) -> dict:
         cfg = self.cfg()
@@ -1602,15 +1650,19 @@ class App:
                     started.add(name)
                     note(state="descargando", detail=f"descargando {name}", size=total)
 
+            label = row["title"] + (f" (temporada {row['season']})" if row["season"] else "")
+            by_bot = bool(cfg["telegram"].get("bot_token") and cfg["telegram"].get("chat_id"))
+
             def manual(bot):
                 note(state="manual", bot=bot, detail=f"pulsa tú «Watch Ads» y «I have clicked ads» en el chat de @{bot}")
+                if d.get("remind", True):
+                    self._notify(cfg, label, bot)
                 self.dl.update(message=f"{row['title']}: esperando que pulses el anuncio en Telegram")
 
-            label = row["title"] + (f" (temporada {row['season']})" if row["season"] else "")
             self._telegram(cfg).fetch(link[1], tmp, bot=link[0], progress=progress,
                                       stop=lambda: self.dl["stop"] == rid, on_manual=manual,
                                       skip=lambda name, size: name in got_names, on_file=put,
-                                      remind=label if d.get("remind", True) else "")
+                                      remind=label if d.get("remind", True) and not by_bot else "")
             if self.dl["stop"] == rid:
                 shutil.rmtree(tmp, ignore_errors=True)
                 return
@@ -1746,6 +1798,7 @@ def make_handler(app: App):
         "/api/telegram/code": lambda b: app.telegram_code(b),
         "/api/telegram/login": lambda b: app.telegram_login(b),
         "/api/telegram/logout": lambda b: app.telegram_logout(),
+        "/api/telegram/bot": lambda b: app.telegram_bot(b),
         "/api/discover/taste": lambda b: app._dsc(lambda d: {"profile": d.save_profile(b)}),
         "/api/discover/taste/reset": lambda b: app._dsc(lambda d: (d.reset_profile(), {})[1]),
     }

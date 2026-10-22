@@ -520,6 +520,17 @@ dialog.sheet .foot{display:none}
       </div>
       <div class="hint">La sesión se guarda en <span class="path">docker/subman/telegram.session</span>. El código y la contraseña no se guardan.</div>
     </div>
+    <h3 style="margin:18px 0 6px">Bot de avisos <span class="muted" style="font-weight:400">(opcional)</span></h3>
+    <div id="botState" class="muted"></div>
+    <div id="botForm">
+      <div class="hint" style="margin-top:0">Un chat sólo para avisarte de que te toca pulsar el anuncio, que puedes dejar con sonido aunque tengas Telegram silenciado.
+        En Telegram abre <b>@BotFather</b>, escribe <b>/newbot</b>, ponle un nombre (por ejemplo <i>Avisos Videotecario</i>) y un usuario que acabe en «bot»,
+        y copia el <b>token</b> que te da (algo como <i>123456:ABC-…</i>). Pégalo aquí.</div>
+      <div class="two" style="margin-top:8px">
+        <div><label class="f">Token del bot</label><input type="password" id="tg_bot_token" autocomplete="off"></div>
+        <div style="align-self:end"><button class="btn sec" id="botSave">Conectar el bot</button></div>
+      </div>
+    </div>
     <h3 style="margin:18px 0 6px">2. Dónde van</h3>
     <div class="two">
       <div><label class="f">Carpeta de películas</label><input type="text" id="dl_movies_dir" placeholder="/media/Peliculas"></div>
@@ -532,7 +543,7 @@ dialog.sheet .foot{display:none}
     </div>
     <div style="margin-top:14px;display:grid;gap:12px">
       <label class="switch"><input type="checkbox" id="dl_auto"><span>Pedir solo lo que agregue a mi lista (si no, sólo lo que mande con el botón «Descargar»)</span></label>
-      <label class="switch"><input type="checkbox" id="dl_remind"><span>Avisarme en Telegram cuando me toque pulsar el anuncio (llega como recordatorio a «Mensajes guardados»)</span></label>
+      <label class="switch"><input type="checkbox" id="dl_remind"><span>Avisarme cuando me toque pulsar el anuncio (por el bot de avisos; sin bot, llega como recordatorio a «Mensajes guardados»)</span></label>
       <label class="switch"><input type="checkbox" id="dl_enabled"><span><b>Activar las descargas</b></span></label>
     </div>
     <div class="row" style="margin-top:12px"><button class="btn sec" id="dlSave">Guardar</button><span id="dlMsg" class="muted"></span></div>
@@ -1056,6 +1067,14 @@ async function loadDlSettings() {
   $("#tgState").innerHTML = tg.user ? `<span class="pill ok">conectado</span> como <b>${esc(tg.user.name)}</b> <button class="btn sec" id="tgOut" style="margin-left:8px">Desconectar</button>`
     : `<span class="pill revisar">sin conectar</span>`;
   $("#tgForm").hidden = !!tg.user;
+  $("#botState").innerHTML = tg.bot ? `<span class="pill ok">conectado</span> te avisa <b>@${esc(tg.bot)}</b>
+    <a class="btn sec" href="https://t.me/${encodeURIComponent(tg.bot)}" target="_blank" rel="noopener" style="margin-left:8px">Abrir</a>
+    <button class="btn sec" id="botTest">Probar</button> <button class="btn sec" id="botOff">Quitar</button>` : "";
+  $("#botForm").hidden = !!tg.bot;
+  if (tg.bot) {
+    $("#botTest").onclick = () => botConnect("__MASK__");
+    $("#botOff").onclick = () => botConnect("");
+  }
   if (tg.user) $("#tgOut").onclick = async () => { const r = await api("/api/telegram/logout", {}); if (r.ok === false) toast(r.error); loadDlSettings(); };
   for (const k of ["movies_dir", "series_dir", "tmp_dir", "gap_minutes", "daily"]) $("#dl_" + k).value = st[k];
   $("#dl_audio").value = st.audio.join(",");
@@ -1070,6 +1089,16 @@ $("#tgCode").onclick = async () => {
     $("#tgCodeBox").hidden = false; $("#tg_code").focus(); toast("Mira tu Telegram: te llegó un código");
   } catch (e) { toast(e.message); } finally { $("#tgCode").disabled = false; }
 };
+async function botConnect(token) {
+  try {
+    const r = await api("/api/telegram/bot", {token: token === "__MASK__" ? "••••••••" : token});
+    if (r.ok === false) return toast(r.error);
+    toast(r.bot ? "Mira tu Telegram: el bot te mandó un mensaje de prueba" : "Bot de avisos quitado");
+    $("#tg_bot_token").value = "";
+  } catch (e) { toast(e.message); }
+  loadDlSettings();
+}
+$("#botSave").onclick = () => { const t = $("#tg_bot_token").value.trim(); if (!t) return toast("Pega el token que te dio @BotFather"); botConnect(t); };
 $("#tgLogin").onclick = async () => {
   try {
     const r = await api("/api/telegram/login", {code: $("#tg_code").value, password: $("#tg_password").value});

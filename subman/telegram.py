@@ -127,7 +127,8 @@ class Telegram:
             if not await self.client.is_user_authorized():
                 return None
             u = await self.client.get_me()
-            return {"name": " ".join(x for x in (u.first_name, u.last_name) if x) or u.username or "", "phone": u.phone}
+            return {"name": " ".join(x for x in (u.first_name, u.last_name) if x) or u.username or "", "phone": u.phone,
+                    "id": u.id}
         return self._run(go())
 
     def send_code(self, phone: str) -> None:
@@ -151,6 +152,10 @@ class Telegram:
                 return "password"
             return "ok"
         return self._run(go())
+
+    def say(self, to: str, text: str) -> None:
+        """Escribe desde tu cuenta (p. ej. «/start» a tu bot de avisos, para que pueda escribirte)."""
+        self._run(self.client.send_message(to, text))
 
     def log_out(self) -> None:
         self._run(self.client.log_out())

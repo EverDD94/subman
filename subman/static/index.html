@@ -10,6 +10,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Videotecario">
+<script>try { const t = localStorage.getItem("theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -31,7 +32,8 @@
   --r:16px;--r-sm:10px;--bar:64px;
   color-scheme:light;
 }
-@media (prefers-color-scheme:dark){:root{
+/* modo oscuro: el del sistema, salvo que elijas claro u oscuro con el botón de arriba */
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
   --bg:#14110e;--card:#1c1814;--card-2:#26211b;--chip:#2a241d;--line:#332c24;
   --text:#f3ece1;--muted:#a89d8e;--accent:#eaa648;--accent-ink:#1b1206;--accent-soft:#3a2a15;
   --ok:#6cc58f;--warn:#e8b65a;--bad:#f08070;
@@ -39,6 +41,14 @@
   --shadow-lg:0 2px 8px rgb(0 0 0/.4),0 30px 80px -20px rgb(0 0 0/.75);
   color-scheme:dark;
 }}
+:root[data-theme=dark]{
+  --bg:#14110e;--card:#1c1814;--card-2:#26211b;--chip:#2a241d;--line:#332c24;
+  --text:#f3ece1;--muted:#a89d8e;--accent:#eaa648;--accent-ink:#1b1206;--accent-soft:#3a2a15;
+  --ok:#6cc58f;--warn:#e8b65a;--bad:#f08070;
+  --shadow:0 1px 2px rgb(0 0 0/.3),0 10px 30px -12px rgb(0 0 0/.6);
+  --shadow-lg:0 2px 8px rgb(0 0 0/.4),0 30px 80px -20px rgb(0 0 0/.75);
+  color-scheme:dark;
+}
 *{box-sizing:border-box}
 [hidden]:not(#moreSheet){display:none!important}
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
@@ -69,6 +79,23 @@ nav button:active{transform:scale(.96)}
 nav button.on{background:var(--text);color:var(--bg)}
 nav .end{margin-left:auto}
 nav #moreBtn{display:none}
+/* arriba a la derecha: actualizar, novedades y claro/oscuro */
+.tools{display:flex;align-items:center;gap:4px;flex:none}
+.tool{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;min-width:36px;padding:0 9px;border:0;border-radius:999px;
+  background:none;color:var(--muted);cursor:pointer;font-weight:500;transition:color .16s var(--ease-out),background-color .16s var(--ease-out),transform .16s var(--ease-out)}
+.tool:active{transform:scale(.94)}
+.tool[aria-expanded=true]{background:var(--chip);color:var(--text)}
+.tool .dot{position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--bg)}
+.tool.spin svg.i{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.pop{position:fixed;z-index:40;top:calc(var(--head,64px) + 6px);right:max(14px,env(safe-area-inset-right));width:min(400px,calc(100vw - 28px));max-height:min(70vh,560px);overflow:auto;
+  background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-lg);padding:16px 18px;transform-origin:top right;animation:pop .18s var(--ease-out)}
+@keyframes pop{from{opacity:0;transform:translateY(-4px) scale(.97)}}
+.pop h3{margin:0 0 4px;font-size:17px}
+.pop ul{margin:6px 0 0;padding-left:18px}
+.pop li{margin:3px 0}
+.pop .chg{border-top:1px solid var(--line);padding-top:10px;margin-top:10px}
+.pop .chg:first-of-type{border-top:0;padding-top:0}
 #moreSheet{display:none}
 main{max-width:1180px;margin:0 auto;padding:28px max(18px,env(safe-area-inset-right)) 80px max(18px,env(safe-area-inset-left))}
 main > section{animation:enter .28s var(--ease-out)}
@@ -283,7 +310,7 @@ dialog.sheet .foot{display:none}
 .tastebox dd{margin:0}
 
 @media (hover:hover) and (pointer:fine){
-  nav button:hover:not(.on){color:var(--text);background:var(--chip)}
+  nav button:hover:not(.on),.tool:hover{color:var(--text);background:var(--chip)}
   button.btn:hover:not(:disabled){filter:brightness(1.06)}
   button.btn.sec:hover:not(:disabled){background:var(--chip)}
   tr.click:hover{background:var(--card-2)}
@@ -297,15 +324,20 @@ dialog.sheet .foot{display:none}
 
 /* iPad y pantallas medianas: el menú entero cabe sin iconos */
 @media (min-width:901px) and (max-width:1180px){
-  header{gap:14px}
-  nav button{padding:8px 10px;font-size:14.5px}
+  header{gap:10px}
+  nav button{padding:8px 8px;font-size:14.5px}
   nav button[data-tab] svg.i{display:none}
+  /* Papelera sólo con su icono, para que quepan los botones de arriba a la derecha */
+  nav button.end{font-size:0;gap:0;padding:8px 9px}
+  nav button.end svg.i{display:inline-block!important}
+  .tool{min-width:32px;padding:0 7px}
 }
 /* móvil: menú abajo, tarjetas a todo lo ancho */
 @media (max-width:900px){
   /* sin desenfoque: con backdrop-filter el menú fijo quedaría pegado a la cabecera y no abajo */
   header{padding-top:max(10px,env(safe-area-inset-top));padding-bottom:10px;gap:10px;background:var(--bg);backdrop-filter:none;-webkit-backdrop-filter:none}
   header h1{font-size:20px}
+  .tools{margin-left:auto}
   nav{position:fixed;left:0;right:0;bottom:0;z-index:30;justify-content:space-around;gap:0;overflow:visible;
     padding:6px max(6px,env(safe-area-inset-left)) calc(6px + env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-right));
     background:color-mix(in srgb,var(--card) 88%,transparent);backdrop-filter:saturate(1.4) blur(16px);-webkit-backdrop-filter:saturate(1.4) blur(16px);border-top:1px solid var(--line)}
@@ -372,6 +404,12 @@ dialog.sheet .foot{display:none}
     <button id="moreBtn" data-ico="more" type="button">Más</button>
   </nav>
   <div id="moreSheet" hidden></div>
+  <div class="tools">
+    <button id="updBtn" class="tool" type="button" title="Actualizar Videotecario" aria-label="Actualizar"></button>
+    <button id="newsBtn" class="tool" type="button" title="Qué trae la versión nueva" aria-label="Novedades" aria-expanded="false"></button>
+    <button id="themeBtn" class="tool" type="button" title="Cambiar entre claro y oscuro" aria-label="Claro u oscuro"></button>
+  </div>
+  <div id="newsPop" class="pop" hidden role="dialog" aria-label="Novedades"></div>
 </header>
 <main>
 
@@ -777,6 +815,10 @@ const ICO = {
   next: '<path d="m9 18 6-6-6-6"/>',
   play: '<path d="M6 3.5v17a1 1 0 0 0 1.5.9l14-8.5a1 1 0 0 0 0-1.8l-14-8.5A1 1 0 0 0 6 3.5z"/>',
   star: '<path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z"/>',
+  refresh: '<path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5"/>',
+  gift: '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7M7.5 8a2.5 2.5 0 0 1 0-5C10 3 12 8 12 8s2-5 4.5-5a2.5 2.5 0 0 1 0 5"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
   folder: '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9l-.8-1.2A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/>',
 };
 function ico(name, cls = "") { return `<svg class="i ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICO[name] || ""}</svg>`; }
@@ -959,18 +1001,85 @@ async function loadUpdate() {
 async function updSave(body) { try { await api("/api/update/settings", body); toast("Guardado"); } catch (e) { toast(e.message); } loadUpdate(); }
 $("#updAuto").onchange = e => updSave({auto: e.target.checked});
 $("#updHour").onchange = e => updSave({hour: +e.target.value});
-$("#updNow").onclick = async () => {
+async function startUpdate() {
   const r = await api("/api/update/now", {}); if (r.ok === false) return toast(r.error);
-  const before = upd.build; loadUpdate(); clearInterval(updWatch);
+  const before = (upd || await api("/api/update")).build; loadUpdate(); clearInterval(updWatch);
+  $("#updBtn").classList.add("spin"); toast("Buscando versión nueva…");
   const t0 = Date.now();
   updWatch = setInterval(async () => {  // mientras se reinicia la página no contesta; luego trae otra versión
     try {
       const u = await api("/api/update");
       if (u.build !== before) { clearInterval(updWatch); toast("Actualizado"); setTimeout(() => location.reload(), 1200); return; }
-      if (!u.running || Date.now() - t0 > 600000) { clearInterval(updWatch); if (tab === "ajustes") loadUpdate(); }
+      if (!u.running || Date.now() - t0 > 600000) {
+        clearInterval(updWatch); $("#updBtn").classList.remove("spin");
+        if (u.message) toast(u.message);
+        if (tab === "ajustes") loadUpdate();
+      }
     } catch (e) {}
   }, 4000);
+}
+$("#updNow").onclick = startUpdate;
+
+// ---------- Arriba a la derecha: actualizar, novedades, claro/oscuro ----------
+let news = null;
+function setTheme(t) {
+  if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
+  try { t ? localStorage.setItem("theme", t) : localStorage.removeItem("theme"); } catch (e) {}
+  paintTools();
+}
+function darkNow() {
+  const t = document.documentElement.dataset.theme;
+  return t ? t === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+}
+function paintTools() {
+  const dot = news && news.new ? '<span class="dot"></span>' : "";
+  $("#updBtn").innerHTML = ico("refresh") + dot;
+  $("#updBtn").title = news && news.new ? "Hay versión nueva: actualizar" : "Actualizar Videotecario";
+  $("#newsBtn").innerHTML = ico("gift") + dot;
+  $("#themeBtn").innerHTML = ico(darkNow() ? "sun" : "moon");
+  $("#themeBtn").title = darkNow() ? "Pasar a claro" : "Pasar a oscuro";
+  for (const m of document.querySelectorAll('meta[name="theme-color"]')) m.content = darkNow() ? "#14110e" : "#f6f1e8";
+}
+$("#themeBtn").onclick = () => setTheme(darkNow() ? "light" : "dark");
+matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", paintTools);
+async function loadNews(force) {
+  try { news = await api("/api/update/news" + (force ? "?force=1" : "")); } catch (e) { news = {error: e.message, items: [], recent: []}; }
+  paintTools();
+  return news;
+}
+function changeList(list) {
+  return list.map(c => `<div class="chg"><b>${esc(c.title)}</b>${c.date ? ` <span class="muted">· ${new Date(c.date).toLocaleDateString("es", {day: "numeric", month: "short"})}</span>` : ""}
+    ${c.points && c.points.length ? `<ul>${c.points.map(p => `<li>${esc(p)}</li>`).join("")}</ul>` : ""}</div>`).join("");
+}
+function renderNews() {
+  const n = news || {};
+  const pop = $("#newsPop");
+  pop.innerHTML = !news ? `<p class="muted" style="margin:0">Preguntando a GitHub…</p>`
+    : n.new ? `<div class="row" style="justify-content:space-between;gap:10px;margin-bottom:10px"><h3 style="margin:0">Hay versión nueva</h3>
+        <button class="btn" onclick="newsClose();startUpdate()">${ico("refresh")} Actualizar ahora</button></div>
+        <p class="muted" style="margin:0 0 10px">Esto es lo que trae:</p>${changeList(n.items)}`
+    : `<h3>Tienes la última versión</h3>${n.building ? `<p class="muted" style="margin:0 0 6px">GitHub está preparando una nueva; mira otra vez en unos minutos.</p>` : ""}
+        ${n.error ? `<p class="muted" style="margin:0 0 6px">${esc(n.error)}.</p>` : ""}
+        ${n.recent && n.recent.length ? `<p class="muted" style="margin:6px 0 10px">Lo último que llegó:</p>${changeList(n.recent)}` : ""}`;
+}
+function newsClose() { $("#newsPop").hidden = true; $("#newsBtn").setAttribute("aria-expanded", "false"); }
+$("#newsBtn").onclick = async e => {
+  e.stopPropagation();
+  if (!$("#newsPop").hidden) return newsClose();
+  document.documentElement.style.setProperty("--head", document.querySelector("header").getBoundingClientRect().height + "px");
+  $("#newsPop").hidden = false; $("#newsBtn").setAttribute("aria-expanded", "true");
+  renderNews(); await loadNews(true); if (!$("#newsPop").hidden) renderNews();
 };
+$("#updBtn").onclick = async () => {
+  if ($("#updBtn").classList.contains("spin")) return toast("Ya se está actualizando");
+  if (await askOk(news && news.new ? "Hay versión nueva. Videotecario se reiniciará en un minuto (lo que se esté bajando sigue después por donde iba)."
+      : "Se buscará una versión nueva; si la hay, Videotecario se reiniciará en un minuto.", "Actualizar")) startUpdate();
+};
+document.addEventListener("click", e => { if (!$("#newsPop").hidden && !e.target.closest("#newsPop,#newsBtn")) newsClose(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#newsPop").hidden) newsClose(); });
+paintTools();
+loadNews();
+setInterval(() => loadNews(), 30 * 60 * 1000);
 
 // ---------- Ajustes ----------
 async function loadConfig() {

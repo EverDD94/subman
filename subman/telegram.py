@@ -177,7 +177,7 @@ class Telegram:
     async def _remind(self, bot: str, what: str) -> None:
         """Recordatorio en «Mensajes guardados». Un mensaje normal a ti mismo no suena; uno programado
         («recordatorio») sí avisa, por eso sale programado para dentro de unos segundos."""
-        text = (f"🎬 Videotecario: {what} está esperando.\n"
+        text = (f"🚨 Te toca pulsar el anuncio\n\n{what}\n\n"
                 f"Abre @{bot} y pulsa «Watch Ads» y después «I have clicked ads».\nhttps://t.me/{bot}")
         try:
             await self.client.send_message("me", text, schedule=timedelta(seconds=15), link_preview=False)

@@ -1826,7 +1826,7 @@ function srGroup(g, gi) {
       <div><b>${esc(show.name)}</b> ${show.year ? "(" + show.year + ")" : ""} <span class="muted">· TheMovieDB</span>
         <div class="path">${esc(g.series_dir)}${g.dest_dir ? " → " + esc(g.dest_dir.split("/").pop()) : ""}</div></div>`
     : `<div><b>${esc(g.title)}</b><div class="path">${esc(g.series_dir)}</div></div>`;
-  const pickBox = g.why || !show ? `<div style="margin-top:10px"><span class="pill revisar">${esc(g.why || "no se sabe qué serie es")}</span>
+  const pickBox = g.why || !show || g.change ? `<div style="margin-top:10px">${g.change && !g.why ? "" : `<span class="pill revisar">${esc(g.why || "no se sabe qué serie es")}</span>`}
       Elige la serie correcta${opts.length ? "" : " (escribe su nombre y pulsa Buscar)"}:
       <div class="opts">${opts.map((o, i) => `<div class="opt ${show && o.tmdb === show.tmdb ? "on" : ""}" data-sp="${gi}" data-t="${o.tmdb}">
         ${o.image ? `<img loading="lazy" src="${esc(o.image)}" alt="">` : `<div class="noimg"></div>`}<b>${esc(o.name)}</b> ${o.year ? "(" + o.year + ")" : ""}</div>`).join("")}</div>
@@ -1841,7 +1841,8 @@ function srGroup(g, gi) {
   const closed = srClosed.has(g.key);
   return `<div class="card" data-g="${gi}">
     <div class="row" data-sh style="gap:12px;align-items:center;cursor:pointer" title="Toca para plegar o desplegar">${head}
-      <div class="row" style="margin-left:auto;gap:10px;align-items:center"><span class="muted" data-sn="${gi}"></span>
+      <div class="row" style="margin-left:auto;gap:10px;align-items:center">${show && !g.why ? `<button class="btn sec" data-sc="${gi}">${g.change ? "Dejar esta" : "Cambiar serie"}</button>` : ""}
+        <span class="muted" data-sn="${gi}"></span>
         <button class="btn" data-sa="${gi}" ${show ? "" : "disabled"}>Renombrar los marcados</button>
         <span class="muted" data-st style="font-size:20px">${closed ? "▸" : "▾"}</span></div></div>
     <div data-sb ${closed ? "hidden" : ""}>${pickBox}
@@ -1860,6 +1861,10 @@ function renderSeries() {
     const closed = !srClosed.delete(g.key) && !!srClosed.add(g.key);
     card.querySelector("[data-sb]").hidden = closed;
     card.querySelector("[data-st]").textContent = closed ? "▸" : "▾";
+  });
+  document.querySelectorAll("#srGroups [data-sc]").forEach(b => b.onclick = () => {
+    const g = list[+b.dataset.sc]; g.change = !g.change;
+    srClosed.delete(g.key); renderSeries();
   });
   document.querySelectorAll("#srGroups [data-se]").forEach(c => c.onchange = () => count(+c.closest("[data-g]").dataset.g));
   const replace = (gi, group) => { sr.result.series[gi] = group; renderSeries(); };

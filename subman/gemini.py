@@ -71,6 +71,18 @@ reconoces la película sin dudas. Si no tienes idea, lista vacía.
 """
 
 
+SHOW = """Eres un experto en series de televisión. Tengo capítulos de una serie en mi biblioteca y no sé
+cuál de estas series de TheMovieDB es. Te paso fotos de los primeros minutos de un capítulo (suelen salir
+el título, el logo de la cadena o los créditos). Fíjate en los actores, el título en pantalla y la época.
+Ayudas: carpeta «{folder}», archivo «{file}» (puede ser basura), dura {minutes} min{inner}.
+Opciones:
+{options}
+
+Responde sólo con JSON: {{"tmdb": "número de la opción o null", "seguro": true|false}}. «seguro» es true
+sólo si lo reconoces sin dudas.
+"""
+
+
 class GeminiError(RuntimeError):
     """kind: «quota» (sin cupo gratis), «down» (no contesta / saturada) o «key» (clave mala)."""
 
@@ -237,6 +249,25 @@ class Gemini:
         """Segundo intento: fotos de los primeros minutos (título, créditos) y un trozo de diálogo."""
         return self._movies(self.ask(LISTEN.format(file=file, minutes=minutes or "?", options=_options(options)),
                                      images, audio))
+
+    def show(self, images: list[bytes], folder: str, file: str, minutes, inner: str | None,
+             options: list[dict]) -> tuple[str | None, bool]:
+        """Qué serie es entre las opciones, mirando el principio de un capítulo -> (tmdb o None, seguro)."""
+        opts = "\n".join(f"- tmdb {o['tmdb']}: «{o['name']}» ({o['year'] or '?'}, {o.get('runtime') or '?'} min por "
+                         f"capítulo, {len(o.get('seasons') or {})} temporadas)" for o in options)
+        raw = self.ask(SHOW.format(folder=folder, file=file, minutes=minutes or "?", options=opts,
+                                   inner=f", título guardado en el video «{inner}»" if inner else ""), images)
+        try:
+            data = json.loads(raw)
+        except ValueError:
+            log.warning("Gemini: respuesta que no es JSON: %s", raw[:200])
+            return None, False
+        if isinstance(data, list):
+            data = data[0] if data and isinstance(data[0], dict) else {}
+        pick = str(data.get("tmdb") or "")
+        if pick not in {o["tmdb"] for o in options}:
+            return None, False
+        return pick, bool(data.get("seguro"))
 
     @staticmethod
     def _movies(raw: str) -> tuple[list, bool]:

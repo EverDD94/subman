@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import re
 import threading
 import time
@@ -28,6 +29,8 @@ BOT = "phonofilmbot"
 ASK_AFTER = 120         # si en 2 minutos no llega nada (ni el anuncio), se te avisa igual
 GIVE_UP = 12 * 3600     # cuánto se espera como mucho a que llegue el archivo
 QUIET = 120             # tras el último archivo, cuánto se espera por si manda más (capítulos)
+PARALLEL = 8           # trozos que se piden a la vez (como tdl); uno solo va a 1-3 MB/s
+PIECE = 512 * 1024     # lo más que Telegram da por petición
 _SAMPLE = re.compile(r"\bsample\b", re.I)
 _VIDEO_NAME = re.compile(r"\.(mkv|mp4|avi|m4v|mov|ts|webm)$", re.I)
 
@@ -219,7 +222,13 @@ class Telegram:
                 raise InterruptedError("cancelada")
             progress(name, done, total)
         try:
-            await self.client.download_media(m, file=str(part), progress_callback=each)
+            try:
+                await self._parallel(m, part, m.file.size or 0, each)
+            except InterruptedError:
+                raise
+            except Exception as e:  # si falla en paralelo, a la manera de siempre (de uno en uno)
+                log.warning("Telegram: descarga en paralelo falló (%s); sigo de uno en uno", e)
+                await self.client.download_media(m, file=str(part), progress_callback=each)
         except InterruptedError:
             part.unlink(missing_ok=True)
             raise
@@ -227,6 +236,41 @@ class Telegram:
         part.replace(final)
         log.info("Telegram: descargado %s (%.0f MB)", name, (m.file.size or 0) / 2**20)
         return final
+
+
+    async def _parallel(self, m, part: Path, size: int, each) -> None:
+        """Descarga pidiendo ``PARALLEL`` trozos a la vez; cada uno se escribe en su sitio del archivo."""
+        if size <= 0:
+            raise ValueError("tamaño desconocido")
+        pieces = (size + PIECE - 1) // PIECE
+        done = 0
+        with open(part, "wb") as f:
+            f.truncate(size)
+        fd = os.open(part, os.O_WRONLY)
+        try:
+            async def worker(i: int):
+                nonlocal done
+                n, pos = len(range(i, pieces, PARALLEL)), i * PIECE
+                if not n:
+                    return
+                async for chunk in self.client.iter_download(m.media, offset=pos, stride=PARALLEL * PIECE, limit=n,
+                                                             request_size=PIECE, chunk_size=PIECE, file_size=size):
+                    os.pwrite(fd, chunk, pos)
+                    pos += PARALLEL * PIECE
+                    done += len(chunk)
+                    each(done, size)
+            tasks = [asyncio.ensure_future(worker(i)) for i in range(PARALLEL)]
+            try:
+                await asyncio.gather(*tasks)
+            except BaseException:
+                for t in tasks:
+                    t.cancel()
+                await asyncio.gather(*tasks, return_exceptions=True)
+                raise
+        finally:
+            os.close(fd)
+        if done != size:
+            raise IOError(f"llegaron {done} de {size} bytes")
 
 
 def _safe(name: str) -> str:

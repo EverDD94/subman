@@ -124,6 +124,11 @@ def _plan_group(db: TMDb, g: dict, show: dict | None) -> dict:
         for e in g["episodes"]:
             e.update(target="", dest="", ok=False, why=None)
         return g
+    # el nombre en el idioma que ya tiene («Al este del Edén» o «East of Eden»); si no se parece a ninguno, el original
+    local = show.get("original") or ""
+    if local and similarity(g["title"], local) >= SURE and similarity(g["title"], local) > similarity(g["title"], show["name"]):
+        show = {**show, "name": local}
+        g["show"]["name"] = local
     base = Path(g["series_dir"]) if g["loose"] else Path(g["series_dir"]).parent
     g["dest_dir"] = str(base / folder_name(show["name"], show["year"], show["tmdb"], None))
     for s in sorted({e["season"] for e in g["episodes"]}):

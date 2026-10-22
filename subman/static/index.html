@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Videotecario</title>
-<meta name="theme-color" content="#f2f3f6" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0c0f16" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f1f2fb" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#110e1f" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -16,37 +16,37 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wdth,wght@75..100,400..700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap" rel="stylesheet">
 <style>
-/* Videotecario. Sala de proyección: azul tinta de noche, gris frío de día; un solo acento, la luz cálida del proyector.
-   Una sola familia (Instrument Sans): estrecha y gruesa en los títulos, como un cartel de cine; normal en el texto. */
+/* Videotecario, estilo cartelera: fondo claro y frío, violeta eléctrico como color principal y naranja para lo que te encanta.
+   Una sola familia (Bricolage Grotesque): titulares enormes y apretados, texto normal y legible. */
 :root{
-  --bg:#f2f3f6;--card:#fff;--card-2:#eceef3;--chip:#e4e7ee;--line:#dde1e9;
-  --text:#11141b;--muted:#5d6577;--accent:#2b3a7a;--accent-ink:#fff;--accent-soft:#e2e6f5;
-  --ok:#1f7a4a;--warn:#946300;--bad:#c03a2b;
-  --shadow:0 1px 2px rgb(15 20 35/.06),0 10px 28px -12px rgb(15 20 35/.22);
-  --shadow-lg:0 2px 6px rgb(15 20 35/.08),0 28px 70px -22px rgb(15 20 35/.4);
-  --display:"Instrument Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
-  --sans:"Instrument Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --bg:#f1f2fb;--card:#fff;--card-2:#f3f2fc;--chip:#e9e7f8;--line:#dedbf0;
+  --text:#16122b;--muted:#4f4a68;--accent:#5b3df5;--accent-ink:#fff;--accent-soft:#ebe6ff;--pop:#ff6b2c;
+  --ok:#1c7a4a;--warn:#8f5e00;--bad:#c8352a;
+  --shadow:0 1px 2px rgb(40 20 120/.05),0 14px 34px -16px rgb(40 20 120/.22);
+  --shadow-lg:0 2px 6px rgb(40 20 120/.07),0 30px 70px -24px rgb(40 20 120/.38);
+  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --sans:"Bricolage Grotesque",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
   --mono:ui-monospace,"SF Mono",Consolas,monospace;
   --ease-out:cubic-bezier(0.23,1,0.32,1);--ease-in-out:cubic-bezier(0.77,0,0.175,1);
-  --r:14px;--r-sm:10px;--bar:64px;
+  --r:24px;--r-sm:14px;--bar:64px;
   color-scheme:light;
 }
 /* modo oscuro: el del sistema, salvo que elijas claro u oscuro con el botón de arriba */
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
-  --bg:#0c0f16;--card:#151a24;--card-2:#1c2230;--chip:#222938;--line:#283043;
-  --text:#edf0f6;--muted:#8f98ab;--accent:#e8d6a4;--accent-ink:#17140b;--accent-soft:#2f2b20;
+  --bg:#110e1f;--card:#1b1730;--card-2:#221d3b;--chip:#2a2447;--line:#332c55;
+  --text:#f2efff;--muted:#aaa3c8;--accent:#9481ff;--accent-ink:#0e0a24;--accent-soft:#2b2257;--pop:#ff7f45;
   --ok:#6fd39a;--warn:#e8c06a;--bad:#ff8a7a;
-  --shadow:0 1px 2px rgb(0 0 0/.35),0 12px 32px -14px rgb(0 0 0/.7);
+  --shadow:0 1px 2px rgb(0 0 0/.35),0 14px 34px -16px rgb(0 0 0/.7);
   --shadow-lg:0 2px 8px rgb(0 0 0/.45),0 34px 90px -24px rgb(0 0 0/.85);
   color-scheme:dark;
 }}
 :root[data-theme=dark]{
-  --bg:#0c0f16;--card:#151a24;--card-2:#1c2230;--chip:#222938;--line:#283043;
-  --text:#edf0f6;--muted:#8f98ab;--accent:#e8d6a4;--accent-ink:#17140b;--accent-soft:#2f2b20;
+  --bg:#110e1f;--card:#1b1730;--card-2:#221d3b;--chip:#2a2447;--line:#332c55;
+  --text:#f2efff;--muted:#aaa3c8;--accent:#9481ff;--accent-ink:#0e0a24;--accent-soft:#2b2257;--pop:#ff7f45;
   --ok:#6fd39a;--warn:#e8c06a;--bad:#ff8a7a;
-  --shadow:0 1px 2px rgb(0 0 0/.35),0 12px 32px -14px rgb(0 0 0/.7);
+  --shadow:0 1px 2px rgb(0 0 0/.35),0 14px 34px -16px rgb(0 0 0/.7);
   --shadow-lg:0 2px 8px rgb(0 0 0/.45),0 34px 90px -24px rgb(0 0 0/.85);
   color-scheme:dark;
 }
@@ -58,7 +58,7 @@ body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 var(--sans);
 ::selection{background:var(--accent);color:var(--accent-ink)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
 a{color:var(--accent);text-underline-offset:3px}
-h1,h2,h3{font-family:var(--display);font-weight:680;font-stretch:82%;letter-spacing:-.012em;text-wrap:balance}
+h1,h2,h3{font-family:var(--display);font-weight:800;letter-spacing:-.03em;text-wrap:balance}
 p{text-wrap:pretty}
 svg.i{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;vertical-align:-3px}
 svg.i.fill{fill:currentColor;stroke:none}
@@ -67,10 +67,10 @@ button{font:inherit;color:inherit;touch-action:manipulation;-webkit-user-select:
 
 /* cabecera y menú */
 header{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:20px;padding:12px max(20px,env(safe-area-inset-right)) 12px max(20px,env(safe-area-inset-left));
-  padding-top:max(12px,env(safe-area-inset-top));background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:saturate(1.4) blur(14px);-webkit-backdrop-filter:saturate(1.4) blur(14px);border-bottom:1px solid var(--line)}
+  padding-top:max(12px,env(safe-area-inset-top));background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:saturate(1.4) blur(14px);-webkit-backdrop-filter:saturate(1.4) blur(14px);border-bottom:0}
 .brand{display:flex;align-items:center;gap:10px;flex:none}
 .brand img{width:30px;height:30px;border-radius:8px}
-header h1{font-size:21px;margin:0;font-weight:600;letter-spacing:-.02em}
+header h1{font-size:23px;margin:0;font-weight:800;letter-spacing:-.035em}
 nav{display:flex;gap:2px;flex:1;align-items:center;overflow-x:auto;scrollbar-width:none}
 nav::-webkit-scrollbar{display:none}
 nav button{display:inline-flex;align-items:center;gap:7px;background:none;border:0;color:var(--muted);padding:8px 12px;border-radius:999px;cursor:pointer;
@@ -109,24 +109,24 @@ main > section{animation:enter .28s var(--ease-out)}
 @keyframes enter{from{opacity:0;transform:translateY(6px)}}
 
 /* piezas comunes */
-.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:22px;margin-bottom:18px;box-shadow:var(--shadow)}
-.card h2{font-size:21px;margin:0 0 12px}
+.card{background:var(--card);border:0;border-radius:var(--r);padding:28px;margin-bottom:18px;box-shadow:var(--shadow)}
+.card h2{font-size:28px;margin:0 0 14px;line-height:1.05}
 .muted{color:var(--muted)}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
-.stat{background:var(--card-2);border-radius:var(--r-sm);padding:14px 16px}
+.stat{background:var(--accent-soft);border-radius:18px;padding:16px 18px}
 .stat span{font-size:13px}
-.stat b{display:block;font:680 semi-condensed 30px/1.1 var(--display);font-variant-numeric:tabular-nums;margin-top:4px}
-button.btn,a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--accent);color:var(--accent-ink);border:0;border-radius:var(--r-sm);
-  padding:10px 16px;font-weight:600;cursor:pointer;min-height:40px;transition:transform .16s var(--ease-out),background-color .16s var(--ease-out),opacity .16s}
+.stat b{display:block;font:800 40px/1 var(--display);letter-spacing:-.04em;color:var(--accent);font-variant-numeric:tabular-nums;margin-top:4px}
+button.btn,a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--accent);color:var(--accent-ink);border:0;border-radius:999px;
+  padding:10px 22px;font-weight:700;cursor:pointer;min-height:46px;transition:transform .16s var(--ease-out),background-color .16s var(--ease-out),opacity .16s}
 button.btn:active:not(:disabled){transform:scale(.97)}
-button.btn.sec{background:var(--card-2);color:var(--text)}
+button.btn.sec{background:var(--chip);color:var(--text)}
 button.btn.bad{background:var(--bad);color:#fff}
 button.btn:disabled{opacity:.45;cursor:default}
-input[type=text],input[type=password],input[type=number],input[type=search],input[type=tel]{background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:var(--r-sm);
-  padding:10px 12px;font:inherit;font-size:16px;width:100%;transition:border-color .16s,box-shadow .16s}
+input[type=text],input[type=password],input[type=number],input[type=search],input[type=tel]{background:var(--card);color:var(--text);border:2px solid var(--line);border-radius:var(--r-sm);
+  padding:10px 14px;font:inherit;font-size:16px;width:100%;transition:border-color .16s,box-shadow .16s}
 input:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent)}
-select{background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:var(--r-sm);padding:8px 10px;font:inherit;font-size:16px}
+select{background:var(--card);color:var(--text);border:2px solid var(--line);border-radius:var(--r-sm);padding:8px 10px;font:inherit;font-size:16px}
 label.f{display:block;margin:12px 0 5px;font-weight:600;font-size:14px}
 .hint{font-size:13px;color:var(--muted);margin-top:4px}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:4px 18px}
@@ -164,23 +164,23 @@ pre.log{background:var(--bg);border:1px solid var(--line);border-radius:var(--r-
 .nmbar{display:flex;height:12px;border-radius:999px;overflow:hidden;background:var(--chip);margin-top:12px}
 .nmbar div{height:100%;transition:width .4s var(--ease-out)}
 .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}
-dialog{border:1px solid var(--line);border-radius:20px;background:var(--card);color:var(--text);max-width:900px;width:94vw;padding:24px;box-shadow:var(--shadow-lg);max-height:90dvh}
+dialog{border:0;border-radius:28px;background:var(--card);color:var(--text);max-width:900px;width:94vw;padding:24px;box-shadow:var(--shadow-lg);max-height:90dvh}
 dialog[open]{animation:pop .24s var(--ease-out)}
 @keyframes pop{from{opacity:0;transform:translateY(10px) scale(.985)}}
-dialog::backdrop{background:rgb(10 7 4/.55);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+dialog::backdrop{background:rgb(22 18 43/.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(3px)}
 dialog.ask{max-width:420px}
 dialog .x{position:absolute;top:12px;right:12px;z-index:3;width:38px;height:38px;border-radius:50%;border:0;background:color-mix(in srgb,var(--card) 70%,transparent);
   backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:grid;place-items:center;cursor:pointer;color:var(--text);transition:transform .16s var(--ease-out)}
 dialog .x:active{transform:scale(.92)}
 .path{font:12px var(--mono);color:var(--muted);word-break:break-all}
 .filters{display:flex;gap:6px;flex-wrap:wrap}
-.filters button{background:var(--chip);border:0;border-radius:999px;padding:7px 14px;color:var(--text);cursor:pointer;font-size:14px;font-weight:500;white-space:nowrap;
+.filters button{background:none;border:2px solid var(--line);border-radius:999px;padding:7px 16px;color:var(--text);cursor:pointer;font-size:15px;font-weight:600;white-space:nowrap;
   display:inline-flex;align-items:center;gap:6px;transition:background-color .16s var(--ease-out),color .16s,transform .16s var(--ease-out)}
 .filters button:active{transform:scale(.96)}
-.filters button.on{background:var(--text);color:var(--bg)}
+.filters button.on{background:var(--text);border-color:var(--text);color:var(--bg)}
 .reason{display:grid;grid-template-columns:64px 1fr auto;gap:14px;align-items:start;padding:14px 0;border-top:1px solid var(--line)}
 .reason:first-child{border-top:0}
-.reason .n{font:680 semi-condensed 28px/1.1 var(--display);font-variant-numeric:tabular-nums}
+.reason .n{font:800 28px/1.1 var(--display);font-variant-numeric:tabular-nums}
 .reason p{margin:3px 0}
 .dup td{vertical-align:middle}
 .dup tr.keep{background:color-mix(in srgb,var(--ok) 8%,transparent)}
@@ -195,7 +195,13 @@ dialog .x:active{transform:scale(.92)}
 
 /* ---------- Descubrir ---------- */
 .dhead{display:flex;flex-direction:column;gap:14px;margin-bottom:22px}
-.dhead h2{font-size:clamp(28px,4vw,40px);margin:0;line-height:1.05;letter-spacing:-.025em}
+.dhead h2{font-size:clamp(46px,8.4vw,120px);margin:0 0 6px;line-height:.88;letter-spacing:-.05em;max-width:12ch}
+/* ánimos: filtran la portada por lo que te apetece esta noche */
+.moods{display:flex;gap:10px;flex-wrap:wrap}
+.moods button{height:50px;padding:0 22px;border-radius:999px;border:2px solid var(--text);background:none;color:var(--text);font:700 17px var(--sans);cursor:pointer;
+  transition:background-color .2s var(--ease-out),color .2s,border-color .2s,transform .2s var(--ease-out)}
+.moods button:active{transform:scale(.96)}
+.moods button.on{background:var(--pop);border-color:var(--pop);color:#fff}
 .dtabs{display:flex;flex-wrap:nowrap;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 -4px;padding:2px 4px;scroll-snap-type:x proximity}
 .dtabs::-webkit-scrollbar{display:none}
 .dtabs button{scroll-snap-align:start}
@@ -221,52 +227,57 @@ dialog .x:active{transform:scale(.92)}
 .empty{padding:40px 10px;text-align:center;color:var(--muted)}
 
 /* Portada de Descubrir: un cartel grande arriba y filas de pósters que se deslizan de lado */
-.bb{position:relative;display:grid;align-items:end;min-height:min(62vh,560px);border-radius:20px;overflow:hidden;background:#0c0f16;color:#f4f5f8;isolation:isolate;margin-bottom:34px;
-  box-shadow:var(--shadow-lg)}
-.bb .bbimg{position:absolute;inset:0;z-index:-1}
+.bb{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:28px;min-height:440px;border-radius:32px;overflow:hidden;
+  background:#5b3df5;color:#fff;isolation:isolate;margin-bottom:44px;padding:clamp(24px,4vw,48px)}
+.bb .bbimg{position:absolute;inset:0;z-index:-1;opacity:.22;mix-blend-mode:luminosity}
 .bb .bbimg img{width:100%;height:100%;object-fit:cover;object-position:center 20%;display:block}
-.bb .bbimg.anim img{animation:bbin .9s var(--ease-out)}
-@keyframes bbin{from{opacity:0;transform:scale(1.03)}}
-.bb .bbimg::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgb(8 10 16/.92) 0%,rgb(8 10 16/.6) 38%,transparent 70%),linear-gradient(0deg,rgb(8 10 16/.85),transparent 45%)}
-.bbtxt{padding:clamp(22px,4vw,48px);max-width:620px}
-.bbwhy{margin:0 0 10px;font-size:14px;font-weight:600;color:#e8d6a4}
-.bbt{font:700 condensed clamp(38px,6vw,74px)/.95 var(--display);letter-spacing:-.02em;margin:0;text-wrap:balance}
-.bb .meta{color:rgb(244 245 248/.75);margin-top:14px}
-.bb .meta .star{color:#e8d6a4}
-.bbov{margin:12px 0 0;font-size:15.5px;line-height:1.55;color:rgb(244 245 248/.86);max-width:56ch;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.bbacts{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:22px}
-.bbacts .btn.main{background:#f4f5f8;color:#0c0f16;border-radius:999px;padding:0 22px;min-height:46px;font-size:15.5px}
+.bb .bbimg::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#5b3df5 20%,transparent)}
+@keyframes bbin{from{opacity:0;transform:translateY(24px) rotate(-2deg) scale(.96)}}
+@keyframes drift{0%,100%{transform:translateY(0) rotate(-5deg)}50%{transform:translateY(-10px) rotate(-3deg)}}
+.bbpost{align-self:center;width:clamp(150px,18vw,240px);aspect-ratio:2/3;border-radius:18px;overflow:hidden;box-shadow:0 30px 60px -20px rgb(20 8 70/.7);animation:drift 7s ease-in-out infinite;background:#4a2fd8}
+.bbpost img{width:100%;height:100%;object-fit:cover;display:block}
+.bb.anim .bbtxt,.bb.anim .bbpost{animation:bbin .7s var(--ease-out) both,drift 7s ease-in-out .7s infinite}
+.bb.anim .bbtxt{animation:bbin .7s var(--ease-out) both}
+.bbtxt{max-width:600px;min-width:0}
+.bbwhy{margin:0 0 12px;font-size:17px;font-weight:600;color:#ddd5ff}
+.bbt{font:800 clamp(44px,6.4vw,84px)/.9 var(--display);letter-spacing:-.045em;margin:0;text-wrap:balance}
+.bb .meta{color:#e4ddff;margin-top:16px;font-size:15px}
+.bb .meta .star{color:#fff}
+.bbov{margin:12px 0 0;font-size:17px;line-height:1.55;color:#efebff;max-width:52ch;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.bbacts{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:24px}
+.bbacts .btn.main{background:#fff;color:#16122b;padding:0 24px;min-height:50px;font-size:16px}
 .bbacts .rate{flex:none}
-.bbacts .rate button,.bbacts .havebtn{flex:none;width:46px;min-height:46px;border-radius:50%;padding:0;background:rgb(255 255 255/.14);color:#f4f5f8;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
-.bbacts .havebtn{width:auto;border-radius:999px;padding:0 16px}
-.bbacts .rate button.on{background:#e8d6a4;border-color:transparent;color:#17140b}
-.bbacts .rate button.on.down{background:#ff8a7a;color:#2a0c08}
-.bbacts .havebtn.yes{background:rgb(111 211 154/.22);color:#8ee6b3}
-.bbdots{position:absolute;right:clamp(18px,3vw,36px);bottom:clamp(22px,4vw,48px);display:flex;gap:6px}
-.bbdots button{width:26px;height:4px;border:0;padding:0;border-radius:2px;background:rgb(255 255 255/.3);cursor:pointer;transition:background-color .2s,width .3s var(--ease-out)}
-.bbdots button.on{background:#f4f5f8;width:40px}
+.bbacts .rate button,.bbacts .havebtn{flex:none;width:50px;min-height:50px;border-radius:50%;padding:0;background:rgb(255 255 255/.16);border:0;color:#fff}
+.bbacts .havebtn{width:auto;border-radius:999px;padding:0 18px}
+.bbacts .rate button.on{background:#ff6b2c;color:#fff}
+.bbacts .rate button.on.down{background:#16122b;color:#fff}
+.bbacts .havebtn.yes{background:#fff;color:#1c7a4a}
+.bbdots{position:absolute;right:clamp(20px,3vw,36px);top:clamp(20px,3vw,32px);display:flex;gap:6px}
+.bbdots button{width:22px;height:6px;border:0;padding:0;border-radius:3px;background:rgb(255 255 255/.35);cursor:pointer;transition:background-color .2s,width .3s var(--ease-out)}
+.bbdots button.on{background:#fff;width:40px}
 
-.shelf{margin:0 0 34px}
+.shelf{margin:0 0 48px}
 .shelfhead{display:flex;align-items:baseline;gap:14px;margin:0 0 12px}
-.shelfhead h3{font-size:22px;margin:0}
-.shelfhead .all{background:none;border:0;padding:4px 0;color:var(--muted);font-weight:600;font-size:14px;cursor:pointer}
+.shelfhead h3{font-size:clamp(28px,3.4vw,44px);margin:0;line-height:1}
+.shelfhead .all{background:none;border:0;padding:4px 0;color:var(--accent);font-weight:700;font-size:16px;cursor:pointer}
 .shelfhead .arrows{margin-left:auto;display:none;gap:6px}
-.shelfhead .arrows button{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--text);display:grid;place-items:center;cursor:pointer}
+.shelfhead .arrows button{width:42px;height:42px;border-radius:50%;border:2px solid var(--text);background:none;color:var(--text);display:grid;place-items:center;cursor:pointer}
 .shelfhead .arrows button:first-child svg{transform:scaleX(-1)}
-.rail{display:grid;grid-auto-flow:column;grid-auto-columns:clamp(132px,15vw,176px);gap:14px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;
-  scrollbar-width:none;padding-bottom:4px}
+.rail{display:grid;grid-auto-flow:column;grid-auto-columns:clamp(140px,15vw,190px);gap:20px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;
+  scrollbar-width:none;padding:10px 0 14px}
 .rail::-webkit-scrollbar{display:none}
 .rail .tile{scroll-snap-align:start}
-.wall{display:grid;grid-template-columns:repeat(auto-fill,minmax(164px,1fr));gap:30px 16px}
+.wall{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:34px 20px}
 
 /* un póster: la imagen manda; título y año debajo, en pequeño */
 .tile{min-width:0;display:flex;flex-direction:column;gap:2px}
 .tbox{position:relative}
-.tmedia{position:relative;border-radius:10px;overflow:hidden;aspect-ratio:2/3;background:var(--chip);box-shadow:var(--shadow);margin-bottom:8px;isolation:isolate}
+.tmedia{position:relative;border-radius:18px;overflow:hidden;aspect-ratio:2/3;background:var(--chip);margin-bottom:10px;isolation:isolate;
+  transition:transform .35s var(--ease-out),box-shadow .35s var(--ease-out)}
 .tmedia > button{all:unset;position:absolute;inset:0;cursor:pointer;display:block}
-.tmedia > button:focus-visible{outline:3px solid var(--accent);outline-offset:-3px;border-radius:10px}
+.tmedia > button:focus-visible{outline:3px solid var(--accent);outline-offset:-3px;border-radius:18px}
 .tmedia img,.tmedia .noimg{width:100%;height:100%;object-fit:cover;display:block;transition:transform .45s var(--ease-out)}
-.tmedia .noimg{display:grid;place-items:center;padding:12px;text-align:center;font:680 semi-condensed 17px/1.1 var(--display);color:var(--muted)}
+.tmedia .noimg{display:grid;place-items:center;padding:12px;text-align:center;font:800 17px/1.1 var(--display);color:var(--muted)}
 .tmedia .own{position:absolute;top:8px;right:8px;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--ok);color:#fff;box-shadow:0 2px 6px rgb(0 0 0/.35)}
 .tmedia .own svg.i{width:14px;height:14px;stroke-width:2.6}
 .tquick{display:flex;gap:4px;margin:2px 0 6px}
@@ -274,10 +285,14 @@ dialog .x:active{transform:scale(.92)}
 .tquick .rate button,.tquick .havebtn{min-height:34px;border-radius:9px;padding:0;flex:1}
 .tquick .havebtn{flex:1;width:auto}
 .tquick svg.i{width:16px;height:16px}
-.tt{font:600 15px/1.25 var(--sans);margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.ts{margin:0;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
-.tw{margin:2px 0 0;font-size:12.5px;line-height:1.35;color:var(--accent);font-weight:500}
+.tt{font:700 17px/1.2 var(--sans);letter-spacing:-.015em;margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ts{margin:2px 0 0;font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums}
+.tw{margin:3px 0 0;font-size:13.5px;line-height:1.35;color:var(--accent);font-weight:600}
 .rail .tquick{display:none}
+.rail.fresh .tile,.wall.fresh .tile{animation:tilein .6s var(--ease-out) both}
+.rail.fresh .tile:nth-child(2),.wall.fresh .tile:nth-child(2){animation-delay:.05s}.rail.fresh .tile:nth-child(3),.wall.fresh .tile:nth-child(3){animation-delay:.1s}
+.rail.fresh .tile:nth-child(4),.wall.fresh .tile:nth-child(4){animation-delay:.15s}.rail.fresh .tile:nth-child(5),.wall.fresh .tile:nth-child(5){animation-delay:.2s}.rail.fresh .tile:nth-child(n+6),.wall.fresh .tile:nth-child(n+6){animation-delay:.25s}
+@keyframes tilein{from{opacity:0;transform:translateY(18px) rotate(-1.5deg)}}
 .skel .tmedia{animation:skel 1.2s ease-in-out infinite alternate}
 @keyframes skel{to{opacity:.55}}
 
@@ -313,7 +328,7 @@ dialog.sheet .foot{display:none}
 .person span{color:var(--muted)}
 
 /* una tarjeta cada vez: Estrenos, Mis gustos y famosos */
-.stage{position:relative;border-radius:24px;overflow:hidden;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow)}
+.stage{position:relative;border-radius:32px;overflow:hidden;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow)}
 .stage .glow{position:absolute;inset:-40px;background-size:cover;background-position:center;filter:blur(50px) saturate(1.3);opacity:.35;pointer-events:none;transition:opacity .4s}
 .stage .glow::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent,var(--card) 85%)}
 .stagetop{position:relative;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:18px 22px 0;font-size:14px}
@@ -345,7 +360,7 @@ dialog.sheet .foot{display:none}
 .pick2 button{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:8px;text-align:left;border:1px solid var(--line);background:var(--card-2);border-radius:18px;padding:22px;cursor:pointer;
   transition:transform .18s var(--ease-out),border-color .18s}
 .pick2 button:active{transform:scale(.98)}
-.pick2 button b{font:680 semi-condensed 24px/1.1 var(--display)}
+.pick2 button b{font:800 24px/1.1 var(--display)}
 .pick2 button span{color:var(--muted);font-size:14px}
 .pick2 svg.i{width:28px;height:28px;color:var(--accent)}
 .gchips{display:flex;flex-wrap:wrap;gap:8px}
@@ -370,7 +385,8 @@ dialog.sheet .foot{display:none}
   tr.click:hover{background:var(--card-2)}
   .filters button:hover:not(.on){background:var(--line)}
   .rate button:hover:not(.on),.havebtn:hover:not(.yes){background:var(--chip)}
-  .tmedia:hover img{transform:scale(1.045)}
+  .tbox:hover .tmedia{transform:translateY(-6px) rotate(-1.5deg);box-shadow:0 24px 40px -18px rgb(40 20 120/.45)}
+  .moods button:hover:not(.on){background:var(--text);color:var(--bg)}
   .shelfhead .arrows{display:flex}
   .shelfhead .all:hover{color:var(--text)}
   .bbacts .rate button:hover:not(.on),.bbacts .havebtn:hover:not(.yes){background:rgb(255 255 255/.24)}
@@ -422,11 +438,12 @@ dialog.sheet .foot{display:none}
   td,th{padding:9px 6px;font-size:14px}
   #toast{bottom:calc(var(--bar) + 20px + env(safe-area-inset-bottom))}
   .reason{grid-template-columns:44px 1fr}
-  .bb{min-height:min(62vh,540px);border-radius:18px;margin:0 -4px 30px}
-  .bb .bbimg::after{background:linear-gradient(0deg,rgb(8 10 16/.96) 12%,rgb(8 10 16/.45) 55%,transparent 82%)}
-  .bbtxt{padding:22px 20px 24px}
-  .bbov{-webkit-line-clamp:4;font-size:15px}
-  .bbdots{top:16px;bottom:auto;right:16px}
+  .bb{grid-template-columns:1fr;min-height:0;border-radius:26px;margin:0 -4px 34px;padding:24px 20px 26px;gap:20px}
+  .bbpost{order:-1;width:44%;justify-self:start}
+  .bbov{-webkit-line-clamp:4;font-size:15.5px}
+  .moods{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -14px;padding:2px 14px}
+  .moods::-webkit-scrollbar{display:none}
+  .moods button{height:44px;padding:0 16px;font-size:15.5px;flex:none}
   .rail{margin:0 -14px;padding:0 14px 4px;scroll-padding:0 14px;grid-auto-columns:36vw;gap:10px}
   .wall{grid-template-columns:repeat(2,1fr);gap:26px 12px}
   .shelfhead h3{font-size:20px}
@@ -693,6 +710,10 @@ dialog.sheet .foot{display:none}
 <section id="descubrir" hidden>
   <div class="dhead">
     <h2 id="dscTitle">Descubrir</h2>
+    <div class="moods" id="dscMoods" hidden>
+      <button data-m="reir">Reírme</button><button data-m="miedo">Pasar miedo</button><button data-m="pensar">Algo que me haga pensar</button>
+      <button data-m="llorar">Llorar un poco</button><button data-m="peli">Una película</button><button data-m="serie">Una serie</button>
+    </div>
     <div class="dtabs filters" id="dscTabs">
       <button data-s="portada" class="on">Portada</button>
       <button data-s="estrenos">Estrenos</button>
@@ -1147,7 +1168,7 @@ function paintTools() {
   $("#newsBtn").innerHTML = ico("gift") + dot;
   $("#themeBtn").innerHTML = ico(darkNow() ? "sun" : "moon");
   $("#themeBtn").title = darkNow() ? "Pasar a claro" : "Pasar a oscuro";
-  for (const m of document.querySelectorAll('meta[name="theme-color"]')) m.content = darkNow() ? "#0c0f16" : "#f2f3f6";
+  for (const m of document.querySelectorAll('meta[name="theme-color"]')) m.content = darkNow() ? "#110e1f" : "#f1f2fb";
 }
 $("#themeBtn").onclick = () => setTheme(darkNow() ? "light" : "dark");
 matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", paintTools);
@@ -1895,7 +1916,7 @@ const DSC_HELP = {
   "gustos": "",
   "estrenos": "",
   "buscar": ""};
-const DSC_TITLE = {portada: "Descubrir", novedades: "Novedades", clasicos: "Populares y clásicos", "para-ti": "Para ti", "por-conseguir": "Por conseguir",
+const DSC_TITLE = {portada: "Esta noche, ¿qué te apetece?", novedades: "Novedades", clasicos: "Populares y clásicos", "para-ti": "Para ti", "por-conseguir": "Por conseguir",
   calificadas: "Mis calificaciones", descargas: "Descargas", gustos: "Mis gustos", estrenos: "Estrenos del año", buscar: "Resultados"};
 const RATE = {2: "Me encanta", 1: "Me gusta", "-1": "No me gusta", 0: "No la he visto"};
 let dsc = {section: "portada", rows: {}, bb: 0, kind: "", page: 1, items: [], q: "", checked: false, open: null, more: new Set()};
@@ -1929,7 +1950,7 @@ async function loadDiscover() {
   document.querySelectorAll("#dscTabs button").forEach(x => x.classList.toggle("on", x.dataset.s === dsc.section));
   const onb = document.querySelector(`#dscTabs button[data-s="${dsc.section}"]`);
   if (onb) onb.scrollIntoView({block: "nearest", inline: "nearest"});
-  $("#dscTitle").hidden = dsc.section === "portada";
+  $("#dscMoods").hidden = dsc.section !== "portada";
   $("#dscTitle").textContent = dsc.section === "buscar" ? `«${dsc.q}»` : DSC_TITLE[dsc.section];
   $("#dscHelp").textContent = DSC_HELP[dsc.section];
   $("#dscHelp").hidden = !DSC_HELP[dsc.section];
@@ -1938,6 +1959,7 @@ async function loadDiscover() {
   if (dsc.section === "descargas") { $("#dscBox").innerHTML = loading("Cargando…"); return loadDownloads(); }
   if (dsc.section === "gustos") return loadTaste();
   if (dsc.section === "estrenos") return renderEst();
+  dsc.wallShown = "";
   if (dsc.section === "portada") return loadPortada();
   $("#dscBox").innerHTML = loading("Cargando…");
   dsc.page = 1;
@@ -1961,13 +1983,24 @@ function renderDiscover() {
                    "por-conseguir": "Nada por conseguir.", "calificadas": "Aún no has calificado nada."}[dsc.section] || "No hay nada aquí.";
     $("#dscBox").innerHTML = `<p class="empty">${empty}</p>`; return;
   }
+  setTimeout(dscWallShown);
   $("#dscBox").innerHTML = (dsc.section === "para-ti" ? billboard(items.filter(c => c.backdrop).slice(0, 5)) : "")
-    + `<div class="wall">${items.map(c => tile(c, true)).join("")}</div>`;
+    + `<div class="wall ${dsc.wallShown === dsc.section ? "" : "fresh"}">${items.map(c => tile(c, true)).join("")}</div>`;
 }
 
 // Portada: el cartel con lo mejor para ti y una fila por sección, como en las apps de cine
 const SHELVES = [["para-ti", "Para ti"], ["novedades", "Novedades"], ["clasicos", "Populares y clásicos"], ["por-conseguir", "En tu lista"]];
 let bbTimer = null;
+// cada ánimo es un filtro sencillo por género o por tipo; pulsarlo otra vez lo quita
+const hasGenre = (c, ...gs) => (c.genres || []).some(g => gs.includes(g));
+const MOODS = {reir: c => hasGenre(c, "Comedia", "Animación", "Familia"), miedo: c => hasGenre(c, "Terror", "Suspense", "Misterio", "Crimen"),
+  pensar: c => hasGenre(c, "Ciencia ficción", "Documental", "Historia", "Sci-Fi & Fantasy"), llorar: c => hasGenre(c, "Drama", "Romance"),
+  peli: c => c.kind === "movie", serie: c => c.kind === "tv"};
+document.querySelectorAll("#dscMoods button").forEach(b => b.onclick = () => {
+  dsc.mood = dsc.mood === b.dataset.m ? "" : b.dataset.m;
+  document.querySelectorAll("#dscMoods button").forEach(x => x.classList.toggle("on", x.dataset.m === dsc.mood));
+  dsc.bb = 0; dsc.shown = new Set(); renderPortada();
+});
 async function loadPortada() {
   if (!Object.keys(dsc.rows).length) $("#dscBox").innerHTML = renderShelves();
   else renderPortada();
@@ -1987,21 +2020,25 @@ function renderPortada() {
   const seen = new Map();
   for (const [s] of SHELVES) dsc.rows[s] = (dsc.rows[s] || []).map(c => { const k = c.kind + c.tmdb; if (!seen.has(k)) seen.set(k, c); return seen.get(k); });
   dsc.items = [...seen.values()];
-  const pick = c => !dsc.kind || c.kind === dsc.kind;
+  const mood = MOODS[dsc.mood];
+  const pick = c => (!dsc.kind || c.kind === dsc.kind) && (!mood || mood(c));
   const top = [...(dsc.rows["para-ti"] || []), ...(dsc.rows.novedades || [])].filter(c => pick(c) && c.backdrop && c.rating == null).slice(0, 5);
   const pos = [...document.querySelectorAll("#dscBox .rail")].map(r => r.scrollLeft);  // al calificar no vuelve cada fila al principio
-  $("#dscBox").innerHTML = billboard(top) + renderShelves(pick);
+  const shelves = renderShelves(pick);
+  $("#dscBox").innerHTML = billboard(top) + (shelves || `<p class="empty">Nada con ese ánimo en lo que hay cargado. Prueba otro o quítalo.</p>`);
   document.querySelectorAll("#dscBox .rail").forEach((r, i) => { if (pos[i]) r.scrollLeft = pos[i]; });
 }
 function renderShelves(pick) {
   return SHELVES.map(([s, name]) => {
     const rows = dsc.rows[s];
     if (rows && !rows.filter(pick).length) return "";
+    const fresh = rows && !(dsc.shown ||= new Set()).has(s);
+    if (fresh) dsc.shown.add(s);
     const tiles = rows ? rows.filter(pick).map(c => tile(c, false)).join("")
                        : Array.from({length: 8}, () => `<div class="tile skel"><div class="tmedia"></div></div>`).join("");
     return `<section class="shelf"><div class="shelfhead"><h3>${name}</h3><button class="all" onclick="dscGo('${s}')">Ver todo</button>
       <div class="arrows"><button onclick="railGo(this,-1)" aria-label="Anteriores">${ico("next")}</button><button onclick="railGo(this,1)" aria-label="Siguientes">${ico("next")}</button></div></div>
-      <div class="rail">${tiles}</div></section>`;
+      <div class="rail ${fresh ? "fresh" : ""}">${tiles}</div></section>`;
   }).join("");
 }
 function railGo(b, dir) { const r = b.closest(".shelf").querySelector(".rail"); r.scrollBy({left: dir * r.clientWidth * .85, behavior: "smooth"}); }
@@ -2016,8 +2053,8 @@ function billboard(list) {
   setTimeout(() => { dsc.bbSeen = k; });
   if (list.length > 1 && !matchMedia("(prefers-reduced-motion: reduce)").matches)
     bbTimer = setInterval(() => { const b = document.querySelector(".bb"); if (!b || b.matches(":hover, :focus-within") || document.hidden) return; bbShow(dsc.bb + 1); }, 9000);
-  return `<div class="bb">
-    <div class="bbimg ${dsc.bbSeen === k ? "" : "anim"}"><img src="${esc(c.backdrop)}" alt=""></div>
+  return `<div class="bb ${dsc.bbSeen === k ? "" : "anim"}">
+    <div class="bbimg"><img src="${esc(c.backdrop)}" alt=""></div>
     <div class="bbtxt">
       <p class="bbwhy">${c.because && c.because.length ? esc(becauseText(c)) : c.have ? "Ya la tienes" : "Recomendada para ti"}</p>
       <h2 class="bbt">${esc(c.title)}</h2>
@@ -2025,6 +2062,7 @@ function billboard(list) {
       ${c.overview ? `<p class="bbov">${esc(c.overview)}</p>` : ""}
       <div class="bbacts"><button class="btn main" onclick="dscOpen('${k}')">${ico("play", "fill")}Ver la ficha</button>${rateButtons(c, k, false)}${haveButton(c, k)}</div>
     </div>
+    <button class="bbpost" onclick="dscOpen('${k}')" aria-label="Ver la ficha de ${esc(c.title)}" style="border:0;padding:0;cursor:pointer">${c.poster ? `<img src="${esc(c.poster)}" alt="">` : ""}</button>
     ${list.length > 1 ? `<div class="bbdots">${list.map((x, i) => `<button class="${i === dsc.bb ? "on" : ""}" onclick="bbShow(${i})" aria-label="${esc(x.title)}"></button>`).join("")}</div>` : ""}
   </div>`;
 }
@@ -2034,6 +2072,7 @@ function bbShow(i) {
   dsc.bb = (i + dsc.bbList.length) % dsc.bbList.length;
   b.outerHTML = billboard(dsc.bbList);
 }
+function dscWallShown() { dsc.wallShown = dsc.section; }
 function dscGo(section) { dsc.section = section; loadDiscover(); }
 function dscFind(k) { return dsc.items.find(x => x.kind + x.tmdb === k) || deck.items.find(x => x.kind + x.tmdb === k) || est.items.find(x => x.kind + x.tmdb === k) || (dsc.open && dsc.open.kind + dsc.open.tmdb === k ? dsc.open : null); }
 function rateButtons(c, k, labels = true) {

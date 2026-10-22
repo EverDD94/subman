@@ -1748,6 +1748,7 @@ def make_handler(app: App):
         "/api/auto": lambda q: app.auto_state(),
         "/api/unknown": lambda q: app.unknown_state(),
         "/api/update": lambda q: app.update_state(),
+        "/api/update/news": lambda q: updater.news(force=bool(q.get("force"))),
         "/api/discover": lambda q: app.discover_list(q.get("section", ["novedades"])[0], int(q.get("page", ["1"])[0])),
         "/api/discover/search": lambda q: app.discover_search(q.get("q", [""])[0]),
         "/api/discover/detail": lambda q: app._dsc(lambda d: {"item": d.detail(q["kind"][0], int(q["tmdb"][0]))}),

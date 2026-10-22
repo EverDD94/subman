@@ -122,6 +122,9 @@ button.btn,a.btn{text-decoration:none;display:inline-flex;align-items:center;jus
 button.btn:active:not(:disabled){transform:scale(.97)}
 button.btn.sec{background:var(--chip);color:var(--text)}
 button.btn.bad{background:var(--bad);color:#fff}
+.btn.hot{background:var(--pop)!important;color:#fff!important}
+.btn.line{background:none!important;color:var(--text)!important;box-shadow:inset 0 0 0 2px var(--text)}
+.btn.big{min-height:54px;padding:0 26px;font-size:17px}
 button.btn:disabled{opacity:.45;cursor:default}
 input[type=text],input[type=password],input[type=number],input[type=search],input[type=tel]{background:var(--card);color:var(--text);border:2px solid var(--line);border-radius:var(--r-sm);
   padding:10px 14px;font:inherit;font-size:16px;width:100%;transition:border-color .16s,box-shadow .16s}
@@ -130,13 +133,15 @@ select{background:var(--card);color:var(--text);border:2px solid var(--line);bor
 label.f{display:block;margin:12px 0 5px;font-weight:600;font-size:14px}
 .hint{font-size:13px;color:var(--muted);margin-top:4px}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:4px 18px}
-.pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600;background:var(--chip);color:var(--muted)}
+.pill{display:inline-block;padding:4px 12px;border-radius:999px;font-size:13px;font-weight:600;background:var(--chip);color:var(--muted)}
 .pill.ok{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
 .pill.revisar{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
 .pill.falla,.pill.error{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
 table{width:100%;border-collapse:collapse}
-td,th{padding:10px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+td,th{padding:13px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
 th{font-size:13px;color:var(--muted);font-weight:600}
+tbody tr{transition:background-color .15s}
+tbody tr:hover{background:color-mix(in srgb,var(--accent) 7%,transparent)}
 tr.click{cursor:pointer;transition:background-color .12s}
 .problems{border-color:color-mix(in srgb,var(--warn) 45%,var(--line));background:color-mix(in srgb,var(--warn) 7%,var(--card))}
 .problems li{margin:4px 0}
@@ -316,22 +321,34 @@ dialog .x:active{transform:scale(.92)}
 .tile.cur .tt{color:var(--accent)}
 @media (min-width:1100px) and (hover:hover) and (pointer:fine){
   main:has(> #descubrir.peekon:not([hidden])){max-width:none;padding-left:clamp(24px,3vw,56px);padding-right:clamp(24px,3vw,56px)}
-  #descubrir.peekon{display:grid;grid-template-columns:minmax(0,1fr) clamp(360px,27vw,460px);column-gap:clamp(28px,3vw,52px);align-items:start}
+  #descubrir.peekon{display:grid;grid-template-columns:minmax(0,1fr) clamp(400px,30vw,620px);column-gap:clamp(32px,3.5vw,64px);align-items:start}
   #descubrir.peekon > *{grid-column:1;min-width:0}
-  #descubrir.peekon > .peek{display:block;grid-column:2;grid-row:1 / span 4;position:sticky;top:calc(var(--head,64px) + 16px)}
+  #descubrir.peekon > .peek{display:block;grid-column:2;grid-row:1 / span 4;position:sticky;top:calc(var(--head,64px) + 8px)}
 }
-.peek{background:var(--card);border-radius:28px;padding:24px;box-shadow:var(--shadow);max-height:calc(100dvh - var(--head,64px) - 32px);overflow:auto;overscroll-behavior:contain}
-.peek .pk{animation:pkin .3s var(--ease-out)}
-@keyframes pkin{from{opacity:0;transform:translateX(10px)}}
-.pk-top{display:grid;grid-template-columns:minmax(0,46%) 1fr;gap:20px;align-items:end}
-.pk-top img,.pk-top .noimg{width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:18px;display:block;box-shadow:var(--shadow-lg);background:var(--chip)}
-.pk-t{font:800 clamp(28px,2.4vw,40px)/.92 var(--display);letter-spacing:-.04em;margin:0 0 10px;text-wrap:balance}
+/* la ficha de la derecha: sin caja; la carátula grande y sus colores difuminados de fondo */
+.peek{position:relative;height:calc(100dvh - var(--head,64px) - 16px)}
+.pk-bg{position:absolute;z-index:0;top:-40px;bottom:-40px;left:-30%;right:calc(-1 * clamp(24px,3vw,56px));background:center/cover no-repeat;pointer-events:none;
+  filter:blur(70px) saturate(1.6);opacity:.6;transform:scale(1.1);transition:background-image .5s;
+  -webkit-mask-image:radial-gradient(farthest-side at 62% 40%,#000 30%,transparent);mask-image:radial-gradient(farthest-side at 62% 40%,#000 30%,transparent)}
+:root[data-theme="light"] .pk-bg{opacity:.38}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .pk-bg{opacity:.38}}
+.pk-scroll{position:relative;z-index:1;height:100%;overflow:auto;overscroll-behavior:contain;scrollbar-width:none;padding:8px 4px 32px}
+.pk-scroll::-webkit-scrollbar{display:none}
+.peek .pk{animation:pkin .35s var(--ease-out)}
+.peek .pk-bg.pk{animation:pkfade .6s var(--ease-out)}
+@keyframes pkin{from{opacity:0;transform:translateY(10px)}}
+@keyframes pkfade{from{opacity:0}}
+.pk-top{display:flex;flex-direction:column;gap:22px}
+.pk-top img,.pk-top .noimg{width:min(100%,calc((100dvh - var(--head,64px)) * .42));aspect-ratio:2/3;object-fit:cover;border-radius:22px;display:block;
+  box-shadow:0 40px 80px -30px rgb(0 0 0/.75),0 12px 30px -12px rgb(0 0 0/.5);background:var(--chip)}
+.pk-t{font:800 clamp(34px,3vw,56px)/.9 var(--display);letter-spacing:-.045em;margin:0 0 12px;text-wrap:balance}
 .peek .meta{font-size:14px;gap:4px 12px}
 .pk-why{margin:18px 0 0;font-weight:700;color:var(--accent)}
 .pk-ov{margin:12px 0 0;font-size:15.5px;line-height:1.62;white-space:pre-line}
 .peek .facts{margin-top:14px}
 .pk-acts{display:flex;flex-direction:column;gap:8px;margin-top:20px}
 .pk-acts .btn{width:100%}
+.peek .pk-acts .btn.sec,.peek .rate button{background:color-mix(in srgb,var(--card) 55%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
 .pk-empty{color:var(--muted);margin:0}
 
 /* Estrenos: dos puertas enormes, películas y series */
@@ -453,10 +470,92 @@ dialog.sheet .foot{display:none}
 .kf{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:14px 0;max-width:420px}
 .kf div{font-size:12.5px;display:flex;flex-direction:column;gap:4px;line-height:1.3}
 .kf img,.kf .noimg{width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:10px;background:var(--chip)}
-.tastebox{max-width:820px}
-.tastebox dl{display:grid;grid-template-columns:minmax(120px,max-content) 1fr;gap:10px 20px;margin:18px 0}
-.tastebox dt{color:var(--muted)}
-.tastebox dd{margin:0}
+
+/* Subtítulos */
+.ph{margin:0 0 28px}
+.ph-sub{margin:14px 0 0;font-size:18px;color:var(--muted);max-width:56ch}
+.mg-card.sb-run{background:#5b3df5;color:#fff}
+.sb-run .switch input:not(:checked){background:rgb(255 255 255/.3)}
+.sb-run #enabledText{color:#e4ddff}
+.sb-big{display:block;font:800 clamp(40px,4vw,64px)/.95 var(--display);letter-spacing:-.045em;margin:6px 0 10px}
+.sb-run p{margin:4px 0;color:#e4ddff}
+.sb-run .bar{background:rgb(255 255 255/.22);height:12px}.sb-run .bar i{background:var(--pop)}
+.sb-cur{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-fold{display:grid;grid-template-columns:1fr auto;gap:6px 12px;font-size:17px;font-weight:600;margin-bottom:14px}
+.sb-fold b{font:800 28px/1 var(--display);letter-spacing:-.03em}
+.sb-fold .mg-meter{grid-column:1 / -1}
+.sb-why{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+.sb-r{background:var(--card-2);border-radius:24px;padding:22px;display:flex;flex-direction:column;gap:6px;animation:mgPop .6s var(--ease-out) both}
+.sb-r .sb-n{font:800 64px/.9 var(--display);letter-spacing:-.05em;color:var(--pop)}
+.sb-r h4{margin:6px 0 2px;font:800 21px/1.15 var(--display);letter-spacing:-.02em}
+.sb-r p{margin:0;color:var(--muted);font-size:15px}
+.sb-r p b{color:var(--text)}
+.sb-r .btn{align-self:flex-start;margin-top:10px}
+
+/* Descargas */
+.dl-now{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;margin:0 0 22px}
+.dl-now > b{font:800 clamp(44px,5vw,72px)/.9 var(--display);letter-spacing:-.05em;color:var(--pop)}
+.dl-now span{font-size:17px;color:var(--muted)}
+.dl-now span b{color:var(--text)}
+.dl-tip{background:var(--pop);color:#fff;border-radius:24px;padding:20px 24px;margin-bottom:16px;font-size:16px;line-height:1.5}
+.dl-i{display:grid;grid-template-columns:84px 1fr auto;gap:20px;align-items:center;background:var(--card);border-radius:24px;padding:14px 22px 14px 14px;margin-bottom:12px;box-shadow:var(--shadow);
+  animation:mgPop .5s var(--ease-out) both;transition:transform .25s var(--ease-out)}
+.dl-i:hover{transform:translateX(4px)}
+.dl-i.now{box-shadow:0 0 0 3px var(--pop),var(--shadow)}
+.dl-i img,.dl-i .noimg{width:84px;aspect-ratio:2/3;object-fit:cover;border-radius:14px;background:linear-gradient(150deg,var(--accent),var(--pop))}
+.dl-i h3{margin:6px 0 4px;font:800 24px/1.05 var(--display);letter-spacing:-.03em}
+.dl-i .bar{height:10px}.dl-i .bar i{background:var(--pop)}
+.dl-b{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+@media (max-width:700px){.dl-i{grid-template-columns:64px 1fr}.dl-i img,.dl-i .noimg{width:64px}.dl-b{grid-column:1 / -1;justify-content:flex-start}}
+/* Mis gustos: tu resumen */
+.mg{display:flex;flex-direction:column;gap:22px}
+.mg-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap}
+.mg-h{margin:0;font:800 clamp(56px,8vw,112px)/.86 var(--display);letter-spacing:-.05em}
+.mg-acts{display:flex;gap:10px;flex-wrap:wrap}
+.mg-acts .btn{min-height:54px;padding:0 26px;font-size:17px}
+.mg-card{background:var(--card);border-radius:32px;padding:30px 32px;display:flex;flex-direction:column;gap:18px;box-shadow:var(--shadow)}
+.mg-card h3{margin:0;font:800 30px/1 var(--display);letter-spacing:-.03em}
+.mg-row{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:10px}
+.mg-row a{font-weight:700;color:var(--accent)}
+.mg-bar{display:flex;height:92px;border-radius:22px;overflow:hidden;gap:4px}
+.mg-seg{transform-origin:left;animation:mgGrow 1s var(--ease-out) both}
+.mg-bar .mg-seg{min-width:96px;padding:14px 18px;display:flex;flex-direction:column;justify-content:space-between;text-decoration:none;color:#fff;transition:filter .2s}
+.mg-bar .mg-seg:hover{filter:brightness(1.12)}
+.mg-bar b{font:800 34px/1 var(--display);letter-spacing:-.04em}
+.mg-bar span{font-size:14px;font-weight:600;white-space:nowrap}
+.mg-seg.s2{background:var(--pop)}.mg-seg.s1{background:#5b3df5}.mg-seg.sn{background:var(--text);color:var(--bg)}.mg-seg.s0{background:var(--chip);color:var(--muted)}
+.mg-grid{display:grid;grid-template-columns:7fr 5fr;gap:22px}
+.mg-gen{background:#5b3df5;color:#fff;min-height:380px}
+.mg-gen p{margin:0;font-size:15px;color:#e4ddff}
+.mg-bubs{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.mg-bub{border:0;border-radius:999px;font:800 20px/1.1 var(--display);letter-spacing:-.03em;padding:10px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;
+  background:rgb(255 255 255/.18);color:#fff;animation:mgPop .6s var(--ease-out) both;transition:transform .35s var(--ease-out),filter .35s}
+.mg-bub:hover{transform:scale(1.08) rotate(-2deg);filter:brightness(1.1)}
+.mg-bub.big{background:#fff;color:#16122b;font-size:var(--fs,32px);padding:.45em .8em}
+.mg-bub.no{background:none;color:rgb(255 255 255/.6);font-size:17px;padding:8px 14px;box-shadow:inset 0 0 0 2px rgb(255 255 255/.22)}
+.mg-bub svg{width:.9em;height:.9em}
+.mg-cols{display:flex;align-items:flex-end;gap:14px;height:200px}
+.mg-cols > div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:8px;height:100%}
+.mg-col{width:100%;border-radius:14px 14px 6px 6px;background:var(--accent);transform-origin:bottom;animation:mgRise .9s var(--ease-out) both}
+.mg-col.top{background:var(--pop)}.mg-col.low{background:var(--chip)}
+.mg-cols small{font-size:14px;font-weight:600;color:var(--muted)}
+.mg-kind{display:flex;flex-direction:column;gap:8px;margin-top:auto}
+.mg-kind > div:first-child{display:flex;justify-content:space-between;font-weight:700;font-size:15px}
+.mg-meter{display:flex;height:14px;border-radius:999px;overflow:hidden;background:var(--chip)}
+.mg-meter span{background:var(--pop)}
+.mg-faces{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:18px}
+.mg-face{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;animation:mgPop .6s var(--ease-out) both;transition:transform .3s var(--ease-out)}
+.mg-face:hover{transform:translateY(-6px)}
+.mg-face img,.mg-face > span{width:104px;height:104px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 4px var(--accent)}
+.mg-face:nth-child(-n+2) img,.mg-face:nth-child(-n+2) > span{box-shadow:0 0 0 4px var(--pop)}
+.mg-face > span{display:grid;place-items:center;font:800 34px var(--display);color:#fff;background:linear-gradient(150deg,hsl(var(--h) 70% 72%),hsl(var(--h) 60% 26%))}
+.mg-face b{font-size:15px;line-height:1.2}
+.mg-no{display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:15px;color:var(--muted)}
+.mg-no .pill{font-size:14px;padding:6px 14px;background:none;box-shadow:inset 0 0 0 2px var(--line);color:var(--text)}
+@keyframes mgGrow{from{transform:scaleX(0)}}
+@keyframes mgRise{from{transform:scaleY(0)}}
+@keyframes mgPop{from{opacity:0;transform:scale(.6)}}
+@media (max-width:900px){.mg-grid{grid-template-columns:1fr}.mg-card{padding:22px;border-radius:24px}.mg-bar{height:auto;flex-wrap:wrap}.mg-bar .mg-seg{flex-basis:40%!important;min-height:76px}.mg-faces{grid-template-columns:repeat(auto-fill,minmax(90px,1fr))}.mg-face img,.mg-face > span{width:80px;height:80px;font-size:26px}}
 
 @media (hover:hover) and (pointer:fine){
   nav button:hover:not(.on),.tool:hover{color:var(--text);background:var(--chip)}
@@ -546,8 +645,6 @@ dialog.sheet .foot{display:none}
   .deckbtns .btn{flex-direction:column;gap:3px;font-size:13px;min-height:62px;padding:6px 4px}
   .deckbtns.two .btn{flex-direction:row;min-height:50px}
   .pick2{grid-template-columns:1fr}
-  .tastebox dl{grid-template-columns:1fr;gap:2px}
-  .tastebox dd{margin-bottom:10px}
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
@@ -556,12 +653,12 @@ dialog.sheet .foot{display:none}
 <header>
   <div class="brand"><img src="/icon.svg" alt=""><h1>Videotecario</h1></div>
   <nav id="tabs">
-    <button data-tab="inicio" data-ico="home" class="on pri">Inicio</button>
+    <button data-tab="descubrir" data-ico="compass" class="on pri">Descubrir</button>
+    <button data-tab="inicio" data-ico="subs" class="pri">Subtítulos</button>
     <button data-tab="biblioteca" data-ico="library" class="pri">Biblioteca</button>
     <button data-tab="nombres" data-ico="tag">Nombres</button>
     <button data-tab="duplicados" data-ico="copy">Duplicados</button>
     <button data-tab="formatos" data-ico="film">Formatos</button>
-    <button data-tab="descubrir" data-ico="compass" class="pri">Descubrir</button>
     <button data-tab="registro" data-ico="list">Registro</button>
     <button data-tab="ajustes" data-ico="sliders" class="pri">Ajustes</button>
     <button data-tab="papelera" data-ico="trash" class="end" title="Papelera">Papelera</button>
@@ -578,24 +675,27 @@ dialog.sheet .foot{display:none}
 </header>
 <main>
 
-<section id="inicio">
+<section id="inicio" hidden>
   <div class="card problems" id="problems" hidden><h2>Falta por configurar</h2><ul id="problemList"></ul>
     <button class="btn sec" onclick="show('ajustes')">Ir a Ajustes</button></div>
-  <div class="card">
-    <div class="row" style="justify-content:space-between">
-      <label class="switch"><input type="checkbox" id="enabledHome"><span><b>Trabajo automático</b><br><span class="muted" id="enabledText"></span></span></label>
-      <button class="btn" id="runNow">Procesar ahora</button>
+  <div class="mg">
+    <div class="mg-head"><div><h2 class="mg-h" id="subHead">Subtítulos</h2><p class="ph-sub" id="subSub"></p></div>
+      <div class="mg-acts"><button class="btn hot" id="runNow">Procesar ahora</button>
+        <button class="btn line" onclick="filter='';reasonF='';show('biblioteca')">Ver la biblioteca</button></div></div>
+    <section class="mg-card"><div class="mg-row"><h3>Cómo están</h3><span class="muted" id="countsNote"></span></div><div class="mg-bar" id="counts"></div></section>
+    <div class="mg-grid">
+      <section class="mg-card sb-run"><label class="switch"><input type="checkbox" id="enabledHome"><span><b>Trabajo automático</b><br><span id="enabledText"></span></span></label>
+        <div id="stateBox"></div></section>
+      <section class="mg-card"><h3>Por carpeta</h3><div id="folderBox"></div>
+        <div id="autoHomeCard" hidden><h3 style="font-size:22px;margin-top:8px">Nombres y duplicados solos</h3><div id="autoHome"></div></div></section>
     </div>
-    <div style="margin-top:14px" id="stateBox"></div>
+    <section class="mg-card" id="missingCard" hidden><div class="mg-row"><h3 id="missingTitle">Lo que falta</h3><span class="muted">Por qué no tienen todavía un subtítulo bueno y qué puedes hacer</span></div>
+      <div class="sb-why" id="missing"></div></section>
   </div>
-  <div class="card" id="autoHomeCard" hidden><h2>Nombres y duplicados solos</h2><div id="autoHome"></div></div>
-  <div class="card"><h2>Subtítulos</h2><div class="grid" id="counts"></div></div>
-  <div class="card" id="missingCard" hidden><h2 id="missingTitle">Lo que falta</h2>
-    <p class="muted" style="margin-top:0">Por qué no tienen todavía un subtítulo bueno y qué puedes hacer. Pulsa <b>Ver</b> para la lista.</p>
-    <div id="missing"></div></div>
 </section>
 
 <section id="biblioteca" hidden>
+  <div class="ph"><h2 class="mg-h">Biblioteca</h2><p class="ph-sub">Cada video y cómo está su subtítulo. Pincha uno para ver los detalles.</p></div>
   <div class="card">
     <div class="row" style="justify-content:space-between">
       <div class="filters row" id="filters">
@@ -614,6 +714,7 @@ dialog.sheet .foot{display:none}
 </section>
 
 <section id="ajustes" hidden>
+  <div class="ph"><h2 class="mg-h">Ajustes</h2><p class="ph-sub">Carpetas, claves y cómo trabaja solo.</p></div>
   <div class="card">
     <h2>Carpetas de la biblioteca</h2>
     <p class="muted" style="margin-top:0">Marca las carpetas donde están tus series y películas. Se revisa todo lo que haya dentro.</p>
@@ -787,7 +888,7 @@ dialog.sheet .foot{display:none}
   <div class="row"><button class="btn" id="save">Guardar ajustes</button><span class="muted" id="saveMsg"></span></div>
 </section>
 
-<section id="descubrir" hidden>
+<section id="descubrir">
   <div class="dhead">
     <h2 id="dscTitle">Descubrir</h2>
     <div class="moods" id="dscMoods" hidden>
@@ -819,6 +920,7 @@ dialog.sheet .foot{display:none}
   <aside class="peek" id="dscPeek" aria-live="polite"></aside>
 </section>
 <section id="registro" hidden>
+  <div class="ph"><h2 class="mg-h">Registro</h2><p class="ph-sub">Lo que va haciendo, línea a línea.</p></div>
   <div class="card">
     <div class="row" style="justify-content:space-between;margin-bottom:10px"><h2 style="margin:0">Registro</h2>
       <label class="switch"><input type="checkbox" id="follow" checked><span>Seguir</span></label></div>
@@ -827,6 +929,7 @@ dialog.sheet .foot{display:none}
 </section>
 
 <section id="nombres" hidden>
+  <div class="ph"><h2 class="mg-h">Nombres</h2><p class="ph-sub">Que Jellyfin reconozca cada película y cada capítulo a la primera.</p></div>
   <div class="card">
     <div class="row" style="justify-content:space-between"><h2 style="margin:0">Nombres y carpetas</h2>
       <div class="row"><button class="btn sec" id="nmScan">Revisar nombres</button><button class="btn" id="nmAuto">Identificar todo</button>
@@ -864,6 +967,7 @@ dialog.sheet .foot{display:none}
 </section>
 
 <section id="duplicados" hidden>
+  <div class="ph"><h2 class="mg-h">Duplicados</h2><p class="ph-sub">Las que tienes dos veces, y cuál conviene quedarse.</p></div>
   <div class="card">
     <div class="row" style="justify-content:space-between"><h2 style="margin:0">Películas duplicadas</h2>
       <button class="btn" id="dupScan">Buscar duplicados</button></div>
@@ -889,6 +993,7 @@ dialog.sheet .foot{display:none}
 </section>
 
 <section id="formatos" hidden>
+  <div class="ph"><h2 class="mg-h">Formatos</h2><p class="ph-sub">Lo que Jellyfin no puede reproducir directo, convertido para que vaya fino.</p></div>
   <div class="card">
     <div class="row" style="justify-content:space-between"><h2 style="margin:0">Formatos para Jellyfin</h2>
       <div class="row"><button class="btn sec" id="fmtStop" hidden>Parar</button><button class="btn" id="fmtScan">Analizar videos</button></div></div>
@@ -928,6 +1033,7 @@ dialog.sheet .foot{display:none}
 </section>
 
 <section id="papelera" hidden>
+  <div class="ph"><h2 class="mg-h">Papelera</h2><p class="ph-sub">Aquí no se borra nada: lo que se quita espera aquí por si lo quieres de vuelta.</p></div>
   <div class="card">
     <h2>Papelera y archivo</h2>
     <p class="muted" style="margin-top:0">Aquí está todo lo que Videotecario ha apartado. Nada se borra. <b>Recuperar</b> lo devuelve junto a su video.</p>
@@ -944,7 +1050,7 @@ dialog.sheet .foot{display:none}
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const LABEL = {ok:"bien", revisar:"revisar", falla:"falla", pendiente:"pendiente", error:"error"};
-let cfg = null, chosen = [], libItems = [], filter = "", reasonF = "", reasonTitles = {}, tab = "inicio";
+let cfg = null, chosen = [], libItems = [], filter = "", reasonF = "", reasonTitles = {}, tab = "descubrir";
 
 async function api(path, body) {
   const r = await fetch(path, body === undefined ? {} : {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
@@ -973,6 +1079,7 @@ function pct(x) { return Math.round((x || 0) * 100) + "%"; }
 // Iconos de línea (estilo Lucide), en vez de emojis.
 const ICO = {
   download: '<path d="M12 3v12m-5-5 5 5 5-5M5 21h14"/>',
+  subs: '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M7 15h4m3 0h3M7 11h2m3 0h5"/>',
   home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
   library: '<path d="m16 6 4 14M12 6v14M8 8v12M4 4v16"/>',
   tag: '<path d="M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4z"/><path d="M7.5 7.5h.01"/>',
@@ -1030,27 +1137,33 @@ async function loadStatus() {
   $("#enabledText").textContent = s.enabled ? "Encendido: revisa la biblioteca sola." : "Apagado: no toca ningún archivo.";
   let html;
   if (st.running && !st.total) {
-    html = `<b>${esc(st.message === "escaneando" ? "buscando videos..." : st.message)}</b><div class="muted">Primero hace la lista de todos los videos; luego empieza con los subtítulos.</div>`;
+    html = `<b class="sb-big">Buscando videos</b><p>Primero hace la lista de todos los videos; luego empieza con los subtítulos.</p>`;
   } else if (st.running) {
     const p = st.total ? st.done / st.total : 0;
-    html = `<b>Trabajando</b> · ${st.done} de ${st.total}<div class="muted">${esc(st.current)}</div><div class="bar"><i style="width:${p*100}%"></i></div>`;
+    html = `<b class="sb-big">${st.done} de ${st.total}</b><p class="sb-cur">${esc(st.current)}</p><div class="bar"><i style="width:${p*100}%"></i></div>`;
   } else {
-    html = `<b>${esc(st.message || "esperando")}</b>`;
-    if (st.last_end) html += `<div class="muted">Última pasada: ${when(st.last_end)}</div>`;
-    if (st.next_run) html += `<div class="muted">Próxima: ${when(st.next_run)}</div>`;
-  }
-  if (st.scan) {
-    html += `<div class="muted" style="margin-top:8px">Videos por carpeta: ${Object.entries(st.scan.por_carpeta).map(([k, v]) => esc(k) + " " + v).join(" · ")}</div>`;
-    const ig = Object.entries(st.scan.ignorados || {});
-    if (ig.length) html += `<div class="muted">No se procesan (formato no compatible): ${ig.map(([k, v]) => v + " " + esc(k)).join(", ")}</div>`;
+    html = `<b class="sb-big">${esc((st.message || "esperando").replace(/^./, x => x.toUpperCase()))}</b>`;
+    if (st.last_end) html += `<p>Última pasada: ${when(st.last_end)}</p>`;
+    if (st.next_run) html += `<p>Próxima: ${when(st.next_run)}</p>`;
   }
   $("#stateBox").innerHTML = html;
+  let fold = "";
+  if (st.scan) {
+    const pc = Object.entries(st.scan.por_carpeta), mx = Math.max(1, ...pc.map(([, v]) => v));
+    fold = pc.map(([k, v], i) => `<div class="sb-fold"><span>${esc(k)}</span><b>${v}</b><div class="mg-meter"><span class="mg-seg" style="width:${100 * v / mx}%;animation-delay:${i * .1}s"></span></div></div>`).join("");
+    const ig = Object.entries(st.scan.ignorados || {});
+    if (ig.length) fold += `<p class="hint">No se procesan (formato no compatible): ${ig.map(([k, v]) => v + " " + esc(k)).join(", ")}</p>`;
+  }
+  $("#folderBox").innerHTML = fold || `<p class="muted">Aún no ha mirado las carpetas.</p>`;
   const au = s.auto || {}, aus = au.settings || {};
   $("#autoHomeCard").hidden = !(aus.names || aus.dupes);
   $("#autoHome").innerHTML = autoSummary(au);
-  const c = s.counts;
-  $("#counts").innerHTML = [["Videos", s.media], ["Bien", c.ok || 0], ["Revisar", c.revisar || 0], ["Fallan", (c.falla || 0) + (c.error || 0)], ["Pendientes", c.pendiente || 0]]
-    .map(([k, v]) => `<div class="stat"><span class="muted">${k}</span><b>${v}</b></div>`).join("");
+  const c = s.counts, bad = (c.falla || 0) + (c.error || 0);
+  $("#subHead").innerHTML = `${c.ok || 0} de ${s.media}<br>con subtítulo`;
+  $("#subSub").textContent = s.media ? `El ${Math.round(100 * (c.ok || 0) / s.media)} % de tus videos ya tiene un subtítulo en español que encaja.` : "";
+  $("#countsNote").textContent = `${s.media} videos`;
+  const seg = (n, label, cls, f, d) => n ? `<a href="#" class="mg-seg ${cls}" style="flex:${n};animation-delay:${d}s" onclick="filter='${f}';reasonF='';show('biblioteca');return false"><b>${n}</b><span>${label}</span></a>` : "";
+  $("#counts").innerHTML = seg(c.ok || 0, "Bien", "s1", "ok", 0) + seg(c.revisar || 0, "Revisar", "s2", "revisar", .1) + seg(bad, "Fallan", "sn", "falla", .2) + seg(c.pendiente || 0, "Pendientes", "s0", "pendiente", .3);
   $("#runNow").disabled = st.running || !s.enabled;
   const miss = s.missing || [];
   const total = miss.reduce((a, g) => a + g.count, 0);
@@ -1061,8 +1174,8 @@ async function loadStatus() {
     let extra = "";
     if (g.only_local) extra += `<p class="muted">En ${g.only_local}, OpenSubtitles no tenía otro para probar: suele ser por el nombre del archivo.</p>`;
     if (g.audio_es) extra += `<p class="muted">${g.audio_es} tienen «LAT» o «Castellano» en el nombre: si el audio ya está en español, quizá no necesitas subtítulos.</p>`;
-    return `<div class="reason"><div class="n">${g.count}</div><div><b>${esc(g.title)}</b><p>${esc(g.what)}</p><p><b>Qué hacer:</b> ${esc(g.todo)}</p>${extra}</div>
-      <button class="btn sec" onclick="seeReason('${g.code}')">Ver</button></div>`;
+    return `<div class="sb-r"><b class="sb-n">${g.count}</b><h4>${esc(g.title)}</h4><p>${esc(g.what)}</p><p><b>Qué hacer:</b> ${esc(g.todo)}</p>${extra}
+      <button class="btn sec" onclick="seeReason('${g.code}')">Ver cuáles</button></div>`;
   }).join("");
 }
 function seeReason(code) { filter = ""; reasonF = code; show("biblioteca"); }
@@ -1460,8 +1573,9 @@ async function loadDownloads() {
   const st = r.state, rows = r.rows.filter(x => x.state !== "cancelado")
     .sort((a, b) => order.indexOf(a.state) - order.indexOf(b.state) || (a.state === "listo" ? b.updated - a.updated : a.created - b.created || (a.season || 0) - (b.season || 0)));
   const head = !r.settings.enabled ? `<div class="card"><p style="margin-top:0">Las descargas están apagadas.</p><button class="btn sec" onclick="show('ajustes');setTimeout(()=>$('#dlCard').scrollIntoView(),300)">Ir a Ajustes</button></div>`
-    : `<p class="muted">Ahora: ${esc(st.message)}${st.total ? ` · ${Math.round(100 * st.done / st.total)} % de ${(st.total / 2 ** 30).toFixed(2)} GB${dlSpeed(st)}` : ""}</p>`;
-  const manual = rows.some(x => x.state === "manual") ? `<div class="card"><b>Te toca a ti:</b> pulsa «Abrir el chat» (o abre en Telegram el primer chat de tu lista) y pulsa «Watch Ads» y después «I have clicked ads». En cuanto mande el archivo, se descarga solo.</div>` : "";
+    : `<div class="dl-now"><b>${st.total ? `${Math.round(100 * st.done / st.total)} %` : esc((st.message || "en espera").replace(/^./, x => x.toUpperCase()))}</b>
+        <span>${st.total ? `${esc(st.message)} · ${(st.total / 2 ** 30).toFixed(2)} GB${dlSpeed(st)}` : `${rows.filter(x => x.state !== "listo").length} en la lista · ${rows.filter(x => x.state === "listo").length} listas`}</span></div>`;
+  const manual = rows.some(x => x.state === "manual") ? `<div class="dl-tip"><b>Te toca a ti:</b> pulsa «Abrir el chat» (o abre en Telegram el primer chat de tu lista) y pulsa «Watch Ads» y después «I have clicked ads». En cuanto mande el archivo, se descarga solo.</div>` : "";
   const items = rows.map(x => {
     const [cls, label] = DL_STATE[x.state] || ["", x.state];
     const name = x.title + (x.year ? ` (${x.year})` : "") + (x.season ? ` · temporada ${x.season}` : "");
@@ -1470,10 +1584,10 @@ async function loadDownloads() {
     const btn = chat + (["listo"].includes(x.state) ? `<button class="btn sec" onclick="dlCancel(${x.id})">Quitar de la lista</button>`
       : ["error", "no-esta"].includes(x.state) ? `<button class="btn sec" onclick="dlRetry(${x.id})">Reintentar</button> <button class="btn sec" onclick="dlCancel(${x.id})">Cancelar</button>`
       : `<button class="btn sec" onclick="dlCancel(${x.id})">Cancelar</button>`);
-    return `<div class="card"><div class="row" style="justify-content:space-between;gap:10px;flex-wrap:wrap">
-      <div><b>${esc(name)}</b> <span class="pill ${cls}">${esc(label)}</span>${x.how === "auto" ? ` <span class="muted">· de tu lista</span>` : ""}
-        <div class="muted">${esc(x.detail || "")}${x.file ? ` · ${esc(x.file)}` : ""}${x.size ? ` · ${(x.size / 2 ** 30).toFixed(2)} GB` : ""}</div>${pct}</div>
-      <div>${btn}</div></div></div>`;
+    return `<div class="dl-i ${x.state === "descargando" ? "now" : ""}">${x.poster ? `<img src="${esc(x.poster)}" alt="">` : `<div class="noimg"></div>`}
+      <div class="dl-txt"><span class="pill ${cls}">${esc(label)}</span>${x.how === "auto" ? ` <span class="muted">· de tu lista</span>` : ""}
+        <h3>${esc(name)}</h3><div class="muted">${[x.detail, x.file, x.size ? (x.size / 2 ** 30).toFixed(2) + " GB" : ""].filter(Boolean).map(esc).join(" · ")}</div>${pct}</div>
+      <div class="dl-b">${btn}</div></div>`;
   }).join("");
   const waiting = rows.filter(x => ["cola", "no-esta", "error"].includes(x.state) && x.id !== st.current).length;
   const clear = waiting > 1 ? `<div class="row" style="margin-bottom:12px"><button class="btn sec" onclick="dlClear()">Vaciar la cola (${waiting})</button></div>` : "";
@@ -2035,6 +2149,7 @@ async function loadDiscover() {
   if (onb) onb.scrollIntoView({block: "nearest", inline: "nearest"});
   $("#dscMoods").hidden = dsc.section !== "portada";
   $("#dscTitle").textContent = dsc.section === "buscar" ? `«${dsc.q}»` : DSC_TITLE[dsc.section];
+  $("#dscTitle").hidden = false;
   $("#dscHelp").textContent = DSC_HELP[dsc.section];
   $("#dscHelp").hidden = !DSC_HELP[dsc.section];
   $("#dscBar").hidden = ["gustos", "estrenos", "descargas"].includes(dsc.section);
@@ -2256,7 +2371,7 @@ function renderPeek(anim) {
   if (c.cast && c.cast.length) facts.push(["Reparto", c.cast.slice(0, 4).map(p => p.name).join(", ")]);
   const meta = [kindLabel(c), c.year, (c.genres || []).slice(0, 3).join(", ")].filter(Boolean).map(x => `<span>${esc(x)}</span>`).join("")
     + (c.vote ? `<span class="star">${ico("star", "fill")}${c.vote}</span>` : "");
-  box.innerHTML = `<div class="${anim ? "pk" : ""}">
+  box.innerHTML = `${c.poster ? `<div class="pk-bg ${anim ? "pk" : ""}" style="background-image:url('${esc(c.poster)}')"></div>` : ""}<div class="pk-scroll"><div class="${anim ? "pk" : ""}">
     <div class="pk-top">${c.poster ? `<img src="${esc(c.poster)}" alt="">` : `<div class="noimg"></div>`}<div><h2 class="pk-t">${esc(c.title)}</h2><div class="meta">${meta}</div></div></div>
     ${c.because && c.because.length ? `<p class="pk-why">${esc(becauseText(c))}</p>` : ""}
     ${c.tagline ? `<p class="tagline">${esc(c.tagline)}</p>` : ""}
@@ -2264,7 +2379,7 @@ function renderPeek(anim) {
     ${facts.length ? `<dl class="facts">${facts.map(([a, b]) => `<dt>${a}</dt><dd>${esc(b)}</dd>`).join("")}</dl>` : ""}
     <div class="pk-acts">${rateButtons(c, k)}${c.have ? "" : dlButton(k)}
       ${c.trailer ? `<a class="btn main" href="${esc(c.trailer)}" target="_blank" rel="noopener">${ico("play", "fill")}Ver el tráiler</a>` : ""}
-      <button class="btn sec" onclick="dscOpen('${k}')">Ver la ficha completa</button></div></div>`;
+      <button class="btn sec" onclick="dscOpen('${k}')">Ver la ficha completa</button></div></div></div>`;
 }
 PEEK_MQ.addEventListener("change", () => { if (tab === "descubrir") renderDiscover(); });
 async function dscMark(k, change) {
@@ -2484,32 +2599,7 @@ async function loadTaste() {
 function renderTaste() {
   if (quiz.step === "deck") return renderDeck();
   const p = quiz.p;
-  if (quiz.step === "summary") {
-    const st = taste.stats || {};
-    const g = taste.genres.filter(x => x.ids.some(id => p.genres[id] > 0)).map(x => x.name);
-    const bad = taste.genres.filter(x => x.ids.some(id => p.genres[id] < 0)).map(x => x.name);
-    const KIND = {movie: "Películas", tv: "Series", both: "Películas y series"}, ERA = {"new": "Sobre todo nuevas", all: "Nuevas y antiguas", classic: "Sobre todo clásicas"};
-    const none = t => `<span class="muted">${t}</span>`;
-    $("#dscBox").innerHTML = `<div class="card tastebox">
-      <h2>Lo que sé de ti</h2>
-      <dl>
-        <dt>Te gustan</dt><dd>${g.length ? esc(g.join(", ")) : none("ningún género marcado")}</dd>
-        <dt>No te gustan</dt><dd>${bad.length ? esc(bad.join(", ")) : none("ninguno")}</dd>
-        <dt>Gente que te gusta</dt><dd>${p.people.length ? esc(p.people.map(x => x.name).join(", ")) : none("nadie todavía")}</dd>
-        ${p.people_no.length ? `<dt>Gente que no</dt><dd>${esc(p.people_no.map(x => x.name).join(", "))}</dd>` : ""}
-        <dt>Prefieres</dt><dd>${KIND[p.kinds]} · ${ERA[p.era]}</dd>
-        <dt>Has calificado</dt><dd>${st["2"] || 0} me encanta · ${st["1"] || 0} me gusta · ${st["-1"] || 0} no me gusta · ${st["0"] || 0} no la has visto
-          · <a href="#" onclick="dscGo('calificadas');return false">ver todas</a></dd>
-      </dl>
-      ${learnedBox(taste.learned)}
-      <div class="row">
-        <button class="btn" onclick="startDeck()">Seguir calificando</button>
-        <button class="btn sec" onclick="quiz.step='genres';renderTaste()">Cambiar respuestas</button>
-        <button class="btn sec" onclick="redoTaste()">Rehacer desde cero</button>
-      </div>
-      <p class="hint">«Rehacer desde cero» borra estas respuestas, no tus calificaciones (esas se cambian en Mis calificaciones).</p></div>`;
-    return;
-  }
+  if (quiz.step === "summary") return renderTasteSummary();
   const steps = ["genres", "people", "prefs"], n = steps.indexOf(quiz.step) + 1;
   const nav = (back, next, label) => `<div class="row" style="margin-top:22px;justify-content:space-between">
       <span class="muted">Paso ${n} de 4</span><span class="row">${back ? `<button class="btn sec" onclick="quiz.step='${back}';renderTaste()">Atrás</button>` : ""}
@@ -2555,14 +2645,58 @@ function renderTaste() {
       ${nav("people", "saveTaste()", "Empezar a calificar")}</div>`;
   }
 }
-function learnedBox(l) {
-  if (!l || !l.count) return "";
-  const line = (label, xs) => xs && xs.length ? `<dt>${label}</dt><dd>${esc(xs.join(", "))}</dd>` : "";
-  const body = line("Géneros que te van", l.likes) + line("Géneros que no", l.dislikes) + line("Épocas", l.decades)
-    + (l.kind ? `<dt>Prefieres</dt><dd>${esc(l.kind)}</dd>` : "") + line("Gente que te gusta", l.people) + line("Gente que no", l.people_no);
-  return `<h3 style="font-size:19px;margin:22px 0 4px">Lo que he aprendido de tus ${l.count} calificaciones</h3>
-    <p class="hint" style="margin:0">Cada «Me encanta», «Me gusta» o «No me gusta» cuenta. Con esto se ordenan «Para ti», «Estrenos» y las tarjetas de calificar.</p>
-    ${body ? `<dl>${body}</dl>` : `<p class="muted">Todavía son pocas: califica unas cuantas más y aquí verás lo que va aprendiendo.</p>`}`;
+function tasteGenres() {
+  const p = quiz.p, w = (taste.learned && taste.learned.genre_w) || {};
+  return taste.genres.map((g, i) => {
+    const hand = Math.max(...g.ids.map(id => p.genres[id] || 0)) || Math.min(...g.ids.map(id => p.genres[id] || 0));
+    const lw = Math.max(...g.ids.map(id => w[id] || 0)) || Math.min(...g.ids.map(id => w[id] || 0));
+    return {i, name: g.name, hand, s: hand * 1.2 + lw};
+  }).filter(g => g.hand || Math.abs(g.s) >= 0.3).sort((a, b) => b.s - a.s);
+}
+function renderTasteSummary() {
+  const st = taste.stats || {}, p = quiz.p, L = taste.learned || {};
+  const n = k => st[k] || 0, total = n("2") + n("1") + n("-1"), all = total + n("0");
+  const seg = (k, label, cls, d) => n(k) ? `<a href="#" class="mg-seg ${cls}" style="flex:${n(k)};animation-delay:${d}s" onclick="dscGo('calificadas');return false"><b>${n(k)}</b><span>${label}</span></a>` : "";
+  const gs = tasteGenres(), top = gs.filter(g => g.s > 0);
+  const bub = g => { const r = top.indexOf(g), cls = g.s <= 0 ? "no" : r < 4 ? "big" : "mid";
+    return `<button class="mg-bub ${cls}" style="${cls === "big" ? `--fs:${40 - r * 4}px;` : ""}animation-delay:${(gs.indexOf(g) * .04).toFixed(2)}s" onclick="tasteFlip(${g.i})" title="Pincha para cambiarlo">${g.hand < 0 || g.s <= 0 ? ico("down") : ""}${esc(g.name)}</button>`; };
+  const dec = L.decade_n || [], dmax = Math.max(1, ...dec.map(d => d.n)), dtop = dec.reduce((a, d) => d.n > (a ? a.n : 0) ? d : a, null);
+  const kn = L.kind_n || {}, kt = (kn.movie || 0) + (kn.tv || 0), mv = kt ? Math.round(100 * (kn.movie || 0) / kt) : 50;
+  const ppl = [...p.people.map(x => ({name: x.name, photo: x.photo, hand: true}))];
+  (L.people || []).forEach(nm => { if (!ppl.some(x => x.name === nm)) ppl.push({name: nm}); });
+  const no = [...p.people_no.map(x => x.name), ...(L.people_no || [])].filter((x, i, a) => a.indexOf(x) === i);
+  const ini = s => s.split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0]).join("").toUpperCase();
+  const hue = s => [...s].reduce((a, c) => a + c.charCodeAt(0), 0) % 360;
+  $("#dscTitle").hidden = true;  // el titular grande ya lo pone el resumen
+  $("#dscBox").innerHTML = `<div class="mg">
+    <div class="mg-head"><h2 class="mg-h">Tu gusto,<br>en ${total} nota${total === 1 ? "" : "s"}</h2>
+      <div class="mg-acts"><button class="btn hot" onclick="startDeck()">Seguir calificando</button>
+        <button class="btn line" onclick="quiz.step='genres';renderTaste()">Cambiar respuestas</button></div></div>
+    <section class="mg-card"><div class="mg-row"><h3>Cómo calificas</h3>${all ? `<a href="#" onclick="dscGo('calificadas');return false">Ver las ${all}</a>` : ""}</div>
+      ${all ? `<div class="mg-bar">${seg("2", "Me encanta", "s2", 0)}${seg("1", "Me gusta", "s1", .1)}${seg("-1", "No me gusta", "sn", .2)}${seg("0", "No la he visto", "s0", .3)}</div>`
+        : `<p class="muted">Todavía no has calificado nada. Pulsa «Seguir calificando» y ve diciendo qué te gusta.</p>`}</section>
+    <div class="mg-grid">
+      <section class="mg-card mg-gen"><h3>Tus géneros</h3><p>Cuanto más grande, más te gusta. Pincha uno para cambiarlo.</p>
+        <div class="mg-bubs">${gs.length ? gs.map(bub).join("") : `<span>Aún no sé qué géneros te van: pulsa «Cambiar respuestas».</span>`}</div></section>
+      <section class="mg-card mg-era"><h3>Tu época</h3>
+        ${dec.length ? `<div class="mg-cols">${dec.map((d, i) => `<div><span class="mg-col${d === dtop ? " top" : d.n / dmax < .25 ? " low" : ""}" style="height:${Math.max(6, Math.round(100 * d.n / dmax))}%;animation-delay:${i * .06}s" title="${d.n} que te gustan"></span><small>${esc(d.label)}</small></div>`).join("")}</div>`
+          : `<p class="muted">Califica unas cuantas y aquí verás de qué años te gusta más.</p>`}
+        ${kt ? `<div class="mg-kind"><div><span>Películas ${mv} %</span><span class="muted">Series ${100 - mv} %</span></div><div class="mg-meter"><span class="mg-seg" style="width:${mv}%"></span></div></div>` : ""}</section>
+    </div>
+    <section class="mg-card"><div class="mg-row"><h3>Tu gente</h3><span class="muted">Sale más de lo suyo en Para ti</span></div>
+      ${ppl.length ? `<div class="mg-faces">${ppl.slice(0, 16).map((x, i) => `<div class="mg-face" style="animation-delay:${i * .04}s">${x.photo ? `<img src="${esc(x.photo)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'${esc(ini(x.name))}',style:'--h:${hue(x.name)}'}))">` : `<span style="--h:${hue(x.name)}">${esc(ini(x.name))}</span>`}<b>${esc(x.name)}</b></div>`).join("")}</div>`
+        : `<p class="muted">Nadie todavía. Cuando califiques varias del mismo actor o director, saldrá aquí.</p>`}
+      ${no.length ? `<div class="mg-no"><span>Menos de:</span>${no.slice(0, 8).map(x => `<span class="pill">${esc(x)}</span>`).join("")}</div>` : ""}</section>
+    <p class="hint"><a href="#" onclick="redoTaste();return false">Rehacer desde cero</a> borra tus respuestas de este test, no tus calificaciones.</p>
+  </div>`;
+}
+async function tasteFlip(i) {
+  const g = taste.genres[i], v = Math.max(...g.ids.map(id => quiz.p.genres[id] || 0)) || Math.min(...g.ids.map(id => quiz.p.genres[id] || 0));
+  const lw = Math.max(...g.ids.map(id => (taste.learned.genre_w || {})[id] || 0));
+  const nv = v > 0 ? -1 : v < 0 ? 0 : lw > 0 ? -1 : 1;  // me gusta → no me gusta → nada
+  g.ids.forEach(id => { if (nv) quiz.p.genres[id] = nv; else delete quiz.p.genres[id]; });
+  renderTasteSummary();
+  try { const r = await api("/api/discover/taste", quiz.p); if (r.ok) taste.profile = r.profile; } catch (e) { toast(e.message); }
 }
 async function morePeople() {
   const pp = quiz.pp;
@@ -2700,7 +2834,7 @@ document.addEventListener("keydown", e => {
   if (v !== undefined) personAnswer(v);
 });
 
-show("inicio");
+show("descubrir");
 </script>
 </body>
 </html>

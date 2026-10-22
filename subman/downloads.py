@@ -72,7 +72,14 @@ class Downloads:
 
     # --- la cola ------------------------------------------------------------------------
     def rows(self) -> list[dict]:
-        return [dict(r) for r in self.db.execute("SELECT * FROM downloads ORDER BY created DESC, season")]
+        out = []
+        for r in self.db.execute("SELECT d.*, x.info AS dinfo FROM downloads d LEFT JOIN discover x ON x.kind=d.kind AND x.tmdb=d.tmdb"
+                                 " ORDER BY d.created DESC, d.season"):
+            row = dict(r)
+            info = json.loads(row.pop("dinfo") or "{}")  # la carátula, si la viste en Descubrir
+            row["poster"], row["backdrop"] = info.get("poster"), info.get("backdrop")
+            out.append(row)
+        return out
 
     def get(self, row_id: int) -> dict | None:
         r = self.db.execute("SELECT * FROM downloads WHERE id=?", (row_id,)).fetchone()

@@ -305,7 +305,11 @@ class Discover:
         if gs and min(gs) < 0:
             a += 0.5 * min(gs)  # un género que no te gusta pesa más que uno indiferente
         if _decade(c.get("year")):
-            a += 0.4 * L["decades"].get(_decade(c.get("year")), 0.0)
+            # una década vieja que te gusta suma poco: que te salgan viejas no quiere decir que las prefieras
+            dw = L["decades"].get(_decade(c.get("year")), 0.0)
+            a += 0.4 * (dw if dw < 0 or _decade(c.get("year")) >= 2010 else dw / 2)
+        if (c.get("year") or 0) >= date.today().year - 5:
+            a += 0.15  # lo reciente, un empujoncito
         a += 0.3 * L["kinds"].get(c.get("kind"), 0.0)
         return a
 

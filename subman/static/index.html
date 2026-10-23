@@ -2250,16 +2250,25 @@ function peekSync(first) {
 // Portada: el cartel con lo mejor para ti y una fila por sección, como en las apps de cine
 const SHELVES = [["para-ti", "Para ti"], ["novedades", "Novedades"], ["clasicos", "Populares y clásicos"], ["por-conseguir", "En tu lista"]];
 let bbTimer = null;
-// cada ánimo es un filtro sencillo por género o por tipo; pulsarlo otra vez lo quita
-const hasGenre = (c, ...gs) => (c.genres || []).some(g => gs.includes(g));
-// cada ánimo junta géneros de TMDB (los de películas y los de series, que se llaman distinto)
+// cada ánimo junta géneros de TMDB (los de películas y los de series, que se llaman distinto); cuenta solo el principal,
+// porque TheMovieDB pone «Comedia» a cualquier cosa con un chiste. Las filas del ánimo las pide el servidor (/api/discover/mood).
 const MOOD_G = {reir: ["Comedia"], accion: ["Acción", "Action & Adventure"], miedo: ["Terror"],
   aventura: ["Aventura", "Action & Adventure"], futuro: ["Ciencia ficción", "Sci-Fi & Fantasy"], magia: ["Fantasía", "Sci-Fi & Fantasy"],
   intriga: ["Misterio"], crimen: ["Crimen"], nervios: ["Suspense", "Misterio"], amor: ["Romance"], llorar: ["Drama", "Romance"],
   pensar: ["Ciencia ficción", "Documental", "Historia", "Sci-Fi & Fantasy", "War & Politics"], dibujos: ["Animación"],
   familia: ["Familia", "Kids"], historia: ["Historia"], guerra: ["Bélica", "War & Politics"], oeste: ["Western"], musica: ["Música"],
   real: ["Documental"]};
-const MOODS = Object.fromEntries(Object.entries(MOOD_G).map(([m, gs]) => [m, c => hasGenre(c, ...gs)]));
+const MOODS = Object.fromEntries(Object.entries(MOOD_G).map(([m, gs]) => [m, c => gs.includes((c.genres || [])[0])]));
+const MOOD_SHELVES = [["m:para-ti", "Para ti"], ["m:novedades", "Novedades"], ["m:mejores", "Las mejores"], ["por-conseguir", "En tu lista"]];
+const shelfList = () => dsc.mood ? MOOD_SHELVES : SHELVES;
+async function loadMood() {
+  const key = dsc.moodKey = dsc.mood + "/" + dsc.kind;
+  for (const [s] of MOOD_SHELVES) if (s.startsWith("m:")) delete dsc.rows[s];
+  const r = await api(`/api/discover/mood?m=${dsc.mood}&kind=${dsc.kind}`);
+  if (dsc.moodKey !== key) return;
+  for (const [s] of MOOD_SHELVES) if (s.startsWith("m:")) dsc.rows[s] = r.ok ? r.rows[s.slice(2)] || [] : [];
+  if (dsc.section === "portada") renderPortada();
+}
 // película/serie va por encima: se combina con cualquier ánimo y comparte el filtro de tipo del resto de Descubrir
 document.querySelectorAll("#dscMoods .kinds button").forEach(b => b.onclick = () => {
   dsc.kind = dsc.kind === b.dataset.k ? "" : b.dataset.k;
@@ -2289,26 +2298,28 @@ async function loadPortada() {
 function renderPortada() {
   // una sola ficha por título aunque salga en dos filas, para que calificarla se vea en todas
   const seen = new Map();
-  for (const [s] of SHELVES) dsc.rows[s] = (dsc.rows[s] || []).map(c => { const k = c.kind + c.tmdb; if (!seen.has(k)) seen.set(k, c); return seen.get(k); });
+  if (dsc.mood && dsc.moodKey !== dsc.mood + "/" + dsc.kind) loadMood();
+  for (const [s] of shelfList()) dsc.rows[s] = (dsc.rows[s] || []).map(c => { const k = c.kind + c.tmdb; if (!seen.has(k)) seen.set(k, c); return seen.get(k); });
   dsc.items = [...seen.values()];
   const mood = MOODS[dsc.mood];
   const pick = c => (!dsc.kind || c.kind === dsc.kind) && (!mood || mood(c));
-  const top = [...(dsc.rows["para-ti"] || []), ...(dsc.rows.novedades || [])].filter(c => pick(c) && c.backdrop && c.rating == null).slice(0, 5);
+  const [a, b] = shelfList();
+  const top = [...(dsc.rows[a[0]] || []), ...(dsc.rows[b[0]] || [])].filter(c => pick(c) && c.backdrop && c.rating == null).slice(0, 5);
   const pos = [...document.querySelectorAll("#dscBox .rail")].map(r => r.scrollLeft);  // al calificar no vuelve cada fila al principio
   const shelves = renderShelves(pick);
-  $("#dscBox").innerHTML = billboard(top) + (shelves || `<p class="empty">Nada con ese ánimo en lo que hay cargado. Prueba otro o quítalo.</p>`);
+  $("#dscBox").innerHTML = billboard(top) + (shelves || `<p class="empty">Nada con ese ánimo. Prueba otro o quítalo.</p>`);
   document.querySelectorAll("#dscBox .rail").forEach((r, i) => { if (pos[i]) r.scrollLeft = pos[i]; });
   peekSync(top[0] || dsc.items.find(pick));
 }
 function renderShelves(pick) {
-  return SHELVES.map(([s, name]) => {
+  return shelfList().map(([s, name]) => {
     const rows = dsc.rows[s];
     if (rows && !rows.filter(pick).length) return "";
     const fresh = rows && !(dsc.shown ||= new Set()).has(s);
     if (fresh) dsc.shown.add(s);
     const tiles = rows ? rows.filter(pick).map(c => tile(c, false)).join("")
                        : Array.from({length: 8}, () => `<div class="tile skel"><div class="tmedia"></div></div>`).join("");
-    return `<section class="shelf"><div class="shelfhead"><h3>${name}</h3><button class="all" onclick="dscGo('${s}')">Ver todo</button>
+    return `<section class="shelf"><div class="shelfhead"><h3>${name}</h3>${s.startsWith("m:") ? "" : `<button class="all" onclick="dscGo('${s}')">Ver todo</button>`}
       <div class="arrows"><button onclick="railGo(this,-1)" aria-label="Anteriores">${ico("next")}</button><button onclick="railGo(this,1)" aria-label="Siguientes">${ico("next")}</button></div></div>
       <div class="rail ${fresh ? "fresh" : ""}">${tiles}</div></section>`;
   }).join("");

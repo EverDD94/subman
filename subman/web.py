@@ -1853,6 +1853,7 @@ def make_handler(app: App):
         "/api/discover/taste": lambda q: app.discover_taste(),
         "/api/discover/people": lambda q: app._dsc(lambda d: {"people": d.people(q.get("q", [""])[0])}),
         "/api/discover/popular-people": lambda q: app._dsc(lambda d: {"people": d.popular_people(int(q.get("page", ["1"])[0]))}),
+        "/api/discover/mood": lambda q: app._dsc(lambda d: {"rows": d.mood(q.get("m", [""])[0], q.get("kind", [""])[0])}),
         "/api/discover/deck": lambda q: app._dsc(lambda d: {"items": d.deck()}),
         "/api/downloads": lambda q: app.downloads_state(),
         "/api/discover/releases/summary": lambda q: app._dsc(lambda d: {"summary": d.releases_summary()}),

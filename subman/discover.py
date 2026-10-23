@@ -699,6 +699,40 @@ class Discover:
         rows = self.db.execute("SELECT rating, COUNT(*) n FROM discover WHERE rating IS NOT NULL GROUP BY rating")
         return {str(r["rating"]): r["n"] for r in rows}
 
+    def mood(self, mood: str, kind: str = "") -> dict[str, list[dict]]:
+        """Filas de la Portada para un ánimo: se piden a TheMovieDB y solo cuenta el género principal."""
+        gs = MOODS.get(mood)
+        if not gs:
+            raise ValueError("Ánimo desconocido")
+        today = date.today()
+        L = self.learned(fetch=0)
+        rows: dict[str, list[list[dict]]] = {"para-ti": [], "novedades": [], "mejores": []}
+        for k in [kind] if kind in KINDS else KINDS:
+            ids = gs[k]
+            if not ids:
+                continue
+            base = {"with_genres": "|".join(map(str, ids)), "include_adult": "false"}
+            date_key = "primary_release_date" if k == "movie" else "first_air_date"
+            asks = {"para-ti": dict(sort_by="popularity.desc", **{"vote_count.gte": 50}),
+                    "novedades": dict(sort_by="popularity.desc", **{f"{date_key}.gte": (today - timedelta(days=365)).isoformat(),
+                                                                    f"{date_key}.lte": today.isoformat()}),
+                    "mejores": dict(sort_by="vote_average.desc", **{"vote_count.gte": 500})}
+            for row, params in asks.items():
+                got = []
+                for page in (1, 2):
+                    got += [c for c in self._page(k, f"/discover/{k}", page, **base, **params)
+                            if c["genre_ids"] and c["genre_ids"][0] in ids]
+                rows[row].append(got)
+        marks, idx = self.marks(), self.owned_index()
+        out = {}
+        for row, lists in rows.items():
+            cards = self._decorate(_mix(*lists) if lists else [], idx, marks)
+            if row == "para-ti":
+                cards = [c for c in cards if c["rating"] is None]
+                cards.sort(key=lambda c: -self.affinity(c, L))
+            out[row] = cards
+        return out
+
     def section(self, name: str, page: int = 1) -> list[dict]:
         if name == "para-ti":
             return self.for_you()
@@ -708,6 +742,19 @@ class Discover:
             return self.rated()
         cards = self.news(page) if name == "novedades" else self.classics(page)
         return self._decorate(cards, self.owned_index(), self.marks())
+
+
+# ánimos de la Portada → géneros de TheMovieDB (películas / series); el título cuenta si su género principal está aquí
+MOODS = {
+    "reir": {"movie": [35], "tv": [35]}, "accion": {"movie": [28], "tv": [10759]}, "miedo": {"movie": [27], "tv": []},
+    "aventura": {"movie": [12], "tv": [10759]}, "futuro": {"movie": [878], "tv": [10765]}, "magia": {"movie": [14], "tv": [10765]},
+    "intriga": {"movie": [9648], "tv": [9648]}, "crimen": {"movie": [80], "tv": [80]}, "nervios": {"movie": [53], "tv": [9648, 80]},
+    "amor": {"movie": [10749], "tv": []}, "llorar": {"movie": [18, 10749], "tv": [18]},
+    "pensar": {"movie": [878, 99, 36], "tv": [99, 10768]}, "dibujos": {"movie": [16], "tv": [16]},
+    "familia": {"movie": [10751], "tv": [10751, 10762]}, "historia": {"movie": [36], "tv": [10768]},
+    "guerra": {"movie": [10752], "tv": [10768]}, "oeste": {"movie": [37], "tv": [37]}, "musica": {"movie": [10402], "tv": []},
+    "real": {"movie": [99], "tv": [99]},
+}
 
 
 def _mix(*lists: list[dict]) -> list[dict]:

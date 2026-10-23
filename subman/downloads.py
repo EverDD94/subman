@@ -148,9 +148,15 @@ class Downloads:
             m = db.movie(row["tmdb"])
             title, year = m["name"] or row["title"], m["year"] or row["year"]
             stem = safe_name(title) + (f" ({year})" if year else "")
-            return Path(d["movies_dir"]) / folder_name(title, year, str(row["tmdb"]), None) / (stem + video.suffix.lower())
+            root = d.get("es_movies_dir") if m.get("lang") == "es" else ""
+            return Path(root or d["movies_dir"]) / folder_name(title, year, str(row["tmdb"]), None) / (stem + video.suffix.lower())
         show = db.tv(row["tmdb"])
-        base = Path(d["series_dir"]) / folder_name(show["name"] or row["title"], show["year"], str(row["tmdb"]), None)
+        root = ""
+        if REALITY in (show.get("genre_ids") or []):
+            root = d.get("realitys_dir")
+        if not root and show.get("lang") == "es":
+            root = d.get("es_series_dir")
+        base = Path(root or d["series_dir"]) / folder_name(show["name"] or row["title"], show["year"], str(row["tmdb"]), None)
         ep = episode_numbers(video)
         season = ep[0] if ep else row["season"] or 1
         folder = base / _season_folder(season)
@@ -166,6 +172,9 @@ class Downloads:
         if m and ep[1] < int(m.group(1)) <= ep[1] + 3:
             last = int(m.group(1))
         return folder / (episode_name(show, season, ep[1], last, titles) + video.suffix.lower())
+
+
+REALITY = 10764  # género «Reality» de TheMovieDB (Love Island, Gran Hermano…)
 
 
 def place(src: Path, dest: Path) -> Path:

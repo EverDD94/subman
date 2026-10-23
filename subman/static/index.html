@@ -2515,7 +2515,7 @@ function renderDetail(partial) {
         <p class="ov">${esc(c.overview) || (partial ? "" : "<i>No hay resumen.</i>")}${c.overview_lang === "en" ? ` <span class="hint">(en inglés: no hay resumen en español)</span>` : ""}</p>
         ${facts.length ? `<dl class="facts">${facts.map(([a, b]) => `<dt>${a}</dt><dd>${esc(b)}</dd>`).join("")}</dl>` : ""}
         ${c.trailer ? `<a class="trailer" href="${esc(c.trailer)}" target="_blank" rel="noopener">${ico("play", "fill")}Ver el tráiler</a>` : ""}
-        <div class="dacts">${rateButtons(c, k)}${haveButton(c, k)}${c.have ? "" : dlButton(k)}</div>
+        <div class="dacts">${rateButtons(c, k)}${c.have ? "" : dlButton(k)}</div>
       </div></div>
     ${cast ? `<div class="castwrap"><h3>Reparto</h3><div class="cast">${cast}</div></div>` : partial ? `<p class="empty">Cargando la ficha…</p>` : ""}`;
 }
@@ -2752,8 +2752,8 @@ function renderTasteSummary() {
     <div class="mg-grid">
       <section class="mg-card mg-gen"><h3>Tus géneros</h3><p>Cuanto más grande, más te gusta. Pincha uno para cambiarlo.</p>
         <div class="mg-bubs">${gs.length ? gs.map(bub).join("") : `<span>Aún no sé qué géneros te van: pulsa «Cambiar respuestas».</span>`}</div></section>
-      <section class="mg-card mg-era"><h3>Tu época</h3>
-        ${dec.length ? `<div class="mg-cols">${dec.map((d, i) => `<div><span class="mg-col${d === dtop ? " top" : d.n / dmax < .25 ? " low" : ""}" style="height:${Math.max(6, Math.round(100 * d.n / dmax))}%;animation-delay:${i * .06}s" title="${d.n} que te gustan"></span><small>${esc(d.label)}</small></div>`).join("")}</div>`
+      <section class="mg-card mg-era"><h3>Lo que te ha gustado, por época</h3><p class="muted">Cuenta lo que te ha salido; no quiere decir que prefieras una época.</p>
+        ${dec.length ? `<div class="mg-cols">${dec.map((d, i) => `<div><span class="mg-col${d === dtop ? " top" : d.n / dmax < .25 ? " low" : ""}" style="height:${Math.max(6, Math.round(100 * d.n / dmax))}%;animation-delay:${i * .06}s" title="Te gustaron ${d.n} de ${d.of || d.n} que calificaste"></span><small>${esc(d.label)}</small></div>`).join("")}</div>`
           : `<p class="muted">Califica unas cuantas y aquí verás de qué años te gusta más.</p>`}
         ${kt ? `<div class="mg-kind"><div><span>Películas ${mv} %</span><span class="muted">Series ${100 - mv} %</span></div><div class="mg-meter"><span class="mg-seg" style="width:${mv}%"></span></div></div>` : ""}</section>
     </div>

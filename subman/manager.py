@@ -18,7 +18,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import subtitles, sync, verify
+from . import audio, subtitles, sync, verify
 from .library import Library, Media, sidecars
 from .providers import Provider, QuotaExceeded
 
@@ -95,6 +95,29 @@ def _target(media: Media, lang: str) -> Path:
     return video.with_name(f"{video.stem}.{lang}.srt")
 
 
+# Carpetas cuyo contenido ya está en español (Películas en Español, Series Españolas, Novelas...).
+_NATIVE_WORDS = {"es": ("español", "espanol", "española", "espanola", "españolas", "espanolas", "españoles",
+                        "castellano", "latino", "novelas")}
+_NATIVE_TAGS = {"es": ("es", "spa", "esl", "esp")}
+NATIVE_DETAIL = "el video ya está en este idioma"
+
+
+def _native(media: Media, lang: str) -> str | None:
+    """Motivo si el video ya está en ``lang`` (no hacen falta subtítulos), o None."""
+    words = _NATIVE_WORDS.get(lang, ())
+    for part in Path(media.path).parent.parts:
+        if any(w in part.lower() for w in words):
+            return f"{NATIVE_DETAIL} (carpeta «{part}»)"
+    try:
+        info = audio.probe(media.path)
+        tag = audio.audio_streams(info)[audio.pick_audio_stream(info)].get("tags", {}).get("language", "").lower()
+    except Exception:
+        return None
+    if tag and (tag in _NATIVE_TAGS.get(lang, (lang,)) or tag.startswith(lang + "-")):
+        return f"{NATIVE_DETAIL} (audio «{tag}»)"
+    return None
+
+
 def process(media: Media, lib: Library, providers: list[Provider], cfg: Settings) -> dict[str, str]:
     results = {}
     cache = {}
@@ -112,6 +135,15 @@ def process(media: Media, lib: Library, providers: list[Provider], cfg: Settings
     for lang in cfg.languages:
         target = _target(media, lang)
         row = lib.subtitle_status(media.id, lang)
+        if row and row["status"] == verify.OK and (row["detail"] or "").startswith(NATIVE_DETAIL):
+            continue
+        native = _native(media, lang)
+        if native:
+            if not cfg.dry_run:
+                lib.set_subtitle(media.id, lang, row["path"] if row else None, "", verify.OK, native)
+            log.info("%s [%s]: %s, no se buscan subtítulos", media.label, lang, native)
+            results[lang] = "no hace falta"
+            continue
         locals_ = candidates[lang]
         if row and row["status"] == verify.OK and row["path"] and Path(row["path"]).exists():
             # Ya está bien: sólo apartar lo que haya aparecido después (otro programa, Jellyfin...).

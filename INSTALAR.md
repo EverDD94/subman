@@ -162,8 +162,9 @@ Va de una en una, con una pausa entre pedidos y un máximo al día.
 
 ## Que tu familia y amigos pidan películas (página «Pedir»)
 
-Quien ya ve tu Jellyfin puede pedirte películas y series en `https://TU-DOMINIO:8921/pedir`, entrando con su
-usuario y contraseña de Jellyfin (no hay que crear nada). Tú las ves en **Descubrir › Peticiones**: «Aceptar» la
+Quien ya ve tu Jellyfin entra en `https://TU-DOMINIO:8921/pedir` con su usuario y contraseña de Jellyfin (no hay
+que crear nada) y ve Descubrir completo, con sus propios gustos y su «Para ti» (se guardan en `amigos/` junto a
+subman.toml), y «Pedir» en vez de descargar. Si entra un administrador de Jellyfin (tú), ve Videotecario completo. Tú las ves en **Descubrir › Peticiones**: «Aceptar» la
 pone en tu lista y en Descargas, «Rechazar» le dice que no se pudo. Cuando llega a la biblioteca le sale «¡Ya está!».
 Si tienes el bot de avisos puesto, te escribe cada vez que alguien pide algo.
 

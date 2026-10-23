@@ -2040,6 +2040,10 @@ def make_handler(app: App):
             if not self._authed():
                 user = self._friend()
                 if user and u.path in ("/", "/index.html"):
+                    cfg = app.cfg()
+                    if auth.enabled(cfg) and friends.is_admin(cfg, user["id"]):  # eres tú: todo Videotecario
+                        return self._send(200, (STATIC / "index.html").read_bytes(), "text/html; charset=utf-8",
+                                          {"Set-Cookie": auth.cookie(auth.make_token(cfg))})
                     return self._friend_page(user)
                 if user and u.path.startswith("/api/discover"):
                     if u.path in routes_get:

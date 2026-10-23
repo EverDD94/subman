@@ -91,6 +91,17 @@ def jellyfin_login(cfg: dict, user: str, password: str) -> dict | None:
             "admin": bool((data["User"].get("Policy") or {}).get("IsAdministrator"))}
 
 
+def is_admin(cfg: dict, user_id: str) -> bool:
+    """¿Ese usuario es administrador de Jellyfin? (para quien entró antes como amigo y es el dueño)"""
+    jf = cfg.get("jellyfin", {})
+    try:
+        r = requests.get(jf["url"].rstrip("/") + f"/Users/{user_id}", timeout=10,
+                         headers={"X-Emby-Token": jf.get("api_key", ""), "X-Emby-Authorization": f'{CLIENT}, Token="{jf.get("api_key", "")}"'})
+        return r.ok and bool((r.json().get("Policy") or {}).get("IsAdministrator"))
+    except Exception:
+        return False
+
+
 def _key(cfg: dict) -> bytes:
     # depende de la clave de Jellyfin: si la cambias, todos tienen que volver a entrar
     return hashlib.sha256(b"videotecario-amigos|" + (cfg.get("jellyfin", {}).get("api_key") or "").encode()).digest()

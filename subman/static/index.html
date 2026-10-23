@@ -207,6 +207,9 @@ dialog .x:active{transform:scale(.92)}
   transition:background-color .2s var(--ease-out),color .2s,border-color .2s,transform .2s var(--ease-out)}
 .moods button:active{transform:scale(.96)}
 .moods button.on{background:var(--pop);border-color:var(--pop);color:#fff}
+.moods .kinds{display:flex;gap:10px;flex:0 0 100%}
+.moods .kinds button{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.moods .kinds button.on{background:var(--pop);border-color:var(--pop)}
 .dtabs{display:flex;flex-wrap:nowrap;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 -4px;padding:2px 4px;scroll-snap-type:x proximity}
 .dtabs::-webkit-scrollbar{display:none}
 .dtabs button{scroll-snap-align:start}
@@ -629,6 +632,7 @@ dialog.sheet .foot{display:none}
   .moods{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -14px;padding:2px 14px}
   .moods::-webkit-scrollbar{display:none}
   .moods button{height:44px;padding:0 16px;font-size:15.5px;flex:none}
+  .moods .kinds{flex:none}
   .rail{margin:0 -14px;padding:0 14px 4px;scroll-padding:0 14px;grid-auto-columns:36vw;gap:10px}
   .wall{grid-template-columns:repeat(2,1fr);gap:26px 12px}
   .shelfhead h3{font-size:20px}
@@ -899,8 +903,14 @@ dialog.sheet .foot{display:none}
   <div class="dhead">
     <h2 id="dscTitle">Descubrir</h2>
     <div class="moods" id="dscMoods" hidden>
-      <button data-m="reir">Reírme</button><button data-m="miedo">Pasar miedo</button><button data-m="pensar">Algo que me haga pensar</button>
-      <button data-m="llorar">Llorar un poco</button><button data-m="peli">Una película</button><button data-m="serie">Una serie</button>
+      <div class="kinds"><button data-k="movie">Una película</button><button data-k="tv">Una serie</button></div>
+      <button data-m="reir">Reírme a carcajadas</button><button data-m="accion">Golpes y adrenalina</button><button data-m="miedo">Pasar miedo</button>
+      <button data-m="aventura">Irme de viaje sin moverme</button><button data-m="futuro">Viajar al futuro</button><button data-m="magia">Creer en la magia</button>
+      <button data-m="intriga">Adivinar quién fue</button><button data-m="crimen">Ver cómo se tuerce la ley</button><button data-m="nervios">Comerme las uñas</button>
+      <button data-m="amor">Enamorarme un poco</button><button data-m="llorar">Llorar un poco</button><button data-m="pensar">Algo que me haga pensar</button>
+      <button data-m="dibujos">Volver a ser niño</button><button data-m="familia">Verla con la familia</button><button data-m="historia">Viajar al pasado</button>
+      <button data-m="guerra">Sobrevivir a la guerra</button><button data-m="oeste">Duelo al sol</button><button data-m="musica">Que suene la música</button>
+      <button data-m="real">Que sea de verdad</button>
     </div>
     <div class="dtabs filters" id="dscTabs">
       <button data-s="portada" class="on">Portada</button>
@@ -2162,7 +2172,8 @@ let dsc = {section: "portada", rows: {}, bb: 0, kind: "", page: 1, items: [], q:
 let taste = null, quiz = null, deck = {items: [], i: 0, count: 0, loading: false};
 document.querySelectorAll("#dscTabs button").forEach(b => b.onclick = () => { dsc.section = b.dataset.s; dsc.q = ""; $("#dscQ").value = ""; loadDiscover(); });
 document.querySelectorAll("#dscKind button").forEach(b => b.onclick = () => {
-  dsc.kind = b.dataset.k; document.querySelectorAll("#dscKind button").forEach(x => x.classList.toggle("on", x === b)); renderDiscover(); });
+  dsc.kind = b.dataset.k; document.querySelectorAll("#dscKind button").forEach(x => x.classList.toggle("on", x === b));
+  document.querySelectorAll("#dscMoods .kinds button").forEach(x => x.classList.toggle("on", x.dataset.k === dsc.kind)); renderDiscover(); });
 $("#dscQ").onkeydown = e => {
   if (e.key !== "Enter") return;
   const q = $("#dscQ").value.trim();
@@ -2241,12 +2252,24 @@ const SHELVES = [["para-ti", "Para ti"], ["novedades", "Novedades"], ["clasicos"
 let bbTimer = null;
 // cada ánimo es un filtro sencillo por género o por tipo; pulsarlo otra vez lo quita
 const hasGenre = (c, ...gs) => (c.genres || []).some(g => gs.includes(g));
-const MOODS = {reir: c => hasGenre(c, "Comedia", "Animación", "Familia"), miedo: c => hasGenre(c, "Terror", "Suspense", "Misterio", "Crimen"),
-  pensar: c => hasGenre(c, "Ciencia ficción", "Documental", "Historia", "Sci-Fi & Fantasy"), llorar: c => hasGenre(c, "Drama", "Romance"),
-  peli: c => c.kind === "movie", serie: c => c.kind === "tv"};
-document.querySelectorAll("#dscMoods button").forEach(b => b.onclick = () => {
+// cada ánimo junta géneros de TMDB (los de películas y los de series, que se llaman distinto)
+const MOOD_G = {reir: ["Comedia"], accion: ["Acción", "Action & Adventure"], miedo: ["Terror"],
+  aventura: ["Aventura", "Action & Adventure"], futuro: ["Ciencia ficción", "Sci-Fi & Fantasy"], magia: ["Fantasía", "Sci-Fi & Fantasy"],
+  intriga: ["Misterio"], crimen: ["Crimen"], nervios: ["Suspense", "Misterio"], amor: ["Romance"], llorar: ["Drama", "Romance"],
+  pensar: ["Ciencia ficción", "Documental", "Historia", "Sci-Fi & Fantasy", "War & Politics"], dibujos: ["Animación"],
+  familia: ["Familia", "Kids"], historia: ["Historia"], guerra: ["Bélica", "War & Politics"], oeste: ["Western"], musica: ["Música"],
+  real: ["Documental"]};
+const MOODS = Object.fromEntries(Object.entries(MOOD_G).map(([m, gs]) => [m, c => hasGenre(c, ...gs)]));
+// película/serie va por encima: se combina con cualquier ánimo y comparte el filtro de tipo del resto de Descubrir
+document.querySelectorAll("#dscMoods .kinds button").forEach(b => b.onclick = () => {
+  dsc.kind = dsc.kind === b.dataset.k ? "" : b.dataset.k;
+  document.querySelectorAll("#dscKind button").forEach(x => x.classList.toggle("on", x.dataset.k === dsc.kind));
+  document.querySelectorAll("#dscMoods .kinds button").forEach(x => x.classList.toggle("on", x.dataset.k === dsc.kind));
+  dsc.bb = 0; dsc.shown = new Set(); renderPortada();
+});
+document.querySelectorAll("#dscMoods > button").forEach(b => b.onclick = () => {
   dsc.mood = dsc.mood === b.dataset.m ? "" : b.dataset.m;
-  document.querySelectorAll("#dscMoods button").forEach(x => x.classList.toggle("on", x.dataset.m === dsc.mood));
+  document.querySelectorAll("#dscMoods > button").forEach(x => x.classList.toggle("on", x.dataset.m === dsc.mood));
   dsc.bb = 0; dsc.shown = new Set(); renderPortada();
 });
 async function loadPortada() {

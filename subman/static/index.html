@@ -2258,7 +2258,7 @@ const MOOD_G = {reir: ["Comedia"], accion: ["Acción", "Action & Adventure"], mi
   pensar: ["Ciencia ficción", "Documental", "Historia", "Sci-Fi & Fantasy", "War & Politics"], dibujos: ["Animación"],
   familia: ["Familia", "Kids"], historia: ["Historia"], guerra: ["Bélica", "War & Politics"], oeste: ["Western"], musica: ["Música"],
   real: ["Documental"]};
-const MOODS = Object.fromEntries(Object.entries(MOOD_G).map(([m, gs]) => [m, c => gs.includes((c.genres || [])[0])]));
+const MOODS = Object.fromEntries(Object.entries(MOOD_G).map(([m, gs]) => [m, c => (c.genres || []).slice(0, 2).some(g => gs.includes(g))]));
 const MOOD_SHELVES = [["m:para-ti", "Para ti"], ["m:novedades", "Novedades"], ["m:mejores", "Las mejores"], ["por-conseguir", "En tu lista"]];
 const shelfList = () => dsc.mood ? MOOD_SHELVES : SHELVES;
 async function loadMood() {

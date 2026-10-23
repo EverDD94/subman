@@ -721,14 +721,14 @@ class Discover:
                     "mejores": dict(sort_by="vote_average.desc", **{"vote_count.gte": 500})}
             for row, params in asks.items():
                 got = []
-                for page in range(1, 6 if row == "para-ti" else 3):  # «Para ti» se ordena por tus gustos: que haya donde elegir
+                for page in range(1, 6 if row == "para-ti" else 4):  # «Para ti» se ordena por tus gustos: que haya donde elegir
                     got += [c for c in self._page(k, f"/discover/{k}", page, **base, **params)
-                            if c["genre_ids"] and c["genre_ids"][0] in ids]
+                            if set(c["genre_ids"][:2]) & set(ids)]  # su género principal o el segundo
                 rows[row].append(got)
             # y lo parecido a lo que te gustó de este ánimo
             liked = [tid for (kk, tid), m in self.marks().items() if kk == k and (m["rating"] or 0) > 0
                      and (m["info"].get("genre_ids") or [None])[0] in ids]
-            similar = [c for tid in liked[:8] for c in self._recommendations(k, tid) if c["genre_ids"] and c["genre_ids"][0] in ids]
+            similar = [c for tid in liked[:8] for c in self._recommendations(k, tid) if set(c["genre_ids"][:2]) & set(ids)]
             rows["para-ti"].append(similar)
         marks, idx = self.marks(), self.owned_index()
         out = {}

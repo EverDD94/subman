@@ -35,6 +35,8 @@ PUBLIC = {"/manifest.webmanifest": ("manifest.webmanifest", "application/manifes
           "/icon-512.png": ("icon-512.png", "image/png"),
           "/apple-touch-icon.png": ("apple-touch-icon.png", "image/png")}
 MASK = "••••••••"
+# lo que un amigo (entrado con su usuario de Jellyfin) puede guardar en Descubrir, además de pedir
+FRIEND_POST = ("/api/discover/mark", "/api/discover/taste", "/api/discover/taste/reset")
 
 
 class LogBuffer(logging.Handler):
@@ -50,6 +52,7 @@ class LogBuffer(logging.Handler):
 class App:
     def __init__(self, config_path: str):
         self.config_path = config_path
+        self.who = threading.local()  # .friend = el amigo de Jellyfin que hace esta petición (None = tú)
         self.wake = threading.Event()
         self.lock = threading.Lock()
         self.state = {"running": False, "current": "", "done": 0, "total": 0,
@@ -1793,11 +1796,14 @@ class App:
             self.dl.update(current=None, what="", stop=None)
 
     # --- Descubrir -------------------------------------------------------------------
-    def _discover(self):
+    def _discover(self, mine: bool = False):
+        """Descubrir con tus gustos o, si la página la usa un amigo, con los suyos (``mine`` = siempre los tuyos)."""
         cfg = self.cfg()
         if not cfg.get("tmdb", {}).get("api_key"):
             raise ValueError("pon la clave de TheMovieDB en Ajustes")
-        return discover.Discover(self.library(cfg), cfg)
+        friend = None if mine else getattr(self.who, "friend", None)
+        lib = friends.FriendLib(self.config_path, cfg, friend["id"]) if friend else self.library(cfg)
+        return discover.Discover(lib, cfg)
 
     def discover_list(self, section: str, page: int) -> dict:
         try:
@@ -1817,6 +1823,9 @@ class App:
             self._discover().mark(b["item"], **kw)
         except ValueError as e:
             return {"ok": False, "error": str(e)}
+        friend = getattr(self.who, "friend", None)
+        if friend and b.get("have") == 0:  # «Agregar a mi lista» de un amigo = te lo pide
+            self.friends_ask(friend, {"item": b["item"]})
         return {"ok": True}
 
     def _dsc(self, fn) -> dict:
@@ -1831,7 +1840,7 @@ class App:
 
     # --- Peticiones de los amigos (página /pedir) ------------------------------------------
     def _friends(self) -> friends.Friends:
-        return friends.Friends(self._discover())
+        return friends.Friends(self._discover(mine=True))  # las peticiones viven en tu base
 
     def friends_ask(self, user: dict, b: dict) -> dict:
         f = self._friends()
@@ -1937,13 +1946,13 @@ def make_handler(app: App):
 
     # la página de los amigos: cada ruta recibe el usuario de Jellyfin que entró
     friend_get = {
-        "/api/pedir/browse": lambda u, q: app._dsc(lambda d: {"items": friends.Friends(d).browse(
+        "/api/pedir/browse": lambda u, q: app._dsc(lambda d: {"items": app._friends().browse(
             u, q.get("section", ["novedades"])[0], int(q.get("page", ["1"])[0]), q.get("q", [""])[0].strip())}),
-        "/api/pedir/mine": lambda u, q: app._dsc(lambda d: {"items": friends.Friends(d).mine(u)}),
+        "/api/pedir/mine": lambda u, q: app._dsc(lambda d: {"items": app._friends().mine(u)}),
     }
     friend_post = {
         "/api/pedir/ask": lambda u, b: app.friends_ask(u, b),
-        "/api/pedir/cancel": lambda u, b: app._dsc(lambda d: (friends.Friends(d).cancel(u, b["kind"], int(b["tmdb"])), {})[1]),
+        "/api/pedir/cancel": lambda u, b: app._dsc(lambda d: (app._friends().cancel(u, b["kind"], int(b["tmdb"])), {})[1]),
     }
 
     class Handler(BaseHTTPRequestHandler):
@@ -1989,6 +1998,23 @@ def make_handler(app: App):
                 return self._static("login.html", "text/html; charset=utf-8")
             self._send(302, b"", "text/plain", {"Location": "/pedir"})
 
+        def _as_friend(self, user: dict, fn, arg) -> None:
+            """Una ruta de Descubrir hecha por un amigo: con sus gustos, no los tuyos."""
+            def run(a):
+                app.who.friend = user
+                try:
+                    return fn(a)
+                finally:
+                    app.who.friend = None
+            self._json(run, arg)
+
+        def _friend_page(self, user: dict) -> None:
+            """La página de siempre, sólo con Descubrir (y «Pedir» en vez de descargar)."""
+            flag = json.dumps({"name": user["name"]}, ensure_ascii=False).replace("</", "<\\/")
+            html = (STATIC / "index.html").read_text(encoding="utf-8").replace(
+                "<body>", f"<body>\n<script>window.FRIEND = {flag};</script>", 1)
+            self._send(200, html.encode(), "text/html; charset=utf-8")
+
         def _static(self, name: str, ctype: str, cache: bool = False) -> None:
             self._send(200, (STATIC / name).read_bytes(), ctype, {"Cache-Control": "max-age=86400"} if cache else None)
 
@@ -2012,6 +2038,12 @@ def make_handler(app: App):
             if u.path == "/entrar" and not self._authed():
                 return self._static("login.html", "text/html; charset=utf-8")
             if not self._authed():
+                user = self._friend()
+                if user and u.path in ("/", "/index.html"):
+                    return self._friend_page(user)
+                if user and u.path.startswith("/api/discover"):
+                    if u.path in routes_get:
+                        return self._as_friend(user, routes_get[u.path], parse_qs(u.query))
                 if friends.from_internet(self.headers) and u.path in ("/", "/index.html"):
                     return self._send(302, b"", "text/plain", {"Location": "/pedir"})
                 return self._locked()
@@ -2058,6 +2090,9 @@ def make_handler(app: App):
                     return self._send(401, b'{"ok": false, "error": "hay que entrar"}', "application/json")
                 return self._json(lambda b: friend_post[u.path](user, b), json.loads(raw or b"{}"))
             if not self._authed():
+                user = self._friend()
+                if user and u.path in FRIEND_POST:
+                    return self._as_friend(user, routes_post[u.path], json.loads(raw or b"{}"))
                 return self._locked()
             if u.path not in routes_post:
                 return self._send(404, b"no encontrado", "text/plain")
@@ -2125,6 +2160,9 @@ def make_handler(app: App):
                 return self._send(401, json.dumps({"ok": False, "error": "Usuario o contraseña incorrectos"},
                                                   ensure_ascii=False).encode(), "application/json")
             log.info("pedir: entró %s desde %s", user["name"], addr)
+            if user["admin"] and auth.enabled(cfg):  # tú: Videotecario completo
+                return self._send(200, json.dumps({"ok": True, "user": user["name"], "admin": True}, ensure_ascii=False).encode(),
+                                  "application/json", {"Set-Cookie": auth.cookie(auth.make_token(cfg))})
             self._send(200, json.dumps({"ok": True, "user": user["name"]}, ensure_ascii=False).encode(), "application/json",
                        {"Set-Cookie": friends.cookie(friends.make_token(cfg, user))})
 

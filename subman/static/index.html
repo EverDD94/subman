@@ -1067,8 +1067,19 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt
 const LABEL = {ok:"bien", revisar:"revisar", falla:"falla", pendiente:"pendiente", error:"error"};
 let cfg = null, chosen = [], libItems = [], filter = "", reasonF = "", reasonTitles = {}, tab = "descubrir";
 
+// un amigo (entró en /pedir con su usuario de Jellyfin): sólo Descubrir, con sus gustos y «Pedir» en vez de descargar
+const FRIEND = window.FRIEND || null;
+const DL = FRIEND ? "Pedir" : "Descargar de Phono";
+if (FRIEND) {
+  document.querySelectorAll('#tabs button:not([data-tab="descubrir"]), #updBtn, #newsBtn').forEach(b => b.hidden = true);
+  document.querySelectorAll('#dscTabs [data-s="descargas"], #dscTabs [data-s="peticiones"]').forEach(b => b.remove());
+  $("#dscTabs").insertAdjacentHTML("beforeend", '<button data-s="mias">Mis peticiones</button>');
+  $(".tools").insertAdjacentHTML("afterbegin", `<span class="muted" style="font-size:14px;align-self:center">${esc(FRIEND.name)}</span><button id="outBtn" class="tool" type="button" title="Salir" aria-label="Salir" style="width:auto;padding:0 10px;font-weight:600">Salir</button>`);
+  $("#outBtn").onclick = async () => { await fetch("/api/pedir/logout", {method: "POST"}); location.href = "/pedir"; };
+}
 async function api(path, body) {
   const r = await fetch(path, body === undefined ? {} : {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
+  if (r.status === 401 && FRIEND) { if (!(await (await fetch("/api/pedir/me")).json()).ok) location.href = "/pedir"; throw new Error("eso no está disponible"); }
   if (r.status === 401) { location.reload(); throw new Error("hay que entrar"); }  // contraseña puesta o cambiada
   const j = await r.json();
   if (!r.ok) throw new Error(j.error || r.statusText);
@@ -1356,7 +1367,7 @@ async function startUpdate() {
   const before = (upd || await api("/api/update")).build; loadUpdate();
   watchUpdate(before);
 }
-api("/api/update").then(u => { upd = upd || u; if (u.running) watchUpdate(u.build); }).catch(() => {});  // ya iba (p.ej. desde otra pestaña)
+if (!FRIEND) api("/api/update").then(u => { upd = upd || u; if (u.running) watchUpdate(u.build); }).catch(() => {});  // ya iba (p.ej. desde otra pestaña)
 $("#updNow").onclick = startUpdate;
 
 // ---------- Arriba a la derecha: actualizar, novedades, claro/oscuro ----------
@@ -1417,8 +1428,7 @@ $("#updBtn").onclick = async () => {
 document.addEventListener("click", e => { if (!$("#newsPop").hidden && !e.target.closest("#newsPop,#newsBtn")) newsClose(); });
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#newsPop").hidden) newsClose(); });
 paintTools();
-loadNews();
-setInterval(() => loadNews(), 30 * 60 * 1000);
+if (!FRIEND) { loadNews(); setInterval(() => loadNews(), 30 * 60 * 1000); }
 
 // ---------- Ajustes ----------
 async function loadConfig() {
@@ -1619,6 +1629,10 @@ async function dlClear() {
 async function dlRetry(id) { try { await api("/api/downloads/retry", {id}); } catch (e) { toast(e.message); } loadDownloads(); }
 async function dlAdd(k) {
   const c = dscFind(k); if (!c) return;
+  if (FRIEND) {
+    try { await api("/api/pedir/ask", {item: c}); toast(`Pedida: ${c.title}. Sale en «Mis peticiones».`); } catch (e) { toast(e.message); }
+    return;
+  }
   const body = {kind: c.kind, tmdb: c.tmdb, title: c.title, year: c.year};
   if (c.kind === "tv") {
     const seasons = await dlPickSeasons(c);
@@ -1651,6 +1665,25 @@ async function loadRequests() {
       <div class="dl-b">${btn}</div></div>`;
   }).join("");
   $("#dscBox").innerHTML = tip + (items || `<p class="empty">Nadie ha pedido nada todavía.</p>`);
+}
+const MINE_STATE = {pendiente: ["revisar", "pedida, esperando"], aceptada: ["", "aceptada, pronto llega"], descargando: ["", "descargando"],
+  "ya-esta": ["ok", "ya está en Jellyfin"], rechazada: ["falla", "no se pudo conseguir"]};
+async function loadMine() {
+  let r;
+  try { r = await api("/api/pedir/mine"); } catch (e) { return dscError(e.message); }
+  if (dsc.section !== "mias") return;
+  const items = r.items.map(x => {
+    const [cls, label] = MINE_STATE[x.status] || ["", x.status];
+    return `<div class="dl-i">${x.poster ? `<img src="${esc(x.poster)}" alt="">` : `<div class="noimg"></div>`}
+      <div class="dl-txt"><span class="pill ${cls}">${esc(label)}</span> <span class="muted">· ${x.kind === "tv" ? "Serie" : "Película"}</span>
+        <h3>${esc(x.title + (x.year ? ` (${x.year})` : ""))}</h3></div>
+      <div class="dl-b">${x.status === "pendiente" ? `<button class="btn sec" onclick="mineCancel('${x.kind}',${x.tmdb})">Quitar</button>` : ""}</div></div>`;
+  }).join("");
+  $("#dscBox").innerHTML = items || `<p class="empty">Todavía no has pedido nada. Pulsa «Pedir» en cualquier película o serie.</p>`;
+}
+async function mineCancel(kind, tmdb) {
+  try { await api("/api/pedir/cancel", {kind, tmdb}); } catch (e) { return toast(e.message); }
+  loadMine();
 }
 function reqBadge() {
   const n = reqItems.filter(x => x.status === "pendiente").length;
@@ -2205,12 +2238,13 @@ const DSC_HELP = {
   "por-conseguir": "Lo que agregaste a tu lista. Se pide a Phono desde Descargas.",
   "calificadas": "Todo lo que has calificado. Puedes cambiarlo cuando quieras.",
   "descargas": "Lo que se está pidiendo a Phono. Cuando salga «pulsa el anuncio en Telegram», abre el chat del bot y pulsa sus dos botones.",
+  "mias": "Lo que has pedido y cómo va. Cuando salga «ya está en Jellyfin», búscalo allí para verlo.",
   "peticiones": "Lo que piden tu familia y amigos desde la página «Pedir». «Aceptar» lo pone en tu lista y en Descargas.",
   "gustos": "",
   "estrenos": "",
   "buscar": ""};
 const DSC_TITLE = {portada: "Esta noche, ¿qué te apetece?", novedades: "Novedades", clasicos: "Populares y clásicos", "para-ti": "Para ti", "por-conseguir": "Por conseguir",
-  calificadas: "Mis calificaciones", descargas: "Descargas", peticiones: "Peticiones", gustos: "Mis gustos", estrenos: "Calificar novedades", buscar: "Resultados"};
+  calificadas: "Mis calificaciones", descargas: "Descargas", peticiones: "Peticiones", mias: "Mis peticiones", gustos: "Mis gustos", estrenos: "Calificar novedades", buscar: "Resultados"};
 const RATE = {2: "Me encanta", 1: "Me gusta", "-1": "No me gusta", 0: "No la he visto"};
 let dsc = {section: "portada", rows: {}, bb: 0, kind: "", page: 1, items: [], q: "", checked: false, open: null, more: new Set()};
 let taste = null, quiz = null, deck = {items: [], i: 0, count: 0, loading: false};
@@ -2244,7 +2278,7 @@ async function loadDiscover() {
     try { const t = await api("/api/discover/taste"); if (t.ok) { taste = t; if (!t.profile.done) dsc.section = "gustos"; } } catch (e) {}
   }
   // las secciones sin pestaña propia se ven dentro de otra
-  const tab = {estrenos: "novedades", calificadas: "gustos", "por-conseguir": "descargas"}[dsc.section] || dsc.section;
+  const tab = {estrenos: "novedades", calificadas: "gustos", "por-conseguir": FRIEND ? "mias" : "descargas"}[dsc.section] || dsc.section;
   document.querySelectorAll("#dscTabs button").forEach(x => x.classList.toggle("on", x.dataset.s === tab));
   const onb = document.querySelector(`#dscTabs button[data-s="${tab}"]`);
   if (onb) onb.scrollIntoView({block: "nearest", inline: "nearest"});
@@ -2254,11 +2288,12 @@ async function loadDiscover() {
   $("#dscHelp").textContent = DSC_HELP[dsc.section];
   $("#dscHelp").hidden = !DSC_HELP[dsc.section];
   if (dsc.section === "novedades") $("#dscHelp").insertAdjacentHTML("beforeend", ` <a href="#" onclick="dscGo('estrenos');return false">Calificar rápido, de una en una</a>`);
-  $("#dscBar").hidden = ["gustos", "estrenos", "descargas", "peticiones"].includes(dsc.section);
+  $("#dscBar").hidden = ["gustos", "estrenos", "descargas", "peticiones", "mias"].includes(dsc.section);
   $("#dscMore").hidden = true;
   if (dsc.section === "descargas") { $("#dscBox").innerHTML = loading("Cargando…"); return loadDownloads(); }
   if (dsc.section === "peticiones") { $("#dscBox").innerHTML = loading("Cargando…"); return loadRequests(); }
-  api("/api/requests").then(r => { if (r.ok) { reqItems = r.items; reqBadge(); } }).catch(() => {});  // el numerito de la pestaña
+  if (dsc.section === "mias") { $("#dscBox").innerHTML = loading("Cargando…"); return loadMine(); }
+  if (!FRIEND) api("/api/requests").then(r => { if (r.ok) { reqItems = r.items; reqBadge(); } }).catch(() => {});  // el numerito de la pestaña
   if (dsc.section === "gustos") return loadTaste();
   if (dsc.section === "estrenos") return renderEst();
   dsc.wallShown = "";
@@ -2276,7 +2311,7 @@ async function loadDiscover() {
   } catch (e) { if (dsc.section === sec) dscError("No se pudo hablar con TheMovieDB: " + e.message); }
 }
 function renderDiscover() {
-  if (["gustos", "estrenos", "descargas", "peticiones"].includes(dsc.section)) return;
+  if (["gustos", "estrenos", "descargas", "peticiones", "mias"].includes(dsc.section)) return;
   if (dsc.section === "portada") return renderPortada();
   const items = dsc.items.filter(c => !dsc.kind || c.kind === dsc.kind);
   $("#dscMore").hidden = !["novedades", "clasicos"].includes(dsc.section);
@@ -2368,7 +2403,7 @@ function renderShelves(pick) {
     if (fresh) dsc.shown.add(s);
     const tiles = rows ? rows.filter(pick).map(c => tile(c, false)).join("")
                        : Array.from({length: 8}, () => `<div class="tile skel"><div class="tmedia"></div></div>`).join("");
-    return `<section class="shelf"><div class="shelfhead"><h3>${name}</h3>${s.startsWith("m:") ? "" : `<button class="all" onclick="dscGo('${s === "por-conseguir" ? "descargas" : s}')">Ver todo</button>`}
+    return `<section class="shelf"><div class="shelfhead"><h3>${name}</h3>${s.startsWith("m:") ? "" : `<button class="all" onclick="dscGo('${s === "por-conseguir" ? (FRIEND ? "mias" : "descargas") : s}')">Ver todo</button>`}
       <div class="arrows"><button onclick="railGo(this,-1)" aria-label="Anteriores">${ico("next")}</button><button onclick="railGo(this,1)" aria-label="Siguientes">${ico("next")}</button></div></div>
       <div class="rail ${fresh ? "fresh" : ""}">${tiles}</div></section>`;
   }).join("");
@@ -2392,7 +2427,7 @@ function billboard(list) {
       <h2 class="bbt">${esc(c.title)}</h2>
       <div class="meta">${meta}</div>
       ${c.overview ? `<p class="bbov">${esc(c.overview)}</p>` : ""}
-      <div class="bbacts"><button class="btn main" onclick="dscOpen('${k}')">${ico("play", "fill")}Ver la ficha</button>${rateButtons(c, k, false)}${c.have ? "" : `<button class="havebtn" onclick="dlAdd('${k}')">${ico("download")}Descargar</button>`}</div>
+      <div class="bbacts"><button class="btn main" onclick="dscOpen('${k}')">${ico("play", "fill")}Ver la ficha</button>${rateButtons(c, k, false)}${c.have ? "" : `<button class="havebtn" onclick="dlAdd('${k}')">${ico("download")}${FRIEND ? "Pedir" : "Descargar"}</button>`}</div>
     </div>
     <button class="bbpost" onclick="dscOpen('${k}')" aria-label="Ver la ficha de ${esc(c.title)}" style="border:0;padding:0;cursor:pointer">${c.poster ? `<img src="${esc(c.poster)}" alt="">` : ""}</button>
     ${list.length > 1 ? `<div class="bbdots">${list.map((x, i) => `<button class="${i === dsc.bb ? "on" : ""}" onclick="bbShow(${i})" aria-label="${esc(x.title)}"></button>`).join("")}</div>` : ""}
@@ -2411,7 +2446,7 @@ function rateButtons(c, k, labels = true) {
   const r = (v, icon, tip) => `<button title="${tip}" aria-label="${tip}" aria-pressed="${c.rating === v}" class="${c.rating === v ? "on" : ""} ${v < 0 ? "down" : ""}" onclick="dscRate('${k}',${v})">${ico(icon)}${labels ? `<span>${tip}</span>` : ""}</button>`;
   return `<div class="rate">${r(2, "heart", "Me encanta")}${r(1, "up", "Me gusta")}${r(-1, "down", "No me gusta")}</div>`;
 }
-function dlButton(k) { return `<button class="havebtn" onclick="dlAdd('${k}')">${ico("download")}Descargar de Phono</button>`; }
+function dlButton(k) { return `<button class="havebtn" onclick="dlAdd('${k}')">${ico("download")}${DL}</button>`; }
 function kindLabel(c) { return c.kind === "tv" ? "Serie" : "Película"; }
 function poster(c, cls = "") { return c.poster ? `<img class="${cls}" loading="lazy" src="${esc(c.poster)}" alt="" draggable="false">` : `<div class="noimg ${cls}"></div>`; }
 function becauseText(c) {
@@ -2421,14 +2456,14 @@ function tile(c, quick) {
   const k = c.kind + c.tmdb, open = dsc.openTile === k;
   const img = c.poster ? `<img loading="lazy" src="${esc(c.poster)}" alt="" draggable="false">` : `<div class="noimg">${esc(c.title)}</div>`;
   const sub = [c.year, (c.genres || [])[0], c.kind === "tv" ? "Serie" : ""].filter(Boolean).join(" · ");
-  const acts = quick && !peekOn() ? `<div class="tquick">${rateButtons(c, k, false)}${c.have ? "" : `<button class="havebtn" onclick="dlAdd('${k}')" title="Descargar de Phono" aria-label="Descargar de Phono">${ico("download")}</button>`}</div>` : "";
+  const acts = quick && !peekOn() ? `<div class="tquick">${rateButtons(c, k, false)}${c.have ? "" : `<button class="havebtn" onclick="dlAdd('${k}')" title="${DL}" aria-label="${DL}">${ico("download")}</button>`}</div>` : "";
   return `<article class="tile ${open ? "open" : ""} ${dsc.peek === k ? "cur" : ""}" data-k="${k}"><div class="tbox"><div class="tmedia"><button onclick="tileClick(this)" aria-label="${esc(c.title)}" aria-expanded="${open}">${img}</button>${c.have ? `<span class="own" title="La tengo">${ico("check")}</span>` : ""}${open ? tileActs(c, k) : ""}</div>${acts}</div>
     <h3 class="tt">${esc(c.title)}</h3><p class="ts">${esc(sub)}</p>${dsc.section === "para-ti" && c.because && c.because.length ? `<p class="tw">${esc(becauseText(c))}</p>` : ""}</article>`;
 }
 // los botones que salen encima del póster al pincharlo
 function tileActs(c, k) {
   return `<div class="tacts">${rateButtons(c, k, false)}
-    ${c.have ? "" : `<button onclick="dlAdd('${k}')">${ico("download")}Descargar de Phono</button>`}
+    ${c.have ? "" : `<button onclick="dlAdd('${k}')">${ico("download")}${DL}</button>`}
     ${c.trailer ? `<a class="tbtn" href="${esc(c.trailer)}" target="_blank" rel="noopener">${ico("play", "fill")}Ver el tráiler</a>` : ""}
     <button onclick="dscOpen('${k}')">${ico("more")}Ver la ficha</button></div>`;
 }

@@ -15,11 +15,15 @@ import hmac
 import ipaddress
 import json
 import logging
+import re
+import sqlite3
 import time
+from pathlib import Path
 
 import requests
 
 from . import discover
+from .library import Library
 
 log = logging.getLogger(__name__)
 COOKIE = "videotecario_amigo"
@@ -118,6 +122,21 @@ def user_from(cfg: dict, cookie_header: str | None) -> dict | None:
 
 def cookie(token: str, max_age: int = DAYS * 86400) -> str:
     return f"{COOKIE}={token}; Path=/; Max-Age={max_age}; HttpOnly; SameSite=Lax"
+
+
+# --- los gustos de cada amigo ------------------------------------------------------------
+class FriendLib:
+    """Hace de ``Library`` para Descubrir: las calificaciones y «Mis gustos» de cada amigo van en su propio
+    archivo (``amigos/<usuario>.sqlite`` junto a subman.toml), y la biblioteca de verdad se lee de la tuya
+    (adjunta como ``lib``) para saber qué ya está en Jellyfin."""
+
+    def __init__(self, config_path: str, cfg: dict, user_id: str):
+        Library(cfg["database"]).db.close()  # que exista tu biblioteca (con su tabla) antes de adjuntarla
+        folder = Path(config_path).parent / "amigos"
+        folder.mkdir(parents=True, exist_ok=True)
+        self.db = sqlite3.connect(str(folder / (re.sub(r"[^A-Za-z0-9_-]", "", user_id) + ".sqlite")), timeout=30)
+        self.db.row_factory = sqlite3.Row
+        self.db.execute("ATTACH DATABASE ? AS lib", (str(Path(cfg["database"]).resolve()),))
 
 
 # --- las peticiones ----------------------------------------------------------------------

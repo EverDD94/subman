@@ -1077,6 +1077,20 @@ if (FRIEND) {
   $(".tools").insertAdjacentHTML("afterbegin", `<span class="muted" style="font-size:14px;align-self:center">${esc(FRIEND.name)}</span><button id="outBtn" class="tool" type="button" title="Salir" aria-label="Salir" style="width:auto;padding:0 10px;font-weight:600">Salir</button>`);
   $("#outBtn").onclick = async () => { await fetch("/api/pedir/logout", {method: "POST"}); location.href = "/pedir"; };
 }
+// lo que ya pidió este amigo: su botón «Pedir» sale marcado como «Pedida» en todas partes (tarjetas, ficha, cartel)
+const asked = new Set();
+function markAsked() {
+  document.querySelectorAll('button[onclick^="dlAdd(\'"]').forEach(b => {
+    const k = b.getAttribute("onclick").slice(7, -2);
+    if (!asked.has(k) || b.dataset.asked) return;
+    b.dataset.asked = "1"; b.classList.add("yes"); b.setAttribute("aria-pressed", "true"); b.title = "Pedida";
+    b.innerHTML = ico("check") + (b.textContent.trim() ? "Pedida" : "");
+  });
+}
+if (FRIEND) {
+  fetch("/api/pedir/mine").then(r => r.json()).then(j => { (j.items || []).forEach(x => asked.add(x.kind + x.tmdb)); markAsked(); }).catch(() => {});
+  new MutationObserver(() => { if (asked.size) markAsked(); }).observe(document.body, {childList: true, subtree: true});
+}
 async function api(path, body) {
   const r = await fetch(path, body === undefined ? {} : {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
   if (r.status === 401 && FRIEND) { if (!(await (await fetch("/api/pedir/me")).json()).ok) location.href = "/pedir"; throw new Error("eso no está disponible"); }
@@ -1630,7 +1644,8 @@ async function dlRetry(id) { try { await api("/api/downloads/retry", {id}); } ca
 async function dlAdd(k) {
   const c = dscFind(k); if (!c) return;
   if (FRIEND) {
-    try { await api("/api/pedir/ask", {item: c}); toast(`Pedida: ${c.title}. Sale en «Mis peticiones».`); } catch (e) { toast(e.message); }
+    if (asked.has(k)) return toast("Ya la pediste. Mírala en «Mis peticiones».");
+    try { await api("/api/pedir/ask", {item: c}); asked.add(k); markAsked(); toast(`Pedida: ${c.title}. Sale en «Mis peticiones».`); } catch (e) { toast(e.message); }
     return;
   }
   const body = {kind: c.kind, tmdb: c.tmdb, title: c.title, year: c.year};
@@ -1683,6 +1698,7 @@ async function loadMine() {
 }
 async function mineCancel(kind, tmdb) {
   try { await api("/api/pedir/cancel", {kind, tmdb}); } catch (e) { return toast(e.message); }
+  asked.delete(kind + tmdb);
   loadMine();
 }
 function reqBadge() {

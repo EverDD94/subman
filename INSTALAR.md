@@ -160,6 +160,24 @@ pulsarlo otra vez). Con «Avisarme en Telegram» te llega un recordatorio a *Men
 te toca pulsar el anuncio. En **Descubrir › Descargas** ves en qué va cada una, con su velocidad.
 Va de una en una, con una pausa entre pedidos y un máximo al día.
 
+## Que tu familia y amigos pidan películas (página «Pedir»)
+
+Quien ya ve tu Jellyfin puede pedirte películas y series en `https://TU-DOMINIO:8921/pedir`, entrando con su
+usuario y contraseña de Jellyfin (no hay que crear nada). Tú las ves en **Descubrir › Peticiones**: «Aceptar» la
+pone en tu lista y en Descargas, «Rechazar» le dice que no se pudo. Cuando llega a la biblioteca le sale «¡Ya está!».
+Si tienes el bot de avisos puesto, te escribe cada vez que alguien pide algo.
+
+Para abrirla desde internet (una sola vez):
+
+1. **Pon usuario y contraseña en Ajustes** (desde casa). Sin ellos, desde fuera solo se abre «Pedir»; con ellos
+   tú también entras a todo Videotecario desde el móvil, sin VPN, en `https://TU-DOMINIO:8921/entrar`.
+2. En el DSM: **Panel de control › Portal de inicio de sesión › Avanzado › Proxy inverso › Crear**.
+   Origen: HTTPS, `TU-DOMINIO`, puerto `8921`. Destino: HTTP, la IP del NAS, puerto `8787`.
+   En «Encabezado personalizado»: **Crear › WebSocket**. Guardar.
+3. En el router, abre el puerto **8921** hacia el NAS, igual que el de Jellyfin.
+
+Desde fuera, todo lo que no sea «Pedir» pide tu contraseña de Ajustes; tus amigos no ven tu biblioteca ni tus ajustes.
+
 ## Otros detalles
 
 - Empieza por lo más reciente (lo que acaba de bajar Sonarr) y sigue hacia atrás.

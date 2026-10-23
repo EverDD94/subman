@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pedir · Videotecario</title>
+<meta name="theme-color" content="#f1f2fb" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#110e1f" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Pedir">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f1f2fb;--card:#fff;--chip:#e9e7f8;--line:#dedbf0;--text:#16122b;--muted:#4f4a68;--accent:#5b3df5;--accent-ink:#fff;--accent-soft:#ebe6ff;
+  --ok:#1c7a4a;--warn:#8f5e00;--bad:#b4402f;--shadow:0 2px 6px rgb(40 25 10/.08),0 24px 60px -20px rgb(40 25 10/.3);--ease-out:cubic-bezier(0.23,1,0.32,1);color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#110e1f;--card:#1b1730;--chip:#2a2447;--line:#332c55;--text:#f2efff;--muted:#aaa3c8;--accent:#9481ff;--accent-ink:#0e0a24;
+  --accent-soft:#2b2257;--ok:#6fd39a;--warn:#e8c06a;--bad:#f08070;--shadow:0 2px 8px rgb(0 0 0/.4),0 30px 80px -20px rgb(0 0 0/.75);color-scheme:dark}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;min-height:100dvh;background:var(--bg);color:var(--text);font:15px/1.5 "Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+button,input{font:inherit}
+.btn{min-height:44px;padding:0 18px;border:0;border-radius:12px;background:var(--accent);color:var(--accent-ink);font-weight:600;cursor:pointer;touch-action:manipulation;
+  transition:transform .16s var(--ease-out),opacity .16s}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.6}
+.btn.sec{background:var(--chip);color:var(--text)}
+/* entrar */
+#login{min-height:100dvh;display:grid;place-items:center;padding:24px 16px}
+form{width:min(380px,100%);background:var(--card);border:1px solid var(--line);border-radius:22px;padding:32px 28px;box-shadow:var(--shadow)}
+form img{width:56px;height:56px;border-radius:14px;display:block}
+h1{font-weight:800;font-size:32px;line-height:1.1;letter-spacing:-.02em;margin:18px 0 4px}
+form p{color:var(--muted);margin:0 0 18px}
+label{display:block;font-weight:600;font-size:14px;margin:14px 0 6px}
+input{width:100%;font-size:16px;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--text)}
+input:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent)}
+form .btn{width:100%;margin-top:22px;min-height:48px;font-size:16px}
+#err{color:var(--bad);font-weight:500;margin:14px 0 0;min-height:1.5em}
+.admin{display:block;text-align:center;margin-top:10px;color:var(--muted);font-size:13px}
+/* la página */
+header{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  padding:max(12px,env(safe-area-inset-top)) 16px 10px;border-bottom:1px solid var(--line)}
+.top{display:flex;align-items:center;gap:10px;max-width:1100px;margin:0 auto}
+.top img{width:32px;height:32px;border-radius:9px}
+.top b{font-size:19px;font-weight:800;letter-spacing:-.01em}
+.top .who{margin-left:auto;color:var(--muted);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top .out{background:none;border:0;color:var(--accent);cursor:pointer;padding:6px;font-weight:600}
+.bar{max-width:1100px;margin:10px auto 0;display:flex;flex-wrap:wrap;gap:8px}
+.bar input{flex:1 1 220px;padding:10px 14px}
+.tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+.tabs button{border:0;border-radius:999px;padding:8px 14px;background:var(--chip);color:var(--text);font-weight:600;cursor:pointer;white-space:nowrap}
+.tabs button.on{background:var(--accent);color:var(--accent-ink)}
+.tabs .n{display:inline-block;min-width:20px;margin-left:4px;padding:0 6px;border-radius:99px;background:var(--accent-soft);color:var(--accent);font-size:12px}
+.tabs button.on .n{background:var(--accent-ink);color:var(--accent)}
+main{max-width:1100px;margin:0 auto;padding:16px 16px calc(32px + env(safe-area-inset-bottom))}
+.help{color:var(--muted);margin:0 0 14px}
+.wall{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:18px 14px}
+.tile .pic{position:relative;aspect-ratio:2/3;border-radius:14px;overflow:hidden;background:var(--chip);box-shadow:var(--shadow)}
+.tile img{width:100%;height:100%;object-fit:cover;display:block}
+.tile .noimg{display:grid;place-items:center;height:100%;padding:10px;text-align:center;color:var(--muted);font-weight:600}
+.tile h3{font-size:14px;line-height:1.25;margin:8px 0 2px}
+.tile p{margin:0 0 8px;color:var(--muted);font-size:13px}
+.tile .btn{width:100%;min-height:38px;font-size:14px;padding:0 10px}
+.tile .tag,.st{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:3px 10px;font-size:13px;font-weight:600;background:var(--chip)}
+.tile .tag{width:100%;justify-content:center;min-height:38px;border-radius:12px}
+.ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)} .acc{color:var(--accent)}
+.list{display:grid;gap:10px}
+.req{display:flex;gap:12px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:10px}
+.req img,.req .noimg{width:52px;height:78px;border-radius:9px;object-fit:cover;flex:none;background:var(--chip)}
+.req .t{flex:1;min-width:0}
+.req h3{margin:0 0 4px;font-size:15px}
+.req small{color:var(--muted)}
+.req .x{background:none;border:0;color:var(--muted);cursor:pointer;padding:8px;font-size:13px;text-decoration:underline}
+.empty{color:var(--muted);text-align:center;padding:40px 0}
+.more{display:block;margin:22px auto 0}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;
+  border-radius:12px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;max-width:calc(100% - 32px)}
+#toast.on{opacity:1}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<section id="login" hidden>
+  <form id="f">
+    <img src="/icon.svg" alt="">
+    <h1>Pide una peli</h1>
+    <p>Entra con tu usuario y contraseña de Jellyfin, los mismos que usas para ver.</p>
+    <label for="user">Usuario de Jellyfin</label>
+    <input id="user" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+    <label for="password">Contraseña</label>
+    <input id="password" name="password" type="password" autocomplete="current-password">
+    <button class="btn" id="go">Entrar</button>
+    <div id="err" role="alert"></div>
+    <a class="admin" href="/entrar">Administrar Videotecario</a>
+  </form>
+</section>
+<section id="app" hidden>
+  <header>
+    <div class="top"><img src="/icon.svg" alt=""><b>Pedir</b><span class="who" id="who"></span><button class="out" id="out">Salir</button></div>
+    <div class="bar">
+      <div class="tabs" id="tabs">
+        <button data-s="novedades" class="on">Novedades</button>
+        <button data-s="clasicos">Populares</button>
+        <button data-s="mias">Mis peticiones<span class="n" id="n" hidden></span></button>
+      </div>
+      <input id="q" type="search" placeholder="Buscar una película o serie…" enterkeyhint="search">
+    </div>
+  </header>
+  <main><p class="help" id="help"></p><div id="box"></div><button class="btn sec more" id="more" hidden>Ver más</button></main>
+</section>
+<div id="toast" role="status"></div>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+let st = {section: "novedades", q: "", page: 1, items: [], mine: []};
+const STATUS = {"pendiente": ["Pendiente", "warn"], "aceptada": ["Aceptada, pronto llega", "acc"], "descargando": ["Descargando", "acc"],
+                "ya-esta": ["¡Ya está en Jellyfin!", "ok"], "rechazada": ["No se pudo conseguir", "bad"]};
+const HELP = {novedades: "Lo que acaba de salir o sale pronto. Pulsa «Pedir» en lo que quieras ver.",
+              clasicos: "Lo más visto esta semana y lo mejor valorado de siempre.",
+              mias: "Lo que has pedido y cómo va. Cuando salga «¡Ya está!», búscalo en Jellyfin.", buscar: ""};
+function toast(t) { const e = $("#toast"); e.textContent = t; e.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(() => e.classList.remove("on"), 2600); }
+async function api(path, body) {
+  const r = await fetch(path, body ? {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)} : {});
+  if (r.status === 401) { showLogin(); throw new Error("Hay que volver a entrar"); }
+  const j = await r.json();
+  if (j.ok === false && j.error) throw new Error(j.error);
+  return j;
+}
+function showLogin() { $("#app").hidden = true; $("#login").hidden = false; $("#user").focus(); }
+function showApp(name) { $("#login").hidden = true; $("#app").hidden = false; $("#who").textContent = "Hola, " + name; load(); loadMine(); }
+
+$("#f").onsubmit = async e => {
+  e.preventDefault();
+  const go = $("#go"), err = $("#err");
+  go.disabled = true; err.textContent = "";
+  try {
+    const r = await fetch("/api/pedir/login", {method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({user: $("#user").value, password: $("#password").value})});
+    const j = await r.json();
+    if (r.ok && j.ok) { $("#password").value = ""; showApp(j.user); }
+    else err.textContent = j.error || "No se pudo entrar";
+  } catch (x) { err.textContent = "No se pudo hablar con el servidor"; }
+  go.disabled = false;
+};
+$("#out").onclick = async () => { await fetch("/api/pedir/logout", {method: "POST"}); showLogin(); };
+document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => { st.section = b.dataset.s; st.q = ""; $("#q").value = ""; load(); });
+$("#q").onkeydown = e => {
+  if (e.key !== "Enter") return;
+  const q = $("#q").value.trim();
+  if (q) { st.q = q; st.section = "buscar"; $("#q").blur(); load(); }
+};
+$("#more").onclick = async () => {
+  st.page++; $("#more").disabled = true;
+  try {
+    const r = await api(`/api/pedir/browse?section=${st.section}&page=${st.page}`);
+    const seen = new Set(st.items.map(c => c.kind + c.tmdb));
+    st.items.push(...r.items.filter(c => !seen.has(c.kind + c.tmdb)));
+    render();
+  } catch (e) { toast(e.message); } finally { $("#more").disabled = false; }
+};
+
+async function load() {
+  document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.s === st.section));
+  $("#help").textContent = st.section === "buscar" ? `Resultados de «${st.q}»` : HELP[st.section];
+  $("#more").hidden = true;
+  $("#box").innerHTML = `<p class="empty">Cargando…</p>`;
+  if (st.section === "mias") return loadMine(true);
+  st.page = 1;
+  const sec = st.section;
+  try {
+    const r = await api(st.section === "buscar" ? "/api/pedir/browse?q=" + encodeURIComponent(st.q) : `/api/pedir/browse?section=${st.section}&page=1`);
+    if (st.section !== sec) return;
+    st.items = r.items; render();
+  } catch (e) { if (st.section === sec) $("#box").innerHTML = `<p class="empty">${esc(e.message)}</p>`; }
+}
+function sub(c) { return [c.year, (c.genres || [])[0], c.kind === "tv" ? "Serie" : "Película"].filter(Boolean).join(" · "); }
+function pic(c) { return c.poster ? `<img loading="lazy" src="${esc(c.poster)}" alt="">` : `<div class="noimg">${esc(c.title)}</div>`; }
+function action(c) {
+  const k = c.kind + c.tmdb;
+  if (c.have) return `<span class="tag ok">✓ Ya está en Jellyfin</span>`;
+  if (c.asked === "rechazada") return `<span class="tag bad">No se pudo conseguir</span>`;
+  if (c.asked) return `<span class="tag acc">✓ Pedida</span>`;
+  return `<button class="btn" onclick="ask('${k}')">Pedir</button>`;
+}
+function render() {
+  $("#more").hidden = !["novedades", "clasicos"].includes(st.section);
+  if (!st.items.length) { $("#box").innerHTML = `<p class="empty">No hay nada aquí.</p>`; return; }
+  $("#box").innerHTML = `<div class="wall">${st.items.map(c => `<article class="tile"><div class="pic">${pic(c)}</div>
+    <h3>${esc(c.title)}</h3><p>${esc(sub(c))}</p>${action(c)}</article>`).join("")}</div>`;
+}
+async function ask(k) {
+  const c = st.items.find(x => x.kind + x.tmdb === k); if (!c) return;
+  try {
+    await api("/api/pedir/ask", {item: c});
+    c.asked = "pendiente"; render(); loadMine();
+    toast(`Pedida: ${c.title}. Te avisamos aquí cuando esté.`);
+  } catch (e) { toast(e.message); }
+}
+async function cancel(kind, tmdb) {
+  if (!confirm("¿Quitar esta petición?")) return;
+  try { await api("/api/pedir/cancel", {kind, tmdb}); } catch (e) { return toast(e.message); }
+  const c = st.items.find(x => x.kind === kind && x.tmdb === tmdb); if (c) c.asked = null;
+  loadMine(st.section === "mias");
+}
+async function loadMine(draw) {
+  try { st.mine = (await api("/api/pedir/mine")).items; } catch (e) { if (draw) $("#box").innerHTML = `<p class="empty">${esc(e.message)}</p>`; return; }
+  const open = st.mine.filter(r => !["ya-esta", "rechazada"].includes(r.status)).length;
+  $("#n").textContent = open; $("#n").hidden = !open;
+  if (!draw || st.section !== "mias") return;
+  if (!st.mine.length) { $("#box").innerHTML = `<p class="empty">Todavía no has pedido nada. Busca algo o mira las Novedades.</p>`; return; }
+  $("#box").innerHTML = `<div class="list">${st.mine.map(r => {
+    const [label, cls] = STATUS[r.status] || [r.status, ""];
+    return `<div class="req">${r.poster ? `<img src="${esc(r.poster)}" alt="" loading="lazy">` : `<div class="noimg"></div>`}
+      <div class="t"><h3>${esc(r.title)}</h3><small>${esc(sub(r))}</small><br><span class="st ${cls}">${label}</span></div>
+      ${r.status === "pendiente" ? `<button class="x" onclick="cancel('${r.kind}',${r.tmdb})">Quitar</button>` : ""}</div>`;
+  }).join("")}</div>`;
+}
+fetch("/api/pedir/me").then(r => r.json()).then(j => j.ok ? showApp(j.user) : showLogin()).catch(showLogin);
+</script>
+</body>
+</html>

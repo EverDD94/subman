@@ -918,6 +918,7 @@ dialog.sheet .foot{display:none}
       <button data-s="para-ti">Para ti</button>
       <button data-s="clasicos">Populares y clásicos</button>
       <button data-s="descargas">Descargas</button>
+      <button data-s="peticiones">Peticiones<span class="pill revisar" id="reqN" hidden style="margin-left:6px"></span></button>
       <button data-s="gustos">Mis gustos</button>
     </div>
     <div class="dbar" id="dscBar">
@@ -1626,6 +1627,51 @@ async function dlAdd(k) {
   }
   try { const r = await api("/api/downloads/add", body); toast(r.ok === false ? r.error : "En la cola de descargas"); } catch (e) { toast(e.message); }
 }
+// ---------- Peticiones de los amigos (página /pedir) ----------
+const REQ_STATE = {pendiente: ["revisar", "esperando tu respuesta"], aceptada: ["", "aceptada"], descargando: ["", "descargando"],
+  "ya-esta": ["ok", "ya está en la biblioteca"], rechazada: ["falla", "rechazada"]};
+let reqItems = [];
+async function loadRequests() {
+  let r;
+  try { r = await api("/api/requests"); } catch (e) { return dscError(e.message); }
+  if (r.ok === false) return dscError(r.error);
+  reqItems = r.items; reqBadge();
+  if (dsc.section !== "peticiones") return;
+  const link = `${location.protocol}//${location.hostname}${location.port ? ":" + location.port : ""}/pedir`;
+  const tip = `<div class="dl-tip">Tus amigos entran en <b>/pedir</b> (desde fuera, con tu dominio; aquí en casa: <a href="/pedir" target="_blank">${esc(link)}</a>) con su usuario y contraseña de Jellyfin.</div>`;
+  const items = reqItems.map(x => {
+    const k = x.kind + x.tmdb, [cls, label] = REQ_STATE[x.status] || ["", x.status];
+    const name = x.title + (x.year ? ` (${x.year})` : "");
+    const btn = x.status === "pendiente" ? `<button class="btn" onclick="reqDecide('${k}',true)">Aceptar</button> <button class="btn sec" onclick="reqDecide('${k}',false)">Rechazar</button>`
+      : x.status === "aceptada" ? `<button class="btn sec" onclick="reqDownload('${k}')">Descargar de Phono</button> <button class="btn sec" onclick="reqForget('${k}')">Quitar</button>`
+      : `<button class="btn sec" onclick="reqForget('${k}')">Quitar de la lista</button>`;
+    return `<div class="dl-i">${x.poster ? `<img src="${esc(x.poster)}" alt="">` : `<div class="noimg"></div>`}
+      <div class="dl-txt"><span class="pill ${cls}">${esc(label)}</span> <span class="muted">· ${x.kind === "tv" ? "Serie" : "Película"}</span>
+        <h3>${esc(name)}</h3><div class="muted">La pidió ${esc(x.who.join(", "))}</div></div>
+      <div class="dl-b">${btn}</div></div>`;
+  }).join("");
+  $("#dscBox").innerHTML = tip + (items || `<p class="empty">Nadie ha pedido nada todavía.</p>`);
+}
+function reqBadge() {
+  const n = reqItems.filter(x => x.status === "pendiente").length;
+  $("#reqN").textContent = n; $("#reqN").hidden = !n;
+}
+async function reqDecide(k, accept) {
+  const x = reqItems.find(i => i.kind + i.tmdb === k); if (!x) return;
+  try { await api("/api/requests/decide", {kind: x.kind, tmdb: x.tmdb, accept}); } catch (e) { return toast(e.message); }
+  if (accept) await reqDownload(k); else toast("Rechazada");
+  loadRequests();
+}
+async function reqDownload(k) {
+  const x = reqItems.find(i => i.kind + i.tmdb === k); if (!x) return;
+  dsc.open = {...x, genre_ids: []};  // para que dlAdd la encuentre
+  await dlAdd(k);
+}
+async function reqForget(k) {
+  const x = reqItems.find(i => i.kind + i.tmdb === k); if (!x) return;
+  try { await api("/api/requests/forget", {kind: x.kind, tmdb: x.tmdb}); } catch (e) { return toast(e.message); }
+  loadRequests();
+}
 // series: qué temporadas pedir (las que ya están en Descargas salen marcadas y sin poder tocarlas)
 async function dlPickSeasons(c) {
   toast("Mirando qué temporadas tiene Phono…");
@@ -2159,11 +2205,12 @@ const DSC_HELP = {
   "por-conseguir": "Lo que agregaste a tu lista. Se pide a Phono desde Descargas.",
   "calificadas": "Todo lo que has calificado. Puedes cambiarlo cuando quieras.",
   "descargas": "Lo que se está pidiendo a Phono. Cuando salga «pulsa el anuncio en Telegram», abre el chat del bot y pulsa sus dos botones.",
+  "peticiones": "Lo que piden tu familia y amigos desde la página «Pedir». «Aceptar» lo pone en tu lista y en Descargas.",
   "gustos": "",
   "estrenos": "",
   "buscar": ""};
 const DSC_TITLE = {portada: "Esta noche, ¿qué te apetece?", novedades: "Novedades", clasicos: "Populares y clásicos", "para-ti": "Para ti", "por-conseguir": "Por conseguir",
-  calificadas: "Mis calificaciones", descargas: "Descargas", gustos: "Mis gustos", estrenos: "Calificar novedades", buscar: "Resultados"};
+  calificadas: "Mis calificaciones", descargas: "Descargas", peticiones: "Peticiones", gustos: "Mis gustos", estrenos: "Calificar novedades", buscar: "Resultados"};
 const RATE = {2: "Me encanta", 1: "Me gusta", "-1": "No me gusta", 0: "No la he visto"};
 let dsc = {section: "portada", rows: {}, bb: 0, kind: "", page: 1, items: [], q: "", checked: false, open: null, more: new Set()};
 let taste = null, quiz = null, deck = {items: [], i: 0, count: 0, loading: false};
@@ -2207,9 +2254,11 @@ async function loadDiscover() {
   $("#dscHelp").textContent = DSC_HELP[dsc.section];
   $("#dscHelp").hidden = !DSC_HELP[dsc.section];
   if (dsc.section === "novedades") $("#dscHelp").insertAdjacentHTML("beforeend", ` <a href="#" onclick="dscGo('estrenos');return false">Calificar rápido, de una en una</a>`);
-  $("#dscBar").hidden = ["gustos", "estrenos", "descargas"].includes(dsc.section);
+  $("#dscBar").hidden = ["gustos", "estrenos", "descargas", "peticiones"].includes(dsc.section);
   $("#dscMore").hidden = true;
   if (dsc.section === "descargas") { $("#dscBox").innerHTML = loading("Cargando…"); return loadDownloads(); }
+  if (dsc.section === "peticiones") { $("#dscBox").innerHTML = loading("Cargando…"); return loadRequests(); }
+  api("/api/requests").then(r => { if (r.ok) { reqItems = r.items; reqBadge(); } }).catch(() => {});  // el numerito de la pestaña
   if (dsc.section === "gustos") return loadTaste();
   if (dsc.section === "estrenos") return renderEst();
   dsc.wallShown = "";
@@ -2227,7 +2276,7 @@ async function loadDiscover() {
   } catch (e) { if (dsc.section === sec) dscError("No se pudo hablar con TheMovieDB: " + e.message); }
 }
 function renderDiscover() {
-  if (["gustos", "estrenos", "descargas"].includes(dsc.section)) return;
+  if (["gustos", "estrenos", "descargas", "peticiones"].includes(dsc.section)) return;
   if (dsc.section === "portada") return renderPortada();
   const items = dsc.items.filter(c => !dsc.kind || c.kind === dsc.kind);
   $("#dscMore").hidden = !["novedades", "clasicos"].includes(dsc.section);

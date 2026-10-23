@@ -83,16 +83,21 @@ def blocked(addr: str) -> bool:
         return len(recent) >= MAX_FAILS
 
 
-def login(cfg: dict, addr: str, user: str, password: str) -> str | None:
-    """Devuelve el token si el usuario y la contraseña son correctos."""
-    a = cfg.get("access") or {}
-    good = hmac.compare_digest((user or "").strip().lower(), (a.get("user") or "").lower()) \
-        and check_password(password or "", a.get("password_hash", ""))
+def note(addr: str, good: bool) -> None:
+    """Apunta un intento de entrar (los fallidos seguidos acaban bloqueando esa dirección un rato)."""
     with _lock:
         if good:
             _fails.pop(addr, None)
         else:
             _fails.setdefault(addr, []).append(time.time())
+
+
+def login(cfg: dict, addr: str, user: str, password: str) -> str | None:
+    """Devuelve el token si el usuario y la contraseña son correctos."""
+    a = cfg.get("access") or {}
+    good = hmac.compare_digest((user or "").strip().lower(), (a.get("user") or "").lower()) \
+        and check_password(password or "", a.get("password_hash", ""))
+    note(addr, good)
     if not good:
         time.sleep(1)  # frena a quien pruebe contraseñas a lo loco
         return None

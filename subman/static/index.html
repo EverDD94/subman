@@ -506,6 +506,7 @@ dialog.sheet .foot{display:none}
 .dl-i{display:grid;grid-template-columns:84px 1fr auto;gap:20px;align-items:center;background:var(--card);border-radius:24px;padding:14px 22px 14px 14px;margin-bottom:12px;box-shadow:var(--shadow);
   animation:mgPop .5s var(--ease-out) both;transition:transform .25s var(--ease-out)}
 .dl-i:hover{transform:translateX(4px)}
+.still .dl-i{animation:none}
 .dl-i.now{box-shadow:0 0 0 3px var(--pop),var(--shadow)}
 .dl-i img,.dl-i .noimg{width:84px;aspect-ratio:2/3;object-fit:cover;border-radius:14px;background:linear-gradient(150deg,var(--accent),var(--pop))}
 .dl-i h3{margin:6px 0 4px;font:800 24px/1.05 var(--display);letter-spacing:-.03em}
@@ -1570,7 +1571,7 @@ function dlSpeed(st) {
   return ` · <b>${mb >= 10 ? mb.toFixed(0) : mb.toFixed(1)} MB/s</b> · faltan ${eta}`;
 }
 
-async function loadDownloads() {
+async function loadDownloads(poll) {
   clearTimeout(dlTimer);
   let r;
   try { r = await api("/api/downloads"); } catch (e) { return dscError(e.message); }
@@ -1597,8 +1598,9 @@ async function loadDownloads() {
   }).join("");
   const waiting = rows.filter(x => ["cola", "no-esta", "error"].includes(x.state) && x.id !== st.current).length;
   const clear = waiting > 1 ? `<div class="row" style="margin-bottom:12px"><button class="btn sec" onclick="dlClear()">Vaciar la cola (${waiting})</button></div>` : "";
+  $("#dscBox").classList.toggle("still", !!poll);  // al refrescar solo, sin volver a animar las tarjetas
   $("#dscBox").innerHTML = head + clear + manual + (items || `<p class="empty">Nada en descargas. Agrega algo a tu lista o pulsa «Descargar» en Por conseguir.</p>`);
-  if (rows.some(x => !["listo", "error", "no-esta"].includes(x.state))) dlTimer = setTimeout(loadDownloads, 4000);
+  if (rows.some(x => !["listo", "error", "no-esta"].includes(x.state))) dlTimer = setTimeout(() => loadDownloads(true), 4000);
 }
 async function dlCancel(id) { try { await api("/api/downloads/cancel", {id}); } catch (e) { toast(e.message); } loadDownloads(); }
 async function dlClear() {

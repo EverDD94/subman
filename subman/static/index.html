@@ -914,13 +914,10 @@ dialog.sheet .foot{display:none}
     </div>
     <div class="dtabs filters" id="dscTabs">
       <button data-s="portada" class="on">Portada</button>
-      <button data-s="estrenos">Estrenos</button>
       <button data-s="novedades">Novedades</button>
       <button data-s="para-ti">Para ti</button>
       <button data-s="clasicos">Populares y clásicos</button>
-      <button data-s="por-conseguir">Por conseguir</button>
       <button data-s="descargas">Descargas</button>
-      <button data-s="calificadas">Mis calificaciones</button>
       <button data-s="gustos">Mis gustos</button>
     </div>
     <div class="dbar" id="dscBar">
@@ -1609,7 +1606,7 @@ async function loadDownloads(poll) {
   const waiting = rows.filter(x => ["cola", "no-esta", "error"].includes(x.state) && x.id !== st.current).length;
   const clear = waiting > 1 ? `<div class="row" style="margin-bottom:12px"><button class="btn sec" onclick="dlClear()">Vaciar la cola (${waiting})</button></div>` : "";
   $("#dscBox").classList.toggle("still", !!poll);  // al refrescar solo, sin volver a animar las tarjetas
-  $("#dscBox").innerHTML = head + clear + manual + (items || `<p class="empty">Nada en descargas. Agrega algo a tu lista o pulsa «Descargar» en Por conseguir.</p>`);
+  $("#dscBox").innerHTML = head + clear + manual + (items || `<p class="empty">Nada en descargas. Pulsa «Descargar» en cualquier ficha.</p>`);
   if (rows.some(x => !["listo", "error", "no-esta"].includes(x.state))) dlTimer = setTimeout(() => loadDownloads(true), 4000);
 }
 async function dlCancel(id) { try { await api("/api/downloads/cancel", {id}); } catch (e) { toast(e.message); } loadDownloads(); }
@@ -2159,14 +2156,14 @@ const DSC_HELP = {
   "novedades": "Lo que acaba de salir o sale pronto. Toca el póster para ver la ficha completa.",
   "clasicos": "Lo más visto esta semana y lo mejor valorado de siempre.",
   "para-ti": "Aprende de lo que calificas y de «Mis gustos». No salen las que ya tienes ni las que ya calificaste.",
-  "por-conseguir": "Lo que marcaste «No la tengo» o «Agregar a mi lista». Cuando la consigas, pulsa «La tengo».",
+  "por-conseguir": "Lo que agregaste a tu lista. Se pide a Phono desde Descargas.",
   "calificadas": "Todo lo que has calificado. Puedes cambiarlo cuando quieras.",
   "descargas": "Lo que se está pidiendo a Phono. Cuando salga «pulsa el anuncio en Telegram», abre el chat del bot y pulsa sus dos botones.",
   "gustos": "",
   "estrenos": "",
   "buscar": ""};
 const DSC_TITLE = {portada: "Esta noche, ¿qué te apetece?", novedades: "Novedades", clasicos: "Populares y clásicos", "para-ti": "Para ti", "por-conseguir": "Por conseguir",
-  calificadas: "Mis calificaciones", descargas: "Descargas", gustos: "Mis gustos", estrenos: "Estrenos del año", buscar: "Resultados"};
+  calificadas: "Mis calificaciones", descargas: "Descargas", gustos: "Mis gustos", estrenos: "Calificar novedades", buscar: "Resultados"};
 const RATE = {2: "Me encanta", 1: "Me gusta", "-1": "No me gusta", 0: "No la he visto"};
 let dsc = {section: "portada", rows: {}, bb: 0, kind: "", page: 1, items: [], q: "", checked: false, open: null, more: new Set()};
 let taste = null, quiz = null, deck = {items: [], i: 0, count: 0, loading: false};
@@ -2199,14 +2196,17 @@ async function loadDiscover() {
     dsc.checked = true;
     try { const t = await api("/api/discover/taste"); if (t.ok) { taste = t; if (!t.profile.done) dsc.section = "gustos"; } } catch (e) {}
   }
-  document.querySelectorAll("#dscTabs button").forEach(x => x.classList.toggle("on", x.dataset.s === dsc.section));
-  const onb = document.querySelector(`#dscTabs button[data-s="${dsc.section}"]`);
+  // las secciones sin pestaña propia se ven dentro de otra
+  const tab = {estrenos: "novedades", calificadas: "gustos", "por-conseguir": "descargas"}[dsc.section] || dsc.section;
+  document.querySelectorAll("#dscTabs button").forEach(x => x.classList.toggle("on", x.dataset.s === tab));
+  const onb = document.querySelector(`#dscTabs button[data-s="${tab}"]`);
   if (onb) onb.scrollIntoView({block: "nearest", inline: "nearest"});
   $("#dscMoods").hidden = dsc.section !== "portada";
   $("#dscTitle").textContent = dsc.section === "buscar" ? `«${dsc.q}»` : DSC_TITLE[dsc.section];
   $("#dscTitle").hidden = false;
   $("#dscHelp").textContent = DSC_HELP[dsc.section];
   $("#dscHelp").hidden = !DSC_HELP[dsc.section];
+  if (dsc.section === "novedades") $("#dscHelp").insertAdjacentHTML("beforeend", ` <a href="#" onclick="dscGo('estrenos');return false">Calificar rápido, de una en una</a>`);
   $("#dscBar").hidden = ["gustos", "estrenos", "descargas"].includes(dsc.section);
   $("#dscMore").hidden = true;
   if (dsc.section === "descargas") { $("#dscBox").innerHTML = loading("Cargando…"); return loadDownloads(); }
@@ -2319,7 +2319,7 @@ function renderShelves(pick) {
     if (fresh) dsc.shown.add(s);
     const tiles = rows ? rows.filter(pick).map(c => tile(c, false)).join("")
                        : Array.from({length: 8}, () => `<div class="tile skel"><div class="tmedia"></div></div>`).join("");
-    return `<section class="shelf"><div class="shelfhead"><h3>${name}</h3>${s.startsWith("m:") ? "" : `<button class="all" onclick="dscGo('${s}')">Ver todo</button>`}
+    return `<section class="shelf"><div class="shelfhead"><h3>${name}</h3>${s.startsWith("m:") ? "" : `<button class="all" onclick="dscGo('${s === "por-conseguir" ? "descargas" : s}')">Ver todo</button>`}
       <div class="arrows"><button onclick="railGo(this,-1)" aria-label="Anteriores">${ico("next")}</button><button onclick="railGo(this,1)" aria-label="Siguientes">${ico("next")}</button></div></div>
       <div class="rail ${fresh ? "fresh" : ""}">${tiles}</div></section>`;
   }).join("");
@@ -2363,9 +2363,6 @@ function rateButtons(c, k, labels = true) {
   return `<div class="rate">${r(2, "heart", "Me encanta")}${r(1, "up", "Me gusta")}${r(-1, "down", "No me gusta")}</div>`;
 }
 function dlButton(k) { return `<button class="havebtn" onclick="dlAdd('${k}')">${ico("download")}Descargar de Phono</button>`; }
-function haveButton(c, k) {
-  return `<button class="havebtn ${c.have ? "yes" : ""}" onclick="dscHave('${k}')">${c.have ? ico("check") + "La tengo" : "No la tengo"}</button>`;
-}
 function kindLabel(c) { return c.kind === "tv" ? "Serie" : "Película"; }
 function poster(c, cls = "") { return c.poster ? `<img class="${cls}" loading="lazy" src="${esc(c.poster)}" alt="" draggable="false">` : `<div class="noimg ${cls}"></div>`; }
 function becauseText(c) {
@@ -2375,7 +2372,7 @@ function tile(c, quick) {
   const k = c.kind + c.tmdb, open = dsc.openTile === k;
   const img = c.poster ? `<img loading="lazy" src="${esc(c.poster)}" alt="" draggable="false">` : `<div class="noimg">${esc(c.title)}</div>`;
   const sub = [c.year, (c.genres || [])[0], c.kind === "tv" ? "Serie" : ""].filter(Boolean).join(" · ");
-  const acts = quick && !peekOn() ? `<div class="tquick">${rateButtons(c, k, false)}<button class="havebtn ${c.have ? "yes" : ""}" onclick="dscHave('${k}')" title="${c.have ? "La tengo" : "No la tengo"}" aria-label="${c.have ? "La tengo" : "No la tengo"}" aria-pressed="${!!c.have}">${ico(c.have ? "check" : "plus")}</button>${dsc.section === "por-conseguir" && !c.have ? `<button class="havebtn" onclick="dlAdd('${k}')" title="Descargar de Phono" aria-label="Descargar de Phono">${ico("download")}</button>` : ""}</div>` : "";
+  const acts = quick && !peekOn() ? `<div class="tquick">${rateButtons(c, k, false)}${c.have ? "" : `<button class="havebtn" onclick="dlAdd('${k}')" title="Descargar de Phono" aria-label="Descargar de Phono">${ico("download")}</button>`}</div>` : "";
   return `<article class="tile ${open ? "open" : ""} ${dsc.peek === k ? "cur" : ""}" data-k="${k}"><div class="tbox"><div class="tmedia"><button onclick="tileClick(this)" aria-label="${esc(c.title)}" aria-expanded="${open}">${img}</button>${c.have ? `<span class="own" title="La tengo">${ico("check")}</span>` : ""}${open ? tileActs(c, k) : ""}</div>${acts}</div>
     <h3 class="tt">${esc(c.title)}</h3><p class="ts">${esc(sub)}</p>${dsc.section === "para-ti" && c.because && c.because.length ? `<p class="tw">${esc(becauseText(c))}</p>` : ""}</article>`;
 }
@@ -2888,7 +2885,7 @@ function renderDeck(quiet) {
         <p class="ov">${esc(c.overview) || "<i>Sin resumen en español.</i>"}</p>
         <p style="margin:10px 0 0"><a href="#" onclick="dscOpen('${k}');return false">Ficha completa, reparto y tráiler</a></p>
         <div class="deckbtns">${b(-1, "down", "No me gusta", "nope")}${b(1, "up", "Me gusta", "like")}${b(2, "heart", "Me encanta", "love")}</div>
-        <div class="deckbtns two"><button class="btn sec" onclick="deckAnswer(0)">No la he visto</button>${haveButton(c, k).replace('class="havebtn', 'class="btn sec havebtn')}</div>
+        <div class="deckbtns two"><button class="btn sec" onclick="deckAnswer(0)">No la he visto</button>${c.have ? "" : dlButton(k).replace('class="havebtn', 'class="btn sec havebtn')}</div>
         <p class="kbd">Atajos de teclado: 1 me encanta · 2 me gusta · 3 no me gusta · 4 no la he visto</p>
         <p class="kbd touch">Arrastra la tarjeta a la derecha si te gusta y a la izquierda si no.</p>
       </div></div></div>`;

@@ -39,6 +39,7 @@ DEFAULTS: dict = {
     # descargar de Phono (por Telegram) lo que pones en «Por conseguir» (pestaña Descubrir)
     "telegram": {"api_id": "", "api_hash": "", "bot_token": "", "bot_name": "", "chat_id": ""},
     "downloads": {"enabled": False, "auto": True, "movies_dir": "", "series_dir": "",
+                  "realitys_dir": "", "es_movies_dir": "", "es_series_dir": "",
                   "tmp_dir": "/media/Descargando", "gap_minutes": 2, "daily": 20, "audio": ["es", "en"],
                   "min_free_gb": 20, "remind": True, "summary_hour": 22},
 }

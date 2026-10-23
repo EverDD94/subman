@@ -1381,7 +1381,7 @@ class App:
             for k in ("enabled", "auto", "remind"):
                 if k in b:
                     d[k] = bool(b[k])
-            for k in ("movies_dir", "series_dir", "tmp_dir"):
+            for k in ("movies_dir", "series_dir", "tmp_dir", "realitys_dir", "es_movies_dir", "es_series_dir"):
                 if k in b:
                     d[k] = (b[k] or "").strip()
             for k, lo, hi in (("gap_minutes", 1, 1440), ("daily", 1, 200), ("min_free_gb", 0, 10000), ("summary_hour", -1, 23)):

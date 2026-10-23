@@ -63,7 +63,8 @@ class TMDb:
                 "original": d.get("original_title", ""), "year": int(d["release_date"][:4]) if d.get("release_date") else None,
                 "runtime": d.get("runtime") or None, "image": IMG + d["poster_path"] if d.get("poster_path") else "",
                 "collection": {"id": col["id"], "name": col.get("name", "")} if col else None,
-                "overview": (d.get("overview") or "")[:300]}
+                "overview": (d.get("overview") or "")[:300],
+                "genre_ids": [g["id"] for g in d.get("genres") or []], "lang": d.get("original_language") or ""}
         return self._movies[movie_id]
 
     def collection(self, collection_id: int) -> list[int]:
@@ -90,7 +91,8 @@ class TMDb:
                 "original": local,  # el otro nombre, para comparar con el de la carpeta
                 "year": int(d["first_air_date"][:4]) if d.get("first_air_date") else None,
                 "image": IMG + d["poster_path"] if d.get("poster_path") else "",
-                "seasons": {s["season_number"]: s.get("episode_count") or 0 for s in d.get("seasons", [])}}
+                "seasons": {s["season_number"]: s.get("episode_count") or 0 for s in d.get("seasons", [])},
+                "genre_ids": [g["id"] for g in d.get("genres") or []], "lang": d.get("original_language") or ""}
         return self._shows[tv_id]
 
     def season(self, tv_id: int, number: int) -> dict[int, str]:

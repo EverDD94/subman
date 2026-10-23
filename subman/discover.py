@@ -291,7 +291,9 @@ class Discover:
             for p in cast:
                 add("people", p["id"], w)
                 names[p["id"]] = p["name"]
-        out = {k: {key: s / (n + 2) for key, (s, n) in t.items()} for k, t in acc.items() if k != "people"}
+        # la época se fía mucho menos: si te salen sobre todo viejas, que te gusten no quiere decir que prefieras lo viejo
+        out = {k: {key: s / (n + (8 if k == "decades" else 2)) for key, (s, n) in t.items()}
+               for k, t in acc.items() if k != "people"}
         out["people"] = sorted(({"id": pid, "name": names.get(pid, ""), "w": s / (n + 2), "n": n}
                                 for pid, (s, n) in acc["people"].items() if n >= 2), key=lambda p: -abs(p["w"]))
         out["count"] = len(rated)
@@ -305,7 +307,7 @@ class Discover:
         if gs and min(gs) < 0:
             a += 0.5 * min(gs)  # un género que no te gusta pesa más que uno indiferente
         if _decade(c.get("year")):
-            a += 0.4 * L["decades"].get(_decade(c.get("year")), 0.0)
+            a += 0.15 * L["decades"].get(_decade(c.get("year")), 0.0)
         a += 0.3 * L["kinds"].get(c.get("kind"), 0.0)
         return a
 
@@ -326,15 +328,19 @@ class Discover:
         label = lambda d: f"años {d}" if d >= 2000 else f"años {d % 100:02d}"
         kinds = L["kinds"]
         dec_n: dict[int, int] = {}
+        dec_r: dict[int, int] = {}
         kind_n = {k: 0 for k in KINDS}
         for (kind, _), v in self.marks().items():  # para las gráficas: lo que te gusta, por década y tipo
+            if v["rating"] in RW and _decade(v["info"].get("year")):
+                dec_r[_decade(v["info"].get("year"))] = dec_r.get(_decade(v["info"].get("year")), 0) + 1
             if (v["rating"] or 0) > 0:
                 kind_n[kind] = kind_n.get(kind, 0) + 1
                 if _decade(v["info"].get("year")):
                     dec_n[_decade(v["info"].get("year"))] = dec_n.get(_decade(v["info"].get("year")), 0) + 1
         return {"count": L["count"],
                 "genre_w": {str(k): round(w, 2) for k, w in L["genres"].items()},
-                "decade_n": [{"label": f"{d}" if d >= 2000 else f"{d % 100:02d}", "n": n} for d, n in sorted(dec_n.items()) if d >= 1950],
+                "decade_n": [{"label": f"{d}" if d >= 2000 else f"{d % 100:02d}", "n": n, "of": dec_r.get(d, n)}
+                             for d, n in sorted(dec_n.items()) if d >= 1950],
                 "kind_n": kind_n,
                 "likes": [names[k] for k, w in g if w >= 0.5 and k in names][:6],
                 "dislikes": [names[k] for k, w in reversed(g) if w <= -0.5 and k in names][:6],
@@ -397,7 +403,8 @@ class Discover:
             if prof["kinds"] in KINDS and c["kind"] != prof["kinds"]:
                 continue
             aff = self.affinity(c, L)
-            c["score"] = score[k] + 0.15 * g + 0.8 * aff + c["vote"] / 50
+            recent = 0.5 if (c.get("year") or 0) >= date.today().year - 5 else 0.0  # que salgan también nuevas
+            c["score"] = score[k] + 0.15 * g + 0.8 * aff + c["vote"] / 50 + recent
             c["because"] = [w for w in dict.fromkeys(why[k]) if w][:3]
             if not c["because"] and aff >= 0.5:
                 top = max(_gids(c["genre_ids"]), key=lambda x: L["genres"].get(x, 0), default=None)
@@ -538,6 +545,14 @@ class Discover:
                         for c in self._page(kind, f"/discover/{kind}", page, **params):
                             g = next((names[int(x)] for x in like_k if int(x) in c["genre_ids"]), "")
                             out.append((c, f"te gusta: {g}" if g else "popular"))
+                    except Exception as e:
+                        log.info("descubrir: %s", e)
+                if prof["era"] == "all" and like_k:  # sin época elegida, también lo reciente de tus géneros
+                    try:
+                        for c in self._page(kind, f"/discover/{kind}", pages[0], sort_by="popularity.desc",
+                                            include_adult="false", **{"vote_count.gte": 50},
+                                            with_genres="|".join(like_k), **self._dates("new", kind)):
+                            out.append((c, "reciente"))
                     except Exception as e:
                         log.info("descubrir: %s", e)
         for p in prof["people"][:12]:

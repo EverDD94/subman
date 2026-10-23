@@ -291,7 +291,9 @@ class Discover:
             for p in cast:
                 add("people", p["id"], w)
                 names[p["id"]] = p["name"]
-        out = {k: {key: s / (n + 2) for key, (s, n) in t.items()} for k, t in acc.items() if k != "people"}
+        # la época se fía mucho menos: si te salen sobre todo viejas, que te gusten no quiere decir que prefieras lo viejo
+        out = {k: {key: s / (n + (8 if k == "decades" else 2)) for key, (s, n) in t.items()}
+               for k, t in acc.items() if k != "people"}
         out["people"] = sorted(({"id": pid, "name": names.get(pid, ""), "w": s / (n + 2), "n": n}
                                 for pid, (s, n) in acc["people"].items() if n >= 2), key=lambda p: -abs(p["w"]))
         out["count"] = len(rated)
@@ -305,9 +307,7 @@ class Discover:
         if gs and min(gs) < 0:
             a += 0.5 * min(gs)  # un género que no te gusta pesa más que uno indiferente
         if _decade(c.get("year")):
-            # una década vieja que te gusta suma poco: que te salgan viejas no quiere decir que las prefieras
-            dw = L["decades"].get(_decade(c.get("year")), 0.0)
-            a += 0.4 * (dw if dw < 0 or _decade(c.get("year")) >= 2010 else dw / 2)
+            a += 0.15 * L["decades"].get(_decade(c.get("year")), 0.0)
         if (c.get("year") or 0) >= date.today().year - 5:
             a += 0.15  # lo reciente, un empujoncito
         a += 0.3 * L["kinds"].get(c.get("kind"), 0.0)
@@ -330,15 +330,19 @@ class Discover:
         label = lambda d: f"años {d}" if d >= 2000 else f"años {d % 100:02d}"
         kinds = L["kinds"]
         dec_n: dict[int, int] = {}
+        dec_r: dict[int, int] = {}
         kind_n = {k: 0 for k in KINDS}
         for (kind, _), v in self.marks().items():  # para las gráficas: lo que te gusta, por década y tipo
+            if v["rating"] in RW and _decade(v["info"].get("year")):
+                dec_r[_decade(v["info"].get("year"))] = dec_r.get(_decade(v["info"].get("year")), 0) + 1
             if (v["rating"] or 0) > 0:
                 kind_n[kind] = kind_n.get(kind, 0) + 1
                 if _decade(v["info"].get("year")):
                     dec_n[_decade(v["info"].get("year"))] = dec_n.get(_decade(v["info"].get("year")), 0) + 1
         return {"count": L["count"],
                 "genre_w": {str(k): round(w, 2) for k, w in L["genres"].items()},
-                "decade_n": [{"label": f"{d}" if d >= 2000 else f"{d % 100:02d}", "n": n} for d, n in sorted(dec_n.items()) if d >= 1950],
+                "decade_n": [{"label": f"{d}" if d >= 2000 else f"{d % 100:02d}", "n": n, "of": dec_r.get(d, n)}
+                             for d, n in sorted(dec_n.items()) if d >= 1950],
                 "kind_n": kind_n,
                 "likes": [names[k] for k, w in g if w >= 0.5 and k in names][:6],
                 "dislikes": [names[k] for k, w in reversed(g) if w <= -0.5 and k in names][:6],
@@ -401,7 +405,8 @@ class Discover:
             if prof["kinds"] in KINDS and c["kind"] != prof["kinds"]:
                 continue
             aff = self.affinity(c, L)
-            c["score"] = score[k] + 0.15 * g + 0.8 * aff + c["vote"] / 50
+            recent = 0.5 if (c.get("year") or 0) >= date.today().year - 5 else 0.0  # que salgan también nuevas
+            c["score"] = score[k] + 0.15 * g + 0.8 * aff + c["vote"] / 50 + recent
             c["because"] = [w for w in dict.fromkeys(why[k]) if w][:3]
             if not c["because"] and aff >= 0.5:
                 top = max(_gids(c["genre_ids"]), key=lambda x: L["genres"].get(x, 0), default=None)
@@ -542,6 +547,14 @@ class Discover:
                         for c in self._page(kind, f"/discover/{kind}", page, **params):
                             g = next((names[int(x)] for x in like_k if int(x) in c["genre_ids"]), "")
                             out.append((c, f"te gusta: {g}" if g else "popular"))
+                    except Exception as e:
+                        log.info("descubrir: %s", e)
+                if prof["era"] == "all" and like_k:  # sin época elegida, también lo reciente de tus géneros
+                    try:
+                        for c in self._page(kind, f"/discover/{kind}", pages[0], sort_by="popularity.desc",
+                                            include_adult="false", **{"vote_count.gte": 50},
+                                            with_genres="|".join(like_k), **self._dates("new", kind)):
+                            out.append((c, "reciente"))
                     except Exception as e:
                         log.info("descubrir: %s", e)
         for p in prof["people"][:12]:
@@ -688,6 +701,40 @@ class Discover:
         rows = self.db.execute("SELECT rating, COUNT(*) n FROM discover WHERE rating IS NOT NULL GROUP BY rating")
         return {str(r["rating"]): r["n"] for r in rows}
 
+    def mood(self, mood: str, kind: str = "") -> dict[str, list[dict]]:
+        """Filas de la Portada para un ánimo: se piden a TheMovieDB y solo cuenta el género principal."""
+        gs = MOODS.get(mood)
+        if not gs:
+            raise ValueError("Ánimo desconocido")
+        today = date.today()
+        L = self.learned(fetch=0)
+        rows: dict[str, list[list[dict]]] = {"para-ti": [], "novedades": [], "mejores": []}
+        for k in [kind] if kind in KINDS else KINDS:
+            ids = gs[k]
+            if not ids:
+                continue
+            base = {"with_genres": "|".join(map(str, ids)), "include_adult": "false"}
+            date_key = "primary_release_date" if k == "movie" else "first_air_date"
+            asks = {"para-ti": dict(sort_by="popularity.desc", **{"vote_count.gte": 50}),
+                    "novedades": dict(sort_by="popularity.desc", **{f"{date_key}.gte": (today - timedelta(days=365)).isoformat(),
+                                                                    f"{date_key}.lte": today.isoformat()}),
+                    "mejores": dict(sort_by="vote_average.desc", **{"vote_count.gte": 500})}
+            for row, params in asks.items():
+                got = []
+                for page in (1, 2):
+                    got += [c for c in self._page(k, f"/discover/{k}", page, **base, **params)
+                            if c["genre_ids"] and c["genre_ids"][0] in ids]
+                rows[row].append(got)
+        marks, idx = self.marks(), self.owned_index()
+        out = {}
+        for row, lists in rows.items():
+            cards = self._decorate(_mix(*lists) if lists else [], idx, marks)
+            if row == "para-ti":
+                cards = [c for c in cards if c["rating"] is None]
+                cards.sort(key=lambda c: -self.affinity(c, L))
+            out[row] = cards
+        return out
+
     def section(self, name: str, page: int = 1) -> list[dict]:
         if name == "para-ti":
             return self.for_you()
@@ -697,6 +744,19 @@ class Discover:
             return self.rated()
         cards = self.news(page) if name == "novedades" else self.classics(page)
         return self._decorate(cards, self.owned_index(), self.marks())
+
+
+# ánimos de la Portada → géneros de TheMovieDB (películas / series); el título cuenta si su género principal está aquí
+MOODS = {
+    "reir": {"movie": [35], "tv": [35]}, "accion": {"movie": [28], "tv": [10759]}, "miedo": {"movie": [27], "tv": []},
+    "aventura": {"movie": [12], "tv": [10759]}, "futuro": {"movie": [878], "tv": [10765]}, "magia": {"movie": [14], "tv": [10765]},
+    "intriga": {"movie": [9648], "tv": [9648]}, "crimen": {"movie": [80], "tv": [80]}, "nervios": {"movie": [53], "tv": [9648, 80]},
+    "amor": {"movie": [10749], "tv": []}, "llorar": {"movie": [18, 10749], "tv": [18]},
+    "pensar": {"movie": [878, 99, 36], "tv": [99, 10768]}, "dibujos": {"movie": [16], "tv": [16]},
+    "familia": {"movie": [10751], "tv": [10751, 10762]}, "historia": {"movie": [36], "tv": [10768]},
+    "guerra": {"movie": [10752], "tv": [10768]}, "oeste": {"movie": [37], "tv": [37]}, "musica": {"movie": [10402], "tv": []},
+    "real": {"movie": [99], "tv": [99]},
+}
 
 
 def _mix(*lists: list[dict]) -> list[dict]:

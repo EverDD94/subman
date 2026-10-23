@@ -2088,6 +2088,17 @@ def make_handler(app: App):
                 return self._send(429, json.dumps({"ok": False, "error": "Demasiados intentos. Espera unos minutos."},
                                                   ensure_ascii=False).encode(), "application/json")
             token = auth.login(cfg, addr, b.get("user", ""), b.get("password", ""))
+            if not token and cfg.get("jellyfin", {}).get("url"):
+                # ¿la olvidaste? un administrador de Jellyfin también entra (y se pone otra en Ajustes)
+                try:
+                    jf = friends.jellyfin_login(cfg, (b.get("user") or "").strip(), b.get("password") or "")
+                except Exception as e:
+                    log.info("entrar: Jellyfin no respondió (%s)", e)
+                    jf = None
+                if jf and jf["admin"]:
+                    auth.note(addr, True)
+                    token = auth.make_token(cfg)
+                    log.info("entrada con el administrador de Jellyfin %s desde %s", jf["name"], addr)
             if not token:
                 log.warning("intento de entrar con usuario o contraseña incorrectos desde %s", addr)
                 return self._send(401, json.dumps({"ok": False, "error": "Usuario o contraseña incorrectos"},

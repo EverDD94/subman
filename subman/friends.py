@@ -67,7 +67,7 @@ def client_ip(headers, fallback: str) -> str:
 
 # --- entrar con el usuario de Jellyfin ---------------------------------------------------
 def jellyfin_login(cfg: dict, user: str, password: str) -> dict | None:
-    """``{"id", "name"}`` si Jellyfin acepta el usuario y la contraseña; None si no."""
+    """``{"id", "name", "admin"}`` si Jellyfin acepta el usuario y la contraseña; None si no."""
     jf = cfg.get("jellyfin", {})
     if not jf.get("url"):
         raise ValueError("Videotecario todavía no está conectado a Jellyfin")
@@ -83,7 +83,8 @@ def jellyfin_login(cfg: dict, user: str, password: str) -> dict | None:
                       timeout=10)
     except Exception:
         pass
-    return {"id": data["User"]["Id"], "name": data["User"]["Name"]}
+    return {"id": data["User"]["Id"], "name": data["User"]["Name"],
+            "admin": bool((data["User"].get("Policy") or {}).get("IsAdministrator"))}
 
 
 def _key(cfg: dict) -> bytes:

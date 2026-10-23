@@ -2,7 +2,8 @@
 
 Mientras no se pongan en Ajustes, entra cualquiera de la red de casa, como siempre. Con ellos
 puestos, la página pide entrar y recuerda el móvil o el ordenador 90 días con una cookie firmada.
-Si se olvida la contraseña: borrar la línea ``password_hash`` de ``[access]`` en subman.toml.
+Si se olvida la contraseña: entrar con un administrador de Jellyfin (y poner otra en Ajustes), o borrar la línea
+``password_hash`` de ``[access]`` en subman.toml.
 """
 from __future__ import annotations
 

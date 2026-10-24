@@ -77,3 +77,45 @@ def search_movie(url: str, api_key: str, name: str, year: int | None = None, ite
                     "imdb": ids.get("imdb"), "image": it.get("ImageUrl") or "",
                     "overview": (it.get("Overview") or "")[:300]})
     return out
+
+
+def _items(base: str, api_key: str, params: dict) -> list[dict]:
+    """``/Items`` y, en versiones antiguas que lo piden, en nombre del primer administrador."""
+    try:
+        r = requests.get(base + "/Items", headers=_headers(api_key), params=params, timeout=60)
+        r.raise_for_status()
+        items = r.json().get("Items", [])
+    except requests.RequestException:
+        items = []
+    if items:
+        return items
+    users = requests.get(base + "/Users", headers=_headers(api_key), timeout=30)
+    users.raise_for_status()
+    admins = [u for u in users.json() if u.get("Policy", {}).get("IsAdministrator")] or users.json()
+    if not admins:
+        return []
+    r = requests.get(f"{base}/Users/{admins[0]['Id']}/Items", headers=_headers(api_key), params=params, timeout=60)
+    r.raise_for_status()
+    return r.json().get("Items", [])
+
+
+def latest(url: str, api_key: str, limit: int = 300) -> list[dict]:
+    """Lo último que se añadió (películas y capítulos), con el número de TheMovieDB de la película o de la serie."""
+    base = url.rstrip("/")
+    items = _items(base, api_key, {"Recursive": "true", "IncludeItemTypes": "Movie,Episode", "SortBy": "DateCreated",
+                                   "SortOrder": "Descending", "Limit": str(limit), "Fields": "ProviderIds",
+                                   "EnableImages": "false", "EnableUserData": "false"})
+    series_ids = {it["SeriesId"] for it in items if it.get("Type") == "Episode" and it.get("SeriesId")}
+    tmdb_of: dict[str, str] = {}
+    if series_ids:
+        for s in _items(base, api_key, {"Ids": ",".join(series_ids), "Fields": "ProviderIds", "EnableImages": "false"}):
+            ids = {k.lower(): v for k, v in (s.get("ProviderIds") or {}).items() if v}
+            if ids.get("tmdb"):
+                tmdb_of[s["Id"]] = ids["tmdb"]
+    out = []
+    for it in items:
+        ids = {k.lower(): v for k, v in (it.get("ProviderIds") or {}).items() if v}
+        out.append({"id": it.get("Id"), "type": it.get("Type"), "name": it.get("Name", ""), "tmdb": ids.get("tmdb"),
+                    "series": it.get("SeriesName", ""), "series_tmdb": tmdb_of.get(it.get("SeriesId", "")),
+                    "season": it.get("ParentIndexNumber"), "episode": it.get("IndexNumber")})
+    return out

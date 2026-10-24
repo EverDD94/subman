@@ -174,6 +174,13 @@ dialog[open]{animation:pop .24s var(--ease-out)}
 @keyframes pop{from{opacity:0;transform:translateY(10px) scale(.985)}}
 dialog::backdrop{background:rgb(22 18 43/.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(3px)}
 dialog.ask{max-width:420px}
+dialog.ask textarea{width:100%;min-height:96px;font:inherit;padding:10px 12px;border-radius:var(--r-sm);border:2px solid var(--line);background:var(--card);color:var(--text);resize:vertical}
+.notice{border-top:1px solid var(--line);padding:10px 0 2px}
+.notice b{display:block}
+.notice p{margin:2px 0 0;white-space:pre-line;color:var(--muted)}
+.notice small{color:var(--muted)}
+.notice.new b::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin-right:6px;vertical-align:1px}
+.bellbox{background:var(--card-2);border-radius:12px;padding:10px 12px;margin:8px 0 10px;font-size:14px}
 dialog .x{position:absolute;top:12px;right:12px;z-index:3;width:38px;height:38px;border-radius:50%;border:0;background:color-mix(in srgb,var(--card) 70%,transparent);
   backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:grid;place-items:center;cursor:pointer;color:var(--text);transition:transform .16s var(--ease-out)}
 dialog .x:active{transform:scale(.92)}
@@ -1124,6 +1131,7 @@ function pct(x) { return Math.round((x || 0) * 100) + "%"; }
 // Iconos de línea (estilo Lucide), en vez de emojis.
 const ICO = {
   download: '<path d="M12 3v12m-5-5 5 5 5-5M5 21h14"/>',
+  bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
   subs: '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M7 15h4m3 0h3M7 11h2m3 0h5"/>',
   home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
   library: '<path d="m16 6 4 14M12 6v14M8 8v12M4 4v16"/>',
@@ -1685,7 +1693,17 @@ async function loadRequests() {
         <h3>${esc(name)}</h3><div class="muted">La pidió ${esc(x.who.join(", "))}</div></div>
       <div class="dl-b">${btn}</div></div>`;
   }).join("");
-  $("#dscBox").innerHTML = tip + (items || `<p class="empty">Nadie ha pedido nada todavía.</p>`);
+  let av = {users: [], follows: []};
+  try { av = await api("/api/avisos"); } catch (e) {}
+  avisos = av;
+  const fol = av.follows.map(f => `<li><b>${esc(f.title || "Serie")}</b>: ${esc(f.who.map(w => w.name).join(", "))}
+    <button class="btn sec" style="min-height:30px;padding:0 10px;margin-left:6px" onclick="followPick(null, ${f.tmdb})">Cambiar</button></li>`).join("");
+  const box = `<div class="card" style="margin-bottom:14px"><h3 style="margin-top:0">${ico("bell")} Avisos</h3>
+    <p class="muted" style="margin-top:0">A cada uno le llega solo cuando ya está lo que pidió y cada capítulo nuevo de las series que sigue, aunque lo subas tú a mano. Para elegir quién sigue una serie, abre la ficha de la serie y pulsa «Avisar de capítulos a…».</p>
+    <button class="btn" onclick="noticeSend()">📣 Mandar un aviso</button>
+    ${fol ? `<p style="margin:14px 0 4px"><b>Series con aviso de capítulos</b></p><ul style="margin:0;padding-left:18px">${fol}</ul>` : ""}
+    ${av.users.length ? `<p class="muted" style="margin:12px 0 0">Con avisos en el móvil: ${esc(av.users.filter(u => u.push).map(u => u.name).join(", ") || "nadie todavía")}</p>` : ""}</div>`;
+  $("#dscBox").innerHTML = tip + box + (items || `<p class="empty">Nadie ha pedido nada todavía.</p>`);
 }
 const MINE_STATE = {pendiente: ["revisar", "pedida, esperando"], aceptada: ["", "aceptada, pronto llega"], descargando: ["", "descargando"],
   "ya-esta": ["ok", "ya está en Jellyfin"], rechazada: ["falla", "no se pudo conseguir"]};
@@ -1706,6 +1724,141 @@ async function mineCancel(kind, tmdb) {
   try { await api("/api/pedir/cancel", {kind, tmdb}); } catch (e) { return toast(e.message); }
   asked.delete(kind + tmdb);
   loadMine();
+}
+// ---------- Avisos: la campanita de los amigos y lo que les mandas tú ----------
+let avisos = {users: [], follows: []};
+let bell = {items: [], unread: 0, following: new Set(), key: ""};
+function pushSupport() { return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window; }
+function isIOS() { return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1); }
+function b64key(t) { const b = atob((t + "=".repeat((4 - t.length % 4) % 4)).replace(/-/g, "+").replace(/_/g, "/")); return Uint8Array.from(b, c => c.charCodeAt(0)); }
+async function pushSub() { if (!pushSupport()) return null; try { return await (await navigator.serviceWorker.ready).pushManager.getSubscription(); } catch (e) { return null; } }
+async function loadBell() {
+  try {
+    const r = await api("/api/pedir/notices");
+    bell = {items: r.items, unread: r.unread, following: new Set(r.following), key: r.key};
+  } catch (e) { return; }
+  paintBell();
+  if (!$("#bellPop").hidden) renderBell();
+  const sub = "Notification" in window && Notification.permission === "granted" ? await pushSub() : null;
+  if (sub && !loadBell.sent) { loadBell.sent = true; api("/api/pedir/push", {sub: sub.toJSON()}).catch(() => {}); }  // por si se perdió
+}
+function paintBell() { $("#bellBtn").innerHTML = ico("bell") + (bell.unread ? '<span class="dot"></span>' : ""); $("#bellBtn").title = bell.unread ? `${bell.unread} avisos nuevos` : "Avisos"; }
+function ago(t) {
+  const m = Math.round((Date.now() / 1000 - t) / 60);
+  return m < 1 ? "ahora" : m < 60 ? `hace ${m} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : new Date(t * 1000).toLocaleDateString("es", {day: "numeric", month: "short"});
+}
+async function renderBell() {
+  const sub = await pushSub();
+  const on = sub && Notification.permission === "granted";
+  const phone = !pushSupport()
+    ? (isIOS() ? `Para que te lleguen al iPhone: toca <b>Compartir</b> y <b>«Añadir a pantalla de inicio»</b>, abre Videotecario desde ese icono y vuelve a esta campanita.`
+               : "Este navegador no puede mostrar notificaciones; los avisos te salen aquí.")
+    : on ? `✓ Te llegan a este dispositivo. <a href="#" onclick="pushDisable();return false">Quitar</a>`
+    : Notification.permission === "denied" ? "Bloqueaste las notificaciones de esta página: actívalas en los ajustes del navegador."
+    : `<button class="btn" onclick="pushEnable()">${ico("bell")} Avisarme en este dispositivo</button>`;
+  $("#bellPop").innerHTML = `<h3>Avisos</h3><div class="bellbox">${phone}</div>`
+    + (bell.items.length ? bell.items.map(n => `<div class="notice ${n.read ? "" : "new"}"><b>${esc(n.title)}</b>${n.body ? `<p>${esc(n.body)}</p>` : ""}<small>${ago(n.created)}</small></div>`).join("")
+       : `<p class="muted" style="margin:0">Aún no tienes avisos. Te llegará uno cuando esté lo que pidas.</p>`);
+}
+async function pushEnable() {
+  try {
+    if (await Notification.requestPermission() !== "granted") { renderBell(); return toast("Sin permiso no te podemos avisar en este dispositivo"); }
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: b64key(bell.key)});
+    await api("/api/pedir/push", {sub: sub.toJSON()});
+    toast("Listo: te avisaremos en este dispositivo");
+  } catch (e) { toast("No se pudo activar: " + e.message); }
+  renderBell();
+}
+async function pushDisable() {
+  const sub = await pushSub();
+  if (sub) { try { await api("/api/pedir/push/off", {endpoint: sub.endpoint}); await sub.unsubscribe(); } catch (e) {} }
+  renderBell();
+}
+function bellClose() { $("#bellPop").hidden = true; $("#bellBtn").setAttribute("aria-expanded", "false"); }
+if (FRIEND) {
+  $(".tools").insertAdjacentHTML("afterbegin", `<button id="bellBtn" class="tool" type="button" title="Avisos" aria-label="Avisos" aria-expanded="false"></button>`);
+  $("header").insertAdjacentHTML("beforeend", `<div id="bellPop" class="pop" hidden role="dialog" aria-label="Avisos"></div>`);
+  paintBell();
+  $("#bellBtn").onclick = async e => {
+    e.stopPropagation();
+    if (!$("#bellPop").hidden) return bellClose();
+    document.documentElement.style.setProperty("--head", document.querySelector("header").getBoundingClientRect().height + "px");
+    $("#bellPop").hidden = false; $("#bellBtn").setAttribute("aria-expanded", "true");
+    renderBell();
+    if (bell.unread) { try { await api("/api/pedir/notices/read", {}); } catch (x) {} bell.unread = 0; paintBell(); }
+  };
+  document.addEventListener("click", e => { if (!$("#bellPop").hidden && !e.target.closest("#bellPop,#bellBtn")) bellClose(); });
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+    navigator.serviceWorker.addEventListener("message", () => loadBell());  // tocaron una notificación con la página abierta
+  }
+  loadBell();
+  setInterval(() => { if (!document.hidden) loadBell(); }, 120000);
+}
+// en la ficha de una serie: el amigo la sigue él mismo; tú eliges a quién avisar
+function followBtn(c) {
+  if (c.kind !== "tv") return "";
+  if (FRIEND) {
+    const on = bell.following.has(c.tmdb);
+    return `<button class="havebtn ${on ? "yes" : ""}" onclick="followToggle(this, ${c.tmdb})">${ico(on ? "check" : "bell")}${on ? "Te avisaremos de cada capítulo" : "Avisarme de capítulos nuevos"}</button>`;
+  }
+  return `<button class="havebtn" onclick="followPick(this, ${c.tmdb})">${ico("bell")}Avisar de capítulos a…</button>`;
+}
+async function followToggle(b, tmdb) {
+  const c = dsc.open && dsc.open.tmdb === tmdb ? dsc.open : {tmdb};
+  const on = !bell.following.has(tmdb);
+  try { await api("/api/pedir/follow", {item: {tmdb, title: c.title, year: c.year, poster: c.poster}, on}); } catch (e) { return toast(e.message); }
+  on ? bell.following.add(tmdb) : bell.following.delete(tmdb);
+  b.outerHTML = followBtn({kind: "tv", tmdb});
+  toast(on ? "Te avisaremos cada vez que haya un capítulo nuevo" : "Ya no te avisaremos de esta serie");
+}
+async function followPick(b, tmdb) {
+  try { avisos = await api("/api/avisos"); } catch (e) { return toast(e.message); }
+  if (!avisos.users.length) return toast("Todavía no ha entrado nadie con su usuario de Jellyfin");
+  const f = avisos.follows.find(x => x.tmdb === tmdb);
+  const c = dsc.open && dsc.open.tmdb === tmdb ? dsc.open : (f || {tmdb});
+  const who = new Set(f ? f.who.map(w => w.id) : []);
+  const d = document.createElement("dialog");
+  d.className = "ask";
+  d.innerHTML = `<p style="margin-top:0"><b>${esc(c.title || "Esta serie")}</b>: ¿a quién avisamos de cada capítulo nuevo?</p>
+    <div style="display:grid;gap:6px">${avisos.users.map(u => `<label class="switch"><input type="checkbox" value="${esc(u.id)}" ${who.has(u.id) ? "checked" : ""}><span>${esc(u.name)}</span></label>`).join("")}</div>
+    <div class="row" style="justify-content:flex-end;gap:8px;margin-top:14px"><button class="btn sec" value="no">Cancelar</button><button class="btn" value="yes">Guardar</button></div>`;
+  d.querySelector('[value="no"]').onclick = () => d.close();
+  d.querySelector('[value="yes"]').onclick = async () => {
+    const users = [...d.querySelectorAll("input:checked")].map(x => x.value);
+    try { await api("/api/avisos/followers", {item: {tmdb, title: c.title, year: c.year, poster: c.poster}, users}); toast(users.length ? `Les avisaremos de cada capítulo (${users.length})` : "Ya no se avisa a nadie de esta serie"); }
+    catch (e) { toast(e.message); }
+    d.close();
+    if (dsc.section === "peticiones") loadRequests();
+  };
+  d.onclose = () => d.remove();
+  document.body.appendChild(d); d.showModal();
+}
+async function noticeSend() {
+  if (!avisos.users.length) return toast("Todavía no ha entrado nadie con su usuario de Jellyfin");
+  const d = document.createElement("dialog");
+  d.className = "ask";
+  d.innerHTML = `<p style="margin-top:0"><b>Mandar un aviso</b></p>
+    <textarea placeholder="Ej.: Ya subí el capítulo de hoy del reality 🎉"></textarea>
+    <p class="muted" style="margin:10px 0 6px">¿A quién?</p>
+    <div style="display:grid;gap:6px"><label class="switch"><input type="checkbox" value="all" checked><span><b>Todos</b></span></label>
+    ${avisos.users.map(u => `<label class="switch"><input type="checkbox" class="u" value="${esc(u.id)}"><span>${esc(u.name)}${u.push ? "" : ` <span class="muted">· solo en la campanita</span>`}</span></label>`).join("")}</div>
+    <div class="row" style="justify-content:flex-end;gap:8px;margin-top:14px"><button class="btn sec" value="no">Cancelar</button><button class="btn" value="yes">Mandar</button></div>`;
+  const all = d.querySelector('[value="all"]'), us = [...d.querySelectorAll("input.u")];
+  all.onchange = () => { if (all.checked) us.forEach(x => x.checked = false); };
+  us.forEach(x => x.onchange = () => { if (x.checked) all.checked = false; });
+  d.querySelector('[value="no"]').onclick = () => d.close();
+  d.querySelector('[value="yes"]').onclick = async () => {
+    const text = d.querySelector("textarea").value.trim();
+    if (!text) return toast("Escribe el aviso");
+    const users = all.checked ? "all" : us.filter(x => x.checked).map(x => x.value);
+    if (users !== "all" && !users.length) return toast("Elige a quién");
+    try { const r = await api("/api/avisos/send", {text, users}); if (r.ok === false) return toast(r.error); toast(`Mandado a ${r.people} ${r.people === 1 ? "persona" : "personas"}`); d.close(); }
+    catch (e) { toast(e.message); }
+  };
+  d.onclose = () => d.remove();
+  document.body.appendChild(d); d.showModal(); d.querySelector("textarea").focus();
 }
 function reqBadge() {
   const n = reqItems.filter(x => x.status === "pendiente").length;
@@ -2629,7 +2782,7 @@ function renderDetail(partial) {
         <p class="ov">${esc(c.overview) || (partial ? "" : "<i>No hay resumen.</i>")}${c.overview_lang === "en" ? ` <span class="hint">(en inglés: no hay resumen en español)</span>` : ""}</p>
         ${facts.length ? `<dl class="facts">${facts.map(([a, b]) => `<dt>${a}</dt><dd>${esc(b)}</dd>`).join("")}</dl>` : ""}
         ${c.trailer ? `<a class="trailer" href="${esc(c.trailer)}" target="_blank" rel="noopener">${ico("play", "fill")}Ver el tráiler</a>` : ""}
-        <div class="dacts">${rateButtons(c, k)}${c.have ? "" : dlButton(k)}</div>
+        <div class="dacts">${rateButtons(c, k)}${c.have ? "" : dlButton(k)}${followBtn(c)}</div>
       </div></div>
     ${cast ? `<div class="castwrap"><h3>Reparto</h3><div class="cast">${cast}</div></div>` : partial ? `<p class="empty">Cargando la ficha…</p>` : ""}`;
 }

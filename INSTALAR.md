@@ -179,6 +179,12 @@ Para abrirla desde internet (una sola vez):
 
 Desde fuera, todo lo que no sea «Pedir» pide tu contraseña de Ajustes; tus amigos no ven tu biblioteca ni tus ajustes.
 
+**Avisos.** Cada amigo tiene una campanita 🔔 arriba: ahí le llega «ya está» lo que pidió y cada capítulo nuevo de
+las series que sigue (aunque lo copies tú a mano: Videotecario mira lo nuevo en Jellyfin cada 3 minutos). Desde la
+campanita puede pulsar «Avisarme en este dispositivo» para recibirlos como notificación del móvil; en iPhone antes
+tiene que abrir la página en Safari, Compartir › «Añadir a pantalla de inicio», y entrar desde ese icono. Tú, en
+Descubrir › Peticiones, puedes «Mandar un aviso» y, en la ficha de una serie, «Avisar de capítulos a…» quien quieras.
+
 ## Otros detalles
 
 - Empieza por lo más reciente (lo que acaba de bajar Sonarr) y sigue hacia atrás.

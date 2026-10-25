@@ -25,7 +25,7 @@ from pathlib import Path
 
 from . import jellyfin
 from .duplicates import _tail, normalize
-from .library import VIDEO_EXT, Library, Media
+from .library import VIDEO_EXT, Library, Media, _clean
 
 log = logging.getLogger(__name__)
 _ORGANIZED = re.compile(r"\[(tmdbid|imdbid)-[^\]]+\]", re.I)
@@ -179,7 +179,10 @@ def apply(lib: Library, cfg: dict, media: Media, title: str, year: int | None, t
     name = folder_name(title, year, tmdb, imdb)
     stem = safe_name(title) + (f" ({year})" if year else "")
     alone = _alone(video, roots)
-    parent = video.parent.parent if alone else video.parent
+    # Sola en su carpeta, o en una carpeta que no dice nada («Año», «📅Año», «Special»): la nueva va al lado.
+    junk = not alone and not any(video.parent.resolve() == Path(r).resolve() for r in roots) \
+        and not _clean(video.parent.name)
+    parent = video.parent.parent if alone or junk else video.parent
     new_dir = parent / name
     moves: list[tuple[str, str]] = []
     created: Path | None = None

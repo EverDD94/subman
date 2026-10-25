@@ -96,6 +96,33 @@ def opening(path: str, out_dir: Path, minutes: float | None, key: str) -> list[P
     return out
 
 
+ENDING = (420, 300, 180, 90)  # fotos de los créditos finales (segundos antes del final)
+
+
+def ending(path: str, out_dir: Path, minutes: float | None, key: str) -> list[Path]:
+    """Fotos de los créditos del final: suelen poner el título y los actores."""
+    if not minutes or minutes < 20:
+        return []
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out = []
+    for n, back in enumerate(ENDING):
+        jpg = out_dir / f"{key}_f{n}.jpg"
+        if not jpg.exists():
+            tmp = jpg.with_suffix(f".{threading.get_ident()}.tmp.jpg")
+            try:
+                subprocess.run(["ffmpeg", "-nostdin", "-v", "error", "-y", "-ss", str(max(0, minutes * 60 - back)),
+                                "-i", str(path), "-frames:v", "1", "-vf", "scale=640:-2", "-q:v", "5", str(tmp)],
+                               check=True, capture_output=True, timeout=60)
+                os.replace(tmp, jpg)
+            except Exception as e:
+                log.warning("no se pudo sacar la foto del final %d de %s: %s", n, path, e)
+                tmp.unlink(missing_ok=True)
+                continue
+        if jpg.stat().st_size:
+            out.append(jpg)
+    return out
+
+
 def clip(path: str, out_dir: Path, minutes: float | None, key: str, at: float = CLIP_AT,
          seconds: int = CLIP_SECONDS) -> Path | None:
     """Un trozo de audio (mp3 mono, pequeño) para que la IA escuche el diálogo; at=0: el principio

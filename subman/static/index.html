@@ -424,6 +424,13 @@ body:has(#descubrir.peekon:not([hidden])) > header{background:color-mix(in srgb,
 .door.p-movistar{background:radial-gradient(120% 90% at 85% 20%,#4fd0ff 0%,#0b7fd1 40%,#06264a 100%)}
 .door.p-skyshowtime{background:radial-gradient(120% 90% at 85% 20%,#ff8fb8 0%,#c4246a 40%,#3a0420 100%)}
 .door.p-filmin{background:radial-gradient(120% 90% at 85% 20%,#ffd45c 0%,#f0a500 40%,#4a2a00 100%)}
+.door.p-paramount{background:radial-gradient(120% 90% at 85% 20%,#4f9bff 0%,#0064ff 40%,#001a4a 100%)}
+.door.p-crunchyroll{background:radial-gradient(120% 90% at 85% 20%,#ffa760 0%,#f47521 40%,#4a1d00 100%)}
+.door.p-rakuten{background:radial-gradient(120% 90% at 85% 20%,#ff6b8a 0%,#bf0000 40%,#3a0000 100%)}
+.door.p-peacock{background:radial-gradient(120% 90% at 85% 20%,#55d6be 0%,#1a8f7e 40%,#04201c 100%)}
+.door.p-hulu{background:radial-gradient(120% 90% at 85% 20%,#7dffb3 0%,#1ce783 40%,#05391e 100%)}
+.door.p-starz{background:radial-gradient(120% 90% at 85% 20%,#5a5a6a 0%,#1d1d26 45%,#000 100%)}
+.door.p-vix{background:radial-gradient(120% 90% at 85% 20%,#ffb347 0%,#ff6a00 40%,#3d1500 100%)}
 .plathead{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 18px}
 .plathead h3{font:800 clamp(30px,4vw,46px)/1 var(--display);letter-spacing:-.04em;margin:0 12px 0 0}
 @media (hover:hover) and (pointer:fine){
@@ -2983,11 +2990,12 @@ function renderPlat() {
   if (!plat.pid) {
     const sm = plat.summary;
     const list = sm || [["netflix", "Netflix"], ["prime", "Prime Video"], ["disney", "Disney+"], ["hbo", "HBO Max"], ["apple", "Apple TV"],
-      ["movistar", "Movistar Plus+"], ["skyshowtime", "SkyShowtime"], ["filmin", "Filmin"]].map(([id, name]) => ({id, name}));
+      ["movistar", "Movistar Plus+"], ["skyshowtime", "SkyShowtime"], ["filmin", "Filmin"],
+      ["paramount", "Paramount+"], ["crunchyroll", "Crunchyroll"], ["rakuten", "Rakuten TV"], ["peacock", "Peacock"], ["hulu", "Hulu"], ["starz", "Starz"], ["vix", "ViX"]].map(([id, name]) => ({id, name}));
     $("#dscBox").innerHTML = `<p class="muted esthelp">Elige una plataforma y mira lo que acaba de salir en ella en España, o lo más visto de todo su catálogo.</p>
       <div class="plats">${list.map(p => `<button class="door p-${p.id}" onclick="platOpen('${p.id}')">
         <span class="fan" aria-hidden="true">${(p.posters || []).length ? p.posters.map(u => `<span><img src="${esc(u)}" alt="" loading="lazy"></span>`).join("") : "<span></span>".repeat(5)}</span>
-        <span class="doortxt"><span class="doorn">${p.new !== undefined ? `${p.new.toLocaleString("es")} nuevas` : "Mirando…"}</span>
+        <span class="doortxt"><span class="doorn">${p.new !== undefined ? `${p.new.toLocaleString("es")} nuevas${p.region === "US" ? " · EE. UU." : ""}` : "Mirando…"}</span>
           <b>${esc(p.name)}</b><span class="doorgo">${ico("play", "fill")}Ver lo nuevo</span></span></button>`).join("")}</div>`;
     if (!sm && !plat.asked) {
       plat.asked = true;

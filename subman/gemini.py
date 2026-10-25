@@ -85,6 +85,18 @@ sólo si lo reconoces sin dudas.
 """
 
 
+HARD = """Eres un experto en cine. No sé qué película es este archivo de video y ya fallaron otros intentos.
+Te paso muchas fotos repartidas por toda la película (las últimas son de los créditos finales: lee los
+nombres de los actores y el título si aparece) y dos minutos de audio. Reconoce a los actores, lee cualquier
+texto en pantalla, fíjate en la época, el país y el idioma. Ayudas: el archivo se llama «{file}» (puede ser
+basura) y dura {minutes} min.{options}
+
+Responde sólo con JSON: {{"peliculas": [{{"titulo": "...", "original": "...", "año": 2001}}],
+"seguro": true|false}}, hasta 3 posibilidades, la más probable primero. «seguro» es true sólo si
+reconoces la película sin dudas. Si no tienes idea, lista vacía.
+"""
+
+
 class GeminiError(RuntimeError):
     """kind: «quota» (sin cupo gratis), «down» (no contesta / saturada) o «key» (clave mala)."""
 
@@ -105,6 +117,7 @@ class Gemini:
         self.timeout = timeout
         self.model = None
         self._models: list[str] = []
+        self._pro: list[str] = []  # los «pro», sólo para lo más difícil (tienen menos cupo gratis)
         self._last = 0.0
 
     def _post(self, model: str, body: dict) -> requests.Response:
@@ -123,13 +136,14 @@ class Gemini:
         names = [m["name"].removeprefix("models/") for m in r.json().get("models", [])
                  if "generateContent" in m.get("supportedGenerationMethods", [])]
         flash = [n for n in names if "flash" in n and not _SKIP.search(n)]
+        self._pro = sorted((n for n in names if "pro" in n and not _SKIP.search(n) and "preview" not in n), reverse=True)[:2]
 
         def rank(n):
             version = [float(v) for v in re.findall(r"(\d+(?:\.\d+)?)", n)[:1]] or [0.0]
             return ("preview" in n, "lite" not in n, -version[0], n)
         return sorted(flash, key=rank)
 
-    def ask(self, text: str, images: list[bytes] = (), audio: bytes | None = None) -> str:
+    def ask(self, text: str, images: list[bytes] = (), audio: bytes | None = None, strong: bool = False) -> str:
         parts = [{"text": text}] + [{"inline_data": {"mime_type": "image/jpeg", "data": base64.b64encode(b).decode()}}
                                     for b in images]
         if audio:
@@ -145,6 +159,8 @@ class Gemini:
             log.info("Gemini: modelos a probar: %s", ", ".join(self._models))
         # el que ya funcionó primero; si se queda sin cupo, los demás (cada modelo tiene su propio límite)
         models = [self.model] + [m for m in self._models if m != self.model] if self.model else self._models
+        if strong:  # el mejor modelo primero; si no tiene cupo, los de siempre
+            models = self._pro + [m for m in models if m not in self._pro]
         errors: list[str] = []
         waited = False
         deadline = time.time() + max(90, self.timeout)  # no quedarse minutos probando modelos
@@ -169,7 +185,8 @@ class Gemini:
             if r.status_code in (400, 403) and "API key" in r.text:
                 raise GeminiError(KEY_MSG, "key")
             r.raise_for_status()
-            self.model = model
+            if model not in self._pro:
+                self.model = model
             parts = r.json()["candidates"][0]["content"]["parts"]
             return "".join(p.get("text", "") for p in parts)
         detail = " (" + "; ".join(errors) + ")"
@@ -245,6 +262,12 @@ class Gemini:
     def see(self, images: list[bytes], file: str, minutes, options: list[dict] = ()) -> tuple[list, bool]:
         """Qué película es, mirando fotos del video -> ([(título, año), ...], seguro)."""
         return self._movies(self.ask(SEE.format(file=file, minutes=minutes or "?", options=_options(options)), images))
+
+    def hard(self, images: list[bytes], audio: bytes | None, file: str, minutes,
+             options: list[dict] = ()) -> tuple[list, bool]:
+        """Último intento, con el mejor modelo: muchas fotos de toda la película, créditos y audio."""
+        return self._movies(self.ask(HARD.format(file=file, minutes=minutes or "?", options=_options(options)),
+                                     images, audio, strong=True))
 
     def listen(self, images: list[bytes], audio: bytes | None, file: str, minutes,
                options: list[dict] = ()) -> tuple[list, bool]:

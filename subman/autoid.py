@@ -450,14 +450,21 @@ def run(lib: Library, cfg: dict, review: dict, progress=lambda msg: None, stop=l
 
     def look(e, n, total, second):
         """La IA mira el video (second: fotos del principio y un minuto de audio). True si se aplicó."""
-        progress(f"la IA {'escucha' if second else 'mira'} el video: {n + 1} de {total} ({len(applied)} hechas)")
+        progress(f"la IA {['mira', 'escucha', 'repasa a fondo'][second]} el video: {n + 1} de {total} ({len(applied)} hechas)")
         m = e["_m"]
         try:
             stamp = int(Path(m.path).stat().st_mtime)
         except OSError:
             return False
         key = f"{m.id}_{stamp}"
-        if second:
+        if second == 2:  # el último intento: mejor modelo, muchas fotos grandes, créditos y dos minutos de audio
+            imgs = [p.read_bytes() for p in peek.many(m.path, frames_dir, e["minutes"], key)] \
+                + [p.read_bytes() for p in peek.ending(m.path, frames_dir, e["minutes"], key)]
+            mp3 = peek.clip(m.path, frames_dir, e["minutes"], key, at=0.35, seconds=120)
+            sound = mp3.read_bytes() if mp3 else None
+            seen = ask_ai(lambda _: ai.hard(imgs, sound, e["name"], e["minutes"], e.get("options") or []), None) \
+                if imgs else None
+        elif second:
             imgs = [p.read_bytes() for p in peek.opening(m.path, frames_dir, e["minutes"], key)] \
                 + [p.read_bytes() for p in peek.ending(m.path, frames_dir, e["minutes"], key)]
             mp3 = peek.clip(m.path, frames_dir, e["minutes"], key)
@@ -506,13 +513,13 @@ def run(lib: Library, cfg: dict, review: dict, progress=lambda msg: None, stop=l
             e["ai_pick"] = c["tmdb"]
         if first:
             e["options"] = first + [c for c in cands if c is not first[0]][:5]
-            e["why"] = (f"la IA {'escuchó' if second else 'miró'} el video y cree que es «{first[0]['name']}», "
+            e["why"] = (f"la IA {['miró', 'escuchó', 'repasó a fondo'][second]} el video y cree que es «{first[0]['name']}», "
                         "pero no está segura")
         return False
 
     # Lo que queda: que la IA mire unas fotos del video y, si no basta, el principio y un trozo de audio.
     if ai and frames_dir:
-        for second in (False, True):
+        for second in (0, 1, 2):
             look_at, left[:] = list(left), []
             for n, e in enumerate(look_at):
                 if stop() or ai_state["off"] or not e.get("_m"):

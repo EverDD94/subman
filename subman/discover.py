@@ -39,6 +39,14 @@ PLATFORMS = {
     "movistar": {"name": "Movistar Plus+", "ids": "149"},
     "skyshowtime": {"name": "SkyShowtime", "ids": "1773"},
     "filmin": {"name": "Filmin", "ids": "63"},
+    "paramount": {"name": "Paramount+", "ids": "531"},
+    "crunchyroll": {"name": "Crunchyroll", "ids": "283"},
+    "rakuten": {"name": "Rakuten TV", "ids": "35"},
+    # no están en España: se mira su catálogo de EE. UU.
+    "peacock": {"name": "Peacock", "ids": "386|387", "region": "US"},
+    "hulu": {"name": "Hulu", "ids": "15", "region": "US"},
+    "starz": {"name": "Starz", "ids": "43", "region": "US"},
+    "vix": {"name": "ViX", "ids": "457", "region": "US"},
 }
 _TMDBID = re.compile(r"\[tmdbid-(\d+)\]", re.I)
 
@@ -714,8 +722,8 @@ class Discover:
         extra = {f"{field}.gte": (today - timedelta(days=180)).isoformat(), f"{field}.lte": today.isoformat()} if new \
             else {"vote_count.gte": 30}
         return self.api._get(f"/discover/{kind}", page=page, sort_by="popularity.desc", include_adult="false",
-                             watch_region="ES", with_watch_providers=PLATFORMS[pid]["ids"],
-                             with_watch_monetization_types="flatrate", **extra)
+                             watch_region=PLATFORMS[pid].get("region", "ES"), with_watch_providers=PLATFORMS[pid]["ids"],
+                             with_watch_monetization_types="flatrate|free|ads", **extra)
 
     def platform(self, pid: str, kind: str, new: bool = True, page: int = 1) -> list[dict]:
         """Lo que hay en una plataforma en España: lo nuevo (últimos 6 meses) o lo más visto de todo su catálogo."""
@@ -738,8 +746,8 @@ class Discover:
                     continue
                 total += int(res.get("total_results") or 0)
                 posters += [IMG + d["poster_path"] for d in res.get("results", [])[:3] if d.get("poster_path")]
-            return {"id": pid, "name": PLATFORMS[pid]["name"], "new": total, "posters": posters[:5]}
-        with ThreadPoolExecutor(8) as ex:
+            return {"id": pid, "name": PLATFORMS[pid]["name"], "region": PLATFORMS[pid].get("region", "ES"), "new": total, "posters": posters[:5]}
+        with ThreadPoolExecutor(10) as ex:
             return list(ex.map(one, PLATFORMS))
 
     def stats(self) -> dict:

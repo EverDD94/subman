@@ -60,6 +60,32 @@ def learned(lib: Library, m) -> str | None:
     return row[0] if row else None
 
 
+def _close(runtime, minutes) -> bool:
+    """Duración parecida con margen amplio (montajes del director, créditos, PAL): TheMovieDB a veces
+    tiene la de otra versión (Toy Story 2: 92 en el archivo, 99 en TMDb)."""
+    return not runtime or not minutes or abs(runtime - minutes) <= max(12, 0.15 * minutes)
+
+
+def _same_part(m, c) -> bool:
+    part = _part_number(m.title)
+    return not part or not c.get("part") or c["part"] == part
+
+
+def sure_by_name(m, cands: list[dict], jf, minutes) -> tuple[dict | None, str]:
+    """Cuando el nombre no deja dudas: lo que dice Jellyfin si encaja con el nombre, o una única
+    opción con el nombre casi idéntico; en los dos casos la duración sólo tiene que no ser disparatada."""
+    year_ok = lambda c: not m.year or not c["year"] or abs(c["year"] - m.year) <= 1
+    ok = lambda c, s: c["sim"] >= s and year_ok(c) and _same_part(m, c) and _close(c["runtime"], minutes)
+    if jf:
+        mine = next((c for c in cands if c["tmdb"] == str(jf)), None)
+        if mine and ok(mine, 0.85):
+            return mine, "jellyfin"
+    near = [c for c in cands if ok(c, 0.95)]
+    if len(near) > 1:  # «Shrek 2» y «Shrek»: gana la del número del archivo, luego la de la duración
+        near = [c for c in near if c.get("part_ok")] or [c for c in near if c["duration_ok"]] or near
+    return (near[0], "por el nombre") if len(near) == 1 else (None, "")
+
+
 def clear_winner(cands: list[dict]) -> dict | None:
     """Cuando no hay una sola «segura»: decide por puntos en vez de dejarla para revisar."""
     strong = [c for c in cands if c["strong"]]
@@ -328,6 +354,11 @@ def run(lib: Library, cfg: dict, review: dict, progress=lambda msg: None, stop=l
             mine = next((c for c in cands if c["tmdb"] == str(jf)), None)
             if mine and mine["duration_ok"] is not False:
                 do_apply(e, mine, "auto")
+                continue
+        if m.title:
+            pick, how = sure_by_name(m, cands, jf, minutes)
+            if pick:
+                do_apply(e, pick, how)
                 continue
         strong = [c for c in cands if c["strong"]]
         by_part = [c for c in strong if c["part_ok"]]  # «after 2»: la 2.ª de la saga gana a «After» a secas

@@ -29,6 +29,17 @@ log = logging.getLogger(__name__)
 IMG = "https://image.tmdb.org/t/p/w342"
 BACKDROP = "https://image.tmdb.org/t/p/w780"
 KINDS = ("movie", "tv")
+# plataformas de streaming en España (ids de proveedor de TheMovieDB; «|» = cualquiera de ellos)
+PLATFORMS = {
+    "netflix": {"name": "Netflix", "ids": "8"},
+    "prime": {"name": "Prime Video", "ids": "119"},
+    "disney": {"name": "Disney+", "ids": "337"},
+    "hbo": {"name": "HBO Max", "ids": "1899|384"},
+    "apple": {"name": "Apple TV", "ids": "350"},
+    "movistar": {"name": "Movistar Plus+", "ids": "149"},
+    "skyshowtime": {"name": "SkyShowtime", "ids": "1773"},
+    "filmin": {"name": "Filmin", "ids": "63"},
+}
 _TMDBID = re.compile(r"\[tmdbid-(\d+)\]", re.I)
 
 SCHEMA = """
@@ -696,6 +707,40 @@ class Discover:
             out[kind] = {"total": total, "done": done, "left": max(total - done, 0),
                          "posters": [c["poster"] for c in top[:5]], "top": [c["title"] for c in top[:3]]}
         return out
+
+    def _platform_ask(self, pid: str, kind: str, new: bool, page: int) -> dict:
+        field = "primary_release_date" if kind == "movie" else "first_air_date"
+        today = date.today()
+        extra = {f"{field}.gte": (today - timedelta(days=180)).isoformat(), f"{field}.lte": today.isoformat()} if new \
+            else {"vote_count.gte": 30}
+        return self.api._get(f"/discover/{kind}", page=page, sort_by="popularity.desc", include_adult="false",
+                             watch_region="ES", with_watch_providers=PLATFORMS[pid]["ids"],
+                             with_watch_monetization_types="flatrate", **extra)
+
+    def platform(self, pid: str, kind: str, new: bool = True, page: int = 1) -> list[dict]:
+        """Lo que hay en una plataforma en España: lo nuevo (últimos 6 meses) o lo más visto de todo su catálogo."""
+        if pid not in PLATFORMS or kind not in KINDS:
+            raise ValueError("plataforma desconocida")
+        res = self._platform_ask(pid, kind, new, page)
+        cards = [card(kind, d, self.genres()) for d in res.get("results", []) if d.get("id") and d.get("poster_path")]
+        return self._decorate(cards, self.owned_index(), self.marks())
+
+    def platforms_summary(self) -> list[dict]:
+        """Para las puertas de Plataformas: los pósters de lo más visto que ha salido hace poco en cada una."""
+        from concurrent.futures import ThreadPoolExecutor
+
+        def one(pid):
+            posters, total = [], 0
+            for kind in KINDS:
+                try:
+                    res = self._platform_ask(pid, kind, True, 1)
+                except Exception:
+                    continue
+                total += int(res.get("total_results") or 0)
+                posters += [IMG + d["poster_path"] for d in res.get("results", [])[:3] if d.get("poster_path")]
+            return {"id": pid, "name": PLATFORMS[pid]["name"], "new": total, "posters": posters[:5]}
+        with ThreadPoolExecutor(8) as ex:
+            return list(ex.map(one, PLATFORMS))
 
     def stats(self) -> dict:
         rows = self.db.execute("SELECT rating, COUNT(*) n FROM discover WHERE rating IS NOT NULL GROUP BY rating")

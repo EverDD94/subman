@@ -1979,6 +1979,15 @@ function stepBar(msg) {
   const p = Math.min(100, 100 * m[1] / m[2]);
   return `<div class="bar"><i style="width:${p.toFixed(1)}%"></i></div><div class="muted" style="font-size:13px;margin-top:4px">${Math.round(p)} %</div>`;
 }
+// En qué fase va «Identificar todo»: hecho en verde, la actual resaltada, lo que falta en gris.
+function nmSteps(msg) {
+  const steps = [["Buscar", /jellyfin|buscando opciones|empezando/i], ["Duraciones", /duraciones/i],
+                 ["Identificar", /identificando/i], ["IA", /la ia/i]];
+  const at = steps.findIndex(([, re]) => re.test(msg || ""));
+  if (at < 0) return "";
+  return `<div class="row" style="gap:6px;margin:8px 0 2px;flex-wrap:wrap">${steps.map(([name], i) =>
+    `<span class="pill${i < at ? " ok" : ""}" style="${i === at ? "background:var(--accent);color:#fff" : i > at ? "opacity:.5" : ""}">${i < at ? "✓ " : ""}${name}</span>`).join("")}</div>`;
+}
 function nmBar(c) {
   if (!c || !c.total) return "";
   const seg = (n, color, label) => n ? `<div title="${label}: ${n}" style="width:${100 * n / c.total}%;background:${color}"></div>` : "";
@@ -2003,7 +2012,7 @@ async function loadNames() {
   $("#nmStop").hidden = !nm.running;
   const res = nm.result;
   $("#nmState").innerHTML = !nm.jellyfin ? `<span class="pill revisar">falta Jellyfin</span> Pon la dirección y la API key de Jellyfin en Ajustes: se usa su buscador de películas.`
-    : nm.running ? `<b>${esc(nm.message || "revisando...")}</b>${nmBar(nm.counts) || stepBar(nm.message)}`
+    : nm.running ? `<b>${esc(nm.message || "revisando...")}</b>${nmSteps(nm.message)}${nmBar(nm.counts) || stepBar(nm.message)}`
     : !nm.tmdb ? `<span class="pill revisar">falta la clave</span> «Identificar todo» necesita la clave de TheMovieDB guardada en Ajustes (pega la clave y pulsa Probar o «Guardar ajustes»).`
     : nm.error ? `<span class="pill falla">error</span> ${esc(nm.error)}`
     : nm.auto && nm.auto.at === nm.at ? `<span class="pill ok">hecho</span> Aplicadas solas: <b>${nm.auto.applied}</b>${nm.auto.ai ? ` (${nm.auto.ai} con ayuda de la IA)` : ""}.${nm.auto.copies ? ` <b>${nm.auto.copies}</b> eran otra copia de una película que ya tenías: quedaron en la misma carpeta y las ves en «Duplicados».` : ""} Para revisar: <b>${nm.auto.left}</b>. Las aplicadas están abajo en «Cambios hechos».${nmBar(nm.counts)}`

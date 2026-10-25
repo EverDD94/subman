@@ -18,7 +18,7 @@ VIDEO_EXT = {".mkv", ".mp4", ".avi", ".m4v", ".mov", ".ts", ".wmv", ".webm", ".m
              ".divx", ".ogm", ".3gp"}
 OTHER_VIDEO_EXT = {".iso", ".vob", ".rmvb", ".rm", ".strm"}  # no se procesan, sólo se cuentan
 SUB_EXT = {".srt", ".vtt", ".ass", ".ssa", ".sub"}
-_EP = re.compile(r"[Ss](\d{1,2})[ ._-]*[Ee](\d{1,3})|\b(\d{1,2})x(\d{2,3})\b"
+_EP = re.compile(r"[Ss]0?(\d{1,2})[ ._-]*[Ee](\d{1,3})|\b(\d{1,2})x(\d{2,3})\b"
                  r"|(?<![A-Za-z])[Tt](\d{1,2})[ ._-]*[Ee][Pp]?(\d{1,3})(?!\d)"  # T01E05
                  r"|(?:temporada|season|temp)[ ._-]*(\d{1,2})[ ._-]*(?:cap[ií]tulo|cap|episodio|episode|ep|e)[ ._-]*(\d{1,3})(?!\d)",
                  re.I)
@@ -31,6 +31,13 @@ _LONE_NUM = re.compile(r"(?<![\dA-Za-z])(\d{1,4})(?![\dA-Za-z])")
 _SEASON_NUM = re.compile(r"(\d+)")
 _SEASON_DIR = re.compile(r"^(season|temporada|temp|t|s)[ ._-]*\d{1,2}(?!\d)([ ._-].*)?$", re.I)
 _TAG = re.compile(r"\s*\[(tmdbid|imdbid|tvdbid)-[^\]]*\]", re.I)
+# Basura de descargas (Telegram, webs, calidad, idioma) que no forma parte del título.
+_TELEGRAM = re.compile(r"^\d{6,}[ _]\d+[ _](?:\d[ _])?")  # «1955370863_1755_SISU latino»
+_JUNK = re.compile(r"(?:@|t\.me/)\S+|\b(?:latino|lat|castellano|subesp|subtitulad[oa]|vo|online|hdts|hdrip|hd|cam|ts|"
+                   r"webrip|web-dl|bluray|brrip|dvdrip|x264|x265|hevc|aac\S*|\d{3,4}p|remake|"
+                   r"movistar plus\+?|pelisfox\S*|gnula|doodstream|ybhs)\b|^(?:ver|gran estreno)\b|[^\w\s\-:'&,.!?()\[\]]", re.I)
+# Lo que queda y no es un nombre: sólo números (id de Telegram) o «Año».
+_NO_NAME = re.compile(r"^(?:[\d\s_-]{5,}|a[ñn]o|special|especial|pel[ií]cula)?$", re.I)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS media (
@@ -122,9 +129,15 @@ class Media:
 
 def _clean(name: str) -> str:
     name = _TAG.sub("", name)
+    name = _TELEGRAM.sub("", name.strip())
     name = re.sub(r"[._]", " ", name)
-    name = re.sub(r"\s*[\[(]?(19|20)\d{2}[\])]?\s*$", "", name.strip(" -"))
-    return re.sub(r"\s+", " ", name).strip(" -")
+    name = re.sub(r"(?i)dcp\d\S*", " ", name)  # «Coyote vs. AcmeDCP1080L4T»
+    name = _JUNK.sub(" ", name)
+    name = re.sub(r"\b(?=\w*\d)[0-9a-f]{5,}\b", " ", name)  # números largos y códigos («5e9777dd», «2555195»)
+    name = re.sub(r"[\[(]\s*[\])]", " ", name)
+    name = re.sub(r"(?<=\S)\s*[\[(]?(19|20)\d{2}[\])]?\s*$", "", name.strip(" -"))  # «1917» sola se queda
+    name = re.sub(r"\s+", " ", name).strip(" -")
+    return "" if _NO_NAME.match(name) else name
 
 
 def season_dir(name: str) -> int | None:

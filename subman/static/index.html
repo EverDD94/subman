@@ -2022,7 +2022,7 @@ async function loadNames() {
   if (nm.running) $("#nmLooseCard").hidden = true;
   nmShown = nm.at;
   $("#nmHistCard").hidden = !nm.history.length;
-  const HOW = {auto: '<span class="pill ok">automático</span>', "por puntos": '<span class="pill ok">por puntos</span>', aprendido: '<span class="pill ok">aprendido de ti</span>', huella: '<span class="pill ok">huella</span>', ia: '<span class="pill revisar">IA</span>', manual: ""};
+  const HOW = {jellyfin: '<span class="pill ok">Jellyfin + nombre</span>', "por el nombre": '<span class="pill ok">por el nombre</span>', auto: '<span class="pill ok">automático</span>', "por puntos": '<span class="pill ok">por puntos</span>', aprendido: '<span class="pill ok">aprendido de ti</span>', huella: '<span class="pill ok">huella</span>', ia: '<span class="pill revisar">IA</span>', manual: ""};
   $("#nmHist").innerHTML = nm.history.map(h => `<tr><td>${esc(h.title)} ${HOW[h.how] || ""}<div class="muted" style="font-size:12px">${when(h.at)}</div></td>
     <td><div class="path">${esc(h.before)}</div><div class="path">→ ${esc(h.after)}</div></td>
     <td>${h.exists ? `<button class="btn sec" data-u="${h.id}">Deshacer</button>` : ""}</td></tr>`).join("");

@@ -31,6 +31,51 @@ log = logging.getLogger(__name__)
 _PART = re.compile(r"(?:^|\s)(\d{1,2})$")
 _COLLECTION_WORDS = re.compile(r"\b(colecci[oó]n|collection|saga|la saga|trilog[ií]a)\b", re.I)
 BATCH = 10
+# Carpetas que no dicen nada de la película (se ignoran como pista).
+_GENERIC_DIR = re.compile(r"pel[ií]cula|movie|film|descarga|download|video|v[ií]deo|media|complet|temporada|season|"
+                          r"\bnuevas?\b|\bnew\b|\btorrent|\bhd\b|\b4k\b|\b1080|\b720|\bdvd|\bcine\b|sagas?\b|colecci", re.I)
+CLEAR_MARGIN = 0.5  # sin ninguna «segura»: la primera se aplica si saca esta ventaja a la segunda
+VOTES_RATIO = 10    # entre varias «seguras»: gana la mucho más conocida (votos en TheMovieDB)
+
+
+def _folder_hint(m) -> str | None:
+    """El nombre de la carpeta, si parece el de una película (no «Peliculas», «Descargas»...)."""
+    folder = Path(m.path).parent.name
+    q = normalize(re.sub(r"\[[^\]]*\]|\([^)]*\)", " ", folder), leet=False)
+    if len(q) < 3 or _GENERIC_DIR.search(folder) or q == normalize(m.title, leet=False):
+        return None
+    return q
+
+
+def learn(lib: Library, m, tmdb) -> None:
+    """Recuerda lo que identificaste a mano para que la próxima copia con ese nombre se haga sola."""
+    key = normalize(m.title, leet=False)
+    if key and tmdb and str(tmdb).isdigit():
+        lib.db.execute("INSERT OR REPLACE INTO learned (key, tmdb, at) VALUES (?,?,?)", (key, str(tmdb), time.time()))
+        lib.db.commit()
+
+
+def learned(lib: Library, m) -> str | None:
+    row = lib.db.execute("SELECT tmdb FROM learned WHERE key=?", (normalize(m.title, leet=False),)).fetchone()
+    return row[0] if row else None
+
+
+def clear_winner(cands: list[dict]) -> dict | None:
+    """Cuando no hay una sola «segura»: decide por puntos en vez de dejarla para revisar."""
+    strong = [c for c in cands if c["strong"]]
+    if len(strong) > 1:
+        strong.sort(key=lambda c: c["score"], reverse=True)
+        a, b = strong[0], strong[1]
+        if a["score"] - b["score"] >= CLEAR_MARGIN or a.get("votes", 0) >= VOTES_RATIO * max(1, b.get("votes", 0)):
+            return a
+        return None
+    if not cands or strong:
+        return None
+    a = cands[0]
+    b = cands[1]["score"] if len(cands) > 1 else -9
+    if a["duration_ok"] and a["sim"] >= 0.6 and a["score"] - b >= CLEAR_MARGIN:
+        return a
+    return None
 
 
 def _minutes(path: str) -> float | None:
@@ -98,7 +143,8 @@ def _all_queries(m) -> list[str]:
 
 def candidates(db: TMDb, m, minutes: float | None, extra: list[int] = (), more: list[str] = ()) -> list[dict]:
     queries = _all_queries(m)
-    for q in more:  # el nombre que le puso Jellyfin, o el que sugiere la IA
+    hint = _folder_hint(m)
+    for q in [*more, *([hint] if hint else [])]:  # el nombre que le puso Jellyfin, o el que sugiere la IA
         q = normalize(q, leet=False)
         if q and q not in queries:
             queries.append(q)
@@ -147,8 +193,9 @@ def candidates(db: TMDb, m, minutes: float | None, extra: list[int] = (), more: 
     for c in cands.values():
         saga = _COLLECTION_WORDS.sub("", c.get("saga") or "").strip(" -")
         base = re.sub(r"(\s+\d{1,2})+$", "", normalize(m.title))
-        sim = max(similarity(m.title, c["name"]), similarity(m.title, c["original"]),
-                  similarity(base, saga) if saga and base else 0)
+        names = [c["name"], c["original"], *c.get("alt", [])]
+        sim = max([similarity(m.title, x) for x in names] + [similarity(base, saga) if saga and base else 0]
+                  + ([similarity(hint, x) for x in names] if hint else []))
         dur = _duration_ok(c["runtime"], minutes)
         seq = bool(part and c.get("part") == part)
         year_ok = not m.year or (c["year"] and abs(c["year"] - m.year) <= 1)
@@ -253,13 +300,20 @@ def run(lib: Library, cfg: dict, review: dict, progress=lambda msg: None, stop=l
         jname = (e.get("jellyfin") or {}).get("name")
         hits = peek.hash_lookup(osub, m.oshash)  # la huella del archivo en OpenSubtitles
         e["hashed"] = bool(hits)
-        extra = [int(h["tmdb"]) for h in hits[:2]] + ([int(jf)] if jf and str(jf).isdigit() else [])
+        known = learned(lib, m)
+        extra = [int(h["tmdb"]) for h in hits[:2]] + ([int(jf)] if jf and str(jf).isdigit() else []) \
+            + ([int(known)] if known else [])
         more = [x for x in (inf["title"], jname) if x]
         cands = candidates(db, m, minutes, extra, more)
         e["minutes"] = minutes
         e["inside"] = inf["title"]
         e["_m"] = m
         e["options"] = cands[:6]
+        if known:  # ya la identificaste tú a mano con este mismo nombre
+            mine = next((c for c in cands if c["tmdb"] == known), None)
+            if mine and mine["duration_ok"] is not False:
+                do_apply(e, mine, "aprendido")
+                continue
         if hits:  # ese mismo archivo ya lo conoce OpenSubtitles: es esa película salvo que la duración no cuadre
             mine = next((c for c in cands if c["tmdb"] == hits[0]["tmdb"]), None)
             if mine and mine["duration_ok"] is not False:
@@ -279,6 +333,10 @@ def run(lib: Library, cfg: dict, review: dict, progress=lambda msg: None, stop=l
         by_part = [c for c in strong if c["part_ok"]]  # «after 2»: la 2.ª de la saga gana a «After» a secas
         if len(strong) == 1 or len(by_part) == 1:
             do_apply(e, by_part[0] if len(by_part) == 1 else strong[0], "auto")
+            continue
+        win = clear_winner(cands)
+        if win:
+            do_apply(e, win, "por puntos")
             continue
         e["why"] = ("hay varias que encajan" if len(strong) > 1 else
                     "ninguna encaja con la duración del archivo" if cands else "no se encontró nada con ese nombre")

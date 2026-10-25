@@ -177,8 +177,9 @@ def settle(db: TMDb, g: dict, opts: list[dict], why: str, ai=None, frames: Path 
         try:
             stamp = int(os.stat(e["path"]).st_mtime)
             imgs = [p.read_bytes() for p in peek.opening(e["path"], frames, minutes, f"{e['id']}_{stamp}")[:5]]
-            pick, sure = ai.show(imgs, Path(g["series_dir"]).name, e["name"], minutes, inner or None, cands) \
-                if imgs else (None, False)
+            mp3 = peek.clip(e["path"], frames, minutes, f"{e['id']}_{stamp}", at=0, seconds=120)
+            pick, sure = ai.show(imgs, Path(g["series_dir"]).name, e["name"], minutes, inner or None, cands,
+                                 mp3.read_bytes() if mp3 else None) if imgs else (None, False)
         except Exception as ex:  # sin cupo, sin conexión...: no se le vuelve a preguntar en esta pasada
             log.warning("Gemini (series): %s", ex)
             if memo is not None:
@@ -189,7 +190,7 @@ def settle(db: TMDb, g: dict, opts: list[dict], why: str, ai=None, frames: Path 
     o = next((o for o in cands if o["tmdb"] == pick), None)
     if not o:
         return opts, why, None
-    return [o] + [x for x in opts if x is not o], None if sure else why, "la IA, mirando el principio de un capítulo"
+    return [o] + [x for x in opts if x is not o], None if sure else why, "la IA, mirando y escuchando el principio de un capítulo"
 
 
 def _plan_group(db: TMDb, g: dict, show: dict | None) -> dict:

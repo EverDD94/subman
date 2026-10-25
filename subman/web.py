@@ -927,6 +927,8 @@ class App:
     def names_scan(self) -> dict:
         if self.names["running"]:
             return {"ok": True}
+        if self.cfg().get("tmdb", {}).get("api_key"):
+            return self.names_auto()  # con TheMovieDB, revisar ya es identificar: que no te deje trabajo que puede hacer solo
         self.names.update(running=True, message="empezando", error=None, counts=None)
 
         def work():

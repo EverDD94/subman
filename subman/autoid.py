@@ -15,6 +15,7 @@ Todo lo aplicado queda en «Cambios hechos» (con quién lo decidió) y se puede
 from __future__ import annotations
 
 import logging
+import os
 import re
 import time
 from pathlib import Path
@@ -23,7 +24,7 @@ from . import audio, identify, peek
 from .duplicates import normalize
 from .gemini import Gemini, GeminiError
 from .identify import similarity
-from .library import Library
+from .library import Library, parse_path
 from .providers.opensubtitles import OpenSubtitles
 from .tmdb import TMDb
 
@@ -330,6 +331,9 @@ def run(lib: Library, cfg: dict, review: dict, progress=lambda msg: None, stop=l
         if not media:
             continue
         m = media[0]
+        if e.get("recheck"):  # el nombre y el año de la carpeta son los de la película equivocada: no sirven
+            p = parse_path(Path(e["name"]))
+            m.title, m.year = (p["title"], p["year"]) if e["name"] != Path(m.path).name else ("", None)
         inf = _info(m.path)
         minutes = inf["minutes"]
         jf = (e.get("jellyfin") or {}).get("tmdb")
@@ -578,6 +582,54 @@ def enrich(lib: Library, cfg: dict, review: dict, progress=lambda msg: None) -> 
             if e.get("why") == "no se encontró nada con ese nombre":
                 e.pop("why")
     return review
+
+
+_TMDB_DIR = re.compile(r"\[tmdbid-(\d+)\]", re.I)
+
+
+def verify(lib: Library, cfg: dict, progress=lambda msg: None, skip: set = frozenset(), stop=lambda: False) -> list[dict]:
+    """Vuelve a comprobar las películas ya ordenadas (carpeta con [tmdbid-N]) que no ordenaste tú a mano:
+    si el archivo dura claramente otra cosa que esa película, vuelve a «Por identificar» para que se
+    identifique de nuevo con todo lo que hay ahora. Cada archivo se comprueba una vez (o si cambia)."""
+    key = cfg.get("tmdb", {}).get("api_key")
+    if not key:
+        return []
+    db = TMDb(key, cfg.get("tmdb", {}).get("language") or "es-MX")
+    manual = {r["video_to"]: r["video_from"] for r in lib.db.execute("SELECT video_to, video_from, how FROM renamed")
+              if (r["how"] or "manual") == "manual"}
+    origin = {r["video_to"]: r["video_from"] for r in lib.db.execute("SELECT video_to, video_from FROM renamed")}
+    done = {r["path"]: (r["mtime"], r["ok"]) for r in lib.db.execute("SELECT path, mtime, ok FROM verified")}
+    out = []
+    movies = [m for m in lib.media("kind='movie'") if _TMDB_DIR.search(Path(m.path).parent.name)]
+    for n, m in enumerate(movies):
+        if stop():
+            break
+        if m.path in manual or m.path in skip:
+            continue
+        try:
+            mtime = os.path.getmtime(m.path)
+        except OSError:
+            continue
+        if m.path in done and done[m.path][0] == mtime and done[m.path][1]:
+            continue
+        progress(f"comprobando lo ya ordenado: {n + 1} de {len(movies)}")
+        minutes = _info(m.path)["minutes"]
+        try:
+            c = db.movie(int(_TMDB_DIR.search(Path(m.path).parent.name).group(1)))
+        except Exception as e:
+            log.warning("TheMovieDB: no se pudo comprobar %s: %s", m.path, e)
+            continue
+        rt = c.get("runtime")
+        ok = not rt or not minutes or 0.7 * rt <= minutes <= rt + 12
+        lib.db.execute("INSERT OR REPLACE INTO verified (path, mtime, ok) VALUES (?,?,?)", (m.path, mtime, int(ok)))
+        if ok:
+            continue
+        before = Path(origin.get(m.path) or m.path).name
+        out.append({"id": m.id, "path": m.path, "name": before, "folder": Path(m.path).parent.name, "alone": True,
+                    "title": m.title, "year": m.year, "jellyfin": None, "recheck": True,
+                    "why": f"ya estaba como «{c['name']}» pero el archivo dura {round(minutes)} min y esa película {rt}"})
+    lib.db.commit()
+    return out
 
 
 def search(cfg: dict, m, query: str, minutes: float | None) -> list[dict]:

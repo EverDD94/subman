@@ -971,6 +971,9 @@ class App:
                 lib.scan(cfg["library"], exclude=config.excluded(cfg), progress=lambda n: self.names.update(
                     message=f"buscando videos: {n} encontrados"))
             rev = identify.review(lib, cfg, lambda msg: self.names.update(message=msg), search=False)
+            if only is None:  # lo ya ordenado que no cuadra vuelve a identificarse
+                rev["todo"] += autoid.verify(lib, cfg, lambda msg: self.names.update(message=msg), skip,
+                                             stop=lambda: self.names["stop"])
             held = []
             if only is not None or skip:
                 held = [e for k in ("todo", "loose") for e in rev.get(k, []) if e["path"] in skip

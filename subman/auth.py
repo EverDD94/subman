@@ -2,7 +2,8 @@
 
 Mientras no se pongan en Ajustes, entra cualquiera de la red de casa, como siempre. Con ellos
 puestos, la página pide entrar y recuerda el móvil o el ordenador 90 días con una cookie firmada.
-Si se olvida la contraseña: borrar la línea ``password_hash`` de ``[access]`` en subman.toml.
+Si se olvida la contraseña: entrar con un administrador de Jellyfin (y poner otra en Ajustes), o borrar la línea
+``password_hash`` de ``[access]`` en subman.toml.
 """
 from __future__ import annotations
 
@@ -83,16 +84,21 @@ def blocked(addr: str) -> bool:
         return len(recent) >= MAX_FAILS
 
 
-def login(cfg: dict, addr: str, user: str, password: str) -> str | None:
-    """Devuelve el token si el usuario y la contraseña son correctos."""
-    a = cfg.get("access") or {}
-    good = hmac.compare_digest((user or "").strip().lower(), (a.get("user") or "").lower()) \
-        and check_password(password or "", a.get("password_hash", ""))
+def note(addr: str, good: bool) -> None:
+    """Apunta un intento de entrar (los fallidos seguidos acaban bloqueando esa dirección un rato)."""
     with _lock:
         if good:
             _fails.pop(addr, None)
         else:
             _fails.setdefault(addr, []).append(time.time())
+
+
+def login(cfg: dict, addr: str, user: str, password: str) -> str | None:
+    """Devuelve el token si el usuario y la contraseña son correctos."""
+    a = cfg.get("access") or {}
+    good = hmac.compare_digest((user or "").strip().lower(), (a.get("user") or "").lower()) \
+        and check_password(password or "", a.get("password_hash", ""))
+    note(addr, good)
     if not good:
         time.sleep(1)  # frena a quien pruebe contraseñas a lo loco
         return None

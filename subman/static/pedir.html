@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Videotecario</title>
+<meta name="theme-color" content="#f1f2fb" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#110e1f" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Pedir">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f1f2fb;--card:#fff;--chip:#e9e7f8;--line:#dedbf0;--text:#16122b;--muted:#4f4a68;--accent:#5b3df5;--accent-ink:#fff;--accent-soft:#ebe6ff;
+  --ok:#1c7a4a;--warn:#8f5e00;--bad:#b4402f;--shadow:0 2px 6px rgb(40 25 10/.08),0 24px 60px -20px rgb(40 25 10/.3);--ease-out:cubic-bezier(0.23,1,0.32,1);color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#110e1f;--card:#1b1730;--chip:#2a2447;--line:#332c55;--text:#f2efff;--muted:#aaa3c8;--accent:#9481ff;--accent-ink:#0e0a24;
+  --accent-soft:#2b2257;--ok:#6fd39a;--warn:#e8c06a;--bad:#f08070;--shadow:0 2px 8px rgb(0 0 0/.4),0 30px 80px -20px rgb(0 0 0/.75);color-scheme:dark}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;min-height:100dvh;background:var(--bg);color:var(--text);font:15px/1.5 "Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+button,input{font:inherit}
+.btn{min-height:44px;padding:0 18px;border:0;border-radius:12px;background:var(--accent);color:var(--accent-ink);font-weight:600;cursor:pointer;touch-action:manipulation;
+  transition:transform .16s var(--ease-out),opacity .16s}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.6}
+.btn.sec{background:var(--chip);color:var(--text)}
+/* entrar */
+#login{min-height:100dvh;display:grid;place-items:center;padding:24px 16px}
+form{width:min(380px,100%);background:var(--card);border:1px solid var(--line);border-radius:22px;padding:32px 28px;box-shadow:var(--shadow)}
+form img{width:56px;height:56px;border-radius:14px;display:block}
+h1{font-weight:800;font-size:32px;line-height:1.1;letter-spacing:-.02em;margin:18px 0 4px}
+form p{color:var(--muted);margin:0 0 18px}
+label{display:block;font-weight:600;font-size:14px;margin:14px 0 6px}
+input{width:100%;font-size:16px;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--text)}
+input:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent)}
+form .btn{width:100%;margin-top:22px;min-height:48px;font-size:16px}
+#err{color:var(--bad);font-weight:500;margin:14px 0 0;min-height:1.5em}
+.admin{display:block;text-align:center;margin-top:10px;color:var(--muted);font-size:13px}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;
+  border-radius:12px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;max-width:calc(100% - 32px)}
+#toast.on{opacity:1}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<section id="login" hidden>
+  <form id="f">
+    <img src="/icon.svg" alt="">
+    <h1>Videotecario</h1>
+    <p>Entra con tu usuario y contraseña de Jellyfin, los mismos que usas para ver. Busca películas y series y pide las que quieras.</p>
+    <label for="user">Usuario de Jellyfin</label>
+    <input id="user" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+    <label for="password">Contraseña</label>
+    <input id="password" name="password" type="password" autocomplete="current-password">
+    <button class="btn" id="go">Entrar</button>
+    <div id="err" role="alert"></div>
+    <a class="admin" href="/entrar">Administrar Videotecario</a>
+  </form>
+</section>
+<div id="toast" role="status"></div>
+<script>
+const $ = s => document.querySelector(s);
+// ya dentro: a Descubrir
+fetch("/api/pedir/me").then(r => r.json()).then(j => j.ok ? location.replace("/") : ($("#login").hidden = false, $("#user").focus()))
+  .catch(() => { $("#login").hidden = false; });
+$("#f").onsubmit = async e => {
+  e.preventDefault();
+  const go = $("#go"), err = $("#err");
+  go.disabled = true; err.textContent = "";
+  try {
+    const r = await fetch("/api/pedir/login", {method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({user: $("#user").value, password: $("#password").value})});
+    const j = await r.json();
+    if (r.ok && j.ok) return location.replace("/");
+    err.textContent = j.error || "No se pudo entrar";
+  } catch (x) { err.textContent = "No se pudo hablar con el servidor"; }
+  go.disabled = false;
+};
+</script>
+</body>
+</html>

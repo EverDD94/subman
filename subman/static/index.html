@@ -174,6 +174,13 @@ dialog[open]{animation:pop .24s var(--ease-out)}
 @keyframes pop{from{opacity:0;transform:translateY(10px) scale(.985)}}
 dialog::backdrop{background:rgb(22 18 43/.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(3px)}
 dialog.ask{max-width:420px}
+dialog.ask textarea{width:100%;min-height:96px;font:inherit;padding:10px 12px;border-radius:var(--r-sm);border:2px solid var(--line);background:var(--card);color:var(--text);resize:vertical}
+.notice{border-top:1px solid var(--line);padding:10px 0 2px}
+.notice b{display:block}
+.notice p{margin:2px 0 0;white-space:pre-line;color:var(--muted)}
+.notice small{color:var(--muted)}
+.notice.new b::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin-right:6px;vertical-align:1px}
+.bellbox{background:var(--card-2);border-radius:12px;padding:10px 12px;margin:8px 0 10px;font-size:14px}
 dialog .x{position:absolute;top:12px;right:12px;z-index:3;width:38px;height:38px;border-radius:50%;border:0;background:color-mix(in srgb,var(--card) 70%,transparent);
   backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:grid;place-items:center;cursor:pointer;color:var(--text);transition:transform .16s var(--ease-out)}
 dialog .x:active{transform:scale(.92)}
@@ -207,6 +214,9 @@ dialog .x:active{transform:scale(.92)}
   transition:background-color .2s var(--ease-out),color .2s,border-color .2s,transform .2s var(--ease-out)}
 .moods button:active{transform:scale(.96)}
 .moods button.on{background:var(--pop);border-color:var(--pop);color:#fff}
+.moods .kinds{display:flex;gap:10px;flex:0 0 100%}
+.moods .kinds button{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.moods .kinds button.on{background:var(--pop);border-color:var(--pop)}
 .dtabs{display:flex;flex-wrap:nowrap;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 -4px;padding:2px 4px;scroll-snap-type:x proximity}
 .dtabs::-webkit-scrollbar{display:none}
 .dtabs button{scroll-snap-align:start}
@@ -397,6 +407,43 @@ body:has(#descubrir.peekon:not([hidden])) > header{background:color-mix(in srgb,
   .door b{font-size:64px}
   .doortop{font-size:15.5px}
 }
+
+/* Plataformas: una puerta por plataforma de streaming */
+.plats{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+.plats .door{min-height:300px;border-radius:30px;padding:26px}
+.plats .door b{font-size:clamp(32px,2.8vw,44px);letter-spacing:-.04em;white-space:nowrap}
+.plats .fan{width:84px;top:22px;right:60px}
+.plats .doortxt{z-index:4}
+.plats .doorn{text-shadow:0 2px 10px rgb(0 0 0/.5)}
+.plats .doorgo{height:46px;padding:0 20px;font-size:15px;white-space:nowrap}
+.door.p-netflix{background:radial-gradient(120% 90% at 85% 20%,#ff4d55 0%,#e50914 40%,#3d0003 100%)}
+.door.p-prime{background:radial-gradient(120% 90% at 85% 20%,#5fd4ff 0%,#00a8e1 40%,#04253f 100%)}
+.door.p-disney{background:radial-gradient(120% 90% at 85% 20%,#4f8bff 0%,#113ccf 40%,#040d3a 100%)}
+.door.p-hbo{background:radial-gradient(120% 90% at 85% 20%,#a07bff 0%,#5822e0 40%,#12063a 100%)}
+.door.p-apple{background:radial-gradient(120% 90% at 85% 20%,#6b6b72 0%,#2c2c30 45%,#000 100%)}
+.door.p-movistar{background:radial-gradient(120% 90% at 85% 20%,#4fd0ff 0%,#0b7fd1 40%,#06264a 100%)}
+.door.p-skyshowtime{background:radial-gradient(120% 90% at 85% 20%,#ff8fb8 0%,#c4246a 40%,#3a0420 100%)}
+.door.p-filmin{background:radial-gradient(120% 90% at 85% 20%,#ffd45c 0%,#f0a500 40%,#4a2a00 100%)}
+.door.p-paramount{background:radial-gradient(120% 90% at 85% 20%,#4f9bff 0%,#0064ff 40%,#001a4a 100%)}
+.door.p-crunchyroll{background:radial-gradient(120% 90% at 85% 20%,#ffa760 0%,#f47521 40%,#4a1d00 100%)}
+.door.p-rakuten{background:radial-gradient(120% 90% at 85% 20%,#ff6b8a 0%,#bf0000 40%,#3a0000 100%)}
+.door.p-peacock{background:radial-gradient(120% 90% at 85% 20%,#55d6be 0%,#1a8f7e 40%,#04201c 100%)}
+.door.p-hulu{background:radial-gradient(120% 90% at 85% 20%,#7dffb3 0%,#1ce783 40%,#05391e 100%)}
+.door.p-starz{background:radial-gradient(120% 90% at 85% 20%,#5a5a6a 0%,#1d1d26 45%,#000 100%)}
+.door.p-vix{background:radial-gradient(120% 90% at 85% 20%,#ffb347 0%,#ff6a00 40%,#3d1500 100%)}
+.plathead{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 18px}
+.plathead h3{font:800 clamp(30px,4vw,46px)/1 var(--display);letter-spacing:-.04em;margin:0 12px 0 0}
+@media (hover:hover) and (pointer:fine){
+  .plats:hover .door,.plats .door:hover{flex-grow:1}
+  .plats .door:hover{transform:translateY(-4px)}
+  .plats .door:hover .fan span:nth-child(1){transform:rotate(-18deg) translate(-95px,-4px)}
+  .plats .door:hover .fan span:nth-child(2){transform:rotate(-9deg) translate(-50px,-14px)}
+  .plats .door:hover .fan span:nth-child(3){transform:translateY(-18px)}
+  .plats .door:hover .fan span:nth-child(4){transform:rotate(9deg) translate(50px,-14px)}
+  .plats .door:hover .fan span:nth-child(5){transform:rotate(18deg) translate(95px,-4px)}
+}
+@media (max-width:900px){.plats .door{min-height:220px}.plats .fan{width:74px;right:40px}.plats .door b{font-size:34px}}
+@media (max-width:520px){.plats{grid-template-columns:1fr 1fr;gap:12px}.plats .door{min-height:200px;padding:18px;border-radius:24px}.plats .door b{font-size:26px}.plats .fan{width:56px;right:34px;top:16px}.plats .doorn{font-size:13px}.plats .doorgo{height:38px;padding:0 14px;font-size:13px}}
 
 /* ficha a pantalla completa */
 dialog.sheet{padding:0;max-width:1000px;width:min(1000px,96vw);overflow:auto;overscroll-behavior:contain}
@@ -629,6 +676,7 @@ dialog.sheet .foot{display:none}
   .moods{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -14px;padding:2px 14px}
   .moods::-webkit-scrollbar{display:none}
   .moods button{height:44px;padding:0 16px;font-size:15.5px;flex:none}
+  .moods .kinds{flex:none}
   .rail{margin:0 -14px;padding:0 14px 4px;scroll-padding:0 14px;grid-auto-columns:36vw;gap:10px}
   .wall{grid-template-columns:repeat(2,1fr);gap:26px 12px}
   .shelfhead h3{font-size:20px}
@@ -852,6 +900,11 @@ dialog.sheet .foot{display:none}
     <div class="two">
       <div><label class="f">Carpeta de películas</label><input type="text" id="dl_movies_dir" placeholder="/media/Peliculas"></div>
       <div><label class="f">Carpeta de series</label><input type="text" id="dl_series_dir" placeholder="/media/Series"></div>
+      <div><label class="f">Carpeta de realitys</label><input type="text" id="dl_realitys_dir" placeholder="/media/realitys">
+        <div class="hint">Opcional. Si TheMovieDB dice que es un reality (Love Island…), va aquí.</div></div>
+      <div><label class="f">Películas en español</label><input type="text" id="dl_es_movies_dir" placeholder="/media/Peliculas en Español">
+        <div class="hint">Opcional. Lo que se rodó en español va aquí.</div></div>
+      <div><label class="f">Series en español</label><input type="text" id="dl_es_series_dir" placeholder="/media/Series Españolas"></div>
       <div><label class="f">Carpeta para lo que se está bajando</label><input type="text" id="dl_tmp_dir">
         <div class="hint">Dentro de /media (así mover al final es instantáneo) y fuera de las carpetas de la biblioteca.</div></div>
       <div><label class="f">Audio preferido</label><select id="dl_audio"><option value="es,en">Español; si no hay, inglés</option><option value="en,es">Inglés; si no hay, español</option><option value="es">Sólo español</option><option value="en">Sólo inglés</option></select></div>
@@ -899,18 +952,23 @@ dialog.sheet .foot{display:none}
   <div class="dhead">
     <h2 id="dscTitle">Descubrir</h2>
     <div class="moods" id="dscMoods" hidden>
-      <button data-m="reir">Reírme</button><button data-m="miedo">Pasar miedo</button><button data-m="pensar">Algo que me haga pensar</button>
-      <button data-m="llorar">Llorar un poco</button><button data-m="peli">Una película</button><button data-m="serie">Una serie</button>
+      <div class="kinds"><button data-k="movie">Una película</button><button data-k="tv">Una serie</button></div>
+      <button data-m="reir">Reírme a carcajadas</button><button data-m="accion">Golpes y adrenalina</button><button data-m="miedo">Pasar miedo</button>
+      <button data-m="aventura">Irme de viaje sin moverme</button><button data-m="futuro">Viajar al futuro</button><button data-m="magia">Creer en la magia</button>
+      <button data-m="intriga">Adivinar quién fue</button><button data-m="crimen">Ver cómo se tuerce la ley</button><button data-m="nervios">Comerme las uñas</button>
+      <button data-m="amor">Enamorarme un poco</button><button data-m="llorar">Llorar un poco</button><button data-m="pensar">Algo que me haga pensar</button>
+      <button data-m="dibujos">Volver a ser niño</button><button data-m="familia">Verla con la familia</button><button data-m="historia">Viajar al pasado</button>
+      <button data-m="guerra">Sobrevivir a la guerra</button><button data-m="oeste">Duelo al sol</button><button data-m="musica">Que suene la música</button>
+      <button data-m="real">Que sea de verdad</button>
     </div>
     <div class="dtabs filters" id="dscTabs">
       <button data-s="portada" class="on">Portada</button>
-      <button data-s="estrenos">Estrenos</button>
       <button data-s="novedades">Novedades</button>
+      <button data-s="plataformas">Plataformas</button>
       <button data-s="para-ti">Para ti</button>
       <button data-s="clasicos">Populares y clásicos</button>
-      <button data-s="por-conseguir">Por conseguir</button>
       <button data-s="descargas">Descargas</button>
-      <button data-s="calificadas">Mis calificaciones</button>
+      <button data-s="peticiones">Peticiones<span class="pill revisar" id="reqN" hidden style="margin-left:6px"></span></button>
       <button data-s="gustos">Mis gustos</button>
     </div>
     <div class="dbar" id="dscBar">
@@ -1059,8 +1117,33 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt
 const LABEL = {ok:"bien", revisar:"revisar", falla:"falla", pendiente:"pendiente", error:"error"};
 let cfg = null, chosen = [], libItems = [], filter = "", reasonF = "", reasonTitles = {}, tab = "descubrir";
 
+// un amigo (entró en /pedir con su usuario de Jellyfin): sólo Descubrir, con sus gustos y «Pedir» en vez de descargar
+const FRIEND = window.FRIEND || null;
+const DL = FRIEND ? "Pedir" : "Descargar de Phono";
+if (FRIEND) {
+  document.querySelectorAll('#tabs button:not([data-tab="descubrir"]), #updBtn, #newsBtn').forEach(b => b.hidden = true);
+  document.querySelectorAll('#dscTabs [data-s="descargas"], #dscTabs [data-s="peticiones"]').forEach(b => b.remove());
+  $("#dscTabs").insertAdjacentHTML("beforeend", '<button data-s="mias">Mis peticiones</button>');
+  $(".tools").insertAdjacentHTML("afterbegin", `<span class="muted" style="font-size:14px;align-self:center">${esc(FRIEND.name)}</span><button id="outBtn" class="tool" type="button" title="Salir" aria-label="Salir" style="width:auto;padding:0 10px;font-weight:600">Salir</button>`);
+  $("#outBtn").onclick = async () => { await fetch("/api/pedir/logout", {method: "POST"}); location.href = "/pedir"; };
+}
+// lo que ya pidió este amigo: su botón «Pedir» sale marcado como «Pedida» en todas partes (tarjetas, ficha, cartel)
+const asked = new Set();
+function markAsked() {
+  document.querySelectorAll('button[onclick^="dlAdd(\'"]').forEach(b => {
+    const k = b.getAttribute("onclick").slice(7, -2);
+    if (!asked.has(k) || b.dataset.asked) return;
+    b.dataset.asked = "1"; b.classList.add("yes"); b.setAttribute("aria-pressed", "true"); b.title = "Pedida";
+    b.innerHTML = ico("check") + (b.textContent.trim() ? "Pedida" : "");
+  });
+}
+if (FRIEND) {
+  fetch("/api/pedir/mine").then(r => r.json()).then(j => { (j.items || []).forEach(x => asked.add(x.kind + x.tmdb)); markAsked(); }).catch(() => {});
+  new MutationObserver(() => { if (asked.size) markAsked(); }).observe(document.body, {childList: true, subtree: true});
+}
 async function api(path, body) {
   const r = await fetch(path, body === undefined ? {} : {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
+  if (r.status === 401 && FRIEND) { if (!(await (await fetch("/api/pedir/me")).json()).ok) location.href = "/pedir"; throw new Error("eso no está disponible"); }
   if (r.status === 401) { location.reload(); throw new Error("hay que entrar"); }  // contraseña puesta o cambiada
   const j = await r.json();
   if (!r.ok) throw new Error(j.error || r.statusText);
@@ -1086,6 +1169,7 @@ function pct(x) { return Math.round((x || 0) * 100) + "%"; }
 // Iconos de línea (estilo Lucide), en vez de emojis.
 const ICO = {
   download: '<path d="M12 3v12m-5-5 5 5 5-5M5 21h14"/>',
+  bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
   subs: '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M7 15h4m3 0h3M7 11h2m3 0h5"/>',
   home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
   library: '<path d="m16 6 4 14M12 6v14M8 8v12M4 4v16"/>',
@@ -1348,7 +1432,7 @@ async function startUpdate() {
   const before = (upd || await api("/api/update")).build; loadUpdate();
   watchUpdate(before);
 }
-api("/api/update").then(u => { upd = upd || u; if (u.running) watchUpdate(u.build); }).catch(() => {});  // ya iba (p.ej. desde otra pestaña)
+if (!FRIEND) api("/api/update").then(u => { upd = upd || u; if (u.running) watchUpdate(u.build); }).catch(() => {});  // ya iba (p.ej. desde otra pestaña)
 $("#updNow").onclick = startUpdate;
 
 // ---------- Arriba a la derecha: actualizar, novedades, claro/oscuro ----------
@@ -1409,8 +1493,7 @@ $("#updBtn").onclick = async () => {
 document.addEventListener("click", e => { if (!$("#newsPop").hidden && !e.target.closest("#newsPop,#newsBtn")) newsClose(); });
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#newsPop").hidden) newsClose(); });
 paintTools();
-loadNews();
-setInterval(() => loadNews(), 30 * 60 * 1000);
+if (!FRIEND) { loadNews(); setInterval(() => loadNews(), 30 * 60 * 1000); }
 
 // ---------- Ajustes ----------
 async function loadConfig() {
@@ -1516,7 +1599,7 @@ async function loadDlSettings() {
     $("#botOff").onclick = () => botConnect("");
   }
   if (tg.user) $("#tgOut").onclick = async () => { const r = await api("/api/telegram/logout", {}); if (r.ok === false) toast(r.error); loadDlSettings(); };
-  for (const k of ["movies_dir", "series_dir", "tmp_dir", "gap_minutes", "daily"]) $("#dl_" + k).value = st[k];
+  for (const k of ["movies_dir", "series_dir", "tmp_dir", "gap_minutes", "daily", "realitys_dir", "es_movies_dir", "es_series_dir"]) $("#dl_" + k).value = st[k] ?? "";
   $("#dl_audio").value = st.audio.join(",");
   if ($("#dl_summary_hour").options.length < 2) for (let h = 0; h < 24; h++) $("#dl_summary_hour").add(new Option(`A las ${h}:00`, h));
   $("#dl_summary_hour").value = st.summary_hour ?? 22;
@@ -1551,6 +1634,7 @@ $("#tgLogin").onclick = async () => {
 };
 $("#dlSave").onclick = async () => {
   const body = {movies_dir: $("#dl_movies_dir").value, series_dir: $("#dl_series_dir").value, tmp_dir: $("#dl_tmp_dir").value,
+    realitys_dir: $("#dl_realitys_dir").value, es_movies_dir: $("#dl_es_movies_dir").value, es_series_dir: $("#dl_es_series_dir").value,
     gap_minutes: +$("#dl_gap_minutes").value || 2, daily: +$("#dl_daily").value || 20, audio: $("#dl_audio").value.split(","),
     auto: $("#dl_auto").checked, enabled: $("#dl_enabled").checked, remind: $("#dl_remind").checked,
     summary_hour: +$("#dl_summary_hour").value};
@@ -1599,7 +1683,7 @@ async function loadDownloads(poll) {
   const waiting = rows.filter(x => ["cola", "no-esta", "error"].includes(x.state) && x.id !== st.current).length;
   const clear = waiting > 1 ? `<div class="row" style="margin-bottom:12px"><button class="btn sec" onclick="dlClear()">Vaciar la cola (${waiting})</button></div>` : "";
   $("#dscBox").classList.toggle("still", !!poll);  // al refrescar solo, sin volver a animar las tarjetas
-  $("#dscBox").innerHTML = head + clear + manual + (items || `<p class="empty">Nada en descargas. Agrega algo a tu lista o pulsa «Descargar» en Por conseguir.</p>`);
+  $("#dscBox").innerHTML = head + clear + manual + (items || `<p class="empty">Nada en descargas. Pulsa «Descargar» en cualquier ficha.</p>`);
   if (rows.some(x => !["listo", "error", "no-esta"].includes(x.state))) dlTimer = setTimeout(() => loadDownloads(true), 4000);
 }
 async function dlCancel(id) { try { await api("/api/downloads/cancel", {id}); } catch (e) { toast(e.message); } loadDownloads(); }
@@ -1611,6 +1695,11 @@ async function dlClear() {
 async function dlRetry(id) { try { await api("/api/downloads/retry", {id}); } catch (e) { toast(e.message); } loadDownloads(); }
 async function dlAdd(k) {
   const c = dscFind(k); if (!c) return;
+  if (FRIEND) {
+    if (asked.has(k)) return toast("Ya la pediste. Mírala en «Mis peticiones».");
+    try { await api("/api/pedir/ask", {item: c}); asked.add(k); markAsked(); toast(`Pedida: ${c.title}. Sale en «Mis peticiones».`); } catch (e) { toast(e.message); }
+    return;
+  }
   const body = {kind: c.kind, tmdb: c.tmdb, title: c.title, year: c.year};
   if (c.kind === "tv") {
     const seasons = await dlPickSeasons(c);
@@ -1618,6 +1707,216 @@ async function dlAdd(k) {
     body.seasons = seasons;
   }
   try { const r = await api("/api/downloads/add", body); toast(r.ok === false ? r.error : "En la cola de descargas"); } catch (e) { toast(e.message); }
+}
+// ---------- Peticiones de los amigos (página /pedir) ----------
+const REQ_STATE = {pendiente: ["revisar", "esperando tu respuesta"], aceptada: ["", "aceptada"], descargando: ["", "descargando"],
+  "ya-esta": ["ok", "ya está en la biblioteca"], rechazada: ["falla", "rechazada"]};
+let reqItems = [];
+async function loadRequests() {
+  let r;
+  try { r = await api("/api/requests"); } catch (e) { return dscError(e.message); }
+  if (r.ok === false) return dscError(r.error);
+  reqItems = r.items; reqBadge();
+  if (dsc.section !== "peticiones") return;
+  const link = `${location.protocol}//${location.hostname}${location.port ? ":" + location.port : ""}/pedir`;
+  const tip = `<div class="dl-tip">Tus amigos entran en <b>/pedir</b> (desde fuera, con tu dominio; aquí en casa: <a href="/pedir" target="_blank">${esc(link)}</a>) con su usuario y contraseña de Jellyfin.</div>`;
+  const items = reqItems.map(x => {
+    const k = x.kind + x.tmdb, [cls, label] = REQ_STATE[x.status] || ["", x.status];
+    const name = x.title + (x.year ? ` (${x.year})` : "");
+    const btn = x.status === "pendiente" ? `<button class="btn" onclick="reqDecide('${k}',true)">Aceptar</button> <button class="btn sec" onclick="reqDecide('${k}',false)">Rechazar</button>`
+      : x.status === "aceptada" ? `<button class="btn sec" onclick="reqDownload('${k}')">Descargar de Phono</button> <button class="btn sec" onclick="reqForget('${k}')">Quitar</button>`
+      : `<button class="btn sec" onclick="reqForget('${k}')">Quitar de la lista</button>`;
+    return `<div class="dl-i">${x.poster ? `<img src="${esc(x.poster)}" alt="">` : `<div class="noimg"></div>`}
+      <div class="dl-txt"><span class="pill ${cls}">${esc(label)}</span> <span class="muted">· ${x.kind === "tv" ? "Serie" : "Película"}</span>
+        <h3>${esc(name)}</h3><div class="muted">La pidió ${esc(x.who.join(", "))}</div></div>
+      <div class="dl-b">${btn}</div></div>`;
+  }).join("");
+  let av = {users: [], follows: []};
+  try { av = await api("/api/avisos"); } catch (e) {}
+  avisos = av;
+  const fol = av.follows.map(f => `<li><b>${esc(f.title || "Serie")}</b>: ${esc(f.who.map(w => w.name).join(", "))}
+    <button class="btn sec" style="min-height:30px;padding:0 10px;margin-left:6px" onclick="followPick(null, ${f.tmdb})">Cambiar</button></li>`).join("");
+  const box = `<div class="card" style="margin-bottom:14px"><h3 style="margin-top:0">${ico("bell")} Avisos</h3>
+    <p class="muted" style="margin-top:0">A cada uno le llega solo cuando ya está lo que pidió y cada capítulo nuevo de las series que sigue, aunque lo subas tú a mano. Para elegir quién sigue una serie, abre la ficha de la serie y pulsa «Avisar de capítulos a…».</p>
+    <button class="btn" onclick="noticeSend()">📣 Mandar un aviso</button>
+    ${fol ? `<p style="margin:14px 0 4px"><b>Series con aviso de capítulos</b></p><ul style="margin:0;padding-left:18px">${fol}</ul>` : ""}
+    ${av.users.length ? `<p class="muted" style="margin:12px 0 0">Con avisos en el móvil: ${esc(av.users.filter(u => u.push).map(u => u.name).join(", ") || "nadie todavía")}</p>` : ""}</div>`;
+  $("#dscBox").innerHTML = tip + box + (items || `<p class="empty">Nadie ha pedido nada todavía.</p>`);
+}
+const MINE_STATE = {pendiente: ["revisar", "pedida, esperando"], aceptada: ["", "aceptada, pronto llega"], descargando: ["", "descargando"],
+  "ya-esta": ["ok", "ya está en Jellyfin"], rechazada: ["falla", "no se pudo conseguir"]};
+async function loadMine() {
+  let r;
+  try { r = await api("/api/pedir/mine"); } catch (e) { return dscError(e.message); }
+  if (dsc.section !== "mias") return;
+  const items = r.items.map(x => {
+    const [cls, label] = MINE_STATE[x.status] || ["", x.status];
+    return `<div class="dl-i">${x.poster ? `<img src="${esc(x.poster)}" alt="">` : `<div class="noimg"></div>`}
+      <div class="dl-txt"><span class="pill ${cls}">${esc(label)}</span> <span class="muted">· ${x.kind === "tv" ? "Serie" : "Película"}</span>
+        <h3>${esc(x.title + (x.year ? ` (${x.year})` : ""))}</h3></div>
+      <div class="dl-b">${x.status === "pendiente" ? `<button class="btn sec" onclick="mineCancel('${x.kind}',${x.tmdb})">Quitar</button>` : ""}</div></div>`;
+  }).join("");
+  $("#dscBox").innerHTML = items || `<p class="empty">Todavía no has pedido nada. Pulsa «Pedir» en cualquier película o serie.</p>`;
+}
+async function mineCancel(kind, tmdb) {
+  try { await api("/api/pedir/cancel", {kind, tmdb}); } catch (e) { return toast(e.message); }
+  asked.delete(kind + tmdb);
+  loadMine();
+}
+// ---------- Avisos: la campanita de los amigos y lo que les mandas tú ----------
+let avisos = {users: [], follows: []};
+let bell = {items: [], unread: 0, following: new Set(), key: ""};
+function pushSupport() { return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window; }
+function isIOS() { return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1); }
+function b64key(t) { const b = atob((t + "=".repeat((4 - t.length % 4) % 4)).replace(/-/g, "+").replace(/_/g, "/")); return Uint8Array.from(b, c => c.charCodeAt(0)); }
+async function pushSub() { if (!pushSupport()) return null; try { return await (await navigator.serviceWorker.ready).pushManager.getSubscription(); } catch (e) { return null; } }
+async function loadBell() {
+  try {
+    const r = await api("/api/pedir/notices");
+    bell = {items: r.items, unread: r.unread, following: new Set(r.following), key: r.key};
+  } catch (e) { return; }
+  paintBell();
+  if (!$("#bellPop").hidden) renderBell();
+  const sub = "Notification" in window && Notification.permission === "granted" ? await pushSub() : null;
+  if (sub && !loadBell.sent) { loadBell.sent = true; api("/api/pedir/push", {sub: sub.toJSON()}).catch(() => {}); }  // por si se perdió
+}
+function paintBell() { $("#bellBtn").innerHTML = ico("bell") + (bell.unread ? '<span class="dot"></span>' : ""); $("#bellBtn").title = bell.unread ? `${bell.unread} avisos nuevos` : "Avisos"; }
+function ago(t) {
+  const m = Math.round((Date.now() / 1000 - t) / 60);
+  return m < 1 ? "ahora" : m < 60 ? `hace ${m} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : new Date(t * 1000).toLocaleDateString("es", {day: "numeric", month: "short"});
+}
+async function renderBell() {
+  const sub = await pushSub();
+  const on = sub && Notification.permission === "granted";
+  const phone = !pushSupport()
+    ? (isIOS() ? `Para que te lleguen al iPhone: toca <b>Compartir</b> y <b>«Añadir a pantalla de inicio»</b>, abre Videotecario desde ese icono y vuelve a esta campanita.`
+               : "Este navegador no puede mostrar notificaciones; los avisos te salen aquí.")
+    : on ? `✓ Te llegan a este dispositivo. <a href="#" onclick="pushDisable();return false">Quitar</a>`
+    : Notification.permission === "denied" ? "Bloqueaste las notificaciones de esta página: actívalas en los ajustes del navegador."
+    : `<button class="btn" onclick="pushEnable()">${ico("bell")} Avisarme en este dispositivo</button>`;
+  $("#bellPop").innerHTML = `<h3>Avisos</h3><div class="bellbox">${phone}</div>`
+    + (bell.items.length ? bell.items.map(n => `<div class="notice ${n.read ? "" : "new"}"><b>${esc(n.title)}</b>${n.body ? `<p>${esc(n.body)}</p>` : ""}<small>${ago(n.created)}</small></div>`).join("")
+       : `<p class="muted" style="margin:0">Aún no tienes avisos. Te llegará uno cuando esté lo que pidas.</p>`);
+}
+async function pushEnable() {
+  try {
+    if (await Notification.requestPermission() !== "granted") { renderBell(); return toast("Sin permiso no te podemos avisar en este dispositivo"); }
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: b64key(bell.key)});
+    await api("/api/pedir/push", {sub: sub.toJSON()});
+    toast("Listo: te avisaremos en este dispositivo");
+  } catch (e) { toast("No se pudo activar: " + e.message); }
+  renderBell();
+}
+async function pushDisable() {
+  const sub = await pushSub();
+  if (sub) { try { await api("/api/pedir/push/off", {endpoint: sub.endpoint}); await sub.unsubscribe(); } catch (e) {} }
+  renderBell();
+}
+function bellClose() { $("#bellPop").hidden = true; $("#bellBtn").setAttribute("aria-expanded", "false"); }
+if (FRIEND) {
+  $(".tools").insertAdjacentHTML("afterbegin", `<button id="bellBtn" class="tool" type="button" title="Avisos" aria-label="Avisos" aria-expanded="false"></button>`);
+  $("header").insertAdjacentHTML("beforeend", `<div id="bellPop" class="pop" hidden role="dialog" aria-label="Avisos"></div>`);
+  paintBell();
+  $("#bellBtn").onclick = async e => {
+    e.stopPropagation();
+    if (!$("#bellPop").hidden) return bellClose();
+    document.documentElement.style.setProperty("--head", document.querySelector("header").getBoundingClientRect().height + "px");
+    $("#bellPop").hidden = false; $("#bellBtn").setAttribute("aria-expanded", "true");
+    renderBell();
+    if (bell.unread) { try { await api("/api/pedir/notices/read", {}); } catch (x) {} bell.unread = 0; paintBell(); }
+  };
+  document.addEventListener("click", e => { if (!$("#bellPop").hidden && !e.target.closest("#bellPop,#bellBtn")) bellClose(); });
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+    navigator.serviceWorker.addEventListener("message", () => loadBell());  // tocaron una notificación con la página abierta
+  }
+  loadBell();
+  setInterval(() => { if (!document.hidden) loadBell(); }, 120000);
+}
+// en la ficha de una serie: el amigo la sigue él mismo; tú eliges a quién avisar
+function followBtn(c) {
+  if (c.kind !== "tv") return "";
+  if (FRIEND) {
+    const on = bell.following.has(c.tmdb);
+    return `<button class="havebtn ${on ? "yes" : ""}" onclick="followToggle(this, ${c.tmdb})">${ico(on ? "check" : "bell")}${on ? "Te avisaremos de cada capítulo" : "Avisarme de capítulos nuevos"}</button>`;
+  }
+  return `<button class="havebtn" onclick="followPick(this, ${c.tmdb})">${ico("bell")}Avisar de capítulos a…</button>`;
+}
+async function followToggle(b, tmdb) {
+  const c = dsc.open && dsc.open.tmdb === tmdb ? dsc.open : {tmdb};
+  const on = !bell.following.has(tmdb);
+  try { await api("/api/pedir/follow", {item: {tmdb, title: c.title, year: c.year, poster: c.poster}, on}); } catch (e) { return toast(e.message); }
+  on ? bell.following.add(tmdb) : bell.following.delete(tmdb);
+  b.outerHTML = followBtn({kind: "tv", tmdb});
+  toast(on ? "Te avisaremos cada vez que haya un capítulo nuevo" : "Ya no te avisaremos de esta serie");
+}
+async function followPick(b, tmdb) {
+  try { avisos = await api("/api/avisos"); } catch (e) { return toast(e.message); }
+  if (!avisos.users.length) return toast("Todavía no ha entrado nadie con su usuario de Jellyfin");
+  const f = avisos.follows.find(x => x.tmdb === tmdb);
+  const c = dsc.open && dsc.open.tmdb === tmdb ? dsc.open : (f || {tmdb});
+  const who = new Set(f ? f.who.map(w => w.id) : []);
+  const d = document.createElement("dialog");
+  d.className = "ask";
+  d.innerHTML = `<p style="margin-top:0"><b>${esc(c.title || "Esta serie")}</b>: ¿a quién avisamos de cada capítulo nuevo?</p>
+    <div style="display:grid;gap:6px">${avisos.users.map(u => `<label class="switch"><input type="checkbox" value="${esc(u.id)}" ${who.has(u.id) ? "checked" : ""}><span>${esc(u.name)}</span></label>`).join("")}</div>
+    <div class="row" style="justify-content:flex-end;gap:8px;margin-top:14px"><button class="btn sec" value="no">Cancelar</button><button class="btn" value="yes">Guardar</button></div>`;
+  d.querySelector('[value="no"]').onclick = () => d.close();
+  d.querySelector('[value="yes"]').onclick = async () => {
+    const users = [...d.querySelectorAll("input:checked")].map(x => x.value);
+    try { await api("/api/avisos/followers", {item: {tmdb, title: c.title, year: c.year, poster: c.poster}, users}); toast(users.length ? `Les avisaremos de cada capítulo (${users.length})` : "Ya no se avisa a nadie de esta serie"); }
+    catch (e) { toast(e.message); }
+    d.close();
+    if (dsc.section === "peticiones") loadRequests();
+  };
+  d.onclose = () => d.remove();
+  document.body.appendChild(d); d.showModal();
+}
+async function noticeSend() {
+  if (!avisos.users.length) return toast("Todavía no ha entrado nadie con su usuario de Jellyfin");
+  const d = document.createElement("dialog");
+  d.className = "ask";
+  d.innerHTML = `<p style="margin-top:0"><b>Mandar un aviso</b></p>
+    <textarea placeholder="Ej.: Ya subí el capítulo de hoy del reality 🎉"></textarea>
+    <p class="muted" style="margin:10px 0 6px">¿A quién?</p>
+    <div style="display:grid;gap:6px"><label class="switch"><input type="checkbox" value="all" checked><span><b>Todos</b></span></label>
+    ${avisos.users.map(u => `<label class="switch"><input type="checkbox" class="u" value="${esc(u.id)}"><span>${esc(u.name)}${u.push ? "" : ` <span class="muted">· solo en la campanita</span>`}</span></label>`).join("")}</div>
+    <div class="row" style="justify-content:flex-end;gap:8px;margin-top:14px"><button class="btn sec" value="no">Cancelar</button><button class="btn" value="yes">Mandar</button></div>`;
+  const all = d.querySelector('[value="all"]'), us = [...d.querySelectorAll("input.u")];
+  all.onchange = () => { if (all.checked) us.forEach(x => x.checked = false); };
+  us.forEach(x => x.onchange = () => { if (x.checked) all.checked = false; });
+  d.querySelector('[value="no"]').onclick = () => d.close();
+  d.querySelector('[value="yes"]').onclick = async () => {
+    const text = d.querySelector("textarea").value.trim();
+    if (!text) return toast("Escribe el aviso");
+    const users = all.checked ? "all" : us.filter(x => x.checked).map(x => x.value);
+    if (users !== "all" && !users.length) return toast("Elige a quién");
+    try { const r = await api("/api/avisos/send", {text, users}); if (r.ok === false) return toast(r.error); toast(`Mandado a ${r.people} ${r.people === 1 ? "persona" : "personas"}`); d.close(); }
+    catch (e) { toast(e.message); }
+  };
+  d.onclose = () => d.remove();
+  document.body.appendChild(d); d.showModal(); d.querySelector("textarea").focus();
+}
+function reqBadge() {
+  const n = reqItems.filter(x => x.status === "pendiente").length;
+  $("#reqN").textContent = n; $("#reqN").hidden = !n;
+}
+async function reqDecide(k, accept) {
+  const x = reqItems.find(i => i.kind + i.tmdb === k); if (!x) return;
+  try { await api("/api/requests/decide", {kind: x.kind, tmdb: x.tmdb, accept}); } catch (e) { return toast(e.message); }
+  if (accept) await reqDownload(k); else toast("Rechazada");
+  loadRequests();
+}
+async function reqDownload(k) {
+  const x = reqItems.find(i => i.kind + i.tmdb === k); if (!x) return;
+  dsc.open = {...x, genre_ids: []};  // para que dlAdd la encuentre
+  await dlAdd(k);
+}
+async function reqForget(k) {
+  const x = reqItems.find(i => i.kind + i.tmdb === k); if (!x) return;
+  try { await api("/api/requests/forget", {kind: x.kind, tmdb: x.tmdb}); } catch (e) { return toast(e.message); }
+  loadRequests();
 }
 // series: qué temporadas pedir (las que ya están en Descargas salen marcadas y sin poder tocarlas)
 async function dlPickSeasons(c) {
@@ -2154,20 +2453,24 @@ const DSC_HELP = {
   "novedades": "Lo que acaba de salir o sale pronto. Toca el póster para ver la ficha completa.",
   "clasicos": "Lo más visto esta semana y lo mejor valorado de siempre.",
   "para-ti": "Aprende de lo que calificas y de «Mis gustos». No salen las que ya tienes ni las que ya calificaste.",
-  "por-conseguir": "Lo que marcaste «No la tengo» o «Agregar a mi lista». Cuando la consigas, pulsa «La tengo».",
+  "por-conseguir": "Lo que agregaste a tu lista. Se pide a Phono desde Descargas.",
   "calificadas": "Todo lo que has calificado. Puedes cambiarlo cuando quieras.",
   "descargas": "Lo que se está pidiendo a Phono. Cuando salga «pulsa el anuncio en Telegram», abre el chat del bot y pulsa sus dos botones.",
+  "mias": "Lo que has pedido y cómo va. Cuando salga «ya está en Jellyfin», búscalo allí para verlo.",
+  "peticiones": "Lo que piden tu familia y amigos desde la página «Pedir». «Aceptar» lo pone en tu lista y en Descargas.",
   "gustos": "",
   "estrenos": "",
+  "plataformas": "",
   "buscar": ""};
 const DSC_TITLE = {portada: "Esta noche, ¿qué te apetece?", novedades: "Novedades", clasicos: "Populares y clásicos", "para-ti": "Para ti", "por-conseguir": "Por conseguir",
-  calificadas: "Mis calificaciones", descargas: "Descargas", gustos: "Mis gustos", estrenos: "Estrenos del año", buscar: "Resultados"};
+  calificadas: "Mis calificaciones", descargas: "Descargas", peticiones: "Peticiones", mias: "Mis peticiones", gustos: "Mis gustos", estrenos: "Calificar novedades", plataformas: "Plataformas", buscar: "Resultados"};
 const RATE = {2: "Me encanta", 1: "Me gusta", "-1": "No me gusta", 0: "No la he visto"};
 let dsc = {section: "portada", rows: {}, bb: 0, kind: "", page: 1, items: [], q: "", checked: false, open: null, more: new Set()};
 let taste = null, quiz = null, deck = {items: [], i: 0, count: 0, loading: false};
 document.querySelectorAll("#dscTabs button").forEach(b => b.onclick = () => { dsc.section = b.dataset.s; dsc.q = ""; $("#dscQ").value = ""; loadDiscover(); });
 document.querySelectorAll("#dscKind button").forEach(b => b.onclick = () => {
-  dsc.kind = b.dataset.k; document.querySelectorAll("#dscKind button").forEach(x => x.classList.toggle("on", x === b)); renderDiscover(); });
+  dsc.kind = b.dataset.k; document.querySelectorAll("#dscKind button").forEach(x => x.classList.toggle("on", x === b));
+  document.querySelectorAll("#dscMoods .kinds button").forEach(x => x.classList.toggle("on", x.dataset.k === dsc.kind)); renderDiscover(); });
 $("#dscQ").onkeydown = e => {
   if (e.key !== "Enter") return;
   const q = $("#dscQ").value.trim();
@@ -2193,19 +2496,26 @@ async function loadDiscover() {
     dsc.checked = true;
     try { const t = await api("/api/discover/taste"); if (t.ok) { taste = t; if (!t.profile.done) dsc.section = "gustos"; } } catch (e) {}
   }
-  document.querySelectorAll("#dscTabs button").forEach(x => x.classList.toggle("on", x.dataset.s === dsc.section));
-  const onb = document.querySelector(`#dscTabs button[data-s="${dsc.section}"]`);
+  // las secciones sin pestaña propia se ven dentro de otra
+  const tab = {estrenos: "novedades", calificadas: "gustos", "por-conseguir": FRIEND ? "mias" : "descargas"}[dsc.section] || dsc.section;
+  document.querySelectorAll("#dscTabs button").forEach(x => x.classList.toggle("on", x.dataset.s === tab));
+  const onb = document.querySelector(`#dscTabs button[data-s="${tab}"]`);
   if (onb) onb.scrollIntoView({block: "nearest", inline: "nearest"});
   $("#dscMoods").hidden = dsc.section !== "portada";
   $("#dscTitle").textContent = dsc.section === "buscar" ? `«${dsc.q}»` : DSC_TITLE[dsc.section];
   $("#dscTitle").hidden = false;
   $("#dscHelp").textContent = DSC_HELP[dsc.section];
   $("#dscHelp").hidden = !DSC_HELP[dsc.section];
-  $("#dscBar").hidden = ["gustos", "estrenos", "descargas"].includes(dsc.section);
+  if (dsc.section === "novedades") $("#dscHelp").insertAdjacentHTML("beforeend", ` <a href="#" onclick="dscGo('estrenos');return false">Calificar rápido, de una en una</a>`);
+  $("#dscBar").hidden = ["gustos", "estrenos", "plataformas", "descargas", "peticiones", "mias"].includes(dsc.section);
   $("#dscMore").hidden = true;
   if (dsc.section === "descargas") { $("#dscBox").innerHTML = loading("Cargando…"); return loadDownloads(); }
+  if (dsc.section === "peticiones") { $("#dscBox").innerHTML = loading("Cargando…"); return loadRequests(); }
+  if (dsc.section === "mias") { $("#dscBox").innerHTML = loading("Cargando…"); return loadMine(); }
+  if (!FRIEND) api("/api/requests").then(r => { if (r.ok) { reqItems = r.items; reqBadge(); } }).catch(() => {});  // el numerito de la pestaña
   if (dsc.section === "gustos") return loadTaste();
   if (dsc.section === "estrenos") return renderEst();
+  if (dsc.section === "plataformas") return renderPlat();
   dsc.wallShown = "";
   if (dsc.section === "portada") return loadPortada();
   $("#dscBox").innerHTML = loading("Cargando…");
@@ -2221,7 +2531,7 @@ async function loadDiscover() {
   } catch (e) { if (dsc.section === sec) dscError("No se pudo hablar con TheMovieDB: " + e.message); }
 }
 function renderDiscover() {
-  if (["gustos", "estrenos", "descargas"].includes(dsc.section)) return;
+  if (["gustos", "estrenos", "plataformas", "descargas", "peticiones", "mias"].includes(dsc.section)) return;
   if (dsc.section === "portada") return renderPortada();
   const items = dsc.items.filter(c => !dsc.kind || c.kind === dsc.kind);
   $("#dscMore").hidden = !["novedades", "clasicos"].includes(dsc.section);
@@ -2244,14 +2554,35 @@ function peekSync(first) {
 // Portada: el cartel con lo mejor para ti y una fila por sección, como en las apps de cine
 const SHELVES = [["para-ti", "Para ti"], ["novedades", "Novedades"], ["clasicos", "Populares y clásicos"], ["por-conseguir", "En tu lista"]];
 let bbTimer = null;
-// cada ánimo es un filtro sencillo por género o por tipo; pulsarlo otra vez lo quita
-const hasGenre = (c, ...gs) => (c.genres || []).some(g => gs.includes(g));
-const MOODS = {reir: c => hasGenre(c, "Comedia", "Animación", "Familia"), miedo: c => hasGenre(c, "Terror", "Suspense", "Misterio", "Crimen"),
-  pensar: c => hasGenre(c, "Ciencia ficción", "Documental", "Historia", "Sci-Fi & Fantasy"), llorar: c => hasGenre(c, "Drama", "Romance"),
-  peli: c => c.kind === "movie", serie: c => c.kind === "tv"};
-document.querySelectorAll("#dscMoods button").forEach(b => b.onclick = () => {
+// cada ánimo junta géneros de TMDB (los de películas y los de series, que se llaman distinto); cuenta solo el principal,
+// porque TheMovieDB pone «Comedia» a cualquier cosa con un chiste. Las filas del ánimo las pide el servidor (/api/discover/mood).
+const MOOD_G = {reir: ["Comedia"], accion: ["Acción", "Action & Adventure"], miedo: ["Terror"],
+  aventura: ["Aventura", "Action & Adventure"], futuro: ["Ciencia ficción", "Sci-Fi & Fantasy"], magia: ["Fantasía", "Sci-Fi & Fantasy"],
+  intriga: ["Misterio"], crimen: ["Crimen"], nervios: ["Suspense", "Misterio"], amor: ["Romance"], llorar: ["Drama", "Romance"],
+  pensar: ["Ciencia ficción", "Documental", "Historia", "Sci-Fi & Fantasy", "War & Politics"], dibujos: ["Animación"],
+  familia: ["Familia", "Kids"], historia: ["Historia"], guerra: ["Bélica", "War & Politics"], oeste: ["Western"], musica: ["Música"],
+  real: ["Documental"]};
+const MOODS = Object.fromEntries(Object.entries(MOOD_G).map(([m, gs]) => [m, c => (c.genres || []).slice(0, 2).some(g => gs.includes(g))]));
+const MOOD_SHELVES = [["m:para-ti", "Para ti"], ["m:novedades", "Novedades"], ["m:mejores", "Las mejores"], ["por-conseguir", "En tu lista"]];
+const shelfList = () => dsc.mood ? MOOD_SHELVES : SHELVES;
+async function loadMood() {
+  const key = dsc.moodKey = dsc.mood + "/" + dsc.kind;
+  for (const [s] of MOOD_SHELVES) if (s.startsWith("m:")) delete dsc.rows[s];
+  const r = await api(`/api/discover/mood?m=${dsc.mood}&kind=${dsc.kind}`);
+  if (dsc.moodKey !== key) return;
+  for (const [s] of MOOD_SHELVES) if (s.startsWith("m:")) dsc.rows[s] = r.ok ? r.rows[s.slice(2)] || [] : [];
+  if (dsc.section === "portada") renderPortada();
+}
+// película/serie va por encima: se combina con cualquier ánimo y comparte el filtro de tipo del resto de Descubrir
+document.querySelectorAll("#dscMoods .kinds button").forEach(b => b.onclick = () => {
+  dsc.kind = dsc.kind === b.dataset.k ? "" : b.dataset.k;
+  document.querySelectorAll("#dscKind button").forEach(x => x.classList.toggle("on", x.dataset.k === dsc.kind));
+  document.querySelectorAll("#dscMoods .kinds button").forEach(x => x.classList.toggle("on", x.dataset.k === dsc.kind));
+  dsc.bb = 0; dsc.shown = new Set(); renderPortada();
+});
+document.querySelectorAll("#dscMoods > button").forEach(b => b.onclick = () => {
   dsc.mood = dsc.mood === b.dataset.m ? "" : b.dataset.m;
-  document.querySelectorAll("#dscMoods button").forEach(x => x.classList.toggle("on", x.dataset.m === dsc.mood));
+  document.querySelectorAll("#dscMoods > button").forEach(x => x.classList.toggle("on", x.dataset.m === dsc.mood));
   dsc.bb = 0; dsc.shown = new Set(); renderPortada();
 });
 async function loadPortada() {
@@ -2271,26 +2602,28 @@ async function loadPortada() {
 function renderPortada() {
   // una sola ficha por título aunque salga en dos filas, para que calificarla se vea en todas
   const seen = new Map();
-  for (const [s] of SHELVES) dsc.rows[s] = (dsc.rows[s] || []).map(c => { const k = c.kind + c.tmdb; if (!seen.has(k)) seen.set(k, c); return seen.get(k); });
+  if (dsc.mood && dsc.moodKey !== dsc.mood + "/" + dsc.kind) loadMood();
+  for (const [s] of shelfList()) dsc.rows[s] = (dsc.rows[s] || []).map(c => { const k = c.kind + c.tmdb; if (!seen.has(k)) seen.set(k, c); return seen.get(k); });
   dsc.items = [...seen.values()];
   const mood = MOODS[dsc.mood];
   const pick = c => (!dsc.kind || c.kind === dsc.kind) && (!mood || mood(c));
-  const top = [...(dsc.rows["para-ti"] || []), ...(dsc.rows.novedades || [])].filter(c => pick(c) && c.backdrop && c.rating == null).slice(0, 5);
+  const [a, b] = shelfList();
+  const top = [...(dsc.rows[a[0]] || []), ...(dsc.rows[b[0]] || [])].filter(c => pick(c) && c.backdrop && c.rating == null).slice(0, 5);
   const pos = [...document.querySelectorAll("#dscBox .rail")].map(r => r.scrollLeft);  // al calificar no vuelve cada fila al principio
   const shelves = renderShelves(pick);
-  $("#dscBox").innerHTML = billboard(top) + (shelves || `<p class="empty">Nada con ese ánimo en lo que hay cargado. Prueba otro o quítalo.</p>`);
+  $("#dscBox").innerHTML = billboard(top) + (shelves || `<p class="empty">Nada con ese ánimo. Prueba otro o quítalo.</p>`);
   document.querySelectorAll("#dscBox .rail").forEach((r, i) => { if (pos[i]) r.scrollLeft = pos[i]; });
   peekSync(top[0] || dsc.items.find(pick));
 }
 function renderShelves(pick) {
-  return SHELVES.map(([s, name]) => {
+  return shelfList().map(([s, name]) => {
     const rows = dsc.rows[s];
     if (rows && !rows.filter(pick).length) return "";
     const fresh = rows && !(dsc.shown ||= new Set()).has(s);
     if (fresh) dsc.shown.add(s);
     const tiles = rows ? rows.filter(pick).map(c => tile(c, false)).join("")
                        : Array.from({length: 8}, () => `<div class="tile skel"><div class="tmedia"></div></div>`).join("");
-    return `<section class="shelf"><div class="shelfhead"><h3>${name}</h3><button class="all" onclick="dscGo('${s}')">Ver todo</button>
+    return `<section class="shelf"><div class="shelfhead"><h3>${name}</h3>${s.startsWith("m:") ? "" : `<button class="all" onclick="dscGo('${s === "por-conseguir" ? (FRIEND ? "mias" : "descargas") : s}')">Ver todo</button>`}
       <div class="arrows"><button onclick="railGo(this,-1)" aria-label="Anteriores">${ico("next")}</button><button onclick="railGo(this,1)" aria-label="Siguientes">${ico("next")}</button></div></div>
       <div class="rail ${fresh ? "fresh" : ""}">${tiles}</div></section>`;
   }).join("");
@@ -2314,7 +2647,7 @@ function billboard(list) {
       <h2 class="bbt">${esc(c.title)}</h2>
       <div class="meta">${meta}</div>
       ${c.overview ? `<p class="bbov">${esc(c.overview)}</p>` : ""}
-      <div class="bbacts"><button class="btn main" onclick="dscOpen('${k}')">${ico("play", "fill")}Ver la ficha</button>${rateButtons(c, k, false)}${c.have ? "" : `<button class="havebtn" onclick="dlAdd('${k}')">${ico("download")}Descargar</button>`}</div>
+      <div class="bbacts"><button class="btn main" onclick="dscOpen('${k}')">${ico("play", "fill")}Ver la ficha</button>${rateButtons(c, k, false)}${c.have ? "" : `<button class="havebtn" onclick="dlAdd('${k}')">${ico("download")}${FRIEND ? "Pedir" : "Descargar"}</button>`}</div>
     </div>
     <button class="bbpost" onclick="dscOpen('${k}')" aria-label="Ver la ficha de ${esc(c.title)}" style="border:0;padding:0;cursor:pointer">${c.poster ? `<img src="${esc(c.poster)}" alt="">` : ""}</button>
     ${list.length > 1 ? `<div class="bbdots">${list.map((x, i) => `<button class="${i === dsc.bb ? "on" : ""}" onclick="bbShow(${i})" aria-label="${esc(x.title)}"></button>`).join("")}</div>` : ""}
@@ -2333,10 +2666,7 @@ function rateButtons(c, k, labels = true) {
   const r = (v, icon, tip) => `<button title="${tip}" aria-label="${tip}" aria-pressed="${c.rating === v}" class="${c.rating === v ? "on" : ""} ${v < 0 ? "down" : ""}" onclick="dscRate('${k}',${v})">${ico(icon)}${labels ? `<span>${tip}</span>` : ""}</button>`;
   return `<div class="rate">${r(2, "heart", "Me encanta")}${r(1, "up", "Me gusta")}${r(-1, "down", "No me gusta")}</div>`;
 }
-function dlButton(k) { return `<button class="havebtn" onclick="dlAdd('${k}')">${ico("download")}Descargar de Phono</button>`; }
-function haveButton(c, k) {
-  return `<button class="havebtn ${c.have ? "yes" : ""}" onclick="dscHave('${k}')">${c.have ? ico("check") + "La tengo" : "No la tengo"}</button>`;
-}
+function dlButton(k) { return `<button class="havebtn" onclick="dlAdd('${k}')">${ico("download")}${DL}</button>`; }
 function kindLabel(c) { return c.kind === "tv" ? "Serie" : "Película"; }
 function poster(c, cls = "") { return c.poster ? `<img class="${cls}" loading="lazy" src="${esc(c.poster)}" alt="" draggable="false">` : `<div class="noimg ${cls}"></div>`; }
 function becauseText(c) {
@@ -2346,19 +2676,19 @@ function tile(c, quick) {
   const k = c.kind + c.tmdb, open = dsc.openTile === k;
   const img = c.poster ? `<img loading="lazy" src="${esc(c.poster)}" alt="" draggable="false">` : `<div class="noimg">${esc(c.title)}</div>`;
   const sub = [c.year, (c.genres || [])[0], c.kind === "tv" ? "Serie" : ""].filter(Boolean).join(" · ");
-  const acts = quick && !peekOn() ? `<div class="tquick">${rateButtons(c, k, false)}<button class="havebtn ${c.have ? "yes" : ""}" onclick="dscHave('${k}')" title="${c.have ? "La tengo" : "No la tengo"}" aria-label="${c.have ? "La tengo" : "No la tengo"}" aria-pressed="${!!c.have}">${ico(c.have ? "check" : "plus")}</button>${dsc.section === "por-conseguir" && !c.have ? `<button class="havebtn" onclick="dlAdd('${k}')" title="Descargar de Phono" aria-label="Descargar de Phono">${ico("download")}</button>` : ""}</div>` : "";
+  const acts = quick && !peekOn() ? `<div class="tquick">${rateButtons(c, k, false)}${c.have ? "" : `<button class="havebtn" onclick="dlAdd('${k}')" title="${DL}" aria-label="${DL}">${ico("download")}</button>`}</div>` : "";
   return `<article class="tile ${open ? "open" : ""} ${dsc.peek === k ? "cur" : ""}" data-k="${k}"><div class="tbox"><div class="tmedia"><button onclick="tileClick(this)" aria-label="${esc(c.title)}" aria-expanded="${open}">${img}</button>${c.have ? `<span class="own" title="La tengo">${ico("check")}</span>` : ""}${open ? tileActs(c, k) : ""}</div>${acts}</div>
     <h3 class="tt">${esc(c.title)}</h3><p class="ts">${esc(sub)}</p>${dsc.section === "para-ti" && c.because && c.because.length ? `<p class="tw">${esc(becauseText(c))}</p>` : ""}</article>`;
 }
 // los botones que salen encima del póster al pincharlo
 function tileActs(c, k) {
   return `<div class="tacts">${rateButtons(c, k, false)}
-    ${c.have ? "" : `<button onclick="dlAdd('${k}')">${ico("download")}Descargar de Phono</button>`}
+    ${c.have ? "" : `<button onclick="dlAdd('${k}')">${ico("download")}${DL}</button>`}
     ${c.trailer ? `<a class="tbtn" href="${esc(c.trailer)}" target="_blank" rel="noopener">${ico("play", "fill")}Ver el tráiler</a>` : ""}
     <button onclick="dscOpen('${k}')">${ico("more")}Ver la ficha</button></div>`;
 }
 const PEEK_MQ = matchMedia("(min-width:1100px) and (hover:hover) and (pointer:fine)");
-const PEEK_SECTIONS = ["portada", "novedades", "clasicos", "para-ti", "por-conseguir", "calificadas", "buscar"];
+const PEEK_SECTIONS = ["portada", "novedades", "clasicos", "para-ti", "por-conseguir", "calificadas", "buscar", "plataformas"];
 function peekOn() { return PEEK_MQ.matches && PEEK_SECTIONS.includes(dsc.section); }
 function tileClick(b) {
   const k = b.closest(".tile").dataset.k;
@@ -2497,7 +2827,7 @@ function renderDetail(partial) {
         <p class="ov">${esc(c.overview) || (partial ? "" : "<i>No hay resumen.</i>")}${c.overview_lang === "en" ? ` <span class="hint">(en inglés: no hay resumen en español)</span>` : ""}</p>
         ${facts.length ? `<dl class="facts">${facts.map(([a, b]) => `<dt>${a}</dt><dd>${esc(b)}</dd>`).join("")}</dl>` : ""}
         ${c.trailer ? `<a class="trailer" href="${esc(c.trailer)}" target="_blank" rel="noopener">${ico("play", "fill")}Ver el tráiler</a>` : ""}
-        <div class="dacts">${rateButtons(c, k)}${haveButton(c, k)}${c.have ? "" : dlButton(k)}</div>
+        <div class="dacts">${rateButtons(c, k)}${c.have ? "" : dlButton(k)}${followBtn(c)}</div>
       </div></div>
     ${cast ? `<div class="castwrap"><h3>Reparto</h3><div class="cast">${cast}</div></div>` : partial ? `<p class="empty">Cargando la ficha…</p>` : ""}`;
 }
@@ -2640,6 +2970,56 @@ document.addEventListener("keydown", e => {
   if (v !== undefined) estAnswer(v);
 });
 
+// ---------- Plataformas: lo que hay en cada una y lo que acaba de salir ----------
+let plat = {pid: "", kind: "movie", nw: true, page: 1, done: false, loading: false};
+function platOpen(pid) { plat.pid = pid; plat.page = 1; dsc.items = []; plat.done = false; platLoad(); }
+function platSet(o) { Object.assign(plat, o, {page: 1, done: false}); dsc.items = []; platLoad(); }
+async function platLoad() {
+  plat.loading = true; renderPlat();
+  const want = plat.pid + plat.kind + plat.nw;
+  try {
+    const r = await api(`/api/discover/platform?p=${plat.pid}&kind=${plat.kind}&new=${plat.nw ? 1 : 0}&page=${plat.page}`);
+    if (want !== plat.pid + plat.kind + plat.nw) return;
+    if (!r.ok) throw new Error(r.error);
+    const seen = new Set(dsc.items.map(c => c.kind + c.tmdb));
+    const fresh = r.items.filter(c => !seen.has(c.kind + c.tmdb));
+    dsc.items.push(...fresh);
+    if (!fresh.length) plat.done = true;
+  } catch (e) { toast(e.message); plat.done = true; }
+  plat.loading = false;
+  if (dsc.section === "plataformas") renderPlat();
+}
+function platBack() { plat.pid = ""; dsc.items = []; renderPlat(); }
+function platMore() { plat.page++; platLoad(); }
+function renderPlat() {
+  if (!plat.pid) {
+    const sm = plat.summary;
+    const list = sm || [["netflix", "Netflix"], ["prime", "Prime Video"], ["disney", "Disney+"], ["hbo", "HBO Max"], ["apple", "Apple TV"],
+      ["movistar", "Movistar Plus+"], ["skyshowtime", "SkyShowtime"], ["filmin", "Filmin"],
+      ["paramount", "Paramount+"], ["crunchyroll", "Crunchyroll"], ["rakuten", "Rakuten TV"], ["peacock", "Peacock"], ["hulu", "Hulu"], ["starz", "Starz"], ["vix", "ViX"]].map(([id, name]) => ({id, name}));
+    $("#dscBox").innerHTML = `<p class="muted esthelp">Elige una plataforma y mira lo que acaba de salir en ella en España, o lo más visto de todo su catálogo.</p>
+      <div class="plats">${list.map(p => `<button class="door p-${p.id}" onclick="platOpen('${p.id}')">
+        <span class="fan" aria-hidden="true">${(p.posters || []).length ? p.posters.map(u => `<span><img src="${esc(u)}" alt="" loading="lazy"></span>`).join("") : "<span></span>".repeat(5)}</span>
+        <span class="doortxt"><span class="doorn">${p.new !== undefined ? `${p.new.toLocaleString("es")} nuevas${p.region === "US" ? " · EE. UU." : ""}` : "Mirando…"}</span>
+          <b>${esc(p.name)}</b><span class="doorgo">${ico("play", "fill")}Ver lo nuevo</span></span></button>`).join("")}</div>`;
+    if (!sm && !plat.asked) {
+      plat.asked = true;
+      api("/api/discover/platforms").then(r => { if (r.ok) { plat.summary = r.platforms; if (dsc.section === "plataformas" && !plat.pid) renderPlat(); } }).catch(() => {});
+    }
+    return;
+  }
+  const name = (plat.summary || []).find(p => p.id === plat.pid)?.name || document.querySelector(`.door.p-${plat.pid} b`)?.textContent || "";
+  plat.name = name || plat.name;
+  const f = (on, label, js) => `<button class="${on ? "on" : ""}" onclick="${js}">${label}</button>`;
+  const items = dsc.items;
+  setTimeout(dscWallShown);
+  $("#dscBox").innerHTML = `<div class="plathead"><button class="btn sec" onclick="platBack()">← Plataformas</button><h3>${esc(plat.name)}</h3>
+      <div class="filters">${f(plat.kind === "movie", "Películas", "platSet({kind:'movie'})")}${f(plat.kind === "tv", "Series", "platSet({kind:'tv'})")}</div>
+      <div class="filters">${f(plat.nw, "Lo nuevo", "platSet({nw:true})")}${f(!plat.nw, "Lo más visto", "platSet({nw:false})")}</div></div>
+    ${items.length ? `<div class="wall">${items.map(c => tile(c, true)).join("")}</div>` : loading(plat.loading ? "Cargando…" : "No hay nada aquí.")}
+    ${items.length && !plat.done ? `<p style="text-align:center;margin-top:20px"><button class="btn sec" onclick="platMore()" ${plat.loading ? "disabled" : ""}>Ver más</button></p>` : ""}`;
+}
+
 // ---------- Mis gustos ----------
 async function loadTaste() {
   $("#dscBox").innerHTML = loading("Cargando…");
@@ -2734,8 +3114,8 @@ function renderTasteSummary() {
     <div class="mg-grid">
       <section class="mg-card mg-gen"><h3>Tus géneros</h3><p>Cuanto más grande, más te gusta. Pincha uno para cambiarlo.</p>
         <div class="mg-bubs">${gs.length ? gs.map(bub).join("") : `<span>Aún no sé qué géneros te van: pulsa «Cambiar respuestas».</span>`}</div></section>
-      <section class="mg-card mg-era"><h3>Tu época</h3>
-        ${dec.length ? `<div class="mg-cols">${dec.map((d, i) => `<div><span class="mg-col${d === dtop ? " top" : d.n / dmax < .25 ? " low" : ""}" style="height:${Math.max(6, Math.round(100 * d.n / dmax))}%;animation-delay:${i * .06}s" title="${d.n} que te gustan"></span><small>${esc(d.label)}</small></div>`).join("")}</div>`
+      <section class="mg-card mg-era"><h3>Lo que te ha gustado, por época</h3><p class="muted">Cuenta lo que te ha salido; no quiere decir que prefieras una época.</p>
+        ${dec.length ? `<div class="mg-cols">${dec.map((d, i) => `<div><span class="mg-col${d === dtop ? " top" : d.n / dmax < .25 ? " low" : ""}" style="height:${Math.max(6, Math.round(100 * d.n / dmax))}%;animation-delay:${i * .06}s" title="Te gustaron ${d.n} de ${d.of || d.n} que calificaste"></span><small>${esc(d.label)}</small></div>`).join("")}</div>`
           : `<p class="muted">Califica unas cuantas y aquí verás de qué años te gusta más.</p>`}
         ${kt ? `<div class="mg-kind"><div><span>Películas ${mv} %</span><span class="muted">Series ${100 - mv} %</span></div><div class="mg-meter"><span class="mg-seg" style="width:${mv}%"></span></div></div>` : ""}</section>
     </div>
@@ -2859,7 +3239,7 @@ function renderDeck(quiet) {
         <p class="ov">${esc(c.overview) || "<i>Sin resumen en español.</i>"}</p>
         <p style="margin:10px 0 0"><a href="#" onclick="dscOpen('${k}');return false">Ficha completa, reparto y tráiler</a></p>
         <div class="deckbtns">${b(-1, "down", "No me gusta", "nope")}${b(1, "up", "Me gusta", "like")}${b(2, "heart", "Me encanta", "love")}</div>
-        <div class="deckbtns two"><button class="btn sec" onclick="deckAnswer(0)">No la he visto</button>${haveButton(c, k).replace('class="havebtn', 'class="btn sec havebtn')}</div>
+        <div class="deckbtns two"><button class="btn sec" onclick="deckAnswer(0)">No la he visto</button>${c.have ? "" : dlButton(k).replace('class="havebtn', 'class="btn sec havebtn')}</div>
         <p class="kbd">Atajos de teclado: 1 me encanta · 2 me gusta · 3 no me gusta · 4 no la he visto</p>
         <p class="kbd touch">Arrastra la tarjeta a la derecha si te gusta y a la izquierda si no.</p>
       </div></div></div>`;

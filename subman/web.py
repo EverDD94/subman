@@ -21,7 +21,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, auth, autoid, bot, config, convert, diagnose, discover, downloads, duplicates, formats, gemini, identify, jellyfin, manager, notify, peek, phono, providers, series, tmdb, updater
+from . import __version__, auth, autoid, bot, config, convert, diagnose, discover, downloads, duplicates, friends, notices, formats, gemini, identify, jellyfin, manager, notify, peek, phono, providers, series, tmdb, updater
 from .library import Library
 
 log = logging.getLogger(__name__)
@@ -33,8 +33,11 @@ PUBLIC = {"/manifest.webmanifest": ("manifest.webmanifest", "application/manifes
           "/icon.svg": ("icon.svg", "image/svg+xml"),
           "/icon-192.png": ("icon-192.png", "image/png"),
           "/icon-512.png": ("icon-512.png", "image/png"),
-          "/apple-touch-icon.png": ("apple-touch-icon.png", "image/png")}
+          "/apple-touch-icon.png": ("apple-touch-icon.png", "image/png"),
+          "/sw.js": ("sw.js", "text/javascript; charset=utf-8")}  # las notificaciones al móvil
 MASK = "••••••••"
+# lo que un amigo (entrado con su usuario de Jellyfin) puede guardar en Descubrir, además de pedir
+FRIEND_POST = ("/api/discover/mark", "/api/discover/taste", "/api/discover/taste/reset")
 
 
 class LogBuffer(logging.Handler):
@@ -50,6 +53,7 @@ class LogBuffer(logging.Handler):
 class App:
     def __init__(self, config_path: str):
         self.config_path = config_path
+        self.who = threading.local()  # .friend = el amigo de Jellyfin que hace esta petición (None = tú)
         self.wake = threading.Event()
         self.lock = threading.Lock()
         self.state = {"running": False, "current": "", "done": 0, "total": 0,
@@ -1379,7 +1383,7 @@ class App:
             for k in ("enabled", "auto", "remind"):
                 if k in b:
                     d[k] = bool(b[k])
-            for k in ("movies_dir", "series_dir", "tmp_dir"):
+            for k in ("movies_dir", "series_dir", "tmp_dir", "realitys_dir", "es_movies_dir", "es_series_dir"):
                 if k in b:
                     d[k] = (b[k] or "").strip()
             for k, lo, hi in (("gap_minutes", 1, 1440), ("daily", 1, 200), ("min_free_gb", 0, 10000), ("summary_hour", -1, 23)):
@@ -1794,11 +1798,14 @@ class App:
             self.dl.update(current=None, what="", stop=None)
 
     # --- Descubrir -------------------------------------------------------------------
-    def _discover(self):
+    def _discover(self, mine: bool = False):
+        """Descubrir con tus gustos o, si la página la usa un amigo, con los suyos (``mine`` = siempre los tuyos)."""
         cfg = self.cfg()
         if not cfg.get("tmdb", {}).get("api_key"):
             raise ValueError("pon la clave de TheMovieDB en Ajustes")
-        return discover.Discover(self.library(cfg), cfg)
+        friend = None if mine else getattr(self.who, "friend", None)
+        lib = friends.FriendLib(self.config_path, cfg, friend["id"]) if friend else self.library(cfg)
+        return discover.Discover(lib, cfg)
 
     def discover_list(self, section: str, page: int) -> dict:
         try:
@@ -1818,6 +1825,9 @@ class App:
             self._discover().mark(b["item"], **kw)
         except ValueError as e:
             return {"ok": False, "error": str(e)}
+        friend = getattr(self.who, "friend", None)
+        if friend and b.get("have") == 0:  # «Agregar a mi lista» de un amigo = te lo pide
+            self.friends_ask(friend, {"item": b["item"]})
         return {"ok": True}
 
     def _dsc(self, fn) -> dict:
@@ -1829,6 +1839,63 @@ class App:
     def discover_taste(self) -> dict:
         return self._dsc(lambda d: {"profile": d.profile(), "genres": d.genre_list(), "stats": d.stats(),
                                      "learned": d.learned_summary()})
+
+    # --- Peticiones de los amigos (página /pedir) ------------------------------------------
+    def _friends(self) -> friends.Friends:
+        return friends.Friends(self._discover(mine=True))  # las peticiones viven en tu base
+
+    def friends_ask(self, user: dict, b: dict) -> dict:
+        f = self._friends()
+        new = f"{b['item']['kind']}{b['item']['tmdb']}" not in f.asked(user)
+        f.ask(user, b["item"])
+        if new:
+            it = b["item"]
+            what = "📺 Serie" if it["kind"] == "tv" else "🎬 Película"
+            year = f" ({it['year']})" if it.get("year") else ""
+            self._notify(self.cfg(), f"🙋 {user['name']} pide {what}: {it.get('title', '')}{year}\n\n"
+                                     "Míralo en Videotecario › Descubrir › Peticiones.")
+        return {"ok": True}
+
+    # --- Avisos para los amigos (campanita y notificaciones al móvil) -----------------------------
+    def _notices(self) -> notices.Notices:
+        return notices.Notices(self.library().db, Path(self.config_path).parent / "push-key.pem")
+
+    def notice_watch(self) -> None:
+        """Cada pocos minutos mira lo nuevo en Jellyfin (llegue por Phono o copiado a mano) y avisa a quien toque."""
+        time.sleep(60)
+        while True:
+            try:
+                n = self._notices().check_jellyfin(self.cfg())
+                if n:
+                    log.info("avisos: %d avisos de cosas nuevas en Jellyfin", n)
+            except Exception as e:
+                log.warning("avisos: no se pudo mirar lo nuevo en Jellyfin (%s)", e)
+            time.sleep(180)
+
+    def friend_notices(self, user: dict) -> dict:
+        n = self._notices()
+        return {"ok": True, "items": n.list(user["id"]), "unread": n.unread(user["id"]), "following": n.following(user["id"]),
+                "key": notices.public_key(n.key_path)}
+
+    def notices_admin(self) -> dict:
+        n = self._notices()
+        return {"ok": True, "users": n.users(), "follows": n.all_follows()}
+
+    def notices_send(self, b: dict) -> dict:
+        n = self._notices()
+        text = (b.get("text") or "").strip()
+        if not text:
+            return {"ok": False, "error": "escribe el aviso"}
+        users = [u["id"] for u in n.users()] if b.get("users") == "all" else list(b.get("users") or [])
+        if not users:
+            return {"ok": False, "error": "elige a quién mandarlo"}
+        title, _, body = text.partition("\n")
+        phones = n.send(users, "📣 " + title.strip(), body.strip())
+        return {"ok": True, "people": len(users), "phones": phones}
+
+    def friends_decide(self, b: dict) -> dict:
+        item = self._friends().decide(b["kind"], int(b["tmdb"]), bool(b.get("accept")))
+        return {"ok": bool(item), **({"item": item} if item else {"error": "ya no existe"})}
 
 
 def make_handler(app: App):
@@ -1854,9 +1921,15 @@ def make_handler(app: App):
         "/api/discover/taste": lambda q: app.discover_taste(),
         "/api/discover/people": lambda q: app._dsc(lambda d: {"people": d.people(q.get("q", [""])[0])}),
         "/api/discover/popular-people": lambda q: app._dsc(lambda d: {"people": d.popular_people(int(q.get("page", ["1"])[0]))}),
+        "/api/discover/mood": lambda q: app._dsc(lambda d: {"rows": d.mood(q.get("m", [""])[0], q.get("kind", [""])[0])}),
         "/api/discover/deck": lambda q: app._dsc(lambda d: {"items": d.deck()}),
         "/api/downloads": lambda q: app.downloads_state(),
+        "/api/discover/platforms": lambda q: app._dsc(lambda d: {"platforms": d.platforms_summary()}),
+        "/api/discover/platform": lambda q: app._dsc(lambda d: {"items": d.platform(q.get("p", [""])[0], q.get("kind", ["movie"])[0],
+                                                                                   q.get("new", ["1"])[0] == "1", int(q.get("page", ["1"])[0]))}),
         "/api/discover/releases/summary": lambda q: app._dsc(lambda d: {"summary": d.releases_summary()}),
+        "/api/avisos": lambda q: app.notices_admin(),
+        "/api/requests": lambda q: app._dsc(lambda d: {"items": friends.Friends(d).all()}),
         "/api/discover/releases": lambda q: app._dsc(lambda d: {"items": d.releases(q.get("kind", ["movie"])[0], int(q.get("page", ["1"])[0]))}),
     }
     routes_post = {
@@ -1898,6 +1971,10 @@ def make_handler(app: App):
         "/api/test-tmdb": lambda b: app.test_tmdb(b),
         "/api/test-gemini": lambda b: app.test_gemini(b),
         "/api/discover/mark": lambda b: app.discover_mark(b),
+        "/api/requests/decide": lambda b: app.friends_decide(b),
+        "/api/avisos/send": lambda b: app.notices_send(b),
+        "/api/avisos/followers": lambda b: (app._notices().set_followers(b["item"], list(b.get("users") or [])), {"ok": True})[1],
+        "/api/requests/forget": lambda b: app._dsc(lambda d: (friends.Friends(d).forget(b["kind"], int(b["tmdb"])), {})[1]),
         "/api/downloads/add": lambda b: app.downloads_add(b),
         "/api/downloads/cancel": lambda b: app.downloads_cancel(int(b["id"])),
         "/api/downloads/retry": lambda b: app.downloads_retry(int(b["id"])),
@@ -1910,6 +1987,22 @@ def make_handler(app: App):
         "/api/telegram/bot": lambda b: app.telegram_bot(b),
         "/api/discover/taste": lambda b: app._dsc(lambda d: {"profile": d.save_profile(b)}),
         "/api/discover/taste/reset": lambda b: app._dsc(lambda d: (d.reset_profile(), {})[1]),
+    }
+
+    # la página de los amigos: cada ruta recibe el usuario de Jellyfin que entró
+    friend_get = {
+        "/api/pedir/notices": lambda u, q: app.friend_notices(u),
+        "/api/pedir/browse": lambda u, q: app._dsc(lambda d: {"items": app._friends().browse(
+            u, q.get("section", ["novedades"])[0], int(q.get("page", ["1"])[0]), q.get("q", [""])[0].strip())}),
+        "/api/pedir/mine": lambda u, q: app._dsc(lambda d: {"items": app._friends().mine(u)}),
+    }
+    friend_post = {
+        "/api/pedir/notices/read": lambda u, b: (app._notices().read_all(u["id"]), {"ok": True})[1],
+        "/api/pedir/push": lambda u, b: (app._notices().subscribe(u["id"], b["sub"]), {"ok": True})[1],
+        "/api/pedir/push/off": lambda u, b: (app._notices().unsubscribe(u["id"], b.get("endpoint", "")), {"ok": True})[1],
+        "/api/pedir/follow": lambda u, b: (app._notices().follow(u["id"], b["item"], bool(b.get("on", True))), {"ok": True})[1],
+        "/api/pedir/ask": lambda u, b: app.friends_ask(u, b),
+        "/api/pedir/cancel": lambda u, b: app._dsc(lambda d: (app._friends().cancel(u, b["kind"], int(b["tmdb"])), {})[1]),
     }
 
     class Handler(BaseHTTPRequestHandler):
@@ -1936,7 +2029,45 @@ def make_handler(app: App):
 
         def _authed(self) -> bool:
             cfg = app.cfg()
-            return not auth.enabled(cfg) or auth.token_ok(cfg, auth.token_from(self.headers.get("Cookie")))
+            if not auth.enabled(cfg):  # sin contraseña puesta sólo se entra desde casa
+                return not friends.from_internet(self.headers)
+            return auth.token_ok(cfg, auth.token_from(self.headers.get("Cookie")))
+
+        def _addr(self) -> str:
+            return friends.client_ip(self.headers, self.client_address[0]) if friends.from_internet(self.headers) \
+                else self.client_address[0]
+
+        def _friend(self) -> dict | None:
+            return friends.user_from(app.cfg(), self.headers.get("Cookie"))
+
+        def _locked(self) -> None:
+            """Desde internet sin tu contraseña: a la página de pedir (o una explicación si es la API)."""
+            if urlparse(self.path).path.startswith("/api/"):
+                return self._send(401, b'{"ok": false, "error": "hay que entrar"}', "application/json")
+            if auth.enabled(app.cfg()):
+                return self._static("login.html", "text/html; charset=utf-8")
+            self._send(302, b"", "text/plain", {"Location": "/pedir"})
+
+        def _as_friend(self, user: dict, fn, arg) -> None:
+            """Una ruta de Descubrir hecha por un amigo: con sus gustos, no los tuyos."""
+            def run(a):
+                app.who.friend = user
+                try:
+                    return fn(a)
+                finally:
+                    app.who.friend = None
+            self._json(run, arg)
+
+        def _friend_page(self, user: dict) -> None:
+            """La página de siempre, sólo con Descubrir (y «Pedir» en vez de descargar)."""
+            try:
+                app._notices().touch(user)  # para que salga en tu lista de «a quién avisar»
+            except Exception as e:
+                log.warning("avisos: %s", e)
+            flag = json.dumps({"name": user["name"]}, ensure_ascii=False).replace("</", "<\\/")
+            html = (STATIC / "index.html").read_text(encoding="utf-8").replace(
+                "<body>", f"<body>\n<script>window.FRIEND = {flag};</script>", 1)
+            self._send(200, html.encode(), "text/html; charset=utf-8")
 
         def _static(self, name: str, ctype: str, cache: bool = False) -> None:
             self._send(200, (STATIC / name).read_bytes(), ctype, {"Cache-Control": "max-age=86400"} if cache else None)
@@ -1944,13 +2075,38 @@ def make_handler(app: App):
         def do_GET(self):
             u = urlparse(self.path)
             if u.path in PUBLIC:
-                return self._static(*PUBLIC[u.path], cache=True)
+                return self._static(*PUBLIC[u.path], cache=u.path != "/sw.js")
             if u.path == "/health":  # para el HEALTHCHECK de Docker (no dice nada de la biblioteca)
                 return self._send(200, b"ok", "text/plain")
-            if not self._authed():
-                if u.path.startswith("/api/"):
+            if u.path in ("/pedir", "/pedir/"):
+                return self._static("pedir.html", "text/html; charset=utf-8")
+            if u.path == "/api/pedir/me":
+                user = self._friend()
+                return self._send(200, json.dumps({"ok": bool(user), "user": user and user["name"]},
+                                                  ensure_ascii=False).encode(), "application/json")
+            if u.path in friend_get:
+                user = self._friend()
+                if not user:
                     return self._send(401, b'{"ok": false, "error": "hay que entrar"}', "application/json")
+                return self._json(lambda q: friend_get[u.path](user, q), parse_qs(u.query))
+            if u.path == "/entrar" and not self._authed():
                 return self._static("login.html", "text/html; charset=utf-8")
+            if not self._authed():
+                user = self._friend()
+                if user and u.path in ("/", "/index.html"):
+                    cfg = app.cfg()
+                    if auth.enabled(cfg) and friends.is_admin(cfg, user["id"]):  # eres tú: todo Videotecario
+                        return self._send(200, (STATIC / "index.html").read_bytes(), "text/html; charset=utf-8",
+                                          {"Set-Cookie": auth.cookie(auth.make_token(cfg))})
+                    return self._friend_page(user)
+                if user and u.path.startswith("/api/discover"):
+                    if u.path in routes_get:
+                        return self._as_friend(user, routes_get[u.path], parse_qs(u.query))
+                if friends.from_internet(self.headers) and u.path in ("/", "/index.html"):
+                    return self._send(302, b"", "text/plain", {"Location": "/pedir"})
+                return self._locked()
+            if u.path == "/entrar":
+                return self._send(302, b"", "text/plain", {"Location": "/"})
             if u.path in routes_get:
                 return self._json(routes_get[u.path], parse_qs(u.query))
             if u.path in ("/api/names/frame", "/api/series/frame"):
@@ -1982,8 +2138,20 @@ def make_handler(app: App):
                 return self._login(json.loads(raw or b"{}"))
             if u.path == "/api/logout":
                 return self._send(200, b'{"ok": true}', "application/json", {"Set-Cookie": auth.cookie("", 0)})
+            if u.path == "/api/pedir/login":
+                return self._friend_login(json.loads(raw or b"{}"))
+            if u.path == "/api/pedir/logout":
+                return self._send(200, b'{"ok": true}', "application/json", {"Set-Cookie": friends.cookie("", 0)})
+            if u.path in friend_post:
+                user = self._friend()
+                if not user:
+                    return self._send(401, b'{"ok": false, "error": "hay que entrar"}', "application/json")
+                return self._json(lambda b: friend_post[u.path](user, b), json.loads(raw or b"{}"))
             if not self._authed():
-                return self._send(401, b'{"ok": false, "error": "hay que entrar"}', "application/json")
+                user = self._friend()
+                if user and u.path in FRIEND_POST:
+                    return self._as_friend(user, routes_post[u.path], json.loads(raw or b"{}"))
+                return self._locked()
             if u.path not in routes_post:
                 return self._send(404, b"no encontrado", "text/plain")
             body = json.loads(raw or b"{}")
@@ -2002,19 +2170,59 @@ def make_handler(app: App):
             self._json(routes_post[u.path], body)
 
         def _login(self, b: dict) -> None:
-            cfg, addr = app.cfg(), self.client_address[0]
+            cfg, addr = app.cfg(), self._addr()
             if not auth.enabled(cfg):
+                if friends.from_internet(self.headers):
+                    return self._send(403, json.dumps({"ok": False, "error": "Desde internet sólo se entra con usuario y "
+                                                       "contraseña: ponlos en Ajustes desde casa."}, ensure_ascii=False).encode(),
+                                      "application/json")
                 return self._send(200, b'{"ok": true}', "application/json")
             if auth.blocked(addr):
                 return self._send(429, json.dumps({"ok": False, "error": "Demasiados intentos. Espera unos minutos."},
                                                   ensure_ascii=False).encode(), "application/json")
             token = auth.login(cfg, addr, b.get("user", ""), b.get("password", ""))
+            if not token and cfg.get("jellyfin", {}).get("url"):
+                # ¿la olvidaste? un administrador de Jellyfin también entra (y se pone otra en Ajustes)
+                try:
+                    jf = friends.jellyfin_login(cfg, (b.get("user") or "").strip(), b.get("password") or "")
+                except Exception as e:
+                    log.info("entrar: Jellyfin no respondió (%s)", e)
+                    jf = None
+                if jf and jf["admin"]:
+                    auth.note(addr, True)
+                    token = auth.make_token(cfg)
+                    log.info("entrada con el administrador de Jellyfin %s desde %s", jf["name"], addr)
             if not token:
                 log.warning("intento de entrar con usuario o contraseña incorrectos desde %s", addr)
                 return self._send(401, json.dumps({"ok": False, "error": "Usuario o contraseña incorrectos"},
                                                   ensure_ascii=False).encode(), "application/json")
             log.info("entrada a la página desde %s", addr)
             self._send(200, b'{"ok": true}', "application/json", {"Set-Cookie": auth.cookie(token)})
+
+        def _friend_login(self, b: dict) -> None:
+            """Los amigos entran con su usuario y contraseña de Jellyfin."""
+            cfg, addr = app.cfg(), self._addr()
+            if auth.blocked(addr):
+                return self._send(429, json.dumps({"ok": False, "error": "Demasiados intentos. Espera unos minutos."},
+                                                  ensure_ascii=False).encode(), "application/json")
+            try:
+                user = friends.jellyfin_login(cfg, (b.get("user") or "").strip(), b.get("password") or "")
+            except Exception as e:
+                log.warning("pedir: Jellyfin no respondió al entrar (%s)", e)
+                return self._send(502, json.dumps({"ok": False, "error": "No se pudo hablar con Jellyfin. Prueba en un rato."},
+                                                  ensure_ascii=False).encode(), "application/json")
+            auth.note(addr, bool(user))
+            if not user:
+                time.sleep(1)
+                log.warning("pedir: usuario o contraseña de Jellyfin incorrectos desde %s", addr)
+                return self._send(401, json.dumps({"ok": False, "error": "Usuario o contraseña incorrectos"},
+                                                  ensure_ascii=False).encode(), "application/json")
+            log.info("pedir: entró %s desde %s", user["name"], addr)
+            if user["admin"] and auth.enabled(cfg):  # tú: Videotecario completo
+                return self._send(200, json.dumps({"ok": True, "user": user["name"], "admin": True}, ensure_ascii=False).encode(),
+                                  "application/json", {"Set-Cookie": auth.cookie(auth.make_token(cfg))})
+            self._send(200, json.dumps({"ok": True, "user": user["name"]}, ensure_ascii=False).encode(), "application/json",
+                       {"Set-Cookie": friends.cookie(friends.make_token(cfg, user))})
 
     return Handler
 
@@ -2030,6 +2238,7 @@ def serve(config_path: str, port: int | None = None) -> None:
     app.update_finished()
     threading.Thread(target=app.updates, name="actualizaciones", daemon=True).start()
     threading.Thread(target=app.downloader, name="descargas", daemon=True).start()
+    threading.Thread(target=app.notice_watch, name="avisos", daemon=True).start()
     threading.Thread(target=bot.Bot(app).run, name="bot", daemon=True).start()
     httpd = ThreadingHTTPServer(("0.0.0.0", port), make_handler(app))
     log.info("Videotecario en http://<ip-del-nas>:%d%s", port,

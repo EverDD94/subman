@@ -7,7 +7,7 @@ name = "subman"
 version = "0.1.0"
 description = "Gestor de subtítulos con sincronización verificada contra el audio"
 requires-python = ">=3.11"
-dependencies = ["numpy>=1.24", "onnxruntime>=1.16", "requests>=2.28", "telethon>=1.36,<2", "cryptg>=0.4"]
+dependencies = ["numpy>=1.24", "onnxruntime>=1.16", "requests>=2.28", "telethon>=1.36,<2", "cryptg>=0.4", "cryptography>=41"]
 
 [project.scripts]
 subman = "subman.cli:main"

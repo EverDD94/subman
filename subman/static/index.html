@@ -1972,6 +1972,13 @@ async function loadTrash() {
 // ---------- Nombres ----------
 // Barra de «Identificar todo»: verde = hechas, amarillo = para revisar tú, rojo = sin nada que proponer,
 // azul claro = esperando a la IA, gris = aún sin mirar.
+// Barra simple para los pasos que sólo dicen «79 de 209» (mirar duraciones, buscar opciones...).
+function stepBar(msg) {
+  const m = /(\d+) de (\d+)/.exec(msg || "");
+  if (!m || !+m[2]) return "";
+  const p = Math.min(100, 100 * m[1] / m[2]);
+  return `<div class="bar"><i style="width:${p.toFixed(1)}%"></i></div><div class="muted" style="font-size:13px;margin-top:4px">${Math.round(p)} %</div>`;
+}
 function nmBar(c) {
   if (!c || !c.total) return "";
   const seg = (n, color, label) => n ? `<div title="${label}: ${n}" style="width:${100 * n / c.total}%;background:${color}"></div>` : "";
@@ -1996,7 +2003,7 @@ async function loadNames() {
   $("#nmStop").hidden = !nm.running;
   const res = nm.result;
   $("#nmState").innerHTML = !nm.jellyfin ? `<span class="pill revisar">falta Jellyfin</span> Pon la dirección y la API key de Jellyfin en Ajustes: se usa su buscador de películas.`
-    : nm.running ? `<b>${esc(nm.message || "revisando...")}</b>${nmBar(nm.counts)}`
+    : nm.running ? `<b>${esc(nm.message || "revisando...")}</b>${nmBar(nm.counts) || stepBar(nm.message)}`
     : !nm.tmdb ? `<span class="pill revisar">falta la clave</span> «Identificar todo» necesita la clave de TheMovieDB guardada en Ajustes (pega la clave y pulsa Probar o «Guardar ajustes»).`
     : nm.error ? `<span class="pill falla">error</span> ${esc(nm.error)}`
     : nm.auto && nm.auto.at === nm.at ? `<span class="pill ok">hecho</span> Aplicadas solas: <b>${nm.auto.applied}</b>${nm.auto.ai ? ` (${nm.auto.ai} con ayuda de la IA)` : ""}.${nm.auto.copies ? ` <b>${nm.auto.copies}</b> eran otra copia de una película que ya tenías: quedaron en la misma carpeta y las ves en «Duplicados».` : ""} Para revisar: <b>${nm.auto.left}</b>. Las aplicadas están abajo en «Cambios hechos».${nmBar(nm.counts)}`
@@ -2122,7 +2129,7 @@ async function loadSeries() {
   $("#srScan").disabled = sr.running || !sr.tmdb;
   const res = sr.result, n = res ? res.series.reduce((a, g) => a + g.episodes.length, 0) : 0;
   $("#srState").innerHTML = !sr.tmdb ? `<span class="pill revisar">falta la clave</span> Necesita la clave de TheMovieDB guardada en Ajustes.`
-    : sr.running ? `<b>${esc(sr.message || "revisando...")}</b>`
+    : sr.running ? `<b>${esc(sr.message || "revisando...")}</b>${stepBar(sr.message)}`
     : sr.error ? `<span class="pill falla">error</span> ${esc(sr.error)}`
     : res ? `<span class="muted">Revisado ${when(sr.at)}.</span> ${sr.auto && sr.auto.at === sr.at ? `<span class="pill ok">automático</span> Renombrados solos: <b>${sr.auto.applied}</b>. ` : ""}${n ? `Por renombrar: <b>${n}</b> capítulos de <b>${res.series.length}</b> series.` : "Todos los capítulos tienen ya su nombre."}`
     : `<span class="muted">Pulsa «Revisar series».</span>`;

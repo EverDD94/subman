@@ -61,7 +61,8 @@ reconoces la película sin dudas. Si no tienes idea, lista vacía.
 
 LISTEN = """Eres un experto en cine. No sé qué película es este archivo de video de mi biblioteca y
 las fotos de escenas no bastaron. Te paso fotos de los primeros minutos (suelen salir el título, los
-créditos o el logo del estudio) y un trozo de audio con diálogo. Fíjate en los nombres de los
+créditos o el logo del estudio), las últimas fotos son de los créditos del final (lee los nombres de
+actores y el título si sale) y un trozo de audio con diálogo. Fíjate en los nombres de los
 créditos, en lo que dicen y en las voces. Ayudas: el archivo se llama «{file}» (puede ser basura) y
 dura {minutes} min.{options}
 

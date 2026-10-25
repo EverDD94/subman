@@ -86,6 +86,16 @@ def sure_by_name(m, cands: list[dict], jf, minutes) -> tuple[dict | None, str]:
     return (near[0], "por el nombre") if len(near) == 1 else (None, "")
 
 
+_NOT_MOVIE = re.compile(r"movistar|concierto|concert|documental|ceremonia|grammy|en directo", re.I)
+
+
+def _not_a_movie(e: dict) -> bool:
+    """Conciertos, documentales de TV, peleas...: nada de TheMovieDB encaja y lo delata el nombre o la duración."""
+    text = " ".join(str(e.get(k) or "") for k in ("name", "folder", "inside"))
+    good = [o for o in e.get("options") or [] if o.get("duration_ok")]
+    return not good and (bool(_NOT_MOVIE.search(text)) or bool(e.get("minutes") and e["minutes"] < 60))
+
+
 def clear_winner(cands: list[dict]) -> dict | None:
     """Cuando no hay una sola «segura»: decide por puntos en vez de dejarla para revisar."""
     strong = [c for c in cands if c["strong"]]
@@ -448,7 +458,8 @@ def run(lib: Library, cfg: dict, review: dict, progress=lambda msg: None, stop=l
             return False
         key = f"{m.id}_{stamp}"
         if second:
-            imgs = [p.read_bytes() for p in peek.opening(m.path, frames_dir, e["minutes"], key)]
+            imgs = [p.read_bytes() for p in peek.opening(m.path, frames_dir, e["minutes"], key)] \
+                + [p.read_bytes() for p in peek.ending(m.path, frames_dir, e["minutes"], key)]
             mp3 = peek.clip(m.path, frames_dir, e["minutes"], key)
             sound = mp3.read_bytes() if mp3 else None
             seen = ask_ai(lambda _: ai.listen(imgs, sound, e["name"], e["minutes"], e.get("options") or []), None) \
@@ -470,10 +481,29 @@ def run(lib: Library, cfg: dict, review: dict, progress=lambda msg: None, stop=l
                 log.warning("TheMovieDB: no se pudo buscar «%s»: %s", title, ex)
         known = [int(o["tmdb"]) for o in e.get("options") or []]
         cands = candidates(db, m, e["minutes"], ids + [k for k in known if k not in ids], [t for t, _ in names]) if ids else []
-        first = [c for c in cands if int(c["tmdb"]) in ids[:1]]
-        if first and sure and first[0]["duration_ok"]:
-            do_apply(e, first[0], "ia")
-            return True
+        # Lo que dura claramente menos que el archivo (un corto de 26 min para un video de hora y media) no es.
+        mins = e["minutes"]
+        plausible = [i for i in ids if next((c for c in cands if int(c["tmdb"]) == i), {}).get("runtime") is None
+                     or not mins or next(c for c in cands if int(c["tmdb"]) == i)["runtime"] >= 0.6 * mins]
+        first = [c for c in cands if plausible and int(c["tmdb"]) == plausible[0]]
+        if first:
+            c = first[0]
+            year_ok = not m.year or (c["year"] and abs(c["year"] - m.year) <= 1)
+            # el archivo puede durar menos (sin créditos, copia de cine) pero no mucho más
+            fits = not c["runtime"] or not mins or 0.7 * c["runtime"] <= mins <= c["runtime"] + 12
+            if sure and c["duration_ok"]:
+                do_apply(e, c, "ia")
+                return True
+            if year_ok and fits and c["sim"] >= 0.75:  # la IA y el nombre del archivo dicen lo mismo
+                do_apply(e, c, "ia + nombre")
+                return True
+            if year_ok and c["duration_ok"] and (m.year or not m.title):  # la IA y la duración (y el año) coinciden
+                do_apply(e, c, "ia + duración")
+                return True
+            if e.get("ai_pick") == c["tmdb"] and year_ok and fits:  # la IA dijo lo mismo mirando y escuchando
+                do_apply(e, c, "ia (2 veces)")
+                return True
+            e["ai_pick"] = c["tmdb"]
         if first:
             e["options"] = first + [c for c in cands if c is not first[0]][:5]
             e["why"] = (f"la IA {'escuchó' if second else 'miró'} el video y cree que es «{first[0]['name']}», "
@@ -485,7 +515,7 @@ def run(lib: Library, cfg: dict, review: dict, progress=lambda msg: None, stop=l
         for second in (False, True):
             look_at, left[:] = list(left), []
             for n, e in enumerate(look_at):
-                if stop() or ai_state["off"] or not e.get("_m") or (second and e.get("ai_guess")):
+                if stop() or ai_state["off"] or not e.get("_m"):
                     left.append(e)
                 elif not look(e, n, len(look_at), second):
                     left.append(e)
@@ -497,7 +527,10 @@ def run(lib: Library, cfg: dict, review: dict, progress=lambda msg: None, stop=l
             continue
         tried_all = e.get("looked", 0) >= 2 and not e.get("ai_guess")
         e["unknown"] = bool(not e.get("inside") and not e.get("hashed") and tried_all)
-        for k in ("looked", "ai_guess", "hashed"):
+        if not e["unknown"] and _not_a_movie(e):
+            e["unknown"] = True
+            e["why"] = "no parece una película (concierto, documental, programa de TV...): TheMovieDB no la tiene"
+        for k in ("looked", "ai_guess", "hashed", "ai_pick"):
             e.pop(k, None)
         if e["unknown"]:
             e["why"] = "no se sabe qué película es: ni el nombre, ni la huella, ni la IA mirando y escuchando el video"

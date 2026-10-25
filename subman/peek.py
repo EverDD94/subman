@@ -67,6 +67,30 @@ def frame(path: str, out_dir: Path, minutes: float | None, key: str, n: int) -> 
     return jpg if jpg.stat().st_size else None
 
 
+def many(path: str, out_dir: Path, minutes: float | None, key: str, count: int = 12) -> list[Path]:
+    """Último intento: muchas fotos grandes repartidas por toda la película."""
+    if not minutes:
+        return []
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out = []
+    for n in range(count):
+        jpg = out_dir / f"{key}_m{n}.jpg"
+        if not jpg.exists():
+            tmp = jpg.with_suffix(f".{threading.get_ident()}.tmp.jpg")
+            try:
+                subprocess.run(["ffmpeg", "-nostdin", "-v", "error", "-y", "-ss", f"{minutes * 60 * (0.04 + 0.88 * n / (count - 1)):.0f}",
+                                "-i", str(path), "-frames:v", "1", "-vf", "scale=960:-2", "-q:v", "4", str(tmp)],
+                               check=True, capture_output=True, timeout=60)
+                os.replace(tmp, jpg)
+            except Exception as e:
+                log.warning("no se pudo sacar la foto grande %d de %s: %s", n, path, e)
+                tmp.unlink(missing_ok=True)
+                continue
+        if jpg.stat().st_size:
+            out.append(jpg)
+    return out
+
+
 def frames(path: str, out_dir: Path, minutes: float | None, key: str) -> list[Path]:
     """Todas las fotos del video. ``key`` identifica el archivo (id + fecha)."""
     return [p for p in (frame(path, out_dir, minutes, key, n) for n in range(len(FRAMES))) if p]

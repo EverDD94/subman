@@ -408,6 +408,36 @@ body:has(#descubrir.peekon:not([hidden])) > header{background:color-mix(in srgb,
   .doortop{font-size:15.5px}
 }
 
+/* Plataformas: una puerta por plataforma de streaming */
+.plats{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+.plats .door{min-height:300px;border-radius:30px;padding:26px}
+.plats .door b{font-size:clamp(32px,2.8vw,44px);letter-spacing:-.04em;white-space:nowrap}
+.plats .fan{width:84px;top:22px;right:60px}
+.plats .doortxt{z-index:4}
+.plats .doorn{text-shadow:0 2px 10px rgb(0 0 0/.5)}
+.plats .doorgo{height:46px;padding:0 20px;font-size:15px;white-space:nowrap}
+.door.p-netflix{background:radial-gradient(120% 90% at 85% 20%,#ff4d55 0%,#e50914 40%,#3d0003 100%)}
+.door.p-prime{background:radial-gradient(120% 90% at 85% 20%,#5fd4ff 0%,#00a8e1 40%,#04253f 100%)}
+.door.p-disney{background:radial-gradient(120% 90% at 85% 20%,#4f8bff 0%,#113ccf 40%,#040d3a 100%)}
+.door.p-hbo{background:radial-gradient(120% 90% at 85% 20%,#a07bff 0%,#5822e0 40%,#12063a 100%)}
+.door.p-apple{background:radial-gradient(120% 90% at 85% 20%,#6b6b72 0%,#2c2c30 45%,#000 100%)}
+.door.p-movistar{background:radial-gradient(120% 90% at 85% 20%,#4fd0ff 0%,#0b7fd1 40%,#06264a 100%)}
+.door.p-skyshowtime{background:radial-gradient(120% 90% at 85% 20%,#ff8fb8 0%,#c4246a 40%,#3a0420 100%)}
+.door.p-filmin{background:radial-gradient(120% 90% at 85% 20%,#ffd45c 0%,#f0a500 40%,#4a2a00 100%)}
+.plathead{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 18px}
+.plathead h3{font:800 clamp(30px,4vw,46px)/1 var(--display);letter-spacing:-.04em;margin:0 12px 0 0}
+@media (hover:hover) and (pointer:fine){
+  .plats:hover .door,.plats .door:hover{flex-grow:1}
+  .plats .door:hover{transform:translateY(-4px)}
+  .plats .door:hover .fan span:nth-child(1){transform:rotate(-18deg) translate(-95px,-4px)}
+  .plats .door:hover .fan span:nth-child(2){transform:rotate(-9deg) translate(-50px,-14px)}
+  .plats .door:hover .fan span:nth-child(3){transform:translateY(-18px)}
+  .plats .door:hover .fan span:nth-child(4){transform:rotate(9deg) translate(50px,-14px)}
+  .plats .door:hover .fan span:nth-child(5){transform:rotate(18deg) translate(95px,-4px)}
+}
+@media (max-width:900px){.plats .door{min-height:220px}.plats .fan{width:74px;right:40px}.plats .door b{font-size:34px}}
+@media (max-width:520px){.plats{grid-template-columns:1fr 1fr;gap:12px}.plats .door{min-height:200px;padding:18px;border-radius:24px}.plats .door b{font-size:26px}.plats .fan{width:56px;right:34px;top:16px}.plats .doorn{font-size:13px}.plats .doorgo{height:38px;padding:0 14px;font-size:13px}}
+
 /* ficha a pantalla completa */
 dialog.sheet{padding:0;max-width:1000px;width:min(1000px,96vw);overflow:auto;overscroll-behavior:contain}
 dialog.sheet .foot{display:none}
@@ -927,6 +957,7 @@ dialog.sheet .foot{display:none}
     <div class="dtabs filters" id="dscTabs">
       <button data-s="portada" class="on">Portada</button>
       <button data-s="novedades">Novedades</button>
+      <button data-s="plataformas">Plataformas</button>
       <button data-s="para-ti">Para ti</button>
       <button data-s="clasicos">Populares y clásicos</button>
       <button data-s="descargas">Descargas</button>
@@ -2417,9 +2448,10 @@ const DSC_HELP = {
   "peticiones": "Lo que piden tu familia y amigos desde la página «Pedir». «Aceptar» lo pone en tu lista y en Descargas.",
   "gustos": "",
   "estrenos": "",
+  "plataformas": "",
   "buscar": ""};
 const DSC_TITLE = {portada: "Esta noche, ¿qué te apetece?", novedades: "Novedades", clasicos: "Populares y clásicos", "para-ti": "Para ti", "por-conseguir": "Por conseguir",
-  calificadas: "Mis calificaciones", descargas: "Descargas", peticiones: "Peticiones", mias: "Mis peticiones", gustos: "Mis gustos", estrenos: "Calificar novedades", buscar: "Resultados"};
+  calificadas: "Mis calificaciones", descargas: "Descargas", peticiones: "Peticiones", mias: "Mis peticiones", gustos: "Mis gustos", estrenos: "Calificar novedades", plataformas: "Plataformas", buscar: "Resultados"};
 const RATE = {2: "Me encanta", 1: "Me gusta", "-1": "No me gusta", 0: "No la he visto"};
 let dsc = {section: "portada", rows: {}, bb: 0, kind: "", page: 1, items: [], q: "", checked: false, open: null, more: new Set()};
 let taste = null, quiz = null, deck = {items: [], i: 0, count: 0, loading: false};
@@ -2463,7 +2495,7 @@ async function loadDiscover() {
   $("#dscHelp").textContent = DSC_HELP[dsc.section];
   $("#dscHelp").hidden = !DSC_HELP[dsc.section];
   if (dsc.section === "novedades") $("#dscHelp").insertAdjacentHTML("beforeend", ` <a href="#" onclick="dscGo('estrenos');return false">Calificar rápido, de una en una</a>`);
-  $("#dscBar").hidden = ["gustos", "estrenos", "descargas", "peticiones", "mias"].includes(dsc.section);
+  $("#dscBar").hidden = ["gustos", "estrenos", "plataformas", "descargas", "peticiones", "mias"].includes(dsc.section);
   $("#dscMore").hidden = true;
   if (dsc.section === "descargas") { $("#dscBox").innerHTML = loading("Cargando…"); return loadDownloads(); }
   if (dsc.section === "peticiones") { $("#dscBox").innerHTML = loading("Cargando…"); return loadRequests(); }
@@ -2471,6 +2503,7 @@ async function loadDiscover() {
   if (!FRIEND) api("/api/requests").then(r => { if (r.ok) { reqItems = r.items; reqBadge(); } }).catch(() => {});  // el numerito de la pestaña
   if (dsc.section === "gustos") return loadTaste();
   if (dsc.section === "estrenos") return renderEst();
+  if (dsc.section === "plataformas") return renderPlat();
   dsc.wallShown = "";
   if (dsc.section === "portada") return loadPortada();
   $("#dscBox").innerHTML = loading("Cargando…");
@@ -2486,7 +2519,7 @@ async function loadDiscover() {
   } catch (e) { if (dsc.section === sec) dscError("No se pudo hablar con TheMovieDB: " + e.message); }
 }
 function renderDiscover() {
-  if (["gustos", "estrenos", "descargas", "peticiones", "mias"].includes(dsc.section)) return;
+  if (["gustos", "estrenos", "plataformas", "descargas", "peticiones", "mias"].includes(dsc.section)) return;
   if (dsc.section === "portada") return renderPortada();
   const items = dsc.items.filter(c => !dsc.kind || c.kind === dsc.kind);
   $("#dscMore").hidden = !["novedades", "clasicos"].includes(dsc.section);
@@ -2643,7 +2676,7 @@ function tileActs(c, k) {
     <button onclick="dscOpen('${k}')">${ico("more")}Ver la ficha</button></div>`;
 }
 const PEEK_MQ = matchMedia("(min-width:1100px) and (hover:hover) and (pointer:fine)");
-const PEEK_SECTIONS = ["portada", "novedades", "clasicos", "para-ti", "por-conseguir", "calificadas", "buscar"];
+const PEEK_SECTIONS = ["portada", "novedades", "clasicos", "para-ti", "por-conseguir", "calificadas", "buscar", "plataformas"];
 function peekOn() { return PEEK_MQ.matches && PEEK_SECTIONS.includes(dsc.section); }
 function tileClick(b) {
   const k = b.closest(".tile").dataset.k;
@@ -2924,6 +2957,55 @@ document.addEventListener("keydown", e => {
   const v = {"1": 2, "2": 1, "3": -1}[e.key];
   if (v !== undefined) estAnswer(v);
 });
+
+// ---------- Plataformas: lo que hay en cada una y lo que acaba de salir ----------
+let plat = {pid: "", kind: "movie", nw: true, page: 1, done: false, loading: false};
+function platOpen(pid) { plat.pid = pid; plat.page = 1; dsc.items = []; plat.done = false; platLoad(); }
+function platSet(o) { Object.assign(plat, o, {page: 1, done: false}); dsc.items = []; platLoad(); }
+async function platLoad() {
+  plat.loading = true; renderPlat();
+  const want = plat.pid + plat.kind + plat.nw;
+  try {
+    const r = await api(`/api/discover/platform?p=${plat.pid}&kind=${plat.kind}&new=${plat.nw ? 1 : 0}&page=${plat.page}`);
+    if (want !== plat.pid + plat.kind + plat.nw) return;
+    if (!r.ok) throw new Error(r.error);
+    const seen = new Set(dsc.items.map(c => c.kind + c.tmdb));
+    const fresh = r.items.filter(c => !seen.has(c.kind + c.tmdb));
+    dsc.items.push(...fresh);
+    if (!fresh.length) plat.done = true;
+  } catch (e) { toast(e.message); plat.done = true; }
+  plat.loading = false;
+  if (dsc.section === "plataformas") renderPlat();
+}
+function platBack() { plat.pid = ""; dsc.items = []; renderPlat(); }
+function platMore() { plat.page++; platLoad(); }
+function renderPlat() {
+  if (!plat.pid) {
+    const sm = plat.summary;
+    const list = sm || [["netflix", "Netflix"], ["prime", "Prime Video"], ["disney", "Disney+"], ["hbo", "HBO Max"], ["apple", "Apple TV"],
+      ["movistar", "Movistar Plus+"], ["skyshowtime", "SkyShowtime"], ["filmin", "Filmin"]].map(([id, name]) => ({id, name}));
+    $("#dscBox").innerHTML = `<p class="muted esthelp">Elige una plataforma y mira lo que acaba de salir en ella en España, o lo más visto de todo su catálogo.</p>
+      <div class="plats">${list.map(p => `<button class="door p-${p.id}" onclick="platOpen('${p.id}')">
+        <span class="fan" aria-hidden="true">${(p.posters || []).length ? p.posters.map(u => `<span><img src="${esc(u)}" alt="" loading="lazy"></span>`).join("") : "<span></span>".repeat(5)}</span>
+        <span class="doortxt"><span class="doorn">${p.new !== undefined ? `${p.new.toLocaleString("es")} nuevas` : "Mirando…"}</span>
+          <b>${esc(p.name)}</b><span class="doorgo">${ico("play", "fill")}Ver lo nuevo</span></span></button>`).join("")}</div>`;
+    if (!sm && !plat.asked) {
+      plat.asked = true;
+      api("/api/discover/platforms").then(r => { if (r.ok) { plat.summary = r.platforms; if (dsc.section === "plataformas" && !plat.pid) renderPlat(); } }).catch(() => {});
+    }
+    return;
+  }
+  const name = (plat.summary || []).find(p => p.id === plat.pid)?.name || document.querySelector(`.door.p-${plat.pid} b`)?.textContent || "";
+  plat.name = name || plat.name;
+  const f = (on, label, js) => `<button class="${on ? "on" : ""}" onclick="${js}">${label}</button>`;
+  const items = dsc.items;
+  setTimeout(dscWallShown);
+  $("#dscBox").innerHTML = `<div class="plathead"><button class="btn sec" onclick="platBack()">← Plataformas</button><h3>${esc(plat.name)}</h3>
+      <div class="filters">${f(plat.kind === "movie", "Películas", "platSet({kind:'movie'})")}${f(plat.kind === "tv", "Series", "platSet({kind:'tv'})")}</div>
+      <div class="filters">${f(plat.nw, "Lo nuevo", "platSet({nw:true})")}${f(!plat.nw, "Lo más visto", "platSet({nw:false})")}</div></div>
+    ${items.length ? `<div class="wall">${items.map(c => tile(c, true)).join("")}</div>` : loading(plat.loading ? "Cargando…" : "No hay nada aquí.")}
+    ${items.length && !plat.done ? `<p style="text-align:center;margin-top:20px"><button class="btn sec" onclick="platMore()" ${plat.loading ? "disabled" : ""}>Ver más</button></p>` : ""}`;
+}
 
 // ---------- Mis gustos ----------
 async function loadTaste() {

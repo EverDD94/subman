@@ -77,6 +77,11 @@ CREATE TABLE IF NOT EXISTS discarded (  -- películas que no se sabe qué son, m
     title TEXT,
     moved REAL
 );
+CREATE TABLE IF NOT EXISTS learned (  -- lo que identificaste tú a mano: nombre limpio del archivo -> película
+    key TEXT PRIMARY KEY,
+    tmdb TEXT NOT NULL,
+    at REAL
+);
 CREATE TABLE IF NOT EXISTS unknown (  -- «Identificar todo» lo probó todo y no sabe qué película es
     path TEXT PRIMARY KEY,
     minutes REAL,

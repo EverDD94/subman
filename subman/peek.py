@@ -96,16 +96,18 @@ def opening(path: str, out_dir: Path, minutes: float | None, key: str) -> list[P
     return out
 
 
-def clip(path: str, out_dir: Path, minutes: float | None, key: str) -> Path | None:
-    """Un minuto de audio (mp3 mono, pequeño) para que la IA escuche el diálogo."""
+def clip(path: str, out_dir: Path, minutes: float | None, key: str, at: float = CLIP_AT,
+         seconds: int = CLIP_SECONDS) -> Path | None:
+    """Un trozo de audio (mp3 mono, pequeño) para que la IA escuche el diálogo; at=0: el principio
+    (en las series, la canción de la cabecera)."""
     out_dir.mkdir(parents=True, exist_ok=True)
-    mp3 = out_dir / f"{key}_audio.mp3"
+    mp3 = out_dir / f"{key}_audio.mp3" if at == CLIP_AT else out_dir / f"{key}_audio{int(at * 100)}.mp3"
     if not mp3.exists():
         tmp = mp3.with_suffix(f".{threading.get_ident()}.tmp.mp3")
-        start = (minutes or 90) * 60 * CLIP_AT
+        start = (minutes or 90) * 60 * at
         try:
             subprocess.run(["ffmpeg", "-nostdin", "-v", "error", "-y", "-ss", f"{start:.0f}", "-i", str(path),
-                            "-t", str(CLIP_SECONDS), "-vn", "-map", "0:a:0", "-ac", "1", "-ar", "16000",
+                            "-t", str(seconds), "-vn", "-map", "0:a:0", "-ac", "1", "-ar", "16000",
                             "-b:a", "32k", str(tmp)], check=True, capture_output=True, timeout=120)
             os.replace(tmp, mp3)
         except Exception as e:

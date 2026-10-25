@@ -73,7 +73,8 @@ reconoces la película sin dudas. Si no tienes idea, lista vacía.
 
 SHOW = """Eres un experto en series de televisión. Tengo capítulos de una serie en mi biblioteca y no sé
 cuál de estas series de TheMovieDB es. Te paso fotos de los primeros minutos de un capítulo (suelen salir
-el título, el logo de la cadena o los créditos). Fíjate en los actores, el título en pantalla y la época.
+el título, el logo de la cadena o los créditos) y, si hay, el audio del principio (la canción de la cabecera
+y el diálogo delatan mucho la serie). Fíjate en los actores, el título en pantalla, la canción y la época.
 Ayudas: carpeta «{folder}», archivo «{file}» (puede ser basura), dura {minutes} min{inner}.
 Opciones:
 {options}
@@ -251,12 +252,12 @@ class Gemini:
                                      images, audio))
 
     def show(self, images: list[bytes], folder: str, file: str, minutes, inner: str | None,
-             options: list[dict]) -> tuple[str | None, bool]:
+             options: list[dict], audio: bytes | None = None) -> tuple[str | None, bool]:
         """Qué serie es entre las opciones, mirando el principio de un capítulo -> (tmdb o None, seguro)."""
         opts = "\n".join(f"- tmdb {o['tmdb']}: «{o['name']}» ({o['year'] or '?'}, {o.get('runtime') or '?'} min por "
                          f"capítulo, {len(o.get('seasons') or {})} temporadas)" for o in options)
         raw = self.ask(SHOW.format(folder=folder, file=file, minutes=minutes or "?", options=opts,
-                                   inner=f", título guardado en el video «{inner}»" if inner else ""), images)
+                                   inner=f", título guardado en el video «{inner}»" if inner else ""), images, audio)
         try:
             data = json.loads(raw)
         except ValueError:

@@ -1063,6 +1063,7 @@ class App:
         if self.state["running"] and self.state["current"] == m[0].label:
             raise ValueError(f"{entry['name']}: se está procesando ahora mismo; prueba en un momento")
         identify.apply(lib, cfg, m[0], title.strip(), int(year) if year else None, tmdb or None, imdb or None)
+        autoid.learn(lib, m[0], tmdb)
 
     def _jellyfin_refresh(self, cfg: dict) -> None:
         jf = cfg.get("jellyfin", {})

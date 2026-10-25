@@ -1009,7 +1009,7 @@ dialog.sheet .foot{display:none}
   </div>
   <div class="card" id="nmTodoCard" hidden><h2 id="nmTodoTitle"></h2>
     <p class="muted" style="margin-top:0">Elige la película correcta. Si no está, escribe otro nombre (puedes poner el año) y pulsa Buscar.</p>
-    <div id="nmTodo"></div></div>
+    <div id="nmWhy" style="margin-bottom:10px"></div><div id="nmTodo"></div></div>
   <div class="card" id="nmLooseCard" hidden><h2 id="nmLooseTitle"></h2>
     <p class="muted" style="margin-top:0">Jellyfin ya las reconoce bien, pero no tienen carpeta propia. Se ordenan con el nombre que les da Jellyfin.</p>
     <div class="row" style="margin-bottom:8px"><label class="switch"><input type="checkbox" id="nmAll" checked><span>Todas</span></label>
@@ -2006,7 +2006,7 @@ async function loadNames() {
   if (nm.running) $("#nmLooseCard").hidden = true;
   nmShown = nm.at;
   $("#nmHistCard").hidden = !nm.history.length;
-  const HOW = {auto: '<span class="pill ok">automático</span>', huella: '<span class="pill ok">huella</span>', ia: '<span class="pill revisar">IA</span>', manual: ""};
+  const HOW = {auto: '<span class="pill ok">automático</span>', "por puntos": '<span class="pill ok">por puntos</span>', aprendido: '<span class="pill ok">aprendido de ti</span>', huella: '<span class="pill ok">huella</span>', ia: '<span class="pill revisar">IA</span>', manual: ""};
   $("#nmHist").innerHTML = nm.history.map(h => `<tr><td>${esc(h.title)} ${HOW[h.how] || ""}<div class="muted" style="font-size:12px">${when(h.at)}</div></td>
     <td><div class="path">${esc(h.before)}</div><div class="path">→ ${esc(h.after)}</div></td>
     <td>${h.exists ? `<button class="btn sec" data-u="${h.id}">Deshacer</button>` : ""}</td></tr>`).join("");
@@ -2036,6 +2036,11 @@ function renderNames() {
   $("#nmUnknown").hidden = !unkN;
   $("#nmUnknown").innerHTML = `<b>${unkN}</b> no se sabe qué película son (se probó todo, también que la IA mire y escuche el video). Están en <a href="#" onclick="show('duplicados');setTimeout(()=>$('#unkCard').scrollIntoView({behavior:'smooth'}),400);return false">Duplicados › No se sabe qué es</a>, donde puedes eliminarlas.`;
   $("#nmTodoCard").hidden = !todo.length; $("#nmTodoTitle").textContent = `Por identificar: ${todo.length}`;
+  // Recuento de motivos: qué deja más películas sin identificar.
+  const whyN = {};
+  todo.forEach(e => { const k = String(e.why || "para revisar").split(/[;:(]/)[0].trim(); whyN[k] = (whyN[k] || 0) + 1; });
+  $("#nmWhy").innerHTML = Object.entries(whyN).sort((a, b) => b[1] - a[1])
+    .map(([k, n]) => `<span class="pill revisar" style="margin:0 6px 6px 0;display:inline-block"><b>${n}</b> ${esc(k)}</span>`).join("");
   $("#nmTodo").innerHTML = todo.map(e => `<div class="nm" id="nm${e.id}"><b>${esc(e.name)}</b> <span class="pill revisar">${esc(e.why)}</span>
       <div class="path">${esc(e.path)}</div>
       <div class="muted">Jellyfin dice: ${e.jellyfin ? `<b>${esc(e.jellyfin.name)}</b> ${e.jellyfin.year ? "(" + e.jellyfin.year + ")" : ""}` : "no la reconoce"}${e.minutes ? ` · tu archivo dura <b>${hms(e.minutes * 60).slice(0, -3)}</b>` : ""}${e.inside ? ` · dentro del video dice <b>${esc(e.inside)}</b>` : ""}</div>

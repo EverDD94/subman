@@ -56,15 +56,18 @@ class TMDb:
 
     def movie(self, movie_id: int) -> dict:
         if movie_id not in self._movies:
-            d = self._get(f"/movie/{movie_id}")
+            d = self._get(f"/movie/{movie_id}", append_to_response="alternative_titles")
             col = d.get("belongs_to_collection") or None
             self._movies[movie_id] = {
                 "tmdb": str(d["id"]), "imdb": d.get("imdb_id") or None, "name": d.get("title", ""),
                 "original": d.get("original_title", ""), "year": int(d["release_date"][:4]) if d.get("release_date") else None,
                 "runtime": d.get("runtime") or None, "image": IMG + d["poster_path"] if d.get("poster_path") else "",
                 "collection": {"id": col["id"], "name": col.get("name", "")} if col else None,
-                "overview": (d.get("overview") or "")[:300],
-                "genre_ids": [g["id"] for g in d.get("genres") or []], "lang": d.get("original_language") or ""}
+                "overview": (d.get("overview") or "")[:300], "votes": d.get("vote_count") or 0,
+                "genre_ids": [g["id"] for g in d.get("genres") or []], "lang": d.get("original_language") or "",
+                # otros nombres con los que se conoce (en España, en México...), para comparar con el archivo
+                "alt": list(dict.fromkeys(t["title"] for t in (d.get("alternative_titles") or {}).get("titles", [])
+                                          if t.get("title")))[:20]}
         return self._movies[movie_id]
 
     def collection(self, collection_id: int) -> list[int]:

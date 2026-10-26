@@ -91,6 +91,38 @@ def jellyfin_login(cfg: dict, user: str, password: str) -> dict | None:
             "admin": bool((data["User"].get("Policy") or {}).get("IsAdministrator"))}
 
 
+_TOKENS: dict[str, tuple[float, dict | None]] = {}
+
+
+def jellyfin_user(cfg: dict, token: str) -> dict | None:
+    """El usuario de Jellyfin dueño de ese token (la app de la tele, Everflix, manda el suyo).
+
+    Así la tele no necesita otra contraseña: quien ya entró en Jellyfin es quien pide. Se guarda
+    unos minutos para no preguntar a Jellyfin en cada búsqueda."""
+    token = (token or "").strip()
+    if not token or len(token) > 200:
+        return None
+    hit = _TOKENS.get(token)
+    if hit and hit[0] > time.time():
+        return hit[1]
+    jf = cfg.get("jellyfin", {})
+    if not jf.get("url"):
+        return None
+    try:
+        r = requests.get(jf["url"].rstrip("/") + "/Users/Me", timeout=10,
+                         headers={"X-Emby-Authorization": f'{CLIENT}, Token="{token}"'})
+        user = None
+        if r.ok:
+            data = r.json()
+            user = {"id": data["Id"], "name": data["Name"],
+                    "admin": bool((data.get("Policy") or {}).get("IsAdministrator"))}
+    except Exception as e:
+        log.warning("tele: Jellyfin no respondió al comprobar el usuario (%s)", e)
+        return None
+    _TOKENS[token] = (time.time() + 600, user)
+    return user
+
+
 def is_admin(cfg: dict, user_id: str) -> bool:
     """¿Ese usuario es administrador de Jellyfin? (para quien entró antes como amigo y es el dueño)"""
     jf = cfg.get("jellyfin", {})

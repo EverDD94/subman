@@ -24,22 +24,30 @@ data class DiscoverTitle(
 	val title: String,
 	val year: Int?,
 	val poster: String,
+	val overview: String,
 	val have: Boolean,
+	val asked: Boolean,
 )
 
 /**
- * Tiny client for Videotecario (subman), which runs on the same NAS as Jellyfin on port 8787.
- * Used to offer downloading what you search for and don't have yet.
+ * Tiny client for Videotecario (subman), which runs on the same NAS as Jellyfin.
+ * Titles you search for and don't have are sent as a request: nothing downloads until the owner
+ * approves it in Videotecario or Telegram. It signs in with the user's own Jellyfin token, so
+ * nobody needs another password and each person's requests carry their name.
  */
-class Videotecario(jellyfinUrl: String?) {
+class Videotecario(jellyfinUrl: String?, private val token: String?) {
+	// At home Jellyfin is plain http and Videotecario listens on 8787; from the internet both go
+	// through the NAS reverse proxy over https, where Videotecario is on 8921.
 	private val base: String? = jellyfinUrl?.let {
-		runCatching { URI(it).host }.getOrNull()?.let { host -> "http://$host:$PORT" }
+		val uri = runCatching { URI(it) }.getOrNull() ?: return@let null
+		val host = uri.host ?: return@let null
+		if (uri.scheme == "https") "https://$host:$PROXY_PORT" else "http://$host:$PORT"
 	}
 
 	suspend fun search(query: String): List<DiscoverTitle> = withContext(Dispatchers.IO) {
 		val base = base ?: return@withContext emptyList()
 		runCatching {
-			val url = URL("$base/api/discover/search?q=" + URLEncoder.encode(query, "UTF-8"))
+			val url = URL("$base/api/pedir/browse?q=" + URLEncoder.encode(query, "UTF-8"))
 			val body = request(url, null) ?: return@runCatching emptyList()
 			val root = Json.parseToJsonElement(body).jsonObject
 			root["items"]?.jsonArray.orEmpty().map { it.jsonObject }.mapNotNull { o ->
@@ -50,23 +58,29 @@ class Videotecario(jellyfinUrl: String?) {
 					title = o["title"]?.jsonPrimitive?.content.orEmpty(),
 					year = o["year"]?.jsonPrimitive?.intOrNull,
 					poster = o["poster"]?.jsonPrimitive?.content.orEmpty(),
+					overview = o["overview"]?.jsonPrimitive?.content.orEmpty(),
 					have = o["have"]?.jsonPrimitive?.booleanOrNull ?: false,
+					asked = o["asked"]?.let { it !is kotlinx.serialization.json.JsonNull } ?: false,
 				)
 			}
 		}.onFailure { Timber.w(it, "Videotecario search failed") }.getOrDefault(emptyList())
 	}
 
-	/** Returns null when it worked, or the message to show. */
-	suspend fun download(title: DiscoverTitle): String? = withContext(Dispatchers.IO) {
+	/** Sends the request for approval. Returns null when it worked, or the message to show. */
+	suspend fun ask(title: DiscoverTitle): String? = withContext(Dispatchers.IO) {
 		val base = base ?: return@withContext "No encuentro Videotecario"
 		runCatching {
 			val payload = buildJsonObject {
-				put("kind", title.kind)
-				put("tmdb", title.tmdb)
-				put("title", title.title)
-				title.year?.let { put("year", it) }
+				put("item", buildJsonObject {
+					put("kind", title.kind)
+					put("tmdb", title.tmdb)
+					put("title", title.title)
+					title.year?.let { put("year", it) }
+					put("poster", title.poster)
+					put("overview", title.overview)
+				})
 			}
-			val body = request(URL("$base/api/downloads/add"), payload) ?: return@runCatching "Videotecario no responde"
+			val body = request(URL("$base/api/pedir/ask"), payload) ?: return@runCatching "Videotecario no responde"
 			val root = Json.parseToJsonElement(body).jsonObject
 			if (root["ok"]?.jsonPrimitive?.booleanOrNull == true) null
 			else root["error"]?.jsonPrimitive?.content ?: "No se pudo pedir"
@@ -77,6 +91,7 @@ class Videotecario(jellyfinUrl: String?) {
 		val conn = url.openConnection() as HttpURLConnection
 		conn.connectTimeout = 4000
 		conn.readTimeout = 8000
+		token?.let { conn.setRequestProperty("X-Emby-Token", it) }
 		if (payload != null) {
 			conn.requestMethod = "POST"
 			conn.doOutput = true
@@ -92,5 +107,6 @@ class Videotecario(jellyfinUrl: String?) {
 
 	companion object {
 		const val PORT = 8787
+		const val PROXY_PORT = 8921
 	}
 }

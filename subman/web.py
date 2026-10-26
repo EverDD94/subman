@@ -2058,7 +2058,11 @@ def make_handler(app: App):
                 else self.client_address[0]
 
         def _friend(self) -> dict | None:
-            return friends.user_from(app.cfg(), self.headers.get("Cookie"))
+            cfg = app.cfg()
+            token = self.headers.get("X-Emby-Token")  # la app de la tele (Everflix) entra con su usuario de Jellyfin
+            if token:
+                return friends.jellyfin_user(cfg, token)
+            return friends.user_from(cfg, self.headers.get("Cookie"))
 
         def _locked(self) -> None:
             """Desde internet sin tu contraseña: a la página de pedir (o una explicación si es la API)."""

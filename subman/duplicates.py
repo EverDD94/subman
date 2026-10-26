@@ -273,6 +273,28 @@ def move(lib: Library, media: Media, dest_root: str, media_root: str, roots: lis
     return [str(d) for _, d in done]
 
 
+def empty_dirs(roots: list[str], keep: list[str] = ()) -> list[str]:
+    """Borra las carpetas que han quedado vacías del todo dentro de la biblioteca (sin archivos,
+    ni subtítulos, ni ocultos). Nunca las carpetas de la biblioteca ni las de ``keep``."""
+    protect = {os.path.realpath(p) for p in [*roots, *keep] if p}
+    removed = []
+    for root in roots:
+        if not os.path.isdir(root):
+            continue
+        for d, _, _ in os.walk(root, topdown=False):  # de dentro afuera: al vaciar una, su madre puede quedar vacía
+            if os.path.realpath(d) in protect or os.path.islink(d):
+                continue
+            try:
+                if not os.listdir(d):
+                    os.rmdir(d)
+                    removed.append(d)
+            except OSError as e:
+                log.warning("no se pudo borrar la carpeta vacía %s: %s", d, e)
+    for d in removed:
+        log.info("carpeta vacía borrada: %s", d)
+    return removed
+
+
 def moved_list(lib: Library, table: str = "moved") -> list[dict]:
     rows = lib.db.execute(f"SELECT * FROM {table} ORDER BY moved DESC").fetchall()
     return [{**dict(r), "exists": os.path.exists(r["dest"])} for r in rows]

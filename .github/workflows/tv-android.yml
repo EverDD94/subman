@@ -29,18 +29,18 @@ jobs:
       - name: Reunir APK
         run: |
           mkdir -p out
-          find app/build/outputs/apk -name "*.apk" -exec cp {} out/videotecario-tv.apk \;
+          find app/build/outputs/apk -name "*.apk" -exec cp {} out/everflix.apk \;
           ls -la out
       - uses: actions/upload-artifact@v4
         with:
-          name: videotecario-tv
-          path: tv-android/out/videotecario-tv.apk
+          name: everflix
+          path: tv-android/out/everflix.apk
       # En main se publica siempre en la misma dirección para instalarla con Downloader:
-      # https://github.com/everdd94/subman/releases/download/tv/videotecario-tv.apk
+      # https://github.com/everdd94/subman/releases/download/tv/everflix.apk
       - name: Publicar en la release "tv"
         if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view tv >/dev/null 2>&1 || gh release create tv --title "App de TV" --notes "APK para Google TV y Fire TV" --prerelease
-          gh release upload tv out/videotecario-tv.apk --clobber
+          gh release view tv >/dev/null 2>&1 || gh release create tv --title "App de TV" --notes "Everflix para Google TV y Fire TV" --prerelease
+          gh release upload tv out/everflix.apk --clobber

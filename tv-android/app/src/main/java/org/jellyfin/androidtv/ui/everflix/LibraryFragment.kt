@@ -177,7 +177,7 @@ private fun LibraryScreen(library: BaseItemDto?, allShows: Boolean) {
 
 /** Full-width image of the focused title, slowly cycling through its backdrops like a silent preview. */
 @Composable
-private fun PreviewBackdrop(api: ApiClient, item: BaseItemDto) {
+internal fun PreviewBackdrop(api: ApiClient, item: BaseItemDto) {
 	val count = item.backdropImageTags?.size ?: 0
 	var index by remember(item.id) { mutableIntStateOf(0) }
 	LaunchedEffect(item.id, count) {

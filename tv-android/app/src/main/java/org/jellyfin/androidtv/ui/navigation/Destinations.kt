@@ -90,7 +90,11 @@ object Destinations {
 		}
 
 	// Item details
-	fun itemDetails(item: UUID) = fragmentDestination<FullDetailsFragment> {
+	fun itemDetails(item: UUID) = fragmentDestination<org.jellyfin.androidtv.ui.everflix.DetailsFragment> {
+		putString("ItemId", item.toString())
+	}
+
+	fun legacyItemDetails(item: UUID) = fragmentDestination<FullDetailsFragment> {
 		putString("ItemId", item.toString())
 	}
 

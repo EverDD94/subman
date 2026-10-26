@@ -27,6 +27,7 @@ import kotlinx.coroutines.withTimeout
 import org.jellyfin.androidtv.auth.repository.UserRepository
 import org.jellyfin.androidtv.constant.CustomMessage
 import org.jellyfin.androidtv.constant.HomeSectionType
+import org.jellyfin.sdk.model.api.ItemSortBy
 import org.jellyfin.androidtv.constant.LiveTvOption
 import org.jellyfin.androidtv.constant.QueryType
 import org.jellyfin.androidtv.data.model.DataRefreshService
@@ -106,22 +107,15 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 			// Check for coroutine cancellation
 			if (!isActive) return@launch
 
-			// Actually add the sections
-			for (section in homesections) when (section) {
-				HomeSectionType.LATEST_MEDIA -> rows.add(helper.loadRecentlyAdded(userViewsRepository.views.first()))
-				HomeSectionType.LIBRARY_TILES_SMALL -> rows.add(HomeFragmentViewsRow(small = false))
-				HomeSectionType.LIBRARY_BUTTONS -> rows.add(HomeFragmentViewsRow(small = true))
-				HomeSectionType.RESUME -> rows.add(helper.loadResumeVideo())
-				HomeSectionType.RESUME_AUDIO -> rows.add(helper.loadResumeAudio())
-				HomeSectionType.RESUME_BOOK -> Unit // Books are not (yet) supported
-				HomeSectionType.ACTIVE_RECORDINGS -> rows.add(helper.loadLatestLiveTvRecordings())
-				HomeSectionType.NEXT_UP -> rows.add(helper.loadNextUp())
-				HomeSectionType.LIVE_TV -> if (currentUser.policy?.enableLiveTvAccess == true) {
-					rows.add(HomeFragmentLiveTVRow(requireActivity(), userRepository))
-					rows.add(helper.loadOnNow())
-				}
-
-				HomeSectionType.NONE -> Unit
+			// Everflix "Para ti": fixed rows mixing movies and series, libraries live in the side menu
+			rows.add(helper.loadResumeVideo())
+			rows.add(helper.loadNextUp())
+			rows.add(helper.loadForYou("Novedades", ItemSortBy.DATE_CREATED, unwatchedOnly = false))
+			rows.add(helper.loadForYou("Recomendado para ti", ItemSortBy.RANDOM, unwatchedOnly = true))
+			rows.add(helper.loadForYou("Lo más valorado que no has visto", ItemSortBy.COMMUNITY_RATING, unwatchedOnly = true))
+			if (currentUser.policy?.enableLiveTvAccess == true && HomeSectionType.LIVE_TV in homesections) {
+				rows.add(HomeFragmentLiveTVRow(requireActivity(), userRepository))
+				rows.add(helper.loadOnNow())
 			}
 
 			// Add sections to layout

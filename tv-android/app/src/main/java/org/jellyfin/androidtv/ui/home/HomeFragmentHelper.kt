@@ -9,7 +9,10 @@ import org.jellyfin.androidtv.preference.UserPreferences
 import org.jellyfin.androidtv.ui.browsing.BrowseRowDef
 import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.BaseItemKind
+import org.jellyfin.sdk.model.api.ItemSortBy
 import org.jellyfin.sdk.model.api.MediaType
+import org.jellyfin.sdk.model.api.SortOrder
+import org.jellyfin.sdk.model.api.request.GetItemsRequest
 import org.jellyfin.sdk.model.api.request.GetNextUpRequest
 import org.jellyfin.sdk.model.api.request.GetRecommendedProgramsRequest
 import org.jellyfin.sdk.model.api.request.GetRecordingsRequest
@@ -72,6 +75,23 @@ class HomeFragmentHelper(
 		return HomeFragmentBrowseRowDefRow(BrowseRowDef(context.getString(R.string.lbl_next_up), query, arrayOf(ChangeTriggerType.TvPlayback)))
 	}
 
+	/** Everflix "Para ti": movies and series mixed in one row, never split by library. */
+	fun loadForYou(title: String, sortBy: ItemSortBy, unwatchedOnly: Boolean): HomeFragmentRow {
+		val query = GetItemsRequest(
+			recursive = true,
+			includeItemTypes = setOf(BaseItemKind.SERIES, BaseItemKind.MOVIE),
+			isPlayed = if (unwatchedOnly) false else null,
+			sortBy = setOf(sortBy),
+			sortOrder = setOf(SortOrder.DESCENDING),
+			fields = ItemRepository.browseFields,
+			imageTypeLimit = 1,
+			limit = ITEM_LIMIT_FOR_YOU,
+			enableTotalRecordCount = false,
+		)
+
+		return HomeFragmentBrowseRowDefRow(BrowseRowDef(title, query, 0, false, true, arrayOf(ChangeTriggerType.LibraryUpdated)))
+	}
+
 	fun loadOnNow(): HomeFragmentRow {
 		val query = GetRecommendedProgramsRequest(
 			isAiring = true,
@@ -90,5 +110,6 @@ class HomeFragmentHelper(
 		private const val ITEM_LIMIT_RECORDINGS = 40
 		private const val ITEM_LIMIT_NEXT_UP = 50
 		private const val ITEM_LIMIT_ON_NOW = 20
+		private const val ITEM_LIMIT_FOR_YOU = 30
 	}
 }

@@ -1047,7 +1047,8 @@ dialog.sheet .foot{display:none}
     <div id="dupState"></div>
   </div>
   <div class="row" id="dupBar" hidden style="margin-bottom:12px"><span id="dupFilters" class="row"></span>
-    <button class="btn" id="dupClear" style="margin-left:auto">Apartar todas las claras</button></div>
+    <button class="btn sec" id="dupBest" style="margin-left:auto">Dejar sólo la mejor en todas</button>
+    <button class="btn" id="dupClear">Apartar todas las claras</button></div>
   <div id="dupGroups"></div>
   <div class="row" id="dupActions" hidden style="position:sticky;bottom:0;background:var(--bg);padding:12px 0">
     <button class="btn" id="dupMove">Apartar las marcadas</button><span class="muted" id="dupSel"></span></div>
@@ -2473,6 +2474,10 @@ $("#dupEmpty").onclick = async () => {
   toast(r.ok ? (r.removed ? `Borradas ${r.removed} carpetas vacías (lo tienes en el Registro)` : "No hay carpetas vacías") : r.error);
 };
 $("#dupScan").onclick = async () => { await api("/api/dupes/scan", {}); loadDupes(); };
+$("#dupBest").onclick = () => {  // también en las dudosas: todo lo que no es la mejor se aparta
+  (dup.groups || []).forEach(g => g.files.forEach(f => { f.move = !f.keep; }));
+  dupFilter = "todas"; renderDupes(); $("#dupMove").click();
+};
 $("#dupClear").onclick = () => {
   (dup.groups || []).forEach(g => g.files.forEach(f => { f.move = g.doubtful ? f.move : !f.keep && !f.odd; }));
   dupFilter = "claras"; renderDupes(); $("#dupMove").click();

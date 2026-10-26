@@ -49,6 +49,8 @@ enum class MainToolbarActiveButton {
 	User,
 	Home,
 	Search,
+	Series,
+	Movies,
 
 	None,
 }

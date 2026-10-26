@@ -31,6 +31,7 @@ import androidx.leanback.app.RowsSupportFragment
 import androidx.lifecycle.Lifecycle
 import org.jellyfin.androidtv.ui.search.composable.SearchTextInput
 import org.jellyfin.androidtv.ui.search.composable.SearchVoiceInput
+import org.jellyfin.androidtv.ui.everflix.DownloadSuggestions
 import org.jellyfin.androidtv.ui.shared.toolbar.MainRail
 import org.jellyfin.androidtv.ui.shared.toolbar.MainToolbarActiveButton
 import org.jellyfin.androidtv.util.speech.rememberSpeechRecognizerAvailability
@@ -110,6 +111,8 @@ class SearchFragment : Fragment() {
 						.focusRequester(textInputFocusRequester),
 				)
 			}
+
+			DownloadSuggestions(query.text)
 
 			// The leanback code has its own awful focus handling that doesn't work properly with Compose view inteop to workaround this
 			// issue we add custom behavior that only allows focus exit when the current selected row is the first one. Additionally when

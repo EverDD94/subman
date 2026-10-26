@@ -274,6 +274,7 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 		) {
 			if (item !is BaseRowItem) {
 				currentItem = null
+				HomeSelection.item.value = null
 				//fill in default background
 				backgroundService.clearBackgrounds()
 			} else {
@@ -284,6 +285,7 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 				itemRowAdapter?.loadMoreItemsIfNeeded(itemRowAdapter.indexOf(item))
 
 				backgroundService.setBackground(item.baseItem)
+				HomeSelection.item.value = item.baseItem
 			}
 		}
 	}

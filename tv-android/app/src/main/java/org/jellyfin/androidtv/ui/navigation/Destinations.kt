@@ -45,6 +45,11 @@ object Destinations {
 			putString(Extras.IncludeType, includeType)
 		}
 
+	// Everflix split library screen (Series / Películas)
+	fun everflixLibrary(item: BaseItemDto) = fragmentDestination<org.jellyfin.androidtv.ui.everflix.LibraryFragment> {
+		putString(Extras.Folder, Json.encodeToString(item))
+	}
+
 	// TODO only pass item id instead of complete JSON to browsing destinations
 	fun librarySmartScreen(item: BaseItemDto) = fragmentDestination<BrowseViewFragment> {
 		putString(Extras.Folder, Json.encodeToString(item))

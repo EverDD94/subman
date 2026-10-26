@@ -2470,15 +2470,24 @@ $("#dupClear").onclick = () => {
   (dup.groups || []).forEach(g => g.files.forEach(f => { f.move = g.doubtful ? f.move : !f.keep && !f.odd; }));
   dupFilter = "claras"; renderDupes(); $("#dupMove").click();
 };
+let dupArmed = null;
 $("#dupMove").onclick = async () => {
   const groups = dup.groups || [];
-  const all = groups.find(g => g.files.every(f => f.move));
-  if (all) return toast(`${all.title}: deja al menos una copia sin marcar`);
+  const all = groups.filter(g => g.files.every(f => f.move));
   const ids = groups.flatMap(g => g.files.filter(f => f.move).map(f => f.id));
-  if (!(await askOk(`Se moverán ${ids.length} copias a ${dup.dest}, con sus subtítulos. No se borra nada.`, "Apartar"))) return;
-  $("#dupMove").disabled = true;
+  const b = $("#dupMove");
+  if (all.length && !dupArmed) {  // sin ventanas: el primer toque avisa, el segundo aparta
+    b.textContent = "Pulsa otra vez: apartar también todas las copias";
+    toast(`${all.map(g => g.title).join(", ")}: no quedará ninguna copia en la biblioteca (se mueven a ${dup.dest}, no se borran)`);
+    dupArmed = setTimeout(() => { dupArmed = null; b.textContent = "Apartar las marcadas"; }, 6000);
+    return;
+  }
+  const sure = !!dupArmed;
+  clearTimeout(dupArmed); dupArmed = null; b.textContent = "Apartar las marcadas";
+  if (!sure && !(await askOk(`Se moverán ${ids.length} copias a ${dup.dest}, con sus subtítulos. No se borra nada.`, "Apartar"))) return;
+  b.disabled = true;
   try {
-    const r = await api("/api/dupes/move", {ids});
+    const r = await api("/api/dupes/move", {ids, all: sure});
     toast(r.ok ? `Apartadas ${r.moved}` : `Apartadas ${r.moved}. ${r.error}`);
   } catch (e) { toast("Error: " + e.message); }
   loadDupes();

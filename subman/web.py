@@ -884,7 +884,8 @@ class App:
         return {**self.dupes, "dest": cfg["duplicates_dir"], "moved": duplicates.moved_list(self.library(cfg)),
                 "jellyfin": bool(cfg.get("jellyfin", {}).get("url") and cfg.get("jellyfin", {}).get("api_key"))}
 
-    def dupes_move(self, ids: list[int]) -> dict:
+    def dupes_move(self, ids: list[int], everything: bool = False) -> dict:
+        """everything: también se pueden apartar todas las copias de una película (lo confirmó con un segundo toque)."""
         cfg = self.cfg()
         dest = cfg["duplicates_dir"]
         root = Path(MEDIA_ROOT).resolve()
@@ -900,7 +901,7 @@ class App:
             pick = [f for f in g["files"] if f["id"] in want]
             if not pick:
                 continue
-            if len(pick) >= len(g["files"]):
+            if len(pick) >= len(g["files"]) and not everything:
                 errors.append(f"{g['title']}: hay que dejar al menos una copia")
                 continue
             for f in pick:
@@ -1952,7 +1953,7 @@ def make_handler(app: App):
         "/api/convert/settings": lambda b: app.convert_settings(b),
         "/api/convert/retry": lambda b: app.convert_retry(),
         "/api/convert/restore": lambda b: app.convert_restore(int(b["id"])),
-        "/api/dupes/move": lambda b: app.dupes_move([int(x) for x in b["ids"]]),
+        "/api/dupes/move": lambda b: app.dupes_move([int(x) for x in b["ids"]], bool(b.get("all"))),
         "/api/dupes/restore": lambda b: app.dupes_restore(int(b["id"])),
         "/api/names/scan": lambda b: app.names_scan(),
         "/api/names/apply": lambda b: app.names_apply(b),

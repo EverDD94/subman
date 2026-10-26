@@ -5,7 +5,8 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.Image
+import android.widget.ImageView
+import org.jellyfin.androidtv.ui.composable.AsyncImage
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -171,10 +172,9 @@ private fun PreviewBackdrop(api: ApiClient, item: BaseItemDto) {
 
 	Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f)) {
 		Crossfade(targetState = url, label = "preview") { target ->
-			Image(
-				painter = rememberAsyncImagePainter(target),
-				contentDescription = null,
-				contentScale = ContentScale.Crop,
+			AsyncImage(
+				url = target,
+				scaleType = ImageView.ScaleType.CENTER_CROP,
 				modifier = Modifier.fillMaxSize().scale(zoom),
 			)
 		}
@@ -217,10 +217,9 @@ private fun LibraryCard(
 			.onFocusChanged { if (it.isFocused) onFocus() }
 			.clickable(interactionSource = interaction, indication = null, onClick = onClick),
 	) {
-		Image(
-			painter = rememberAsyncImagePainter(url),
-			contentDescription = item.name,
-			contentScale = ContentScale.Crop,
+		AsyncImage(
+			url = url,
+			scaleType = ImageView.ScaleType.CENTER_CROP,
 			modifier = Modifier.fillMaxSize(),
 		)
 		Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.5f to Color.Transparent, 1f to Color(0xCC000000))))

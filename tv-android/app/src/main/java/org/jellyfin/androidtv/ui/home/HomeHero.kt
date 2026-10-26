@@ -55,12 +55,12 @@ fun HomeHero(modifier: Modifier = Modifier) {
 			.height(260.dp)
 			.padding(start = 24.dp, top = 36.dp, end = 24.dp),
 	) { current ->
-		if (current != null) HeroContent(current)
+		if (current != null) HeroDetails(current)
 	}
 }
 
 @Composable
-private fun HeroContent(item: BaseItemDto) {
+fun HeroDetails(item: BaseItemDto, preview: Boolean = false) {
 	val isEpisode = item.type == BaseItemKind.EPISODE
 	val title = if (isEpisode) item.seriesName ?: item.name else item.name
 	val runTicks = item.runTimeTicks ?: 0L
@@ -87,6 +87,17 @@ private fun HeroContent(item: BaseItemDto) {
 		verticalArrangement = Arrangement.spacedBy(8.dp),
 		modifier = Modifier.fillMaxWidth(0.55f),
 	) {
+		if (preview) Text(
+			text = "● Avance",
+			color = Color.White,
+			fontSize = 12.sp,
+			fontWeight = FontWeight.W600,
+			modifier = Modifier
+				.clip(RoundedCornerShape(50))
+				.background(Color.Black.copy(alpha = 0.55f))
+				.padding(horizontal = 10.dp, vertical = 3.dp),
+		)
+
 		Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
 			if (badge != null) Text(
 				text = badge,

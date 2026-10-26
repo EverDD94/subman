@@ -45,6 +45,7 @@ import kotlinx.coroutines.flow.filterNotNull
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.auth.repository.SessionRepository
 import org.jellyfin.androidtv.auth.repository.UserRepository
+import org.jellyfin.androidtv.data.repository.UserViewsRepository
 import org.jellyfin.androidtv.ui.base.Icon
 import org.jellyfin.androidtv.ui.base.Text
 import org.jellyfin.androidtv.ui.navigation.ActivityDestinations
@@ -52,6 +53,7 @@ import org.jellyfin.androidtv.ui.navigation.Destinations
 import org.jellyfin.androidtv.ui.navigation.NavigationRepository
 import org.jellyfin.androidtv.ui.playback.MediaManager
 import org.jellyfin.androidtv.ui.settings.compat.SettingsViewModel
+import org.jellyfin.sdk.model.api.CollectionType
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinActivityViewModel
 
@@ -76,6 +78,8 @@ fun MainRail(
 	val settingsViewModel = koinActivityViewModel<SettingsViewModel>()
 	val activity = LocalActivity.current
 	val currentUser by remember { userRepository.currentUser.filterNotNull() }.collectAsState(null)
+	val userViewsRepository = koinInject<UserViewsRepository>()
+	val views by remember { userViewsRepository.views }.collectAsState(emptyList())
 
 	var open by remember { mutableStateOf(false) }
 	val width by animateDpAsState(if (open) RailOpen else RailClosed, label = "railWidth")
@@ -105,12 +109,15 @@ fun MainRail(
 			modifier = Modifier.padding(start = 12.dp, bottom = 18.dp),
 		)
 
+		val focusTarget = if (activeButton == MainToolbarActiveButton.None || activeButton == MainToolbarActiveButton.User) MainToolbarActiveButton.Home else activeButton
+		fun target(button: MainToolbarActiveButton) = if (button == focusTarget) Modifier.focusRequester(activeRequester) else Modifier
+
 		RailItem(
 			icon = R.drawable.ic_search,
 			label = stringResource(R.string.lbl_search),
 			open = open,
 			active = activeButton == MainToolbarActiveButton.Search,
-			modifier = if (activeButton == MainToolbarActiveButton.Search) Modifier.focusRequester(activeRequester) else Modifier,
+			modifier = target(MainToolbarActiveButton.Search),
 		) {
 			if (activeButton != MainToolbarActiveButton.Search) navigationRepository.navigate(Destinations.search())
 		}
@@ -119,9 +126,29 @@ fun MainRail(
 			label = stringResource(R.string.lbl_home),
 			open = open,
 			active = activeButton == MainToolbarActiveButton.Home,
-			modifier = if (activeButton != MainToolbarActiveButton.Search) Modifier.focusRequester(activeRequester) else Modifier,
+			modifier = target(MainToolbarActiveButton.Home),
 		) {
 			if (activeButton != MainToolbarActiveButton.Home) navigationRepository.navigate(Destinations.home, replace = true)
+		}
+		val showsView = views.firstOrNull { it.collectionType == CollectionType.TVSHOWS }
+		if (showsView != null) RailItem(
+			icon = R.drawable.ic_tv,
+			label = "Series",
+			open = open,
+			active = activeButton == MainToolbarActiveButton.Series,
+			modifier = target(MainToolbarActiveButton.Series),
+		) {
+			if (activeButton != MainToolbarActiveButton.Series) navigationRepository.navigate(Destinations.everflixLibrary(showsView))
+		}
+		val moviesView = views.firstOrNull { it.collectionType == CollectionType.MOVIES }
+		if (moviesView != null) RailItem(
+			icon = R.drawable.ic_movie,
+			label = "Películas",
+			open = open,
+			active = activeButton == MainToolbarActiveButton.Movies,
+			modifier = target(MainToolbarActiveButton.Movies),
+		) {
+			if (activeButton != MainToolbarActiveButton.Movies) navigationRepository.navigate(Destinations.everflixLibrary(moviesView))
 		}
 		RailItem(
 			icon = R.drawable.ic_settings,

@@ -5,6 +5,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.LaunchedEffect
@@ -49,6 +50,9 @@ class HomeFragment : Fragment() {
 		Row {
 			MainRail(MainToolbarActiveButton.Home)
 
+			Column {
+			HomeHero()
+
 			// The leanback code has its own awful focus handling that doesn't work properly with Compose view inteop to workaround this
 			// issue we add custom behavior that only allows focus exit when the current selected row is the first one. Additionally when
 			// we do switch the focus, we reset the leanback state so it won't cause weird behavior when focus is regained
@@ -77,6 +81,7 @@ class HomeFragment : Fragment() {
 					rowsSupportFragment = fragment
 				}
 			)
+			}
 		}
 	}
 

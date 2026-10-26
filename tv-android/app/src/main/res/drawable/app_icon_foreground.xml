@@ -4,39 +4,21 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path android:pathData="M47.45,59.31C46.59,57.58 52.24,47.33 54,47.33C55.76,47.33 61.4,57.6 60.55,59.31C59.7,61.02 48.31,61.04 47.45,59.31Z">
+    <!-- Everflix "E": a darker inner edge on the arms gives the folded-ribbon look -->
+    <path android:pathData="M40,30H72V40.5H40ZM40,48.75H67V59.25H40ZM40,67.5H72V78H40Z">
         <aapt:attr name="android:fillColor">
-            <gradient
-                android:endX="74"
-                android:endY="67"
-                android:startX="40.67"
-                android:startY="48.67"
-                android:type="linear">
-                <item
-                    android:color="#FFAA5CC3"
-                    android:offset="0" />
-                <item
-                    android:color="#FF00A4DC"
-                    android:offset="1" />
+            <gradient android:type="linear" android:startX="40" android:startY="0" android:endX="72" android:endY="0">
+                <item android:offset="0" android:color="#FF1E3699" />
+                <item android:offset="0.25" android:color="#FF4C70F0" />
+                <item android:offset="1" android:color="#FF5C7EFA" />
             </gradient>
         </aapt:attr>
     </path>
-    <path
-        android:fillType="evenOdd"
-        android:pathData="M34.27,68.11C31.67,62.89 48.71,32 54,32C59.3,32 76.31,62.95 73.74,68.11C71.17,73.27 36.87,73.33 34.27,68.11ZM41.08,63.58C42.78,67 65.25,66.96 66.94,63.58C68.62,60.2 57.47,39.92 54.01,39.92C50.54,39.92 39.37,60.16 41.08,63.58Z">
+    <path android:pathData="M36,30H48.5V78H36Z">
         <aapt:attr name="android:fillColor">
-            <gradient
-                android:endX="74"
-                android:endY="67"
-                android:startX="40.67"
-                android:startY="48.67"
-                android:type="linear">
-                <item
-                    android:color="#FFAA5CC3"
-                    android:offset="0" />
-                <item
-                    android:color="#FF00A4DC"
-                    android:offset="1" />
+            <gradient android:type="linear" android:startX="0" android:startY="30" android:endX="0" android:endY="78">
+                <item android:offset="0" android:color="#FF6E8FFF" />
+                <item android:offset="1" android:color="#FF2F52D6" />
             </gradient>
         </aapt:attr>
     </path>

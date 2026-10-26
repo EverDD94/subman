@@ -5,7 +5,8 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.Image
+import android.widget.ImageView
+import org.jellyfin.androidtv.ui.composable.AsyncImage
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -77,36 +78,49 @@ import timber.log.Timber
  * Everflix library screen (Series / Películas), split in two: the focused title fills the top
  * with its images cycling like a preview, and the whole library is one row underneath.
  */
+const val EXTRA_ALL = "everflix_all"
+const val ALL_SERIES = "series"
+const val ALL_MOVIES = "movies"
+
 class LibraryFragment : Fragment() {
 	override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?) = content {
 		val library = remember {
-			Json.decodeFromString(BaseItemDto.serializer(), requireArguments().getString(Extras.Folder)!!)
+			requireArguments().getString(Extras.Folder)?.let { Json.decodeFromString(BaseItemDto.serializer(), it) }
 		}
-		LibraryScreen(library)
+		val allShows = remember { requireArguments().getString(EXTRA_ALL) == ALL_SERIES }
+		LibraryScreen(library, allShows)
 	}
 }
 
 @Composable
-private fun LibraryScreen(library: BaseItemDto) {
+private fun LibraryScreen(library: BaseItemDto?, allShows: Boolean) {
 	val api = koinInject<ApiClient>()
 	val navigationRepository = koinInject<NavigationRepository>()
-	val isShows = library.collectionType == CollectionType.TVSHOWS
+	// Without a library this is the whole catalogue of one kind (the "Películas" and "Series" menu entries)
+	val kinds = when (library?.collectionType) {
+		null -> setOf(if (allShows) BaseItemKind.SERIES else BaseItemKind.MOVIE)
+		CollectionType.TVSHOWS -> setOf(BaseItemKind.SERIES)
+		CollectionType.MOVIES -> setOf(BaseItemKind.MOVIE)
+		CollectionType.BOXSETS -> setOf(BaseItemKind.BOX_SET)
+		else -> setOf(BaseItemKind.SERIES, BaseItemKind.MOVIE, BaseItemKind.VIDEO)
+	}
+	val title = library?.name ?: if (allShows) "Series" else "Películas"
 
 	var items by remember { mutableStateOf<List<BaseItemDto>>(emptyList()) }
 	var focused by remember { mutableIntStateOf(0) }
 	val firstCard = remember { FocusRequester() }
 
-	LaunchedEffect(library.id) {
+	LaunchedEffect(library?.id, allShows) {
 		items = withContext(Dispatchers.IO) {
 			runCatching {
 				api.itemsApi.getItems(
-					parentId = library.id,
+					parentId = library?.id,
 					recursive = true,
-					includeItemTypes = setOf(if (isShows) BaseItemKind.SERIES else BaseItemKind.MOVIE),
+					includeItemTypes = kinds,
 					sortBy = setOf(ItemSortBy.DATE_CREATED),
 					sortOrder = setOf(SortOrder.DESCENDING),
 					fields = ItemRepository.itemFields,
-					limit = 300,
+					limit = if (library == null) 600 else 300,
 				).content.items
 			}.onFailure { Timber.w(it, "Failed to load library") }.getOrDefault(emptyList())
 		}
@@ -119,7 +133,14 @@ private fun LibraryScreen(library: BaseItemDto) {
 		if (current != null) PreviewBackdrop(api, current)
 
 		Row(Modifier.fillMaxSize()) {
-			MainRail(if (isShows) MainToolbarActiveButton.Series else MainToolbarActiveButton.Movies)
+			MainRail(
+				when {
+					library != null -> MainToolbarActiveButton.None
+					allShows -> MainToolbarActiveButton.Series
+					else -> MainToolbarActiveButton.Movies
+				},
+				activeLibrary = library?.id,
+			)
 
 			Column(Modifier.fillMaxSize()) {
 				Box(Modifier.fillMaxWidth().height(330.dp).padding(start = 24.dp, top = 36.dp)) {
@@ -127,7 +148,7 @@ private fun LibraryScreen(library: BaseItemDto) {
 				}
 
 				Text(
-					text = "${library.name ?: ""} · ${items.size}".uppercase(),
+					text = "$title · ${items.size}".uppercase(),
 					color = Color.White.copy(alpha = 0.8f),
 					fontSize = 13.sp,
 					fontWeight = FontWeight.W800,
@@ -156,7 +177,7 @@ private fun LibraryScreen(library: BaseItemDto) {
 
 /** Full-width image of the focused title, slowly cycling through its backdrops like a silent preview. */
 @Composable
-private fun PreviewBackdrop(api: ApiClient, item: BaseItemDto) {
+internal fun PreviewBackdrop(api: ApiClient, item: BaseItemDto) {
 	val count = item.backdropImageTags?.size ?: 0
 	var index by remember(item.id) { mutableIntStateOf(0) }
 	LaunchedEffect(item.id, count) {
@@ -171,10 +192,9 @@ private fun PreviewBackdrop(api: ApiClient, item: BaseItemDto) {
 
 	Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f)) {
 		Crossfade(targetState = url, label = "preview") { target ->
-			Image(
-				painter = rememberAsyncImagePainter(target),
-				contentDescription = null,
-				contentScale = ContentScale.Crop,
+			AsyncImage(
+				url = target,
+				scaleType = ImageView.ScaleType.CENTER_CROP,
 				modifier = Modifier.fillMaxSize().scale(zoom),
 			)
 		}
@@ -217,10 +237,9 @@ private fun LibraryCard(
 			.onFocusChanged { if (it.isFocused) onFocus() }
 			.clickable(interactionSource = interaction, indication = null, onClick = onClick),
 	) {
-		Image(
-			painter = rememberAsyncImagePainter(url),
-			contentDescription = item.name,
-			contentScale = ContentScale.Crop,
+		AsyncImage(
+			url = url,
+			scaleType = ImageView.ScaleType.CENTER_CROP,
 			modifier = Modifier.fillMaxSize(),
 		)
 		Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.5f to Color.Transparent, 1f to Color(0xCC000000))))

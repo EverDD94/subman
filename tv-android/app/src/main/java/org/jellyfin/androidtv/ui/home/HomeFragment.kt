@@ -1,5 +1,6 @@
 package org.jellyfin.androidtv.ui.home
 
+import androidx.leanback.app.RowsSupportFragment
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -65,8 +66,10 @@ class HomeFragment : Fragment() {
 						onExit = {
 							val isFirstRowSelected = rowsSupportFragment?.selectedPosition?.let { it <= 0 } ?: false
 							// Everflix: the menu is on the left, so leaving to the left is always allowed
-							if (requestedFocusDirection == FocusDirection.Left) {
+							if (requestedFocusDirection == FocusDirection.Left && rowsSupportFragment?.isAtRowStart() != false) {
 								rowsSupportFragment?.verticalGridView?.clearFocus()
+							} else if (requestedFocusDirection == FocusDirection.Left) {
+								cancelFocusChange()
 							} else if (requestedFocusDirection != FocusDirection.Up || !isFirstRowSelected) {
 								cancelFocusChange()
 							} else {
@@ -99,4 +102,10 @@ class HomeFragment : Fragment() {
 			}
 			.launchIn(viewLifecycleOwner.lifecycleScope)
 	}
+}
+
+/** Everflix: the side menu may only be reached from the first card of a row. */
+private fun RowsSupportFragment.isAtRowStart(): Boolean {
+	val holder = getRowViewHolder(selectedPosition) as? androidx.leanback.widget.ListRowPresenter.ViewHolder ?: return true
+	return holder.gridView.selectedPosition <= 0
 }

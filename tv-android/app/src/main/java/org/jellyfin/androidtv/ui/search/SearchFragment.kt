@@ -126,8 +126,10 @@ class SearchFragment : Fragment() {
 					.focusProperties {
 						onExit = {
 							val isFirstRowSelected = rowsSupportFragment?.selectedPosition?.let { it <= 0 } ?: false
-							if (requestedFocusDirection == FocusDirection.Left) {
+							if (requestedFocusDirection == FocusDirection.Left && rowsSupportFragment?.isAtRowStart() != false) {
 								rowsSupportFragment?.verticalGridView?.clearFocus()
+							} else if (requestedFocusDirection == FocusDirection.Left) {
+								cancelFocusChange()
 							} else if (requestedFocusDirection != FocusDirection.Up || !isFirstRowSelected) {
 								cancelFocusChange()
 							} else {
@@ -149,4 +151,10 @@ class SearchFragment : Fragment() {
 			}
 		}
 	}
+}
+
+/** Everflix: the side menu may only be reached from the first card of a row. */
+private fun RowsSupportFragment.isAtRowStart(): Boolean {
+	val holder = getRowViewHolder(selectedPosition) as? androidx.leanback.widget.ListRowPresenter.ViewHolder ?: return true
+	return holder.gridView.selectedPosition <= 0
 }

@@ -195,6 +195,8 @@ dialog .x:active{transform:scale(.92)}
 .reason .n{font:800 28px/1.1 var(--display);font-variant-numeric:tabular-nums}
 .reason p{margin:3px 0}
 .dup td{vertical-align:middle}
+.dup summary{list-style:none}.dup summary::-webkit-details-marker{display:none}
+.dup:not([open]) table{display:none}
 .dup tr.keep{background:color-mix(in srgb,var(--ok) 8%,transparent)}
 .dup tr.go{background:color-mix(in srgb,var(--bad) 8%,transparent)}
 .opts{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
@@ -1042,6 +1044,8 @@ dialog.sheet .foot{display:none}
     <p class="muted" id="dupIntro"></p>
     <div id="dupState"></div>
   </div>
+  <div class="row" id="dupBar" hidden style="margin-bottom:12px"><span id="dupFilters" class="row"></span>
+    <button class="btn" id="dupClear" style="margin-left:auto">Apartar todas las claras</button></div>
   <div id="dupGroups"></div>
   <div class="row" id="dupActions" hidden style="position:sticky;bottom:0;background:var(--bg);padding:12px 0">
     <button class="btn" id="dupMove">Apartar las marcadas</button><span class="muted" id="dupSel"></span></div>
@@ -2420,17 +2424,31 @@ $("#unkEmpty").onclick = async () => {
   const r = await api("/api/unknown/empty", {});
   toast(r.ok ? `Borradas ${r.done}, liberados ${size(r.freed)}` : r.error); loadUnknown();
 };
+let dupFilter = "todas";
 function renderDupes() {
   const groups = (dup && dup.groups) || [];
-  $("#dupGroups").innerHTML = groups.map((g, gi) => `<div class="card dup"><div class="row"><h2 style="margin:0">${esc(g.title)}${g.year ? " (" + g.year + ")" : ""}</h2>
-      <span class="pill">${g.files.length} copias</span>${g.doubtful ? `<span class="pill revisar">dudoso: la duración no coincide</span>` : ""}
-      <span class="muted" style="font-size:13px">${g.how === "nombre" ? "por el nombre" : "según Jellyfin"}</span></div>
+  const nDoubt = groups.filter(g => g.doubtful).length;
+  $("#dupBar").hidden = !groups.length;
+  $("#dupFilters").innerHTML = [["todas", `Todas (${groups.length})`], ["claras", `Claras (${groups.length - nDoubt})`], ["dudosas", `Dudosas (${nDoubt})`]]
+    .map(([k, t]) => `<button class="btn ${dupFilter === k ? "" : "sec"}" data-df="${k}">${t}</button>`).join("");
+  document.querySelectorAll("[data-df]").forEach(b => b.onclick = () => { dupFilter = b.dataset.df; renderDupes(); });
+  const shown = groups.map((g, gi) => [g, gi]).filter(([g]) => dupFilter === "todas" || (dupFilter === "dudosas") === g.doubtful);
+  $("#dupGroups").innerHTML = shown.map(([g, gi]) => {
+    const keep = g.files.find(f => f.keep);
+    return `<details class="card dup"${g.doubtful ? " open" : ""}><summary class="row" style="cursor:pointer">
+      <b style="font-size:16px">${esc(g.title)}${g.year ? " (" + g.year + ")" : ""}</b>
+      <span class="pill">${g.files.length} copias</span>${g.doubtful ? `<span class="pill revisar">dudoso: no duran lo mismo</span>` : ""}
+      <span class="muted" style="font-size:13px">${keep ? `se queda <b>${esc(keep.name)}</b>${keep.why ? " · " + esc(keep.why) : ""}` : ""}</span></summary>
     <table style="margin-top:8px"><thead><tr><th>Apartar</th><th>Archivo</th><th>Calidad</th><th>Duración</th><th>Tamaño</th><th>Subtítulos</th></tr></thead><tbody>
     ${g.files.map((f, fi) => `<tr class="${f.move ? "go" : f.keep ? "keep" : ""}"><td><input type="checkbox" data-g="${gi}" data-f="${fi}" ${f.move ? "checked" : ""}></td>
-      <td>${esc(f.name)}${f.keep ? ' <span class="pill ok">mejor</span>' : ""}<div class="path">${esc(f.path)}</div></td>
+      <td>${esc(f.name)}${f.keep ? ' <span class="pill ok">mejor</span>' : ""}${f.odd && !f.keep ? ' <span class="pill revisar">no encaja</span>' : ""}<div class="path">${esc(f.path)}</div>
+        ${f.why && !f.keep ? `<div class="muted" style="font-size:12px">${esc(f.why)}</div>` : ""}
+        ${g.doubtful ? `<div class="frames">${[1, 2].map(n => `<img loading="lazy" alt="" src="/api/names/frame?id=${f.id}&n=${n}" onerror="this.remove()">`).join("")}</div>` : ""}</td>
       <td>${esc(f.resolution)} ${esc(f.codec || "")}<div class="muted" style="font-size:12px">audio: ${esc((f.audio || []).join(", ") || "?")}</div></td>
       <td>${hms(f.duration)}</td><td>${size(f.size || 0)}</td><td>${esc((f.subs || []).join(", ") || "—")}</td></tr>`).join("")}
-    </tbody></table></div>`).join("");
+    </tbody></table></details>`;
+  }).join("");
+  document.querySelectorAll("#dupGroups .frames img").forEach(i => i.onclick = () => i.classList.toggle("big"));
   document.querySelectorAll("#dupGroups input").forEach(c => c.onchange = () => {
     const f = dup.groups[c.dataset.g].files[c.dataset.f]; f.move = c.checked;
     c.closest("tr").className = f.move ? "go" : f.keep ? "keep" : ""; countSel();
@@ -2442,9 +2460,16 @@ function countSel() {
   const n = groups.reduce((a, g) => a + g.files.filter(f => f.move).length, 0);
   $("#dupActions").hidden = !groups.length;
   $("#dupMove").disabled = !n;
-  $("#dupSel").textContent = n ? `${n} marcadas` : "Marca las copias que quieras apartar.";
+  const freed = groups.reduce((a, g) => a + g.files.filter(f => f.move).reduce((x, f) => x + (f.size || 0), 0), 0);
+  $("#dupSel").textContent = n ? `${n} marcadas · liberas ${size(freed)}` : "Marca las copias que quieras apartar.";
+  const clear = groups.filter(g => !g.doubtful).reduce((a, g) => a + g.files.filter(f => f.keep === false && !f.odd).length, 0);
+  $("#dupClear").disabled = !clear; $("#dupClear").textContent = `Apartar todas las claras (${clear})`;
 }
 $("#dupScan").onclick = async () => { await api("/api/dupes/scan", {}); loadDupes(); };
+$("#dupClear").onclick = () => {
+  (dup.groups || []).forEach(g => g.files.forEach(f => { f.move = g.doubtful ? f.move : !f.keep && !f.odd; }));
+  dupFilter = "claras"; renderDupes(); $("#dupMove").click();
+};
 $("#dupMove").onclick = async () => {
   const groups = dup.groups || [];
   const all = groups.find(g => g.files.every(f => f.move));

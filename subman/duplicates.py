@@ -85,6 +85,53 @@ def _resolution(height) -> str:
     return f"{height}p"
 
 
+_SPA = {"spa", "es", "esp", "spanish", "español", "lat", "es-419", "es-mx", "es-es"}
+
+
+def _spanish(f: dict) -> bool:
+    return any((a or "").lower() in _SPA for a in f.get("audio") or []) or any(
+        (t or "").lower().split("-")[0] in _SPA for t in f.get("subs") or [])
+
+
+def _same(a: float, b: float) -> bool:
+    return abs(a - b) <= DURATION_TOLERANCE * max(a, b)
+
+
+def pick(files: list[dict]) -> None:
+    """Marca en cada copia keep (la que se queda), move (apartar sola), odd (no dura como las demás) y why.
+
+    La duración «normal» es la que comparten más copias; las que no encajan (otro montaje u otra
+    película con el mismo nombre) quedan aparte y no se tocan solas. Entre las normales gana la de
+    español, salvo que sea de 720p o menos y haya una en otro idioma de 1080p o más."""
+    durs = [f.get("duration") or 0 for f in files]
+    ref = max((d for d in durs if d), key=lambda d: (sum(_same(d, x) for x in durs if x), d), default=0)
+    agree = [f for f in files if ref and f.get("duration") and _same(f["duration"], ref)]
+    clear = len(agree) >= 2  # al menos dos copias que duran lo mismo: esa es la duración buena
+    for f in files:
+        f["odd"] = not clear or f not in agree
+        f["spanish"] = _spanish(f)
+    pool = agree if clear else files
+    h = lambda f: f.get("height") or 0
+    spa = [f for f in pool if f["spanish"]]
+    best_spa = max(spa, key=lambda f: (h(f), f["size"] or 0), default=None)
+    best_any = max(pool, key=lambda f: (h(f), f["spanish"], f["size"] or 0))
+    if best_spa and (h(best_spa) >= 1000 or h(best_any) < 1000 or h(best_spa) > 720):
+        best = best_spa
+        why = "en español" + (f" y {best['resolution']}" if h(best) else "")
+    elif best_spa:
+        best = best_any
+        why = f"{best['resolution']}: la de español sólo es {best_spa['resolution']}"
+    else:
+        best = best_any
+        why = "la de mejor calidad" + (f" ({best['resolution']})" if h(best) else "")
+    if clear and len(agree) < len(files):
+        why += "; dura lo normal"
+    for f in files:
+        f["keep"] = f is best
+        f["move"] = clear and not f["odd"] and f is not best
+        f["why"] = why if f is best else "no dura como las demás: ¿otro montaje u otra película?" if f["odd"] and clear else ""
+
+
 def find(lib: Library, cfg: dict, progress=lambda msg: None) -> list[dict]:
     movies = lib.media("kind='movie'")
     by_tail: dict[tuple[str, str], Media] = {}
@@ -164,14 +211,9 @@ def find(lib: Library, cfg: dict, progress=lambda msg: None) -> list[dict]:
                           "size": m.size, "subs": subs, "resolution": _resolution(info.get("height")), **info})
         if len(files) < 2:
             continue
-        durs = [f["duration"] for f in files if f.get("duration")]
-        doubtful = len(durs) < len(files) or (max(durs) - min(durs)) > DURATION_TOLERANCE * max(durs)
-        best = max(files, key=lambda f: (f.get("height") or 0, bool(f["subs"]), f["size"] or 0))
-        for f in files:
-            f["keep"] = f is best
-            f["move"] = not doubtful and f is not best
+        pick(files)
         out.append({"key": f"{g['how']}:{g['title']}|{g['year']}", "title": g["title"], "year": g["year"],
-                    "how": g["how"], "doubtful": doubtful, "files": files})
+                    "how": g["how"], "doubtful": any(f["odd"] for f in files), "files": files})
     return out
 
 

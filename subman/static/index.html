@@ -2037,6 +2037,22 @@ async function loadNames() {
   if (nm.running) setTimeout(() => tab === "nombres" && loadNames(), 2000);
   if (!sr || !sr.running) loadSeries();
 }
+function videoTag(id) {
+  return `<video controls autoplay preload="metadata" src="/api/names/video?id=${id}" style="width:100%;max-height:60vh;border-radius:12px;background:#000;margin-top:10px"
+    onerror="this.outerHTML='<p class=muted>El navegador no puede reproducir este formato aquí (pasa con algunos .mkv y .avi). Mira las fotos o ábrelo en Jellyfin.</p>'"></video>`;
+}
+function nmWatch(id) {
+  const box = document.getElementById("nmv" + id);
+  box.innerHTML = box.innerHTML ? "" : videoTag(id);
+}
+// No se sabe qué es y prefieres quitarla: va a la papelera de videos (se puede devolver desde Duplicados).
+async function nmDiscard(id) {
+  const r = await api("/api/unknown/discard", {ids: [id]});
+  if (!r.ok) return toast("No se pudo: " + r.error);
+  nm.result.todo = nm.result.todo.filter(x => x.id !== id);
+  toast("Enviada a la papelera de videos. Se puede devolver desde Duplicados.");
+  if ($("#quick").hidden) renderNames();
+}
 // Repaso rápido: una película cada vez, con la propuesta en grande. Teclas: Enter = es esta, 1-4 = elegir, → = saltar.
 let quickList = [], quickAt = 0, quickSel = 0;
 function quickOpen() {
@@ -2054,15 +2070,34 @@ function quickShow() {
       <span class="muted" style="margin-left:8px">${esc(e.name)}${e.minutes ? " · dura " + hms(e.minutes * 60).slice(0, -3) : ""}</span>
       <button class="btn sec" style="margin-left:auto" onclick="quickClose()">Cerrar</button></div>
     <div class="frames" style="margin:12px 0">${[0, 1, 2, 3].map(n => `<img alt="" src="/api/names/frame?id=${e.id}&n=${n}" onerror="this.remove()" onclick="this.classList.toggle('big')">`).join("")}</div>
+    <div id="quickVideo">${quickPlay ? videoTag(e.id) : `<button class="btn sec" onclick="quickPlay=true;quickShow()">▶ Ver el video aquí <span class="muted">(V)</span></button>`}</div>
     ${o ? `<div class="row" style="gap:16px;align-items:flex-start">${o.image ? `<img src="${esc(o.image)}" alt="" style="width:160px;border-radius:12px">` : ""}
       <div><div class="muted">¿Es esta?</div><h2 style="margin:4px 0">${esc(o.name)} ${o.year ? "(" + o.year + ")" : ""}</h2>
         ${o.runtime ? `<div style="${o.duration_ok === false ? "color:var(--bad)" : ""}">dura ${hms(o.runtime * 60).slice(0, -3)}</div>` : ""}
         <div class="muted" style="margin-top:6px;font-size:13px">${esc(o.overview || "")}</div></div></div>` : `<p class="muted">No hay ninguna propuesta para este video.</p>`}
     <div class="opts" style="margin-top:12px">${e.options.slice(0, 4).map((x, i) => `<div class="opt ${i === quickSel ? "on" : ""}" onclick="quickSel=${i};quickShow()">${x.image ? `<img src="${esc(x.image)}" alt="">` : `<div class="noimg"></div>`}<b>${i + 1}. ${esc(x.name)}</b> ${x.year ? "(" + x.year + ")" : ""}</div>`).join("")}</div>
     <div class="row" style="margin-top:14px;gap:10px"><button class="btn" onclick="quickYes()" ${o ? "" : "disabled"}>✓ Es esta <span class="muted">(Enter)</span></button>
-      <button class="btn sec" onclick="quickNext()">No / saltar <span class="muted">(→)</span></button></div>`;
+      <button class="btn sec" onclick="quickNext()">No / saltar <span class="muted">(→)</span></button>
+      <button class="btn sec" style="color:var(--bad);margin-left:auto" onclick="quickDiscard()">A la papelera</button></div>
+    <div class="row" style="margin-top:10px;gap:10px"><input type="text" id="quickQ" style="max-width:320px" placeholder="Otro nombre, p. ej. After 2019"
+      onkeydown="if(event.key==='Enter'){event.stopPropagation();quickSearch()}"><button class="btn sec" onclick="quickSearch()">Buscar</button></div>`;
 }
-function quickNext() { quickAt++; quickSel = 0; quickShow(); }
+let quickPlay = false;
+function quickNext() { quickAt++; quickSel = 0; quickPlay = false; quickShow(); }
+async function quickSearch() {
+  const e = quickList[quickAt], q = $("#quickQ").value.trim();
+  if (!e || !q) return;
+  const r = await api("/api/names/search", {id: e.id, query: q});
+  if (!r.ok) return toast(r.error);
+  e.options = r.options; quickSel = 0; quickShow();
+  if (!r.options.length) toast("No se encontró nada con ese nombre.");
+}
+async function quickDiscard() {
+  const e = quickList[quickAt];
+  if (!e) return;
+  await nmDiscard(e.id);
+  quickNext();
+}
 async function quickYes() {
   const e = quickList[quickAt], o = e && e.options[quickSel];
   if (!o) return;
@@ -2078,6 +2113,7 @@ document.addEventListener("keydown", ev => {
   if ($("#quick").hidden || ev.target.tagName === "INPUT") return;
   if (ev.key === "Enter") { ev.preventDefault(); quickYes(); }
   else if (ev.key === "ArrowRight") quickNext();
+  else if (ev.key === "v" || ev.key === "V") { quickPlay = !quickPlay; quickShow(); }
   else if (ev.key === "Escape") quickClose();
   else if (/^[1-4]$/.test(ev.key)) { const i = +ev.key - 1; if (quickList[quickAt]?.options[i]) { quickSel = i; quickShow(); } }
 });
@@ -2111,7 +2147,10 @@ function renderNames() {
       <div class="opts">${e.options.length ? e.options.map((o, i) => optCard(e, o, i)).join("") : `<span class="muted">No se encontró nada con ese nombre. Prueba a escribir otro.</span>`}</div>
       <div class="row"><input type="text" style="max-width:320px" placeholder="Otro nombre, p. ej. After 2019" data-q="${e.id}">
         <button class="btn sec" data-s="${e.id}">Buscar</button>
-        <button class="btn" data-a="${e.id}" ${e.options.length ? "" : "disabled"}>Aplicar</button></div></div>`).join("");
+        <button class="btn" data-a="${e.id}" ${e.options.length ? "" : "disabled"}>Aplicar</button>
+        <button class="btn sec" onclick="nmWatch(${e.id})">▶ Ver</button>
+        <button class="btn sec" style="color:var(--bad)" onclick="nmDiscard(${e.id})">A la papelera</button></div>
+      <div id="nmv${e.id}"></div></div>`).join("");
   document.querySelectorAll("#nmTodo .frames img").forEach(i => i.onclick = () => i.classList.toggle("big"));
   document.querySelectorAll("#nmTodo .opt").forEach(d => d.onclick = () => { nmPick[d.dataset.e] = +d.dataset.i; renderNames(); });
   document.querySelectorAll("#nmTodo [data-s]").forEach(b => b.onclick = () => nmSearch(+b.dataset.s));

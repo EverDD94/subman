@@ -2129,9 +2129,55 @@ def make_handler(app: App):
                 self.send_header("Cache-Control", "max-age=86400")
                 self.end_headers()
                 return self.wfile.write(img)
+            if u.path == "/api/names/video":  # ver la película en la página para decidir qué es (con saltos: Range)
+                try:
+                    m = app.library(app.cfg()).media("id=?", (int(parse_qs(u.query)["id"][0]),))
+                except (KeyError, ValueError):
+                    m = []
+                if not m or not os.path.exists(m[0].path):
+                    return self._send(404, b"", "text/plain")
+                return self._send_video(m[0].path)
             if u.path in ("/", "/index.html"):
                 return self._send(200, (STATIC / "index.html").read_bytes(), "text/html; charset=utf-8")
             self._send(404, b"no encontrado", "text/plain")
+
+        def _send_video(self, path: str):
+            size = os.path.getsize(path)
+            start, end = 0, size - 1
+            rng = re.match(r"bytes=(\d*)-(\d*)", self.headers.get("Range") or "")
+            if rng and (rng.group(1) or rng.group(2)):
+                if rng.group(1):
+                    start = int(rng.group(1))
+                    end = min(int(rng.group(2)), size - 1) if rng.group(2) else size - 1
+                else:
+                    start = max(0, size - int(rng.group(2)))
+                if start >= size:
+                    self.send_response(416)
+                    self.send_header("Content-Range", f"bytes */{size}")
+                    return self.end_headers()
+                end = min(end, start + 8 * 1024 * 1024 - 1)  # trozos de 8 MB: el navegador pide lo siguiente
+                self.send_response(206)
+                self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+            else:
+                self.send_response(200)
+            ext = Path(path).suffix.lower()
+            self.send_header("Content-Type", {".mp4": "video/mp4", ".m4v": "video/mp4", ".webm": "video/webm",
+                                              ".mkv": "video/webm", ".mov": "video/quicktime"}.get(ext, "video/mp4"))
+            self.send_header("Accept-Ranges", "bytes")
+            self.send_header("Content-Length", str(end - start + 1))
+            self.end_headers()
+            try:
+                with open(path, "rb") as f:
+                    f.seek(start)
+                    left = end - start + 1
+                    while left > 0:
+                        chunk = f.read(min(1024 * 1024, left))
+                        if not chunk:
+                            break
+                        self.wfile.write(chunk)
+                        left -= len(chunk)
+            except (BrokenPipeError, ConnectionResetError):
+                pass  # el navegador cortó (saltó a otro punto o cerró)
 
         def do_POST(self):
             u = urlparse(self.path)

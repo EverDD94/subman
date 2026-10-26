@@ -196,16 +196,30 @@ class Friends:
             return "ya-esta"
         if row["state"] == "rechazada":
             return "rechazada"
-        if (row["kind"], row["tmdb"]) in downloading:
+        d = downloading.get((row["kind"], row["tmdb"]))
+        if d and d[0] == "no-esta":  # Phono no la tiene: se sigue mirando a diario
+            row["why"] = d[1] or "Phono aún no la tiene"
+            return "no-disponible"
+        if d:
             return "descargando"
         return row["state"]
 
-    def _downloading(self) -> set:
+    def _downloading(self) -> dict:
+        """kind+tmdb → (estado, detalle) de lo que está en descargas. Si hay varias temporadas, manda la que avanza."""
+        out: dict = {}
         try:
-            return {(r[0], r[1]) for r in self.db.execute(
-                "SELECT kind, tmdb FROM downloads WHERE state NOT IN ('cancelado', 'listo')")}
+            for k, t, st, det in self.db.execute(
+                    "SELECT kind, tmdb, state, detail FROM downloads WHERE state NOT IN ('cancelado', 'listo')"):
+                if (k, t) not in out or out[(k, t)][0] == "no-esta":
+                    out[(k, t)] = (st, det)
         except Exception:  # sin tabla de descargas todavía
-            return set()
+            return {}
+        return out
+
+    def requesters(self, kind: str, tid: int) -> list[str]:
+        """Quién pidió esto y sigue esperándolo (para avisarle)."""
+        return [r[0] for r in self.db.execute("SELECT user_id FROM friend_requests WHERE kind=? AND tmdb=? "
+                                               "AND state!='rechazada'", (kind, int(tid)))]
 
     def _rows(self, where: str = "", args: tuple = ()) -> list[dict]:
         out = []
@@ -269,7 +283,7 @@ class Friends:
         out = list(items.values())
         for it in out:
             it["status"] = self._status(it, idx, dl)
-        order = {"pendiente": 0, "aceptada": 1, "descargando": 1, "ya-esta": 2, "rechazada": 3}
+        order = {"pendiente": 0, "aceptada": 1, "descargando": 1, "no-disponible": 1, "ya-esta": 2, "rechazada": 3}
         out.sort(key=lambda it: (order.get(it["status"], 9), -it["created"]))
         return out
 

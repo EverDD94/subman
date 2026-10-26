@@ -1659,7 +1659,19 @@ class App:
         after = dl.get(row["id"]) or {}
         if after.get("state") == "no-esta" and after["state"] != before:  # sólo la primera vez, no a diario
             self._notify(cfg, f"❌ {self._dl_label(after)}\n\n{after.get('detail') or ''}\nLo vuelvo a mirar mañana.")
+            self._tell_friends_missing(after)
         return 5
+
+    def _tell_friends_missing(self, row: dict) -> None:
+        """A quien la pidió: que por ahora no está (una vez); si aparece, le llega el «Ya está» de siempre."""
+        try:
+            who = self._friends().requesters(row["kind"], row["tmdb"])
+            if who:
+                self._notices().send(who, f"😕 {row.get('title') or 'Lo que pediste'} no está disponible por ahora",
+                                     (row.get("detail") or "Phono aún no la tiene") + ". Se sigue buscando cada día.",
+                                     "/pedir")
+        except Exception as e:
+            log.warning("avisos: no se pudo avisar a los amigos (%s)", e)
 
     def _dl_enqueue(self, cfg: dict, dl) -> None:
         # lo que cancelaste no vuelve solo a la cola; con «Descargar de Phono» sí se puede volver a pedir

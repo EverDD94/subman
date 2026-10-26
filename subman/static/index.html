@@ -1721,7 +1721,7 @@ async function dlAdd(k) {
 }
 // ---------- Peticiones de los amigos (página /pedir) ----------
 const REQ_STATE = {pendiente: ["revisar", "esperando tu respuesta"], aceptada: ["", "aceptada"], descargando: ["", "descargando"],
-  "ya-esta": ["ok", "ya está en la biblioteca"], rechazada: ["falla", "rechazada"]};
+  "no-disponible": ["revisar", "no está en Phono"], "ya-esta": ["ok", "ya está en la biblioteca"], rechazada: ["falla", "rechazada"]};
 let reqItems = [];
 async function loadRequests() {
   let r;
@@ -1755,7 +1755,7 @@ async function loadRequests() {
   $("#dscBox").innerHTML = tip + box + (items || `<p class="empty">Nadie ha pedido nada todavía.</p>`);
 }
 const MINE_STATE = {pendiente: ["revisar", "pedida, esperando"], aceptada: ["", "aceptada, pronto llega"], descargando: ["", "descargando"],
-  "ya-esta": ["ok", "ya está en Jellyfin"], rechazada: ["falla", "no se pudo conseguir"]};
+  "no-disponible": ["revisar", "no disponible por ahora"], "ya-esta": ["ok", "ya está en Jellyfin"], rechazada: ["falla", "no se pudo conseguir"]};
 async function loadMine() {
   let r;
   try { r = await api("/api/pedir/mine"); } catch (e) { return dscError(e.message); }
@@ -1764,7 +1764,8 @@ async function loadMine() {
     const [cls, label] = MINE_STATE[x.status] || ["", x.status];
     return `<div class="dl-i">${x.poster ? `<img src="${esc(x.poster)}" alt="">` : `<div class="noimg"></div>`}
       <div class="dl-txt"><span class="pill ${cls}">${esc(label)}</span> <span class="muted">· ${x.kind === "tv" ? "Serie" : "Película"}</span>
-        <h3>${esc(x.title + (x.year ? ` (${x.year})` : ""))}</h3></div>
+        <h3>${esc(x.title + (x.year ? ` (${x.year})` : ""))}</h3>
+        ${x.why ? `<p class="muted" style="margin:2px 0 0">${esc(x.why)}. Se sigue buscando cada día.</p>` : ""}</div>
       <div class="dl-b">${x.status === "pendiente" ? `<button class="btn sec" onclick="mineCancel('${x.kind}',${x.tmdb})">Quitar</button>` : ""}</div></div>`;
   }).join("");
   $("#dscBox").innerHTML = items || `<p class="empty">Todavía no has pedido nada. Pulsa «Pedir» en cualquier película o serie.</p>`;

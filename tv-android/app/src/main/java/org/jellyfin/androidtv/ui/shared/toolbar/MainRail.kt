@@ -5,6 +5,9 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import java.util.UUID
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -70,6 +73,7 @@ private val RailOpen = 240.dp
 fun MainRail(
 	activeButton: MainToolbarActiveButton = MainToolbarActiveButton.None,
 	modifier: Modifier = Modifier,
+	activeLibrary: UUID? = null,
 ) {
 	val navigationRepository = koinInject<NavigationRepository>()
 	val mediaManager = koinInject<MediaManager>()
@@ -99,6 +103,7 @@ fun MainRail(
 			.onFocusChanged { open = it.hasFocus }
 			.focusRestorer(activeRequester)
 			.focusGroup()
+			.verticalScroll(rememberScrollState())
 			.padding(horizontal = 12.dp, vertical = 28.dp),
 	) {
 		Text(
@@ -109,7 +114,7 @@ fun MainRail(
 			modifier = Modifier.padding(start = 12.dp, bottom = 18.dp),
 		)
 
-		val focusTarget = if (activeButton == MainToolbarActiveButton.None || activeButton == MainToolbarActiveButton.User) MainToolbarActiveButton.Home else activeButton
+		val focusTarget = if (activeLibrary != null) null else if (activeButton == MainToolbarActiveButton.None || activeButton == MainToolbarActiveButton.User) MainToolbarActiveButton.Home else activeButton
 		fun target(button: MainToolbarActiveButton) = if (button == focusTarget) Modifier.focusRequester(activeRequester) else Modifier
 
 		RailItem(
@@ -130,34 +135,52 @@ fun MainRail(
 		) {
 			if (activeButton != MainToolbarActiveButton.Home) navigationRepository.navigate(Destinations.home, replace = true)
 		}
-		val showsView = views.firstOrNull { it.collectionType == CollectionType.TVSHOWS }
-		if (showsView != null) RailItem(
-			icon = R.drawable.ic_tv,
-			label = "Series",
-			open = open,
-			active = activeButton == MainToolbarActiveButton.Series,
-			modifier = target(MainToolbarActiveButton.Series),
-		) {
-			if (activeButton != MainToolbarActiveButton.Series) navigationRepository.navigate(Destinations.everflixLibrary(showsView))
-		}
-		val moviesView = views.firstOrNull { it.collectionType == CollectionType.MOVIES }
-		if (moviesView != null) RailItem(
+		RailItem(
 			icon = R.drawable.ic_movie,
 			label = "Películas",
 			open = open,
 			active = activeButton == MainToolbarActiveButton.Movies,
 			modifier = target(MainToolbarActiveButton.Movies),
 		) {
-			if (activeButton != MainToolbarActiveButton.Movies) navigationRepository.navigate(Destinations.everflixLibrary(moviesView))
+			if (activeButton != MainToolbarActiveButton.Movies) navigationRepository.navigate(Destinations.everflixAll(series = false))
 		}
+		RailItem(
+			icon = R.drawable.ic_tv,
+			label = "Series",
+			open = open,
+			active = activeButton == MainToolbarActiveButton.Series,
+			modifier = target(MainToolbarActiveButton.Series),
+		) {
+			if (activeButton != MainToolbarActiveButton.Series) navigationRepository.navigate(Destinations.everflixAll(series = true))
+		}
+
+		Box(Modifier.padding(horizontal = 12.dp, vertical = 8.dp).fillMaxWidth().height(1.dp).background(RailInk.copy(alpha = 0.15f)))
+
+		views.forEach { view ->
+			val isActive = view.id == activeLibrary
+			RailItem(
+				icon = when (view.collectionType) {
+					CollectionType.TVSHOWS -> R.drawable.ic_tv
+					CollectionType.MOVIES -> R.drawable.ic_movie
+					else -> R.drawable.ic_folder
+				},
+				label = view.name ?: "",
+				open = open,
+				active = isActive,
+				modifier = if (isActive) Modifier.focusRequester(activeRequester) else Modifier,
+			) {
+				if (!isActive) navigationRepository.navigate(Destinations.everflixLibrary(view))
+			}
+		}
+
+		Box(Modifier.padding(horizontal = 12.dp, vertical = 8.dp).fillMaxWidth().height(1.dp).background(RailInk.copy(alpha = 0.15f)))
+
 		RailItem(
 			icon = R.drawable.ic_settings,
 			label = stringResource(R.string.lbl_settings),
 			open = open,
 			active = false,
 		) { settingsViewModel.show() }
-
-		Spacer(Modifier.weight(1f))
 
 		RailItem(
 			icon = R.drawable.ic_user,
@@ -195,7 +218,7 @@ private fun RailItem(
 		horizontalArrangement = Arrangement.spacedBy(16.dp),
 		modifier = modifier
 			.fillMaxWidth()
-			.height(44.dp)
+			.height(40.dp)
 			.clip(RoundedCornerShape(8.dp))
 			.background(if (focused) RailInk else Color.Transparent)
 			.clickable(interactionSource = interaction, indication = null, onClick = onClick)

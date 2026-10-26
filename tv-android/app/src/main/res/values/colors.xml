@@ -1,13 +1,13 @@
 <resources>
     <!-- Base Colors -->
-    <color name="jellyfin_blue">#ff6b2c</color>
-    <color name="jellyfin_purple">#5b3df5</color>
+    <color name="jellyfin_blue">#3d63e0</color>
+    <color name="jellyfin_purple">#1e2f6e</color>
     <color name="midnight_blue">#031A6B</color>
     <color name="indigo_dye">#033860</color>
     <color name="spanish_blue">#1E76BA</color>
     <color name="grey">#303030</color>
     <color name="grey_light">#4b4b4b</color>
-    <color name="not_quite_black">#101010</color>
+    <color name="not_quite_black">#0B0D12</color>
     <color name="black">#000000</color>
     <color name="white">#FFFFFF</color>
     <color name="red">#CC3333</color>

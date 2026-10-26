@@ -63,7 +63,8 @@ class HomeFragmentHelper(
 		val query = GetNextUpRequest(
 			imageTypeLimit = 1,
 			limit = ITEM_LIMIT_NEXT_UP,
-			enableResumable = false,
+			// Everflix: keep a half-watched episode here instead of jumping to the next one
+			enableResumable = true,
 			fields = ItemRepository.browseFields,
 			nextUpDateCutoff = nextUpDateCutoff,
 		)

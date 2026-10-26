@@ -48,12 +48,12 @@ import org.koin.compose.koinInject
 
 /**
  * Row under the search box: titles that match the search but are not in the library yet,
- * with a button to ask Videotecario to download them.
+ * so they can be requested. Nothing downloads until the owner approves it in Videotecario.
  */
 @Composable
 fun DownloadSuggestions(query: String, modifier: Modifier = Modifier) {
 	val api = koinInject<ApiClient>()
-	val client = remember(api.baseUrl) { Videotecario(api.baseUrl) }
+	val client = remember(api.baseUrl, api.accessToken) { Videotecario(api.baseUrl, api.accessToken) }
 	val context = LocalContext.current
 	val scope = rememberCoroutineScope()
 	var titles by remember { mutableStateOf<List<DiscoverTitle>>(emptyList()) }
@@ -65,14 +65,16 @@ fun DownloadSuggestions(query: String, modifier: Modifier = Modifier) {
 			return@LaunchedEffect
 		}
 		delay(600)
-		titles = client.search(query).filter { !it.have }.take(12)
+		val found = client.search(query).filter { !it.have }.take(12)
+		titles = found
+		asked = asked + found.filter { it.asked }.map { it.tmdb }
 	}
 
 	if (titles.isEmpty()) return
 
 	Column(modifier.fillMaxWidth()) {
 		Text(
-			text = "NO LO TIENES · PÍDELO A VIDEOTECARIO",
+			text = "NO LO TIENES · PÍDELO",
 			color = Color.White.copy(alpha = 0.8f),
 			fontSize = 13.sp,
 			fontWeight = FontWeight.W800,
@@ -86,9 +88,9 @@ fun DownloadSuggestions(query: String, modifier: Modifier = Modifier) {
 			items(titles, key = { "${it.kind}${it.tmdb}" }) { title ->
 				SuggestionCard(title, asked = title.tmdb in asked) {
 					scope.launch {
-						val error = client.download(title)
+						val error = client.ask(title)
 						if (error == null) asked = asked + title.tmdb
-						Toast.makeText(context, error ?: "Pedido: ${title.title}", Toast.LENGTH_SHORT).show()
+						Toast.makeText(context, error ?: "Pedido enviado: ${title.title}. Se descargará cuando se apruebe.", Toast.LENGTH_SHORT).show()
 					}
 				}
 			}
@@ -129,7 +131,7 @@ private fun SuggestionCard(title: DiscoverTitle, asked: Boolean, onClick: () -> 
 				overflow = TextOverflow.Ellipsis,
 			)
 			Text(
-				text = if (asked) "✓ Pedido" else if (focused) "↓ Descargar" else (title.year?.toString() ?: ""),
+				text = if (asked) "✓ Pedido" else if (focused) "＋ Pedir" else (title.year?.toString() ?: ""),
 				color = if (asked || focused) Color(0xFF9DB4FF) else Color.White.copy(alpha = 0.7f),
 				fontSize = 11.sp,
 				fontWeight = FontWeight.W800,

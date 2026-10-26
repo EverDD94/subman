@@ -759,6 +759,8 @@ class App:
                 out["series"] = self._auto_series(cfg, eps, keep)
         if a["dupes"]:
             out["dupes"] = self._auto_dupes(cfg, only, set(st.get("dupes_keep", [])))
+        if a.get("empty_dirs"):
+            out["empty"] = self.empty_dirs()
         out["end"] = time.time()
         self.auto["last"] = out
         self._auto_save(last=out)
@@ -841,7 +843,7 @@ class App:
         with self.lock:
             cfg = self.cfg()
             a = cfg["auto"]
-            for k in ("names", "dupes", "on_new", "nightly"):
+            for k in ("names", "dupes", "empty_dirs", "on_new", "nightly"):
                 if k in b:
                     a[k] = bool(b[k])
             for k in ("night_start", "night_end"):
@@ -851,6 +853,17 @@ class App:
         log.info("trabajo automático: nombres %s, duplicados %s", "sí" if a["names"] else "no", "sí" if a["dupes"] else "no")
         self.auto_wake.set()
         return {"ok": True, **self.auto_state()}
+
+    def empty_dirs(self) -> dict:
+        cfg = self.cfg()
+        keep = [cfg.get("duplicates_dir"), cfg.get("discard_dir"), cfg.get("trash_dir"),
+                cfg.get("convert", {}).get("originals_dir"), MEDIA_ROOT]
+        try:
+            gone = duplicates.empty_dirs(cfg["library"], [k for k in keep if isinstance(k, str)])
+        except OSError as e:
+            return {"ok": False, "error": str(e), "removed": 0}
+        log.info("carpetas vacías: %d borradas", len(gone))
+        return {"ok": True, "removed": len(gone), "paths": gone[:200]}
 
     # --- duplicados ----------------------------------------------------------------
     def dupes_scan(self) -> dict:
@@ -1953,6 +1966,7 @@ def make_handler(app: App):
         "/api/convert/settings": lambda b: app.convert_settings(b),
         "/api/convert/retry": lambda b: app.convert_retry(),
         "/api/convert/restore": lambda b: app.convert_restore(int(b["id"])),
+        "/api/dupes/empty-dirs": lambda b: app.empty_dirs(),
         "/api/dupes/move": lambda b: app.dupes_move([int(x) for x in b["ids"]], bool(b.get("all"))),
         "/api/dupes/restore": lambda b: app.dupes_restore(int(b["id"])),
         "/api/names/scan": lambda b: app.names_scan(),

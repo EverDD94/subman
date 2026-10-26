@@ -3,12 +3,22 @@ package org.jellyfin.androidtv.ui.base
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
+import org.jellyfin.androidtv.R
+
+// Everflix: Archivo everywhere instead of the system font
+val Archivo = FontFamily(
+	Font(R.font.archivo_regular, FontWeight.W400),
+	Font(R.font.archivo_semibold, FontWeight.W600),
+	Font(R.font.archivo_extrabold, FontWeight.W800),
+)
 
 object TypographyDefaults {
-	val Default: TextStyle = TextStyle.Default
+	val Default: TextStyle = TextStyle.Default.copy(fontFamily = Archivo)
 
 	val ListHeader: TextStyle = Default.copy(
 		fontSize = 15.sp,

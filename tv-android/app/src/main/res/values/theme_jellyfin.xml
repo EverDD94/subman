@@ -6,6 +6,8 @@
         <item name="android:colorPrimary">@color/grey</item>
         <item name="android:colorPrimaryDark">@color/grey</item>
         <item name="android:colorAccent">@color/jellyfin_blue</item>
+        <item name="android:fontFamily">@font/archivo</item>
+        <item name="fontFamily">@font/archivo</item>
         <!-- Background resource or color -->
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="defaultBackground">@color/not_quite_black</item>

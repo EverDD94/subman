@@ -5,7 +5,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.compose.foundation.focusGroup
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -29,7 +29,7 @@ import kotlinx.coroutines.flow.onEach
 import org.jellyfin.androidtv.auth.repository.ServerRepository
 import org.jellyfin.androidtv.auth.repository.SessionRepository
 import org.jellyfin.androidtv.data.repository.NotificationsRepository
-import org.jellyfin.androidtv.ui.shared.toolbar.MainToolbar
+import org.jellyfin.androidtv.ui.shared.toolbar.MainRail
 import org.jellyfin.androidtv.ui.shared.toolbar.MainToolbarActiveButton
 import org.koin.android.ext.android.inject
 
@@ -46,8 +46,8 @@ class HomeFragment : Fragment() {
 		val rowsFocusRequester = remember { FocusRequester() }
 		LaunchedEffect(rowsFocusRequester) { rowsFocusRequester.requestFocus() }
 
-		Column {
-			MainToolbar(MainToolbarActiveButton.Home)
+		Row {
+			MainRail(MainToolbarActiveButton.Home)
 
 			// The leanback code has its own awful focus handling that doesn't work properly with Compose view inteop to workaround this
 			// issue we add custom behavior that only allows focus exit when the current selected row is the first one. Additionally when
@@ -60,7 +60,10 @@ class HomeFragment : Fragment() {
 					.focusProperties {
 						onExit = {
 							val isFirstRowSelected = rowsSupportFragment?.selectedPosition?.let { it <= 0 } ?: false
-							if (requestedFocusDirection != FocusDirection.Up || !isFirstRowSelected) {
+							// Everflix: the menu is on the left, so leaving to the left is always allowed
+							if (requestedFocusDirection == FocusDirection.Left) {
+								rowsSupportFragment?.verticalGridView?.clearFocus()
+							} else if (requestedFocusDirection != FocusDirection.Up || !isFirstRowSelected) {
 								cancelFocusChange()
 							} else {
 								rowsSupportFragment?.selectedPosition = 0

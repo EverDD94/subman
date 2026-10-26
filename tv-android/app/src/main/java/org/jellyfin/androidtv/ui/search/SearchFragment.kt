@@ -31,7 +31,7 @@ import androidx.leanback.app.RowsSupportFragment
 import androidx.lifecycle.Lifecycle
 import org.jellyfin.androidtv.ui.search.composable.SearchTextInput
 import org.jellyfin.androidtv.ui.search.composable.SearchVoiceInput
-import org.jellyfin.androidtv.ui.shared.toolbar.MainToolbar
+import org.jellyfin.androidtv.ui.shared.toolbar.MainRail
 import org.jellyfin.androidtv.ui.shared.toolbar.MainToolbarActiveButton
 import org.jellyfin.androidtv.util.speech.rememberSpeechRecognizerAvailability
 import org.koin.androidx.compose.koinViewModel
@@ -70,8 +70,10 @@ class SearchFragment : Fragment() {
 			}
 		}
 
-		Column {
-			MainToolbar(MainToolbarActiveButton.Search)
+		Row {
+			MainRail(MainToolbarActiveButton.Search)
+
+			Column(modifier = Modifier.padding(top = 32.dp)) {
 
 			Row(
 				horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -121,7 +123,9 @@ class SearchFragment : Fragment() {
 					.focusProperties {
 						onExit = {
 							val isFirstRowSelected = rowsSupportFragment?.selectedPosition?.let { it <= 0 } ?: false
-							if (requestedFocusDirection != FocusDirection.Up || !isFirstRowSelected) {
+							if (requestedFocusDirection == FocusDirection.Left) {
+								rowsSupportFragment?.verticalGridView?.clearFocus()
+							} else if (requestedFocusDirection != FocusDirection.Up || !isFirstRowSelected) {
 								cancelFocusChange()
 							} else {
 								rowsSupportFragment?.selectedPosition = 0
@@ -139,6 +143,7 @@ class SearchFragment : Fragment() {
 					fragment.onItemViewSelectedListener = searchFragmentDelegate.onItemViewSelectedListener
 				}
 			)
+			}
 		}
 	}
 }

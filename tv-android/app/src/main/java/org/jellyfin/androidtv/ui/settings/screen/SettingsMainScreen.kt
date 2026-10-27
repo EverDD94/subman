@@ -64,15 +64,7 @@ fun SettingsMainScreen() {
 			)
 		}
 
-		item {
-			ListButton(
-				leadingContent = { Icon(painterResource(R.drawable.ic_error), contentDescription = null) },
-				headingContent = { Text(stringResource(R.string.pref_telemetry_category)) },
-				onClick = { router.push(Routes.TELEMETRY) },
-				modifier = Modifier.focusKey(Routes.TELEMETRY),
-			)
-
-		}
+		// Everflix: TELEMETRY hidden to keep settings simple
 
 		item {
 			ListButton(

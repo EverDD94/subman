@@ -47,6 +47,7 @@ class Settings:
 # Reintentos escalonados: tras cada intento fallido se espera retry_hours por este factor.
 BACKOFF = (1, 3, 7, 30)
 GIVE_UP = len(BACKOFF)  # a partir de aquí se muestra «sin solución por ahora»
+TR_MARK = "traducción probada"  # en el detalle: ya se intentó traducir uno en inglés
 
 
 def retry_wait(cfg: Settings, attempts: int) -> float:
@@ -202,7 +203,10 @@ def process(media: Media, lib: Library, providers: list[Provider], cfg: Settings
         # Lo que ya se intentó (dudoso, falla, sin candidatos) se reintenta cada retry_hours, salvo
         # que haya aparecido un subtítulo nuevo junto al video (el propio .es.srt guardado no cuenta).
         new_locals = [l for l in locals_ if not (row and row["path"] and l[0] == Path(row["path"]))]
-        if (row and row["status"] != verify.OK and not new_locals
+        # Si hay traductor y a este video aún no se le probó la traducción, no esperar al reintento.
+        untranslated = (bool(cfg.translator) and row is not None and row["status"] != "error"
+                        and TR_MARK not in (row["detail"] or ""))
+        if (row and row["status"] != verify.OK and not new_locals and not untranslated
                 and time.time() - row["updated"] < retry_wait(cfg, row["attempts"] or 1)):
             continue
 
@@ -225,6 +229,7 @@ def process(media: Media, lib: Library, providers: list[Provider], cfg: Settings
 
         rejected = lib.rejected(media.id, lang)
         quota_hit = False
+        translate_tried = False
         if not best() or best()[3].verdict != verify.OK:
             for prov in providers:
                 if getattr(prov, "exhausted", False):
@@ -260,7 +265,8 @@ def process(media: Media, lib: Library, providers: list[Provider], cfg: Settings
                 if best() and best()[3].verdict == verify.OK:
                     break
 
-        if (not best() or best()[3].verdict != verify.OK) and cfg.translator and not quota_hit and not cfg.dry_run:
+        if (not best() or best()[3].verdict != verify.OK) and cfg.translator and not cfg.dry_run:
+            translate_tried = True  # aunque OpenSubtitles no tenga descargas, Addic7ed/Subdivx sí
             got = _translated(media, lang, providers, cfg, reference, rejected)
             if got:
                 tried.append(got)
@@ -270,14 +276,16 @@ def process(media: Media, lib: Library, providers: list[Provider], cfg: Settings
                 results[lang] = "esperando descargas"
                 continue
             if not cfg.dry_run:
-                lib.set_subtitle(media.id, lang, None, "", "pendiente", "sin candidatos")
+                lib.set_subtitle(media.id, lang, None, "", "pendiente",
+                                 "sin candidatos" + (f" ({TR_MARK})" if translate_tried else ""))
             results[lang] = "sin candidatos"
             continue
 
         _, source, synced, rep = best()
         keep = rep.verdict == verify.OK or (rep.verdict == verify.REVIEW and cfg.keep_review)
         detail = json.dumps({"source": source, **rep.to_dict(),
-                             "tried": [(t[1], t[3].verdict) for t in tried]}, ensure_ascii=False)
+                             "tried": [(t[1], t[3].verdict) for t in tried],
+                             **({"translation": TR_MARK} if translate_tried else {})}, ensure_ascii=False)
         # Todo lo que había se aparta: los malos porque fallan, y el original del bueno
         # porque se sustituye por su versión corregida.
         for path, _ in locals_:

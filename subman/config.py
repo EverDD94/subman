@@ -125,12 +125,14 @@ def problems(cfg: dict) -> list[str]:
             out.append("no existen: " + ", ".join(missing))
     if not cfg.get("providers", {}).get("opensubtitles", {}).get("api_key"):
         out.append("falta la API key de OpenSubtitles (sin ella sólo se corrigen los subtítulos que ya tienes)")
+    if cfg.get("translate_fallback") and not cfg.get("gemini", {}).get("api_key"):
+        out.append("falta la API key de Gemini: sin ella no se traducen al español los que sólo existen en inglés")
     return out
 
 
 def blocking(cfg: dict) -> list[str]:
     """Problemas que impiden trabajar del todo (la API key es opcional)."""
-    return [p for p in problems(cfg) if not p.startswith("falta la API key")]
+    return [p for p in problems(cfg) if not p.startswith("falta la API key")]  # también la de Gemini
 
 
 def settings(cfg: dict, config_path: str | Path, dry_run: bool = False) -> manager.Settings:

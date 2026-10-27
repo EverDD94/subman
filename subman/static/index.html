@@ -932,6 +932,24 @@ dialog.sheet .foot{display:none}
     <div class="row" style="margin-top:12px"><button class="btn sec" id="dlSave">Guardar</button><span id="dlMsg" class="muted"></span></div>
   </div>
 
+  <div class="card" id="provCard">
+    <h2>Proveedores</h2>
+    <p class="muted" style="margin-top:0">De dónde se baja lo que pides. Primero se mira en Phono y, si no está, en tus canales y grupos de Telegram (con la misma cuenta de arriba).</p>
+    <label class="switch"><input type="checkbox" id="prov_phono"><span><b>Phono</b> (phono.cc, por su bot de Telegram)</span></label>
+    <h3 style="margin:18px 0 6px">Canales y grupos de Telegram</h3>
+    <div id="provList"></div>
+    <div class="two" style="margin-top:10px">
+      <div><label class="f">Enlace del canal o grupo</label><input type="text" id="prov_link" placeholder="https://t.me/nombre o @nombre" autocomplete="off"></div>
+      <div><label class="f">Qué bajar de él</label><select id="prov_kinds"><option value="movie,tv">Películas y series</option><option value="movie">Sólo películas</option><option value="tv">Sólo series</option></select></div>
+      <div><label class="f">Cuándo</label><select id="prov_mode"><option value="pedido">Bajo pedido: sólo cuando alguien pida algo</option><option value="auto">Automático: lo nuevo que suban de una serie o película</option></select></div>
+      <div id="provFollowBox" hidden><label class="f">Qué tiene que seguir</label>
+        <div class="row" style="gap:6px"><select id="prov_follow_kind" style="max-width:110px"><option value="tv">Serie</option><option value="movie">Película</option></select>
+          <input type="text" id="prov_follow" placeholder="Nombre, p. ej. The Last of Us" autocomplete="off" style="flex:1"></div>
+        <div class="hint">Sólo se baja lo que encaje con eso y lo que suban desde ahora, para no llenar el disco.</div></div>
+    </div>
+    <div class="row" style="margin-top:12px"><button class="btn sec" id="provAdd">Añadir</button><span id="provMsg" class="muted"></span></div>
+  </div>
+
   <div class="card">
     <h2>Actualizaciones</h2>
     <div id="updVersion" class="muted"></div>
@@ -1617,6 +1635,7 @@ $("#testGemini").onclick = async () => {
 // ---------- Descargas de Phono (Ajustes) ----------
 let dlInfo = null;
 async function loadDlSettings() {
+  loadProviders();
   try { dlInfo = await api("/api/downloads"); } catch (e) { return; }
   const st = dlInfo.settings, tg = dlInfo.telegram;
   $("#tg_api_id").value = tg.api_id; $("#tg_api_hash").value = tg.api_hash;
@@ -1676,10 +1695,46 @@ $("#dlSave").onclick = async () => {
   loadDlSettings(); setTimeout(loadDlSettings, 2500);  // el estado cambia cuando las descargas despiertan
 };
 
+
+// ---------- Proveedores (Ajustes) ----------
+const PROV_KINDS = {"movie,tv": "películas y series", movie: "películas", tv: "series"};
+async function loadProviders() {
+  let r; try { r = await api("/api/providers"); } catch (e) { return; }
+  $("#prov_phono").checked = r.phono;
+  $("#provMsg").textContent = r.telegram ? "" : "Conecta tu Telegram en Descargas para poder añadir canales.";
+  $("#provList").innerHTML = r.channels.length ? r.channels.map(c => `<div class="row" style="justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--line,#8883)">
+      <div><b>${esc(c.title || c.link)}</b> <span class="muted">${esc(c.link)}</span><br>
+        <span class="muted">${esc(PROV_KINDS[c.kinds] || c.kinds)} · ${c.mode === "auto" ? `automático: sigue <b>${esc(c.follow_title || "?")}</b>` : "bajo pedido"}${c.note ? " · " + esc(c.note) : ""}</span></div>
+      <div class="row" style="gap:6px"><label class="switch"><input type="checkbox" data-prov-on="${c.id}" ${c.enabled ? "checked" : ""}><span>Activo</span></label>
+        <button class="btn sec" data-prov-del="${c.id}">Quitar</button></div></div>`).join("")
+    : `<p class="muted">Todavía no hay ninguno.</p>`;
+  for (const el of document.querySelectorAll("[data-prov-on]")) el.onchange = () => {
+    const c = r.channels.find(x => x.id == el.dataset.provOn);
+    provSave({channel: {id: c.id, kinds: c.kinds.split(","), mode: c.mode, enabled: el.checked}});
+  };
+  for (const el of document.querySelectorAll("[data-prov-del]")) el.onclick = () => { if (confirm("¿Quitar este canal?")) provSave({delete: +el.dataset.provDel}); };
+}
+async function provSave(body) {
+  try { const r = await api("/api/providers", body); if (r.ok === false) { toast(r.error); return false; } } catch (e) { toast(e.message); return false; }
+  loadProviders(); return true;
+}
+$("#prov_phono").onchange = () => provSave({phono: $("#prov_phono").checked});
+$("#prov_mode").onchange = () => { $("#provFollowBox").hidden = $("#prov_mode").value !== "auto"; };
+$("#provAdd").onclick = async () => {
+  const link = $("#prov_link").value.trim();
+  if (!link) return toast("Pega el enlace del canal o grupo");
+  const mode = $("#prov_mode").value, follow = $("#prov_follow").value.trim();
+  if (mode === "auto" && !follow) return toast("Di qué serie o película tiene que seguir");
+  $("#provAdd").disabled = true; $("#provMsg").textContent = "Comprobando el canal…";
+  const ok = await provSave({channel: {link, kinds: $("#prov_kinds").value.split(","), mode, follow, follow_kind: $("#prov_follow_kind").value}});
+  $("#provAdd").disabled = false; $("#provMsg").textContent = "";
+  if (ok) { $("#prov_link").value = ""; $("#prov_follow").value = ""; toast("Canal añadido"); }
+};
+
 // ---------- Descargas (Descubrir) ----------
 const DL_STATE = {cola: ["", "en cola"], buscando: ["", "buscando en Phono"], pidiendo: ["", "pidiendo al bot"],
   manual: ["revisar", "pulsa el anuncio en Telegram"], descargando: ["", "descargando"], listo: ["ok", "lista"],
-  "no-esta": ["revisar", "no está en Phono"], error: ["falla", "error"], cancelado: ["", "cancelada"]};
+  "no-esta": ["revisar", "no encontrada"], error: ["falla", "error"], cancelado: ["", "cancelada"]};
 let dlTimer = null;
 function dlSpeed(st) {
   if (!st.speed) return "";

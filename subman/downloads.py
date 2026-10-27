@@ -8,7 +8,7 @@ Cada cosa pasa por estos pasos (``state``):
 * ``manual``      el bot no aceptó la pulsación automática: pulsa tú los botones en Telegram;
 * ``descargando`` bajando el archivo;
 * ``listo``       ya está en su carpeta («Título (Año) [tmdbid-N]/…» o «Serie/Season 01/…»);
-* ``no-esta``     Phono aún no la tiene (se vuelve a mirar cada día);
+* ``no-esta``     ni Phono ni tus canales la tienen (se vuelve a mirar cada día);
 * ``error`` / ``cancelado``.
 
 Una serie se pide por temporadas: Phono sólo tiene un botón por temporada (con todos sus capítulos).
@@ -53,7 +53,8 @@ CREATE TABLE IF NOT EXISTS downloads (
     updated REAL,
     retry REAL,                    -- no-esta / error: cuándo volver a intentarlo
     bot TEXT,                      -- el bot de Telegram en el que hay que pulsar el anuncio
-    got TEXT                       -- JSON: archivos ya recibidos del bot (para no volver a bajarlos)
+    got TEXT,                      -- JSON: archivos ya recibidos del bot (para no volver a bajarlos)
+    source TEXT                    -- JSON {"channel": "t.me/…", "ids": [mensajes]} si viene de un canal
 );
 """
 
@@ -65,7 +66,7 @@ class Downloads:
         self.db.executescript(SCHEMA)
         self.db.executescript(discover.SCHEMA)  # «Por conseguir» vive ahí
         cols = {r[1] for r in self.db.execute("PRAGMA table_info(downloads)")}
-        for col in ("bot", "got"):  # bases de antes
+        for col in ("bot", "got", "source"):  # bases de antes
             if col not in cols:
                 self.db.execute(f"ALTER TABLE downloads ADD COLUMN {col} TEXT")
                 self.db.commit()
@@ -103,6 +104,14 @@ class Downloads:
             "VALUES (?,?,?,?,?,?,?,?,?,?)", (kind, int(tmdb), season, title, year, "cola", "", how, now, now))
         self.db.commit()
         return cur.lastrowid
+
+    def has_message(self, link: str, mid: int) -> bool:
+        """¿Ese mensaje de un canal ya está en Descargas?"""
+        for (src,) in self.db.execute("SELECT source FROM downloads WHERE source IS NOT NULL"):
+            s = json.loads(src)
+            if s.get("channel") == link and mid in s.get("ids", []):
+                return True
+        return False
 
     def set(self, row_id: int, **kw) -> None:
         kw["updated"] = time.time()

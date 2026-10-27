@@ -67,6 +67,8 @@ import org.jellyfin.sdk.api.client.extensions.userLibraryApi
 import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.ImageType
+import org.jellyfin.sdk.model.api.MediaStreamType
+import org.jellyfin.androidtv.ui.playback.VideoQueueManager
 import org.koin.compose.koinInject
 import timber.log.Timber
 import java.util.UUID
@@ -104,6 +106,16 @@ private fun DetailsScreen(id: UUID) {
 	var episodes by remember { mutableStateOf<List<BaseItemDto>>(emptyList()) }
 	var similar by remember { mutableStateOf<List<BaseItemDto>>(emptyList()) }
 	val playButton = remember { FocusRequester() }
+	val videoQueueManager = koinInject<VideoQueueManager>()
+	// Chosen languages; null audio = file default, "" subtitles = off
+	var audioLang by remember { mutableStateOf<String?>(null) }
+	var subLang by remember { mutableStateOf<String?>(null) }
+	fun play(id: UUID, fromStart: Boolean = false) {
+		audioLang?.let { videoQueueManager.setLastPlayedAudioLanguageIsoCode(it) }
+		videoQueueManager.setLastPlayedSubtitleLanguageIsoCode(subLang)
+		if (fromStart) playbackHelper.retrieveAndPlay(listOf(id), false, 0L, 0, context)
+		else playbackHelper.retrieveAndPlay(id, false, context)
+	}
 
 	LaunchedEffect(id) {
 		val loaded = withContext(Dispatchers.IO) {
@@ -170,10 +182,10 @@ private fun DetailsScreen(id: UUID) {
 					else -> "Reproducir"
 				}
 				PillButton("▶  $label", primary = true, modifier = Modifier.focusRequester(playButton)) {
-					playbackHelper.retrieveAndPlay(target.id, false, context)
+					play(target.id)
 				}
 				if (canResume) PillButton("↺  Desde el principio") {
-					playbackHelper.retrieveAndPlay(listOf(target.id), false, 0L, 0, context)
+					play(target.id, fromStart = true)
 				}
 				PillButton(if (played) "✓  Visto" else "Marcar como visto") {
 					scope.launch {
@@ -184,6 +196,22 @@ private fun DetailsScreen(id: UUID) {
 					scope.launch {
 						runCatching { mutations.setFavorite(current.id, !favorite) }.onSuccess { data -> item = current.copy(userData = data) }
 					}
+				}
+			}
+
+			val streams = target.mediaSources?.firstOrNull()?.mediaStreams.orEmpty()
+			val audios = streams.filter { it.type == MediaStreamType.AUDIO }.mapNotNull { it.language }.distinct()
+			val subs = streams.filter { it.type == MediaStreamType.SUBTITLE }.mapNotNull { it.language }.distinct()
+			LaunchedEffect(target.id) {
+				if (subLang == null) subLang = subs.firstOrNull { it in SPANISH } ?: subs.firstOrNull() ?: ""
+			}
+			if (audios.size > 1 || subs.isNotEmpty()) Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 12.dp)) {
+				if (audios.size > 1) LangChip("Audio: ${langName(audioLang ?: audios.first())}") {
+					audioLang = audios[(audios.indexOf(audioLang ?: audios.first()) + 1) % audios.size]
+				}
+				if (subs.isNotEmpty()) LangChip("Subtítulos: ${if (subLang.isNullOrEmpty()) "No" else langName(subLang!!)}") {
+					val options = subs + ""
+					subLang = options[(options.indexOf(subLang ?: "") + 1) % options.size]
 				}
 			}
 
@@ -202,7 +230,7 @@ private fun DetailsScreen(id: UUID) {
 					contentPadding = PaddingValues(top = 14.dp, end = 56.dp, bottom = 8.dp),
 				) {
 					itemsIndexed(episodes, key = { _, it -> it.id }) { _, ep ->
-						EpisodeCard(api, ep) { playbackHelper.retrieveAndPlay(ep.id, false, context) }
+						EpisodeCard(api, ep) { play(ep.id) }
 					}
 				}
 			} else if (similar.isNotEmpty()) {
@@ -217,6 +245,36 @@ private fun DetailsScreen(id: UUID) {
 				}
 			}
 		}
+	}
+}
+
+private val SPANISH = setOf("spa", "es", "esp")
+
+private fun langName(code: String): String = when (code.lowercase()) {
+	"spa", "es", "esp" -> "Español"
+	"eng", "en" -> "Inglés"
+	"por", "pt" -> "Portugués"
+	"fre", "fra", "fr" -> "Francés"
+	"jpn", "ja" -> "Japonés"
+	"ita", "it" -> "Italiano"
+	"ger", "deu", "de" -> "Alemán"
+	else -> java.util.Locale.forLanguageTag(code).getDisplayLanguage(java.util.Locale("es")).replaceFirstChar { it.uppercase() }.ifBlank { code }
+}
+
+/** Small chip that cycles through its options on each press, easy with a TV remote. */
+@Composable
+private fun LangChip(label: String, onClick: () -> Unit) {
+	val interaction = remember { MutableInteractionSource() }
+	val focused by interaction.collectIsFocusedAsState()
+	Box(
+		Modifier
+			.clip(RoundedCornerShape(16.dp))
+			.background(if (focused) Ink else Color.Black.copy(alpha = 0.35f))
+			.border(1.dp, Ink.copy(alpha = 0.25f), RoundedCornerShape(16.dp))
+			.clickable(interactionSource = interaction, indication = null, onClick = onClick)
+			.padding(horizontal = 14.dp, vertical = 6.dp),
+	) {
+		Text("$label  ⇄", color = if (focused) Color.Black else Ink, fontSize = 13.sp, fontWeight = FontWeight.W600)
 	}
 }
 

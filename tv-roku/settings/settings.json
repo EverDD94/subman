@@ -1,0 +1,1498 @@
+[
+  {
+    "title": "Global",
+    "description": "Global settings that affect everyone that uses this Roku device.",
+    "children": [
+      {
+        "title": "Confirm Exit",
+        "description": "Show a confirmation prompt before exiting Jellyfin from the home screen.",
+        "settingName": "global.confirmexit",
+        "type": "bool",
+        "default": "false"
+      },
+      {
+        "title": "Remember Me?",
+        "description": "Remember the currently logged in user and try to log them in again next time you start Jellyfin.",
+        "settingName": "global.rememberme",
+        "type": "bool",
+        "default": "true"
+      }
+    ]
+  },
+  {
+    "title": "Playback",
+    "description": "Settings relating to playback and supported codec and media types.",
+    "children": [
+      {
+        "title": "Always Attempt Direct Playing Video Media",
+        "description": "Forces Jellyfin to try direct playing video media, Live TV excluded. Enabling this ignores all other playback support settings and will always first attempt direct playback. It also changes how transcode reason is displayed.",
+        "settingName": "attemptDirectPlay",
+        "type": "bool",
+        "default": "false"
+      },
+      {
+        "title": "Are You Still Watching Popup",
+        "description": "How many minutes of inactivity before playback is stopped between items and a popup is shown to continue? Set to 0 to disable.",
+        "settingName": "stillwatchingPopupInactivityTime",
+        "type": "integer",
+        "default": "0"
+      },
+      {
+        "title": "Attempt Direct Play Anamorphic Video",
+        "description": "Newer devices may support direct play of anamorphic video.",
+        "settingName": "playback.media.directPlayAnamorphic",
+        "type": "bool",
+        "default": "false"
+      },
+      {
+        "title": "Autoplay Episode Limit",
+        "description": "The number of episodes that will play automatically after the selected episode. Requires 'Play next episode automatically' server setting to be enabled.",
+        "settingName": "episodeQueueLimit",
+        "type": "integer",
+        "default": "50"
+      },
+      {
+        "title": "Bitrate Limit",
+        "description": "Configure the maximum playback bitrate.",
+        "children": [
+          {
+            "title": "Enable Limit",
+            "description": "Enable or disable the 'Maximum Bitrate' setting.",
+            "settingName": "playback.bitrate.maxlimited",
+            "type": "bool",
+            "default": "true"
+          },
+          {
+            "title": "Maximum Bitrate",
+            "description": "Set the maximum bitrate in Mbps. Set to 0 to use Roku's specifications. This setting must be enabled to take effect.",
+            "settingName": "playback.bitrate.limit",
+            "type": "integer",
+            "default": "0"
+          }
+        ]
+      },
+      {
+        "title": "Burn in subtitle when transcoding",
+        "description": "Burn in all subtitles when transcoding is triggered. This ensures subtitle synchronization after transcoding at the cost of reduced transcoding speed.",
+        "settingName": "playback.subs.burnin",
+        "type": "bool",
+        "default": "true"
+      },
+      {
+        "title": "Cinema Mode",
+        "description": "Bring the theater experience straight to your living room with the ability to play custom intros before the main feature.",
+        "settingName": "playback.cinemamode",
+        "type": "bool",
+        "default": "false"
+      },
+      {
+        "title": "Compatibility",
+        "description": "Attempt to prevent playback failures.",
+        "children": [
+          {
+            "title": "Disable HEVC",
+            "description": "Disable the HEVC codec on this device. This may improve playback for some devices (ultra).",
+            "settingName": "playback.compatibility.disablehevc",
+            "type": "bool",
+            "default": "false"
+          }
+        ]
+      },
+      {
+        "title": "Custom Subtitles",
+        "description": "Replace Roku's default subtitle functions with custom functions. If fallback fonts are configured and enabled on the server, those fonts will be used. A CJK fallback font is required for CJK rendering. To support bold and italics, you must have additional font files with the words \"bold\", \"italic\", and \"bolditalic\" in the filename.",
+        "settingName": "playback.subs.custom",
+        "type": "bool",
+        "default": "false"
+      },
+      {
+        "title": "Trickplay Display",
+        "description": "Select trickplay display format.",
+        "settingName": "playback.trickplay.displayTrickplayFormat",
+        "type": "radio",
+        "default": "five",
+        "options": [
+          {
+            "title": "Five trickplay images",
+            "id": "five"
+          },
+          {
+            "title": "Single trickplay image that moves",
+            "id": "single"
+          }
+        ]
+      },
+      {
+        "title": "Force Transcoding",
+        "description": "Force media to be transcoded.",
+        "children": [
+          {
+            "title": "All Playable Media",
+            "description": "Force all playable media to be transcoded.",
+            "settingName": "playback.media.forceTranscode",
+            "type": "radio",
+            "default": "playNormally",
+            "options": [
+              {
+                "title": "Play Normally",
+                "id": "playNormally"
+              },
+              {
+                "title": "Force Transcode (Allow Remux)",
+                "id": "forceTranscodeAllowRemux"
+              },
+              {
+                "title": "Force Transcode (Remux Disabled)",
+                "id": "forceTranscodeDisableRemux"
+              }
+            ]
+          },
+          {
+            "title": "Live TV",
+            "description": "Force live TV to be transcoded. If All Playable Media is already set to Force Transcode (Remux Disabled), this setting is ignored.",
+            "settingName": "playback.media.forceTranscodeLiveTV",
+            "type": "radio",
+            "default": "playNormally",
+            "options": [
+              {
+                "title": "Play Normally",
+                "id": "playNormally"
+              },
+              {
+                "title": "Force Transcode (Allow Remux)",
+                "id": "forceTranscodeAllowRemux"
+              },
+              {
+                "title": "Force Transcode (Remux Disabled)",
+                "id": "forceTranscodeDisableRemux"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Maximum Audio Channels",
+        "description": "Configure the maximum audio channels when playing video files on this device.",
+        "settingName": "playback.media.maxAudioChannels",
+        "type": "radio",
+        "default": "off",
+        "options": [
+          {
+            "title": "Off - Attempt to play all channels",
+            "id": "off"
+          },
+          {
+            "title": "7.1",
+            "id": "8"
+          },
+          {
+            "title": "5.1",
+            "id": "6"
+          },
+          {
+            "title": "2.0",
+            "id": "2"
+          }
+        ]
+      },
+      {
+        "title": "Maximum Resolution",
+        "description": "Configure the maximum resolution when playing video files on this device.",
+        "children": [
+          {
+            "title": "Mode",
+            "description": "Apply max resolution to all files or only transcoded files.",
+            "settingName": "playback.resolution.mode",
+            "type": "radio",
+            "default": "transcoding",
+            "options": [
+              {
+                "title": "All files",
+                "id": "everything"
+              },
+              {
+                "title": "Only transcoded files",
+                "id": "transcoding"
+              }
+            ]
+          },
+          {
+            "title": "Value",
+            "description": "Set the maximum resolution when playing video files on this device.",
+            "settingName": "playback.resolution.max",
+            "type": "radio",
+            "default": "auto",
+            "options": [
+              {
+                "title": "Off - Attempt to play all resolutions",
+                "id": "off"
+              },
+              {
+                "title": "Auto - Use TV resolution",
+                "id": "auto"
+              },
+              {
+                "title": "360p",
+                "id": "360"
+              },
+              {
+                "title": "480p",
+                "id": "480"
+              },
+              {
+                "title": "720p",
+                "id": "720"
+              },
+              {
+                "title": "1080p",
+                "id": "1080"
+              },
+              {
+                "title": "4k",
+                "id": "2160"
+              },
+              {
+                "title": "8k",
+                "id": "4320"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Media Segment Actions",
+        "description": "Settings relating to how Jellyfin should handle media segments.",
+        "children": [
+          {
+            "title": "Commercial Segments",
+            "description": "What action should Jellyfin take for commercial segments?",
+            "settingName": "playback.mediasegments.commercial",
+            "type": "radio",
+            "default": "none",
+            "options": [
+              {
+                "title": "Ask To Skip",
+                "id": "asktoskip"
+              },
+              {
+                "title": "Skip",
+                "id": "skip"
+              },
+              {
+                "title": "None",
+                "id": "none"
+              }
+            ]
+          },
+          {
+            "title": "Intro Segments",
+            "description": "What action should Jellyfin take for intro segments?",
+            "settingName": "playback.mediasegments.intro",
+            "type": "radio",
+            "default": "asktoskip",
+            "options": [
+              {
+                "title": "Ask To Skip",
+                "id": "asktoskip"
+              },
+              {
+                "title": "Skip",
+                "id": "skip"
+              },
+              {
+                "title": "None",
+                "id": "None"
+              }
+            ]
+          },
+          {
+            "title": "Outro Segments",
+            "description": "What action should Jellyfin take for outro segments?",
+            "settingName": "playback.mediasegments.outro",
+            "type": "radio",
+            "default": "asktoskip",
+            "options": [
+              {
+                "title": "Ask To Skip",
+                "id": "asktoskip"
+              },
+              {
+                "title": "Skip",
+                "id": "skip"
+              },
+              {
+                "title": "None",
+                "id": "none"
+              }
+            ]
+          },
+          {
+            "title": "Preview Segments",
+            "description": "What action should Jellyfin take for preview segments?",
+            "settingName": "playback.mediasegments.preview",
+            "type": "radio",
+            "default": "none",
+            "options": [
+              {
+                "title": "Ask To Skip",
+                "id": "asktoskip"
+              },
+              {
+                "title": "Skip",
+                "id": "skip"
+              },
+              {
+                "title": "None",
+                "id": "none"
+              }
+            ]
+          },
+          {
+            "title": "Recap Segments",
+            "description": "What action should Jellyfin take for recap segments?",
+            "settingName": "playback.mediasegments.recap",
+            "type": "radio",
+            "default": "none",
+            "options": [
+              {
+                "title": "Ask To Skip",
+                "id": "asktoskip"
+              },
+              {
+                "title": "Skip",
+                "id": "skip"
+              },
+              {
+                "title": "None",
+                "id": "none"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Next Episode Button Time",
+        "description": "If no Outro media segment exists, set how many seconds before the end of an episode the Skip Outro button should appear. Set to 0 to disable.",
+        "settingName": "playback.nextupbuttonseconds",
+        "type": "integer",
+        "default": "30"
+      },
+      {
+        "title": "Playback Controls Inactivity Timeout",
+        "description": "Set the length of time in seconds that the playback control overlay will remain visible when no buttons are pressed. Set to 0 to disable.",
+        "settingName": "playback.inactiveTimeoutLength",
+        "type": "integer",
+        "max": "60",
+        "default": "5"
+      },
+      {
+        "title": "Playback Speed Controls (Experimental)",
+        "description": "Use at your own risk. We make no guarantees this will work for you. \n 1. This feature may not work on this device, yet work on others \n 2. Some speed options may not work on this device, yet work on others \n 3. Roku may block this feature without warning; even if the Jellyfin client doesn't update",
+        "settingName": "playback.showPlaybackSpeedControls",
+        "type": "bool",
+        "default": "false"
+      },
+      {
+        "title": "Preferred Audio Codec",
+        "description": "Use the selected audio codec for transcodes. If the device or stream does not support it, a fallback codec will be used.",
+        "settingName": "playback.preferredAudioCodec",
+        "type": "radio",
+        "default": "auto",
+        "options": [
+          {
+            "title": "Use system settings",
+            "id": "auto"
+          },
+          {
+            "title": "AAC",
+            "id": "aac"
+          },
+          {
+            "title": "DD (AC3)",
+            "id": "ac3"
+          },
+          {
+            "title": "DD+ (EAC3)",
+            "id": "eac3"
+          },
+          {
+            "title": "DTS",
+            "id": "dts"
+          }
+        ]
+      },
+      {
+        "title": "Show Next Episode Details After Finish",
+        "description": "If auto play next episode is disabled, display the next episode's detail screen after an episode finishes playing. If no next up episode is found, return to the just-played episode's page.",
+        "settingName": "playback.showNextUpAfterFinish",
+        "type": "bool",
+        "default": "false"
+      },
+      {
+        "title": "Text Subtitles Only",
+        "description": "Only display text subtitles to minimize transcoding.",
+        "settingName": "playback.subs.onlytext",
+        "type": "bool",
+        "default": "false"
+      },
+      {
+        "title": "Video Codec Support",
+        "description": "Enable or disable Direct Play support for certain codecs.",
+        "children": [
+          {
+            "title": "MPEG-2",
+            "description": "Support Direct Play of MPEG-2 content (e.g., Live TV). This will prevent transcoding of MPEG-2 content, but uses significantly more bandwidth.",
+            "settingName": "playback.mpeg2",
+            "type": "bool",
+            "default": "false"
+          },
+          {
+            "title": "MPEG-4",
+            "description": "Support Direct Play of MPEG-4 content. This may need to be disabled for playback of DIVX encoded video files.",
+            "settingName": "playback.mpeg4",
+            "type": "bool",
+            "default": "true"
+          }
+        ]
+      },
+      {
+        "title": "Video Profile Level Support",
+        "description": "Attempt Direct Play of potentially unsupported profile levels",
+        "children": [
+          {
+            "title": "H.264",
+            "description": "Attempt Direct Play for H.264 media with unsupported profile levels before falling back to transcoding if it fails.",
+            "settingName": "playback.tryDirect.h264ProfileLevel",
+            "type": "bool",
+            "default": "false"
+          },
+          {
+            "title": "HEVC",
+            "description": "Attempt Direct Play for HEVC media with unsupported profile levels before falling back to transcoding if it fails.",
+            "settingName": "playback.tryDirect.hevcProfileLevel",
+            "type": "bool",
+            "default": "false"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "User Interface",
+    "description": "Settings relating to how the application looks.",
+    "children": [
+      {
+        "title": "Colors",
+        "description": "Change the colors of elements in the app.",
+        "children": [
+          {
+            "title": "All Screens",
+            "description": "Colors used across multiple screens.",
+            "children": [
+              {
+                "title": "Background",
+                "description": "The base background color. Background images are layered on top of this color.",
+                "settingName": "colorBackground",
+                "type": "colorgrid",
+                "default": "#000018"
+              },
+              {
+                "title": "Cursor",
+                "description": "The color of the remote control's cursor.",
+                "settingName": "colorCursor",
+                "type": "colorgrid",
+                "default": "#FF6666"
+              },
+              {
+                "title": "Primary Text",
+                "description": "The primary text color.",
+                "settingName": "colorText",
+                "type": "colorgrid",
+                "default": "#FFFFFF"
+              },
+              {
+                "title": "Secondary Text",
+                "description": "The secondary text color.",
+                "settingName": "colorSubText",
+                "type": "colorgrid",
+                "default": "#777777FF"
+              },
+              {
+                "title": "Watched Check Mark & Unplayed Count",
+                "description": "Colors specific to the watched check mark & unplayed count box.",
+                "children": [
+                  {
+                    "title": "Background",
+                    "description": "The background color of the check mark & unplayed count shown in the top right corner of items.",
+                    "settingName": "colorPlayedCheckmarkBackground",
+                    "type": "colorgrid",
+                    "default": "#6666FF"
+                  },
+                  {
+                    "title": "Unplayed Count",
+                    "description": "The color of the unplayed count number.",
+                    "settingName": "colorUnplayedCountTextColor",
+                    "type": "colorgrid",
+                    "default": "#FFFFFF"
+                  },
+                  {
+                    "title": "Watched Check Mark",
+                    "description": "The color of the watched check mark.",
+                    "settingName": "colorPlayedCheckmarkIcon",
+                    "type": "colorgrid",
+                    "default": "#FFFFFF"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "title": "Dialog Popups",
+            "description": "Colors specific to dialog popups",
+            "children": [
+              {
+                "title": "Background",
+                "description": "The background color for all dialog popups.",
+                "settingName": "colorDialogBackground",
+                "type": "colorgrid",
+                "default": "#000033"
+              },
+              {
+                "title": "Bold Text",
+                "description": "The text color for bold text.",
+                "settingName": "colorDialogBoldText",
+                "type": "colorgrid",
+                "default": "#66FF33"
+              },
+              {
+                "title": "Horizontal Border line",
+                "description": "The color of the thin border line under the header text.",
+                "settingName": "colorDialogBorderLine",
+                "type": "colorgrid",
+                "default": "#CCFFF"
+              },
+              {
+                "title": "Selected Text",
+                "description": "The text color for the item the cursor is over.",
+                "settingName": "colorDialogSelectedText",
+                "type": "colorgrid",
+                "default": "#FFFFFF"
+              },
+              {
+                "title": "Text Color",
+                "description": "The text color for title and items the cursor is not over.",
+                "settingName": "colorDialogText",
+                "type": "colorgrid",
+                "default": "#FFFFFF"
+              },
+              {
+                "title": "What's New Author",
+                "description": "The text color for the author in the What's New popup.",
+                "settingName": "colorWhatsNewAuthor",
+                "type": "colorgrid",
+                "default": "#FF6666"
+              }
+            ]
+          },
+          {
+            "title": "Home Screen",
+            "description": "Colors specific to the home screen",
+            "children": [
+              {
+                "title": "My List Icon",
+                "description": "The color of the star icon in the My List library item.",
+                "settingName": "colorHomeMyListIcon",
+                "type": "colorgrid",
+                "default": "#FFFFFF"
+              },
+              {
+                "title": "Row Headers",
+                "description": "The text color of the headers of each row.",
+                "settingName": "colorHomeRowHeaders",
+                "type": "colorgrid",
+                "default": "#FFFFFF"
+              },
+              {
+                "title": "Row Item Background",
+                "description": "The background color of items. Only seen if no image loads on top of it.",
+                "settingName": "colorHomeRowItemBackground",
+                "type": "colorgrid",
+                "default": "#000033"
+              },
+              {
+                "title": "Row Item Progress",
+                "description": "The color of the watched portion of the progress bar.",
+                "settingName": "colorHomeRowItemProgress",
+                "type": "colorgrid",
+                "default": "#6867ff"
+              },
+              {
+                "title": "Row Item Progress Background",
+                "description": "The background color of the progress bar.",
+                "settingName": "colorHomeRowItemProgressBackground",
+                "type": "colorgrid",
+                "default": "#000000"
+              },
+              {
+                "title": "Row Item Subtitle",
+                "description": "The text color of the second line displayed under items.",
+                "settingName": "colorHomeRowItemSubtitle",
+                "type": "colorgrid",
+                "default": "#777777"
+              },
+              {
+                "title": "Row Item Title",
+                "description": "The text color of the first line displayed under items.",
+                "settingName": "colorHomeRowItemTitle",
+                "type": "colorgrid",
+                "default": "#FFFFFF"
+              },
+              {
+                "title": "Username In Header",
+                "description": "The text color of the user's name in the header.",
+                "settingName": "colorHomeUsername",
+                "type": "colorgrid",
+                "default": "#FFFFFF"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "title": "General",
+        "description": "Settings relating to the appearance of the Home screen and the program in general.",
+        "children": [
+          {
+            "title": "Channel Background Image",
+            "description": "Overlay a background image over the channel's background color",
+            "settingName": "imageBackground",
+            "type": "radio",
+            "default": "",
+            "options": [
+              {
+                "title": "None",
+                "id": ""
+              },
+              {
+                "title": "Circles",
+                "id": "pkg:/images/background/bg1.jpg"
+              },
+              {
+                "title": "Swoosh",
+                "id": "pkg:/images/background/bg2.jpg"
+              },
+              {
+                "title": "Splashscreen Image",
+                "id": "splash"
+              }
+            ]
+          },
+          {
+            "title": "Community and Critical Ratings",
+            "description": "Community and critic review ratings from Rotten Tomatoes.",
+            "settingName": "ui.itemdetail.showRatings",
+            "type": "bool",
+            "default": "true"
+          },
+          {
+            "title": "Episode Images Next Up",
+            "description": "What type of images to use for Episodes shown in the 'Next Up' and 'Continue Watching' sections.",
+            "settingName": "ui-general-episodeimagesnextup",
+            "type": "radio",
+            "default": "webclient",
+            "options": [
+              {
+                "title": "Use Web Client Setting",
+                "id": "webclient"
+              },
+              {
+                "title": "Use Episode Image",
+                "id": "episode"
+              },
+              {
+                "title": "Use Show Image",
+                "id": "show"
+              }
+            ]
+          },
+          {
+            "title": "Favorites Row",
+            "description": "Settings relating to the favorites row on the home screen.",
+            "children": [
+              {
+                "title": "Sort By Field",
+                "description": "Field to sort the row by.",
+                "settingName": "ui.home.favoritesSortField",
+                "type": "radio",
+                "default": "SortName",
+                "options": [
+                  {
+                    "title": "Date Created",
+                    "id": "DateCreated"
+                  },
+                  {
+                    "title": "DATE_PLAYED",
+                    "id": "DatePlayed"
+                  },
+                  {
+                    "title": "Is Unplayed",
+                    "id": "IsUnplayed"
+                  },
+                  {
+                    "title": "Name",
+                    "id": "SortName"
+                  },
+                  {
+                    "title": "PLAY_COUNT",
+                    "id": "PlayCount"
+                  },
+                  {
+                    "title": "RELEASE_DATE",
+                    "id": "PremiereDate"
+                  },
+                  {
+                    "title": "Random",
+                    "id": "random"
+                  },
+                  {
+                    "title": "RUNTIME",
+                    "id": "Runtime"
+                  }
+                ]
+              },
+              {
+                "title": "Sort Order",
+                "description": "Sort Order for the row - Ascending,Descending.",
+                "settingName": "ui.home.favoritesSortOrder",
+                "type": "radio",
+                "default": "Ascending",
+                "options": [
+                  {
+                    "title": "Ascending",
+                    "id": "Ascending"
+                  },
+                  {
+                    "title": "Descending",
+                    "id": "Descending"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "title": "Hide Clock",
+            "description": "Hide all clocks in Jellyfin. Jellyfin will need to be closed and reopened for changes to take effect.",
+            "settingName": "ui.design.hideclock",
+            "type": "bool",
+            "default": "false"
+          },
+          {
+            "title": "Max Days Next Up",
+            "description": "Set the maximum amount of days a show should stay in the 'Next Up' list without watching it. Maximum value is 1000 days.",
+            "settingName": "ui.details.maxdaysnextup",
+            "type": "integer",
+            "max": "1000",
+            "default": "365"
+          },
+          {
+            "title": "Rewatching Next Up",
+            "description": "Show already watched episodes in 'Next Up' sections.",
+            "settingName": "ui.details.enablerewatchingnextup",
+            "type": "bool",
+            "default": "false"
+          },
+          {
+            "title": "Show Roku OS Version Popup",
+            "description": "Show Roku OS Version popup when app starts.",
+            "settingName": "load.rokuospopup",
+            "type": "bool",
+            "default": "true"
+          },
+          {
+            "title": "Show What's New Popup",
+            "description": "Show What's New popup when Jellyfin is updated to a new version.",
+            "settingName": "load.allowwhatsnew",
+            "type": "bool",
+            "default": "true"
+          },
+          {
+            "title": "Use Fallback Font Across App",
+            "description": "Changes the font used in the app to the server's configured fallback font.",
+            "settingName": "useFallbackFont",
+            "type": "bool",
+            "default": "false"
+          }
+        ]
+      },
+      {
+        "title": "Home Rows",
+        "description": "Customize the home screen sections",
+        "children": [
+          {
+            "title": "Use Web Client's Home Section Arrangement",
+            "description": "Make the arrangement of the Roku home view sections match the web client's home screen. Jellyfin will need to be closed and reopened for change to take effect.",
+            "settingName": "ui.home.useWebSectionArrangement",
+            "type": "bool",
+            "default": "true"
+          },
+          {
+            "title": "Section 1",
+            "visible": false,
+            "description": "Select what to show in section 1. This setting has no effect if \"Use Web Client's Home Section Arrangement\" is enabled. Jellyfin will need to be closed and reopened for change to take effect.",
+            "settingName": "homeScreenSection0",
+            "type": "radio",
+            "default": "smalllibrarytiles",
+            "options": [
+              {
+                "title": "Continue Listening",
+                "id": "resumeaudio"
+              },
+              {
+                "title": "Continue Watching",
+                "id": "resume"
+              },
+              {
+                "title": "Favorites",
+                "id": "favorites"
+              },
+              {
+                "title": "Live TV",
+                "id": "livetv"
+              },
+              {
+                "title": "My List",
+                "id": "mylist"
+              },
+              {
+                "title": "My Media",
+                "id": "smalllibrarytiles"
+              },
+              {
+                "title": "Next Up",
+                "id": "nextup"
+              },
+              {
+                "title": "None",
+                "id": "none"
+              },
+              {
+                "title": "Radio Stations",
+                "id": "radiostations"
+              },
+              {
+                "title": "Recently Added Media",
+                "id": "latestmedia"
+              }
+            ]
+          },
+          {
+            "title": "Section 2",
+            "visible": false,
+            "description": "Select what to show in section 2. This setting has no effect if \"Use Web Client's Home Section Arrangement\" is enabled. Jellyfin will need to be closed and reopened for change to take effect.",
+            "settingName": "homeScreenSection1",
+            "type": "radio",
+            "default": "resume",
+            "options": [
+              {
+                "title": "Continue Listening",
+                "id": "resumeaudio"
+              },
+              {
+                "title": "Continue Watching",
+                "id": "resume"
+              },
+              {
+                "title": "Favorites",
+                "id": "favorites"
+              },
+              {
+                "title": "Live TV",
+                "id": "livetv"
+              },
+              {
+                "title": "My List",
+                "id": "mylist"
+              },
+              {
+                "title": "My Media",
+                "id": "smalllibrarytiles"
+              },
+              {
+                "title": "Next Up",
+                "id": "nextup"
+              },
+              {
+                "title": "None",
+                "id": "none"
+              },
+              {
+                "title": "Radio Stations",
+                "id": "radiostations"
+              },
+              {
+                "title": "Recently Added Media",
+                "id": "latestmedia"
+              }
+            ]
+          },
+          {
+            "title": "Section 3",
+            "visible": false,
+            "description": "Select what to show in section 3. This setting has no effect if \"Use Web Client's Home Section Arrangement\" is enabled. Jellyfin will need to be closed and reopened for change to take effect.",
+            "settingName": "homeScreenSection2",
+            "type": "radio",
+            "default": "nextup",
+            "options": [
+              {
+                "title": "Continue Listening",
+                "id": "resumeaudio"
+              },
+              {
+                "title": "Continue Watching",
+                "id": "resume"
+              },
+              {
+                "title": "Favorites",
+                "id": "favorites"
+              },
+              {
+                "title": "Live TV",
+                "id": "livetv"
+              },
+              {
+                "title": "My List",
+                "id": "mylist"
+              },
+              {
+                "title": "My Media",
+                "id": "smalllibrarytiles"
+              },
+              {
+                "title": "Next Up",
+                "id": "nextup"
+              },
+              {
+                "title": "None",
+                "id": "none"
+              },
+              {
+                "title": "Radio Stations",
+                "id": "radiostations"
+              },
+              {
+                "title": "Recently Added Media",
+                "id": "latestmedia"
+              }
+            ]
+          },
+          {
+            "title": "Section 4",
+            "visible": false,
+            "description": "Select what to show in section 4. This setting has no effect if \"Use Web Client's Home Section Arrangement\" is enabled. Jellyfin will need to be closed and reopened for change to take effect.",
+            "settingName": "homeScreenSection3",
+            "type": "radio",
+            "default": "latestmedia",
+            "options": [
+              {
+                "title": "Continue Listening",
+                "id": "resumeaudio"
+              },
+              {
+                "title": "Continue Watching",
+                "id": "resume"
+              },
+              {
+                "title": "Favorites",
+                "id": "favorites"
+              },
+              {
+                "title": "Live TV",
+                "id": "livetv"
+              },
+              {
+                "title": "My List",
+                "id": "mylist"
+              },
+              {
+                "title": "My Media",
+                "id": "smalllibrarytiles"
+              },
+              {
+                "title": "Next Up",
+                "id": "nextup"
+              },
+              {
+                "title": "None",
+                "id": "none"
+              },
+              {
+                "title": "Radio Stations",
+                "id": "radiostations"
+              },
+              {
+                "title": "Recently Added Media",
+                "id": "latestmedia"
+              }
+            ]
+          },
+          {
+            "title": "Section 5",
+            "visible": false,
+            "description": "Select what to show in section 5. This setting has no effect if \"Use Web Client's Home Section Arrangement\" is enabled. Jellyfin will need to be closed and reopened for change to take effect.",
+            "settingName": "homeScreenSection4",
+            "type": "radio",
+            "default": "livetv",
+            "options": [
+              {
+                "title": "Continue Listening",
+                "id": "resumeaudio"
+              },
+              {
+                "title": "Continue Watching",
+                "id": "resume"
+              },
+              {
+                "title": "Favorites",
+                "id": "favorites"
+              },
+              {
+                "title": "Live TV",
+                "id": "livetv"
+              },
+              {
+                "title": "My List",
+                "id": "mylist"
+              },
+              {
+                "title": "My Media",
+                "id": "smalllibrarytiles"
+              },
+              {
+                "title": "Next Up",
+                "id": "nextup"
+              },
+              {
+                "title": "None",
+                "id": "none"
+              },
+              {
+                "title": "Radio Stations",
+                "id": "radiostations"
+              },
+              {
+                "title": "Recently Added Media",
+                "id": "latestmedia"
+              }
+            ]
+          },
+          {
+            "title": "Section 6",
+            "visible": false,
+            "description": "Select what to show in section 6. This setting has no effect if \"Use Web Client's Home Section Arrangement\" is enabled. Jellyfin will need to be closed and reopened for change to take effect.",
+            "settingName": "homeScreenSection5",
+            "type": "radio",
+            "default": "mylist",
+            "options": [
+              {
+                "title": "Continue Listening",
+                "id": "resumeaudio"
+              },
+              {
+                "title": "Continue Watching",
+                "id": "resume"
+              },
+              {
+                "title": "Favorites",
+                "id": "favorites"
+              },
+              {
+                "title": "Live TV",
+                "id": "livetv"
+              },
+              {
+                "title": "My List",
+                "id": "mylist"
+              },
+              {
+                "title": "My Media",
+                "id": "smalllibrarytiles"
+              },
+              {
+                "title": "Next Up",
+                "id": "nextup"
+              },
+              {
+                "title": "None",
+                "id": "none"
+              },
+              {
+                "title": "Radio Stations",
+                "id": "radiostations"
+              },
+              {
+                "title": "Recently Added Media",
+                "id": "latestmedia"
+              }
+            ]
+          },
+          {
+            "title": "Section 7",
+            "visible": false,
+            "description": "Select what to show in section 7. This setting has no effect if \"Use Web Client's Home Section Arrangement\" is enabled. Jellyfin will need to be closed and reopened for change to take effect.",
+            "settingName": "homeScreenSection6",
+            "type": "radio",
+            "default": "favorites",
+            "options": [
+              {
+                "title": "Continue Listening",
+                "id": "resumeaudio"
+              },
+              {
+                "title": "Continue Watching",
+                "id": "resume"
+              },
+              {
+                "title": "Favorites",
+                "id": "favorites"
+              },
+              {
+                "title": "Live TV",
+                "id": "livetv"
+              },
+              {
+                "title": "My List",
+                "id": "mylist"
+              },
+              {
+                "title": "My Media",
+                "id": "smalllibrarytiles"
+              },
+              {
+                "title": "Next Up",
+                "id": "nextup"
+              },
+              {
+                "title": "None",
+                "id": "none"
+              },
+              {
+                "title": "Radio Stations",
+                "id": "radiostations"
+              },
+              {
+                "title": "Recently Added Media",
+                "id": "latestmedia"
+              }
+            ]
+          },
+          {
+            "title": "Section 8",
+            "visible": false,
+            "description": "Select what to show in section 8. This setting has no effect if \"Use Web Client's Home Section Arrangement\" is enabled. Jellyfin will need to be closed and reopened for change to take effect.",
+            "settingName": "homeScreenSection7",
+            "type": "radio",
+            "default": "none",
+            "options": [
+              {
+                "title": "Continue Listening",
+                "id": "resumeaudio"
+              },
+              {
+                "title": "Continue Watching",
+                "id": "resume"
+              },
+              {
+                "title": "Favorites",
+                "id": "favorites"
+              },
+              {
+                "title": "Live TV",
+                "id": "livetv"
+              },
+              {
+                "title": "My List",
+                "id": "mylist"
+              },
+              {
+                "title": "My Media",
+                "id": "smalllibrarytiles"
+              },
+              {
+                "title": "Next Up",
+                "id": "nextup"
+              },
+              {
+                "title": "None",
+                "id": "none"
+              },
+              {
+                "title": "Radio Stations",
+                "id": "radiostations"
+              },
+              {
+                "title": "Recently Added Media",
+                "id": "latestmedia"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Item Detail Screen",
+        "description": "Settings relating to the appearance of the item detail screen.",
+        "children": [
+          {
+            "title": "Overview Content",
+            "description": "A quick overview of the item selected - typically a short plot outline.",
+            "settingName": "ui.itemdetail.showoverviewcontent",
+            "type": "bool",
+            "default": "true"
+          }
+        ]
+      },
+      {
+        "title": "Libraries",
+        "description": "Settings relating to the appearance of Library pages.",
+        "children": [
+          {
+            "title": "Forget Filters",
+            "description": "Forget applied library filters when Jellyfin is closed.",
+            "settingName": "itemgrid.forgetFilters",
+            "type": "bool",
+            "default": "true"
+          },
+          {
+            "title": "Grid View Item Titles",
+            "description": "Select when to show titles in grid view.",
+            "settingName": "itemgrid.gridTitles",
+            "type": "radio",
+            "default": "showonhover",
+            "options": [
+              {
+                "title": "Show On Hover",
+                "id": "showonhover"
+              },
+              {
+                "title": "Always Show",
+                "id": "showalways"
+              },
+              {
+                "title": "Always Hide",
+                "id": "hidealways"
+              }
+            ]
+          },
+          {
+            "title": "Library Image Orientation",
+            "description": "Select the poster image orientation for the library views.",
+            "settingName": "libraryPosterOrientation",
+            "type": "radio",
+            "default": "default",
+            "options": [
+              {
+                "title": "Default (Varies By Media Type)",
+                "id": "default"
+              },
+              {
+                "title": "Landscape (Wide)",
+                "id": "landscape"
+              },
+              {
+                "title": "Portrait (Vertical)",
+                "id": "portrait"
+              }
+            ]
+          },
+          {
+            "title": "Library Landscape Column Count",
+            "description": "Number of columns in library view when showing landscape (wide) images",
+            "settingName": "numberOfColumnsLandscape",
+            "type": "slider",
+            "default": "4",
+            "options": [
+              {
+                "value": "3",
+                "data": "565"
+              },
+              {
+                "value": "4",
+                "data": "418"
+              },
+              {
+                "value": "5",
+                "data": "330"
+              },
+              {
+                "value": "6",
+                "data": "272"
+              },
+              {
+                "value": "7",
+                "data": "230"
+              },
+              {
+                "value": "8",
+                "data": "199"
+              }
+            ]
+          },
+          {
+            "title": "Library Portrait Column Count",
+            "description": "Number of columns in library view when showing portrait (tall) images",
+            "settingName": "numberOfColumnsPortrait",
+            "type": "slider",
+            "default": "7",
+            "options": [
+              {
+                "value": "6",
+                "data": "272"
+              },
+              {
+                "value": "7",
+                "data": "230"
+              },
+              {
+                "value": "8",
+                "data": "198"
+              },
+              {
+                "value": "9",
+                "data": "175"
+              },
+              {
+                "value": "10",
+                "data": "154"
+              },
+              {
+                "value": "11",
+                "data": "139"
+              }
+            ]
+          },
+          {
+            "title": "Library Square Column Count",
+            "description": "Number of columns in library view when showing square images",
+            "settingName": "numberOfColumnsSquare",
+            "type": "slider",
+            "default": "6",
+            "options": [
+              {
+                "value": "5",
+                "data": "330"
+              },
+              {
+                "value": "6",
+                "data": "272"
+              },
+              {
+                "value": "7",
+                "data": "230"
+              },
+              {
+                "value": "8",
+                "data": "198"
+              },
+              {
+                "value": "9",
+                "data": "175"
+              },
+              {
+                "value": "10",
+                "data": "154"
+              }
+            ]
+          },
+          {
+            "title": "Live TV",
+            "description": "Settings relating to Live TV.",
+            "children": [
+              {
+                "title": "Channel Title Info",
+                "description": "Select what information to use as a channel's title.",
+                "settingName": "tvChannelTitleInfo",
+                "type": "radio",
+                "default": "numberName",
+                "options": [
+                  {
+                    "title": "Channel Number and Name",
+                    "id": "numberName"
+                  },
+                  {
+                    "title": "Channel Number",
+                    "id": "number"
+                  },
+                  {
+                    "title": "Channel Name",
+                    "id": "name"
+                  }
+                ]
+              },
+              {
+                "title": "TV Guide Channel Display",
+                "description": "Select how to display a channel in the Live TV guide.",
+                "settingName": "tvGuideChannelDisplay",
+                "type": "radio",
+                "default": "logoTitle",
+                "options": [
+                  {
+                    "title": "Channel Logo and Title",
+                    "id": "logoTitle"
+                  },
+                  {
+                    "title": "Channel Logo",
+                    "id": "logo"
+                  },
+                  {
+                    "title": "Channel Title",
+                    "id": "title"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "title": "Load Items Limit",
+            "description": "Number of items to load together on library screens.",
+            "settingName": "ui.library.loadItemsLimit",
+            "type": "integer",
+            "min": "15",
+            "default": "60"
+          },
+          {
+            "title": "TV Shows",
+            "description": "Settings relating to the appearance of pages in TV Libraries.",
+            "children": [
+              {
+                "title": "Disable Unwatched Episode Count",
+                "description": "If enabled, the number of unwatched episodes in a series/season will be removed.",
+                "settingName": "ui.tvshows.disableUnwatchedEpisodeCount",
+                "type": "bool",
+                "default": "false"
+              },
+              {
+                "title": "Skip Details for Single Seasons",
+                "description": "If enabled, selecting a TV series with only one season will go straight to the episode list rather than the show details and season list.",
+                "settingName": "ui.tvshows.goStraightToEpisodeListing",
+                "type": "bool",
+                "default": "false"
+              },
+              {
+                "title": "Start Episode List From First Unwatched Episode",
+                "description": "When opening a season's list of episodes, automatically scroll down and start the cursor on the first unwatched episode.",
+                "settingName": "ui.tvshows.startListFromUnwatched",
+                "type": "bool",
+                "default": "false"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Secret",
+    "description": "Nothing here. The settings are in another castle.",
+    "visible": false,
+    "children": []
+  }
+]

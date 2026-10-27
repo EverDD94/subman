@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component name="VideoPlayerView" extends="Video">
+  <interface>
+    <field id="backPressed" type="boolean" alwaysNotify="true" />
+    <field id="selectSubtitlePressed" type="boolean" alwaysNotify="true" />
+    <field id="selectAudioPressed" type="boolean" alwaysNotify="true" />
+    <field id="selectSpeedPressed" type="boolean" alwaysNotify="true" />
+    <field id="selectPlaybackInfoPressed" type="boolean" alwaysNotify="true" />
+    <field id="PlaySessionId" type="string" />
+    <field id="Subtitles" type="array" />
+    <field id="SelectedSubtitle" type="integer" value="-2" alwaysNotify="true" />
+    <field id="previousSubtitleWasEncoded" type="boolean" />
+    <field id="selectedSpeed" type="float" />
+    <field id="container" type="string" />
+    <field id="directPlaySupported" type="boolean" />
+    <field id="systemOverlay" type="boolean" value="false" />
+    <field id="showID" type="string" />
+    <field id="lastFocus" type="node" />
+    <field id="returnOnStop" type="boolean" value="false" />
+
+    <field id="transcodeParams" type="assocarray" />
+    <field id="transcodeAvailable" type="boolean" value="false" />
+    <field id="isTranscoded" type="boolean" />
+    <field id="disableNextEpisodeAutoPlay" type="boolean" value="false" />
+
+    <field id="videoId" type="string" />
+    <field id="mediaSourceId" type="string" />
+    <field id="fullSubtitleData" type="array" />
+    <field id="fullAudioData" type="array" />
+    <field id="audioIndex" type="integer" />
+    <field id="allowCaptions" type="boolean" value="false" />
+    <field id="voiceCommand" type="assocarray" alwaysNotify="true" />
+    <!-- True when a skippable segment (intro, recap, etc.) is currently active -->
+    <field id="hasActiveSegment" type="boolean" value="false" />
+    <field id="nowPlayingMetadata" type="assocarray" alwaysNotify="true" />
+  </interface>
+
+  <children>
+    <LayoutGroup id="bufferingVideoInfo" layoutDirection="vert" translation="[103,61]">
+      <ScrollingText id="bufferingItemTitle" font="font:LargeBoldSystemFont" maxWidth="1400" />
+      <LayoutGroup id="bufferingVideoInfo" layoutDirection="horiz" translation="[103,61]">
+        <Text id="bufferingItemSeason" font="font:MediumSystemFont" color="0xffffffFF" />
+        <Text id="bufferingItemEpisode" font="font:MediumSystemFont" color="0xffffffFF" />
+        <Text id="bufferingItemEpisodeEnd" font="font:MediumSystemFont" color="0xffffffFF" />
+      </LayoutGroup>
+    </LayoutGroup>
+
+    <Group id="captionGroup" translation="[0,0]" />
+    <timer id="playbackTimer" repeat="true" duration="10" />
+    <timer id="playbackCheckTimer" repeat="false" duration="1" />
+    <timer id="bufferStuckTimer" repeat="true" duration="3" />
+    <timer id="bufferCheckTimer" repeat="true" />
+    <OSD id="osd" visible="false" />
+    <PlaybackCastPopup id="castPopup" visible="false" />
+
+    <Rectangle id="chapterList" visible="false" color="0x00000098" width="400" height="380" translation="[103,210]">
+      <LabelList id="chapterMenu" itemSpacing="[0,20]" numRows="5" font="font:SmallSystemFont" itemSize="[315,40]" translation="[40,20]">
+        <ContentNode id="chapterContent" role="content" />
+      </LabelList>
+    </Rectangle>
+
+    <Text id="videoEndingTime" font="font:SmallSystemFont" color="0xffffffFF" horizAlign="right" width="200" translation="[1617,900]" visible="false" />
+
+    <Rectangle id="nextUp" visible="false" color="0x000000CC" height="144" width="785" translation="[1000, 920]">
+      <Poster id="nextItemPoster" width="150" height="124" translation="[10, 10]" />
+      <LayoutGroup layoutDirection="vert" horizAlignment="left" itemSpacings="[10, 10]" translation="[180, 15]">
+        <Text text="Next Up" color="#FFFFFF" font="font:SmallBoldSystemFont" horizAlign="left" vertAlign="center" height="35" />
+        <ScrollingText id="nextItemSeriesTitle" maxWidth="300" color="#FFFFFF" font="font:SmallBoldSystemFont" horizAlign="left" vertAlign="top" height="35" />
+        <ScrollingText id="nextItemEpisodeTitle" maxWidth="300" color="#AAAAAA" font="font:SmallBoldSystemFont" horizAlign="left" vertAlign="top" height="35" />
+      </LayoutGroup>
+    </Rectangle>
+
+    <StandardButton id="skipSegment" visible="false" height="85" width="275" translation="[1500, 950]" />
+
+    <Rectangle id="subtitleTimingButtons" height="120" width="560" translation="[100, 900]" visible="false">
+      <Text id="subtitleSyncValue" translation="[10, 20]" />
+      <StandardButton
+        id="subtitleSyncMinus500"
+        text="-500ms"
+        translation="[10, 55]"
+        height="50"
+        width="100" />
+      <StandardButton
+        id="subtitleSyncMinus100"
+        text="-100ms"
+        translation="[120, 55]"
+        height="50"
+        width="100" />
+      <StandardButton
+        id="subtitleSyncPlus100"
+        text="+100ms"
+        translation="[230, 55]"
+        height="50"
+        width="100" />
+      <StandardButton
+        id="subtitleSyncPlus500"
+        text="+500ms"
+        translation="[340, 55]"
+        height="50"
+        width="100" />
+      <StandardButton
+        id="subtitleSyncReset"
+        text="Reset"
+        translation="[450, 55]"
+        height="50"
+        width="100" />
+    </Rectangle>
+
+    <Timer id="fastForwardOrRewindTimer" repeat="true" duration="0.3" />
+    <Timer id="spinnerPercentTimer" repeat="true" duration="0.15" />
+    <Timer id="leftTenSecondSkipTimer" repeat="true" duration="0.5" />
+    <Timer id="rightTenSecondSkipTimer" repeat="true" duration="0.5" />
+
+    <Label id="spinnerPercent" text="0%" visible="false" horizAlign="center" vertAlign="center" height="100" width="100" font="font:SmallBoldSystemFont" />
+  </children>
+</component>

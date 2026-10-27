@@ -1,0 +1,44 @@
+import "pkg:/source/enums/ColorPalette.bs"
+import "pkg:/source/utils/misc.bs"
+
+sub init()
+    m.content = m.top.findNode("content")
+    m.top.observeField("contentData", "onContentDataChanged")
+
+    m.top.id = "OKDialog"
+    m.top.height = 900
+    m.top.title = tr("What's New")+ "?"
+    m.top.buttons = [tr("OK")]
+
+    m.dialogStyles = {
+        "default": {
+            "fontSize": 27,
+            "fontUri": "font:BoldSystemFontFile",
+            "color": chainLookupReturn(m.global.session, "user.settings.colorDialogText", ColorPalette.WHITE)
+        },
+        "b": {
+            "fontSize": 27,
+            "fontUri": "font:SystemFontFile",
+            "color": chainLookupReturn(m.global.session, "user.settings.colorDialogBoldText", ColorPalette.TRIADGREEN)
+        },
+        "header": {
+            "fontSize": 35,
+            "fontUri": "font:SystemFontFile",
+            "color": chainLookupReturn(m.global.session, "user.settings.colorDialogText", ColorPalette.WHITE)
+        },
+        "p": {
+            "fontSize": 27,
+            "fontUri": "font:SystemFontFile",
+            "color": chainLookupReturn(m.global.session, "user.settings.colorDialogText", ColorPalette.WHITE)
+        }
+    }
+
+end sub
+
+sub onContentDataChanged()
+    for each item in m.top.contentData.data
+        textLine = m.content.CreateChild("StdDlgMultiStyleTextItem")
+        textLine.drawingStyles = m.dialogStyles
+        textLine.text = item
+    end for
+end sub

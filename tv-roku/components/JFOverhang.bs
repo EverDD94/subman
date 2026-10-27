@@ -1,0 +1,155 @@
+import "pkg:/source/enums/ColorPalette.bs"
+import "pkg:/source/enums/KeyCode.bs"
+import "pkg:/source/enums/PosterLoadStatus.bs"
+import "pkg:/source/utils/config.bs"
+import "pkg:/source/utils/misc.bs"
+
+sub init()
+    m.top.id = "overhang"
+    m.top.translation = [54, 0]
+
+    m.leftGroup = m.top.findNode("overlayLeftGroup")
+    m.rightGroup = m.top.findNode("overlayRightGroup")
+
+    ' save node references
+    m.title = m.top.findNode("overlayTitle")
+    m.overlayRightGroup = m.top.findNode("overlayRightGroup")
+    m.slideDownAnimation = m.top.findNode("slideDown")
+    m.slideUpAnimation = m.top.findNode("slideUp")
+
+    m.profileImage = m.top.findNode("overlayCurrentUserProfileImage")
+    m.profileMask = m.top.findNode("backgroundMask")
+
+    m.overlayCurrentUser = m.top.findNode("overlayCurrentUser")
+    if isValid(m.overlayCurrentUser)
+        m.overlayCurrentUser.color = chainLookupReturn(m.global.session, "user.settings.colorHomeUsername", ColorPalette.WHITE)
+    end if
+
+    m.overlayCurrentUserSelection = m.top.findNode("overlayCurrentUserSelection")
+    if isValid(m.overlayCurrentUserSelection)
+        m.overlayCurrentUserSelection.blendColor = chainLookupReturn(m.global.session, "user.settings.colorCursor", ColorPalette.HIGHLIGHT)
+    end if
+
+    if isValid(m.profileMask)
+        ' Adjust MaskGroup size for HD devices because maskSize does not currently
+        ' follow SceneGraph automatic resolution scaling. Asset is 66x66 (not 64x64)
+        ' because it must be divisible by 3 for clean 2/3 scaling to HD (66 -> 44).
+        size = scaleMaskSize(66)
+        m.profileMask.maskSize = [size, size]
+    end if
+
+end sub
+
+sub highlightUser()
+    selectUser = m.top.findNode("overlayCurrentUserSelection")
+    if isValid(selectUser)
+        selectUser.visible = true
+    end if
+end sub
+
+sub dehighlightUser()
+    selectUser = m.top.findNode("overlayCurrentUserSelection")
+    if isValid(selectUser)
+        selectUser.visible = false
+    end if
+end sub
+
+sub onVisibleChange()
+    if m.top.disableMoveAnimation
+        m.top.translation = [54, 0]
+        return
+    end if
+    if m.top.isVisible
+        m.slideDownAnimation.control = "start"
+        return
+    end if
+
+    m.slideUpAnimation.control = "start"
+end sub
+
+sub updateTitle()
+    m.title.text = m.top.title
+end sub
+
+sub updateUser()
+    if isValid(m.overlayCurrentUser)
+        m.overlayCurrentUser.text = m.top.currentUser
+    end if
+end sub
+
+sub updateUserProfileImage()
+    m.profileImage.observeField("loadStatus", "onPosterLoadStatusChanged")
+    if isValid(m.profileImage)
+        m.profileImage.uri = m.top.currentUserProfileImage
+    end if
+end sub
+
+sub onPosterLoadStatusChanged()
+    if m.profileImage.loadStatus <> PosterLoadStatus.LOADING
+        m.profileImage.unobserveField("loadStatus")
+    end if
+
+    if m.profileImage.loadStatus = PosterLoadStatus.FAILED
+        if m.profileImage.loadWidth = 0
+            m.profileImage.uri = "pkg:/images/baseline_person_white_48dp.png"
+        end if
+    end if
+end sub
+
+sub updateOptions()
+
+end sub
+
+function onKeyEvent(key as string, press as boolean) as boolean
+    if press
+        if isStringEqual(key, KeyCode.LEFT)
+            buttons = m.top.getscene().findNode("buttons")
+            if isValid(buttons)
+                if buttons.getChildCount() = 0 then return false
+
+                lastButtonIndex = buttons.getChildCount() - 1
+                lastButton = buttons.getChild(lastButtonIndex)
+                if not isValid(lastButton) then return false
+
+                dehighlightUser()
+                lastButton.setfocus(true)
+                lastButton.focus = true
+                group = m.global.sceneManager.callFunc("getActiveScene")
+                group.lastFocus = lastButton
+                return true
+            end if
+        end if
+
+        if key = KeyCode.DOWN
+            homeRows = m.top.getscene().findNode("homeRows")
+            if isValid(homeRows)
+                if homeRows.content.getChildCount() = 0 then return false
+
+                dehighlightUser()
+                homeRows.setfocus(true)
+                group = m.global.sceneManager.callFunc("getActiveScene")
+                group.lastFocus = homeRows
+                return true
+            end if
+        end if
+
+        if key = KeyCode.OK
+            group = m.global.sceneManager.callFunc("getActiveScene")
+            panel = group.findNode("options")
+            panel.visible = true
+            panel.findNode("panelList").setFocus(true)
+
+            homeRows = m.top.getscene().findNode("homeRows")
+            if isValid(homeRows)
+                if homeRows.content.getChildCount() = 0
+                    group.lastFocus = m.top
+                end if
+            end if
+
+            dehighlightUser()
+            return true
+        end if
+    end if
+
+    return false
+end function

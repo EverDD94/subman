@@ -1,0 +1,25 @@
+'
+' Returns an object from a URL with its URI components as properties = { proto, host, port, path, query }
+' If any of those URI components are missing, they will be set as empty strings = ""
+' If the url param provided cannot be parsed, then invalid will be returned
+'
+' @param url a URL string which will be parsed into URI components
+function ParsedUrl(url as string) as object
+    rgx = CreateObject("roRegex", "^(?:(.*):\/\/)?([^\/:?]+)(?::(\d+))?(\/[^\r\n?]+)?(?:\?(.*))?$", "")
+    match = rgx.Match(url)
+    if not isValid(match) then return invalid
+
+    return {
+        proto: isValid(match[1]) ? match[1] : string.EMPTY,
+        host: isValid(match[2]) ? match[2] : string.EMPTY,
+        port: isValid(match[3]) ? match[3] : string.EMPTY,
+        path: isValid(match[4]) ? match[4].endswith("/") ? match[4].left(len(match[4]) - 1) : match[4] : string.EMPTY,
+        query: isValid(match[5]) ? match[5] : string.EMPTY,
+        toString: __ParsedUrl_ToString
+    }
+end function
+
+' Returns the parsed URL as a complete URL string
+function __ParsedUrl_ToString() as string
+    return `${m.proto = "" ? "" : `${m.proto}://`}${m.host}${m.port = "" ? "" : `:${m.port}`}${m.path}${m.query = "" ? "" : `?${m.query}`}`
+end function

@@ -1,0 +1,1138 @@
+import "pkg:/source/api/baserequest.bs"
+import "pkg:/source/enums/AnimationControl.bs"
+import "pkg:/source/enums/AnimationState.bs"
+import "pkg:/source/enums/ColorPalette.bs"
+import "pkg:/source/enums/ImageLayout.bs"
+import "pkg:/source/enums/ItemType.bs"
+import "pkg:/source/enums/KeyCode.bs"
+import "pkg:/source/enums/PosterLoadStatus.bs"
+import "pkg:/source/enums/String.bs"
+import "pkg:/source/enums/TaskControl.bs"
+import "pkg:/source/enums/ViewLoadStatus.bs"
+import "pkg:/source/utils/config.bs"
+import "pkg:/source/utils/deviceCapabilities.bs"
+import "pkg:/source/utils/misc.bs"
+
+const ASPECT_RATIO_PORTRAIT_NO_TITLE = 1.52173
+const ASPECT_RATIO_LANDSCAPE_NO_TITLE = .56307
+const ASPECT_RATIO_PORTRAIT_WITH_TITLE = 1.69565
+const ASPECT_RATIO_LANDSCAPE_WITH_TITLE = .66307
+
+sub init()
+    m.top.imageDisplayMode = "scaleToZoom"
+    m.top.showItemTitles = chainLookupReturn(m.global.session, "user.settings.`itemgrid.gridTitles`", "showonhover")
+
+    m.loadItemsTask1 = createObject("roSGNode", "LoadItemsTask")
+
+    overhang = m.top.getScene().findNode("overhang")
+    overhang.isVisible = false
+
+    m.options = m.top.findNode("options")
+
+    m.data = CreateObject("roSGNode", "ContentNode")
+    createItemGrid()
+
+    m.backdrop = m.top.findNode("backdrop")
+    m.newBackdrop = m.top.findNode("backdropTransition")
+    m.emptyText = m.top.findNode("emptyText")
+
+    m.genreList = m.top.findNode("genrelist")
+    m.genreList.observeField("itemSelected", "onGenreItemSelected")
+    m.genreData = CreateObject("roSGNode", "ContentNode")
+    m.genreList.content = m.genreData
+
+    m.swapAnimation = m.top.findNode("backroundSwapAnimation")
+    m.swapAnimation.observeField("state", "swapDone")
+
+    m.loadedRows = 0
+    m.loadedItems = 0
+
+    group = m.global.sceneManager.callFunc("getActiveScene")
+    group.lastFocus = m.itemGrid
+
+    'Voice filter setup
+    m.voiceBox = m.top.findNode("voiceBox")
+    if m.global.device.hasVoiceRemote
+        m.voiceBox.voiceEnabled = true
+        m.voiceBox.active = true
+        m.voiceBox.observeField("text", "onvoiceFilter")
+    else
+        m.voiceBox.visible = false
+        m.voiceBox.backgroundUri = "pkg:/images/transparent.png"
+    end if
+
+    'backdrop
+    m.newBackdrop.observeField("loadStatus", "newBGLoaded")
+
+    'Background Image Queued for loading
+    m.queuedBGUri = string.EMPTY
+
+    'Item sort - maybe load defaults from user prefs?
+    m.sortField = "SortName"
+    m.sortAscending = true
+
+    m.filter = "All"
+
+    m.loadItemsTask = createObject("roSGNode", "LoadItemsTask2")
+    m.getFiltersTask = createObject("roSGNode", "GetFiltersTask")
+    m.getPlaylistDataTask = createObject("roSGNode", "GetPlaylistDataTask")
+
+    posterOrientation = chainLookupReturn(m.global, "session.user.settings.libraryPosterOrientation", ImageLayout.DEFAULT)
+
+    if isStringEqual(posterOrientation, ImageLayout.DEFAULT)
+        setColumnSizes(ImageLayout.PORTRAIT)
+    else
+        setColumnSizes(posterOrientation)
+    end if
+
+    'set inital counts for overhang before content is loaded.
+    m.loadItemsTask.observeField("content", "ItemDataLoaded")
+    m.loadItemsTask.totalRecordCount = 0
+
+    m.alpha = m.top.findNode("alpha")
+    m.alphaMenu = m.alpha.findNode("alphaMenu")
+
+    m.top.gridTitles = m.global.session.user.settings["itemgrid.gridTitles"]
+
+    m.loadStatus = ViewLoadStatus.INIT
+end sub
+
+sub createItemGrid()
+    m.itemGrid = createObject("rosgnode", "LibraryItemGrid")
+    m.itemGrid.id = "itemGrid"
+    m.itemGrid.translation = "[96, 60]"
+    m.itemGrid.itemComponentName = "GridItemSmall"
+    m.itemGrid.vertFocusAnimationStyle = "fixed"
+    'm.itemGrid.numColumns = "7"
+    'm.itemGrid.numRows = "3"
+    'm.itemGrid.rowHeights = "[345]"
+    'm.itemGrid.itemSize = "[230, 345]"
+    m.itemGrid.itemSpacing = "[20, 20]"
+
+    m.itemGrid.drawFocusFeedback = "true"
+    m.itemGrid.focusBitmapBlendColor = chainLookupReturn(m.global.session, "user.settings.colorCursor", ColorPalette.HIGHLIGHT)
+    m.top.appendChild(m.itemGrid)
+    m.itemGrid.observeField("itemFocused", "onItemFocused")
+    m.itemGrid.observeField("itemSelected", "onItemSelected")
+    m.itemGrid.content = m.data
+    m.itemGrid.setFocus(true)
+end sub
+
+sub setColumnSizes(layout = ImageLayout.PORTRAIT as string)
+
+    if isStringEqual(layout, ImageLayout.PORTRAIT)
+        numberOfColumns = chainLookupReturn(m.global.session, "user.settings.numberOfColumnsPortrait", "7")
+        imageWidthData = val(chainLookupReturn(m.global.session, "user.settings.numberOfColumnsPortraitData", "230"))
+    else
+        numberOfColumns = chainLookupReturn(m.global.session, "user.settings.numberOfColumnsLandscape", "4")
+        imageWidthData = val(chainLookupReturn(m.global.session, "user.settings.numberOfColumnsLandscapeData", "400"))
+    end if
+
+    if isStringEqual(m.top.showItemTitles, "hidealways")
+        aspectRatio = isStringEqual(layout, ImageLayout.PORTRAIT) ? ASPECT_RATIO_PORTRAIT_NO_TITLE : ASPECT_RATIO_LANDSCAPE_NO_TITLE
+    else
+        aspectRatio = isStringEqual(layout, ImageLayout.PORTRAIT) ? ASPECT_RATIO_PORTRAIT_WITH_TITLE : ASPECT_RATIO_LANDSCAPE_WITH_TITLE
+    end if
+
+    defaultSize = [imageWidthData, CInt(imageWidthData * aspectRatio)]
+
+    m.itemGrid.itemSize = defaultSize
+    m.itemGrid.rowHeights = [defaultSize[1]]
+    m.itemGrid.numRows = abs(1230 / (defaultSize[1] + m.itemGrid.itemSpacing[1]))
+    m.itemGrid.numColumns = numberOfColumns
+
+    m.genreList.itemSize = [1900, defaultSize[1] + 30]
+    m.genreList.rowItemSize = [defaultSize]
+    m.genreList.rowHeights = [defaultSize[1] + 30]
+    m.genreList.numRows = abs(1180 / (defaultSize[1] + m.genreList.itemSpacing[1]))
+
+    m.loadItemsTask.numberOfColumns = numberOfColumns
+end sub
+
+'Genre Item Selected
+sub onGenreItemSelected()
+    m.top.selectedItem = m.genreList.content.getChild(m.genreList.rowItemSelected[0]).getChild(m.genreList.rowItemSelected[1])
+end sub
+
+'Load initial set of Data
+sub loadInitialItems()
+    m.loadItemsTask.control = TaskControl.STOP
+    startLoadingSpinner()
+    favoriteViewAll = isFavoriteViewAll()
+
+    if favoriteViewAll
+        m.top.optionsAvailable = false
+    end if
+
+    if isStringEqual(m.top.parentItem.json.Type, "CollectionFolder")
+        m.top.HomeLibraryItem = m.top.parentItem.Id
+    end if
+
+    if isValid(m.top.parentItem.backdropUrl)
+        SetBackground(m.top.parentItem.backdropUrl)
+    end if
+
+    ' Read view/sort/filter settings
+    if favoriteViewAll
+        m.sortField = chainLookupReturn(m.top.parentItem, "json.SortBy", "SortName")
+        sortAscendingStr = isStringEqual(chainLookupReturn(m.top.parentItem, "json.SortOrder", "Ascending"), "Ascending")
+        m.filter = "Favorites"
+        m.filterOptions = "{}"
+        m.view = string.EMPTY
+    else if isStringEqual(m.top.parentItem.collectionType, "music")
+        m.view = m.global.session.user.settings["display.music.view"]
+        m.sortField = m.global.session.user.settings["display." + m.top.parentItem.Id + ".sortField"]
+        sortAscendingStr = m.global.session.user.settings["display." + m.top.parentItem.Id + ".sortAscending"]
+        m.filter = m.global.session.user.settings["display." + m.top.parentItem.Id + ".filter"]
+    else
+        m.sortField = m.global.session.user.settings["display." + m.top.parentItem.Id + ".sortField"]
+        sortAscendingStr = m.global.session.user.settings["display." + m.top.parentItem.Id + ".sortAscending"]
+        m.filter = m.global.session.user.settings["display." + m.top.parentItem.Id + ".filter"]
+        m.filterOptions = m.global.session.user.settings["display." + m.top.parentItem.Id + ".filterOptions"]
+        m.view = m.global.session.user.settings["display." + m.top.parentItem.Id + ".landing"]
+    end if
+
+    if isStringEqual(getCollectionType(), "tvshows")
+        if not isValidAndNotEmpty(m.view) then m.view = "Shows"
+    end if
+
+    if not isValidAndNotEmpty(m.filter) then m.filter = "All"
+    if not isValidAndNotEmpty(m.filterOptions) then m.filterOptions = "{}"
+
+    if not isValidAndNotEmpty(m.sortField)
+        ' Set the default order for boxsets to the Release Date - API calls it PremiereDate
+        if isStringEqual(m.top.parentItem.json.Type, "boxset")
+            m.sortField = "PremiereDate"
+        else
+            m.sortField = "SortName"
+        end if
+    end if
+
+    m.filterOptions = ParseJson(m.filterOptions)
+
+    if not isValid(sortAscendingStr) or sortAscendingStr = true
+        m.sortAscending = true
+    else
+        m.sortAscending = false
+    end if
+
+    if favoriteViewAll
+        m.loadItemsTask.itemId = string.EMPTY
+        m.loadItemsTask.itemType = string.EMPTY
+        m.loadItemsTask.recursive = true
+        m.loadItemsTask.studioIds = string.EMPTY
+        m.loadItemsTask.genreIds = string.EMPTY
+        m.loadItemsTask.metadata = {
+            favoriteViewAll: true,
+            includeItemTypes: chainLookupReturn(m.top.parentItem, "json.IncludeItemTypes", string.EMPTY),
+            queryType: chainLookupReturn(m.top.parentItem, "json.QueryType", string.EMPTY)
+        }
+
+        if isStringEqual(m.loadItemsTask.nameStartsWith, m.top.alphaSelected)
+            m.loadItemsTask.nameStartsWith = string.EMPTY
+            m.top.alphaSelected = string.EMPTY
+        else
+            m.loadItemsTask.nameStartsWith = m.top.alphaSelected
+        end if
+
+        m.loadItemsTask.searchTerm = m.voiceBox.text
+        m.emptyText.visible = false
+        m.loadItemsTask.sortField = m.sortField
+        m.loadItemsTask.sortAscending = m.sortAscending
+        m.loadItemsTask.filter = m.filter
+        m.loadItemsTask.filterOptions = m.filterOptions
+        m.loadItemsTask.startIndex = 0
+
+        startLoadingSpinner(false)
+        m.loadItemsTask.control = TaskControl.RUN
+
+        SetUpOptions()
+        return
+    end if
+
+    ' Set Studio Id
+    if isStringEqual(m.top.parentItem.json.type, "Studio")
+        m.loadItemsTask.studioIds = m.top.parentItem.id
+        m.loadItemsTask.itemId = m.top.parentItem.parentFolder
+        m.loadItemsTask.genreIds = string.EMPTY
+        ' Set Genre Id
+    else if isStringEqual(m.top.parentItem.json.type, "Genre")
+        m.loadItemsTask.genreIds = m.top.parentItem.id
+        m.loadItemsTask.itemId = m.top.parentItem.parentFolder
+        m.loadItemsTask.studioIds = string.EMPTY
+    else if (isStringEqual(m.view, "Shows") or isStringEqual(m.options.view, "Shows")) or (isStringEqual(m.view, "Movies") or isStringEqual(m.options.view, "Movies"))
+        m.loadItemsTask.studioIds = string.EMPTY
+        m.loadItemsTask.genreIds = string.EMPTY
+    else
+        m.loadItemsTask.itemId = m.top.parentItem.Id
+    end if
+
+    ' if we already searched for this alpha text than reset filter
+    if isStringEqual(m.loadItemsTask.nameStartsWith, m.top.alphaSelected)
+        m.loadItemsTask.nameStartsWith = string.EMPTY
+        m.top.alphaSelected = string.EMPTY
+    else
+        m.loadItemsTask.nameStartsWith = m.top.alphaSelected
+    end if
+
+    m.loadItemsTask.searchTerm = m.voiceBox.text
+    m.emptyText.visible = false
+    m.loadItemsTask.sortField = m.sortField
+    m.loadItemsTask.sortAscending = m.sortAscending
+    m.loadItemsTask.filter = m.filter
+    m.loadItemsTask.filterOptions = m.filterOptions
+    m.loadItemsTask.startIndex = 0
+
+    ' Load Item Types
+    if isStringEqual(getCollectionType(), "movies")
+        m.loadItemsTask.itemType = "Movie"
+        m.loadItemsTask.itemId = m.top.parentItem.Id
+    else if isStringEqual(getCollectionType(), "tvshows")
+        m.loadItemsTask.itemType = "Series"
+        m.loadItemsTask.itemId = m.top.parentItem.Id
+    else if isStringEqual(getCollectionType(), "music")
+        ' Default Settings
+        m.loadItemsTask.recursive = true
+        m.itemGrid.itemSize = "[290, 290]"
+
+        m.loadItemsTask.itemType = "MusicArtist"
+        m.loadItemsTask.itemId = m.top.parentItem.Id
+
+        m.view = m.global.session.user.settings["display.music.view"]
+
+        if isStringEqual(m.view, "music-album")
+            m.loadItemsTask.itemType = "MusicAlbum"
+        end if
+    else if isStringEqual(m.top.parentItem.collectionType, "CollectionFolder") or isStringEqual(m.top.parentItem.type, "CollectionFolder") or isStringEqual(m.top.parentItem.collectionType, "boxsets") or isStringEqual(m.top.parentItem.Type, "Boxset") or isStringEqual(m.top.parentItem.Type, "Boxsets") or isStringEqual(m.top.parentItem.Type, "Folder")
+        if not isStringEqual(m.voiceBox.text, string.EMPTY)
+            m.loadItemsTask.recursive = true
+        else
+            ' non recursive for collections (folders, boxsets, photo albums, etc)
+            m.loadItemsTask.recursive = false
+        end if
+
+        if isStringEqual(getCollectionType(), "nextup")
+            m.loadItemsTask.itemType = "NextUp"
+            m.itemGrid.itemComponentName = "GridItemMedium"
+            m.itemGrid.itemSize = "[400, 345]"
+            m.itemGrid.rowHeights = "[345]"
+            m.top.imageDisplayMode = "scaleToZoom"
+            m.itemGrid.numColumns = 4
+            m.alpha.visible = false
+        end if
+    else if isStringEqual(m.top.parentItem.json.type, "Studio")
+        m.loadItemsTask.itemId = m.top.parentItem.parentFolder
+        m.loadItemsTask.itemType = "Series,Movie"
+        m.top.imageDisplayMode = "scaleToFit"
+    else if isStringEqual(m.top.parentItem.json.type, "Genre")
+        m.loadItemsTask.itemType = "Series,Movie"
+        m.loadItemsTask.itemId = m.top.parentItem.parentFolder
+    else
+        print `Unknown Item Type ${m.top.parentItem}`
+    end if
+
+    if (isStringEqual(m.top.parentItem.type, "Folder") or isStringEqual(m.top.parentItem.type, "CollectionFolder")) and (isStringEqual(m.options.view, "Networks") or isStringEqual(m.view, "Networks") or isStringEqual(m.options.view, "Studios") or isStringEqual(m.view, "Studios"))
+        m.loadItemsTask.view = "Networks"
+        m.itemGrid.itemComponentName = "GridItemMedium"
+        m.itemGrid.itemSize = "[400, 345]"
+        m.itemGrid.rowHeights = "[345]"
+        m.top.imageDisplayMode = "scaleToFit"
+        m.itemGrid.numColumns = 4
+
+    else if not isStringEqual(m.top.parentItem.type, "Folder") and (isStringEqual(m.options.view, "Genres") or isStringEqual(m.view, "Genres"))
+        m.loadItemsTask.StudioIds = m.top.parentItem.Id
+        m.loadItemsTask.view = "Genres"
+    else if not isStringEqual(m.top.parentItem.type, "Folder") and (isStringEqual(m.options.view, "Shows") or isStringEqual(m.view, "Shows"))
+        m.loadItemsTask.studioIds = string.EMPTY
+        m.loadItemsTask.view = "Shows"
+    else if not isStringEqual(m.top.parentItem.typ, "Folder") and (isStringEqual(m.options.view, "Movies") or isStringEqual(m.view, "Movies"))
+        m.loadItemsTask.studioIds = string.EMPTY
+        m.loadItemsTask.view = "Movies"
+    end if
+
+    startLoadingSpinner(false)
+    m.loadItemsTask.control = TaskControl.RUN
+
+    SetUpOptions()
+
+    m.getFiltersTask.observeField("filters", "FilterDataLoaded")
+    m.getFiltersTask.params = {
+        userid: m.global.session.user.id,
+        parentid: m.top.parentItem.Id,
+        IncludeItemTypes: isStringEqual(getCollectionType(), "tvshows") ? "Series" : string.EMPTY
+    }
+    m.getFiltersTask.control = TaskControl.RUN
+end sub
+
+'
+' Filter Data Loaded Event Handler
+sub FilterDataLoaded(msg)
+
+    if not inArray(["boxsets", "boxset", "tvshows"], getCollectionType()) then return
+
+    options = {}
+    options.filter = []
+    options.favorite = []
+
+    if isStringEqual(getCollectionType(), "tvshows")
+        setTvShowsOptions(options)
+
+        if isStringEqual(m.view, "Shows") or isStringEqual(m.options.view, "Shows")
+            data = msg.GetData()
+            m.getFiltersTask.unobserveField("filters")
+
+            options.filter.push({ "Title": tr("Status"), "Name": "SeriesStatus", "Options": ["Continuing", "Ended", "Unreleased"], "Delimiter": ",", "CheckedState": [] })
+
+            if not isValid(data) then return
+
+            ' Add filters from the API data
+            if isValid(data.OfficialRatings)
+                options.filter.push({ "Title": tr("Parental Ratings"), "Name": "OfficialRatings", "Options": data.OfficialRatings, "Delimiter": "|", "CheckedState": [] })
+            end if
+            if isValid(data.genres)
+                options.filter.push({ "Title": tr("Genres"), "Name": "Genres", "Options": data.genres, "Delimiter": "|", "CheckedState": [] })
+            end if
+            if isValid(data.Years)
+                options.filter.push({ "Title": tr("Years"), "Name": "Years", "Options": data.Years, "Delimiter": ",", "CheckedState": [] })
+            end if
+        end if
+
+    else if inArray(["boxsets", "boxset"], getCollectionType())
+        setBoxsetsOptions(options)
+
+        data = msg.GetData()
+        m.getFiltersTask.unobserveField("filters")
+        if not isValid(data) then return
+
+        ' Add filters from the API data
+        if isValid(data.genres)
+            options.filter.push({ "Title": tr("Genres"), "Name": "Genres", "Options": data.genres, "Delimiter": "|", "CheckedState": [] })
+        end if
+    end if
+
+    setSelectedOptions(options)
+
+    m.options.options = options
+end sub
+
+' Data to display when options button selected
+sub setSelectedOptions(options)
+
+    ' Set selected view option
+    for each o in options.views
+        if o.Name = m.view
+            o.Selected = true
+            o.Ascending = m.sortAscending
+            m.options.view = o.Name
+        end if
+    end for
+
+    ' Set selected sort option
+    for each o in options.sort
+        if o.Name = m.sortField
+            o.Selected = true
+            o.Ascending = m.sortAscending
+            m.options.sortField = o.Name
+        end if
+    end for
+
+    ' Set selected filter
+    for each o in options.filter
+        if o.Name = m.filter
+            o.Selected = true
+            m.options.filter = o.Name
+        end if
+
+        ' Select selected filter options
+        if isValid(o.options) and isValid(m.filterOptions)
+            if o.options.Count() > 0 and m.filterOptions.Count() > 0
+                if LCase(o.Name) = LCase(m.filterOptions.keys()[0])
+                    selectedFilterOptions = m.filterOptions[m.filterOptions.keys()[0]].split(o.delimiter)
+                    checkedState = []
+
+                    for each availableFilterOption in o.options
+                        matchFound = false
+
+                        for each selectedFilterOption in selectedFilterOptions
+                            if LCase(toString(availableFilterOption).trim()) = LCase(selectedFilterOption.trim())
+                                matchFound = true
+                            end if
+                        end for
+
+                        checkedState.push(matchFound)
+                    end for
+
+                    o.checkedState = checkedState
+                end if
+            end if
+        end if
+    end for
+
+    m.options.options = options
+end sub
+
+' Set Movies view, sort, and filter options
+sub setMoviesOptions(options)
+    options.views = [
+        { "Title": tr("Movies"), "Name": "Movies" },
+        { "Title": tr("Studios"), "Name": "Studios" },
+        { "Title": tr("Genres"), "Name": "Genres" }
+    ]
+    options.sort = [
+        { "Title": tr("TITLE"), "Name": "SortName" },
+        { "Title": tr("IMDB_RATING"), "Name": "CommunityRating" },
+        { "Title": tr("CRITIC_RATING"), "Name": "CriticRating" },
+        { "Title": tr("DATE_ADDED"), "Name": "DateCreated" },
+        { "Title": tr("DATE_PLAYED"), "Name": "DatePlayed" },
+        { "Title": tr("OFFICIAL_RATING"), "Name": "OfficialRating" },
+        { "Title": tr("PLAY_COUNT"), "Name": "PlayCount" },
+        { "Title": tr("RELEASE_DATE"), "Name": "PremiereDate" },
+        { "Title": tr("RUNTIME"), "Name": "Runtime" },
+        { "Title": tr("Random"), "Name": "Random" },
+    ]
+    options.filter = [
+        { "Title": tr("All"), "Name": "All" },
+        { "Title": tr("Favorites"), "Name": "Favorites" },
+        { "Title": tr("Played"), "Name": "Played" },
+        { "Title": tr("Unplayed"), "Name": "Unplayed" },
+        { "Title": tr("Resumable"), "Name": "Resumable" }
+    ]
+end sub
+
+' Set Boxset view, sort, and filter options
+sub setBoxsetsOptions(options)
+    options.views = [{ "Title": tr("Collections"), "Name": "Collections" }]
+    options.sort = [
+        { "Title": tr("TITLE"), "Name": "SortName" },
+        { "Title": tr("DATE_ADDED"), "Name": "DateCreated" },
+        { "Title": tr("DATE_PLAYED"), "Name": "DatePlayed" },
+        { "Title": tr("RELEASE_DATE"), "Name": "PremiereDate" },
+        { "Title": tr("Random"), "Name": "Random" },
+    ]
+    options.filter = [
+        { "Title": tr("All"), "Name": "All" },
+        { "Title": tr("Favorites"), "Name": "Favorites" },
+        { "Title": tr("Played"), "Name": "Played" },
+        { "Title": tr("Unplayed"), "Name": "Unplayed" }
+    ]
+end sub
+
+' Set TV Show view, sort, and filter options
+sub setTvShowsOptions(options)
+    options.views = [
+        { "Title": tr("Shows"), "Name": "Shows" },
+        { "Title": tr("Networks"), "Name": "Networks" },
+        { "Title": tr("Genres"), "Name": "Genres" }
+
+    ]
+    options.sort = [
+        { "Title": tr("TITLE"), "Name": "SortName" },
+        { "Title": tr("Community Rating"), "Name": "CommunityRating,SortName" },
+        { "Title": tr("Date Show Added"), "Name": "DateCreated,SortName" },
+        { "Title": tr("Date Episode Added"), "Name": "DateLastContentAdded,SortName" },
+        { "Title": tr("DATE_PLAYED"), "Name": "SeriesDatePlayed,SortName" },
+        { "Title": tr("OFFICIAL_RATING"), "Name": "OfficialRating,SortName" },
+        { "Title": tr("RELEASE_DATE"), "Name": "PremiereDate,SortName" },
+        { "Title": tr("Random"), "Name": "Random" },
+    ]
+    options.filter = [
+        { "Title": tr("All"), "Name": "All" },
+        { "Title": tr("Favorites"), "Name": "Favorites" },
+        { "Title": tr("Played"), "Name": "Played" },
+        { "Title": tr("Unplayed"), "Name": "Unplayed" }
+    ]
+
+    if isValid(m.view)
+        if isStringEqual(m.options.view, "genres") or isStringEqual(m.view, "genres")
+            options.sort = [{ "Title": tr("TITLE"), "Name": "SortName" }]
+            options.filter = []
+        end if
+        if isStringEqual(m.options.view, "networks") or isStringEqual(m.view, "networks")
+            options.sort = [{ "Title": tr("TITLE"), "Name": "SortName" }]
+            options.filter = []
+        end if
+    end if
+
+end sub
+
+' Set Music view, sort, and filter options
+sub setMusicOptions(options)
+    options.views = [
+        { "Title": tr("Artists"), "Name": "music-artist" },
+        { "Title": tr("Albums"), "Name": "music-album" },
+    ]
+    options.sort = [
+        { "Title": tr("TITLE"), "Name": "SortName" },
+        { "Title": tr("DATE_ADDED"), "Name": "DateCreated" },
+        { "Title": tr("DATE_PLAYED"), "Name": "DatePlayed" },
+        { "Title": tr("RELEASE_DATE"), "Name": "PremiereDate" },
+        { "Title": tr("Random"), "Name": "Random" },
+    ]
+    options.filter = [
+        { "Title": tr("All"), "Name": "All" },
+        { "Title": tr("Favorites"), "Name": "Favorites" }
+    ]
+end sub
+
+' Set Photo Album view, sort, and filter options
+sub setPhotoAlbumOptions(options)
+    options.views = [
+        { "Title": tr("Slideshow Off"), "Name": "singlephoto" }
+        { "Title": tr("Slideshow On"), "Name": "slideshowphoto" }
+        { "Title": tr("Random Off"), "Name": "singlephoto" }
+        { "Title": tr("Random On"), "Name": "randomphoto" }
+    ]
+    options.sort = []
+    options.filter = []
+end sub
+
+' Set Default view, sort, and filter options
+sub setDefaultOptions(options)
+    options.views = [
+        { "Title": tr("Default"), "Name": "default" }
+    ]
+    options.sort = [
+        { "Title": tr("TITLE"), "Name": "SortName" },
+        { "Title": tr("Folders"), "Name": "IsFolder,SortName" },
+        { "Title": tr("DATE_ADDED"), "Name": "DateCreated" },
+    ]
+end sub
+
+' Return parent collection type
+function getCollectionType() as string
+    if not isValid(m.top.parentItem.collectionType)
+        return m.top.parentItem.Type
+    else
+        return m.top.parentItem.CollectionType
+    end if
+end function
+
+function isFavoriteViewAll() as boolean
+    return chainLookupReturn(m.top.parentItem, "json.FavoriteViewAll", false)
+end function
+
+' Search string array for search value. Return if it's found
+function inStringArray(array, searchValue) as boolean
+    for each item in array
+        if lcase(item) = lcase(searchValue) then return true
+    end for
+    return false
+end function
+
+' Data to display when options button selected
+sub SetUpOptions()
+    options = {}
+    options.filter = []
+    options.favorite = []
+
+    if isFavoriteViewAll()
+        options.views = []
+        options.sort = []
+        m.options.options = options
+        return
+    end if
+
+    if isStringEqual(getCollectionType(), "movies")
+        setMoviesOptions(options)
+    else if inStringArray(["boxsets", "Boxset"], getCollectionType())
+        return
+    else if isStringEqual(getCollectionType(), "tvshows")
+        return
+    else if inStringArray(["photoalbum", "photo", "homevideos"], getCollectionType())
+        setPhotoAlbumOptions(options)
+    else if isStringEqual(getCollectionType(), "music")
+        setMusicOptions(options)
+    else
+        setDefaultOptions(options)
+    end if
+
+    ' Set selected view option
+    for each o in options.views
+        if o.Name = m.view
+            o.Selected = true
+            o.Ascending = m.sortAscending
+            m.options.view = o.Name
+        end if
+    end for
+
+    ' Set selected sort option
+    for each o in options.sort
+        if o.Name = m.sortField
+            o.Selected = true
+            o.Ascending = m.sortAscending
+            m.options.sortField = o.Name
+        end if
+    end for
+
+    ' Set selected filter option
+    for each o in options.filter
+        if o.Name = m.filter
+            o.Selected = true
+            m.options.filter = o.Name
+        end if
+    end for
+
+    m.options.options = options
+end sub
+
+'Handle loaded data, and add to Grid
+sub ItemDataLoaded(msg)
+    itemData = msg.GetData()
+
+    if not isValidAndNotEmpty(itemData)
+        stopLoadingSpinner()
+        return
+    end if
+
+    if isStringEqual(m.loadItemsTask.view, "Genres")
+        ' Reset genre list data
+        m.genreData.removeChildren(m.genreData.getChildren(-1, 0))
+
+        for each item in itemData
+            m.genreData.appendChild(item)
+        end for
+
+        m.itemGrid.opacity = "0"
+        m.genreList.opacity = "1"
+
+        m.itemGrid.setFocus(false)
+        m.genreList.setFocus(true)
+        group = m.global.sceneManager.callFunc("getActiveScene")
+        group.lastFocus = m.genreList
+
+        stopLoadingSpinner()
+        return
+    end if
+
+    m.data.appendChildren(itemData)
+
+    ' keep focus on alpha menu when loading new data
+    if m.top.alphaActive
+        m.alphaMenu.setFocus(true)
+        group = m.global.sceneManager.callFunc("getActiveScene")
+        group.lastFocus = m.alphaMenu
+    else
+        m.itemGrid.opacity = "1"
+        m.genreList.opacity = "0"
+
+        m.alphaMenu.setFocus(false)
+        m.itemGrid.setFocus(true)
+        m.genreList.setFocus(false)
+        group = m.global.sceneManager.callFunc("getActiveScene")
+        group.lastFocus = m.itemGrid
+    end if
+
+    'Update the stored counts
+    m.loadedItems = m.itemGrid.content.getChildCount()
+    m.loadedRows = m.loadedItems / m.itemGrid.numColumns
+
+    'If there are no items to display, show message
+    if m.loadedItems = 0
+        m.emptyText.text = tr("NO_ITEMS").Replace("%1", m.top.parentItem.Type)
+        m.emptyText.visible = true
+    end if
+
+    stopLoadingSpinner()
+end sub
+
+'Set Background Image
+sub SetBackground(backgroundUri as string)
+
+    'If a new image is being loaded, or transitioned to, store URL to load next
+    if not isStringEqual(m.swapAnimation.state, AnimationState.STOPPED) or isStringEqual(m.newBackdrop.loadStatus, PosterLoadStatus.LOADING)
+        m.queuedBGUri = backgroundUri
+        return
+    end if
+
+    m.newBackdrop.uri = backgroundUri
+end sub
+
+'Handle new item being focused
+sub onItemFocused()
+
+    focusedRow = m.itemGrid.currFocusRow
+
+    itemInt = m.itemGrid.itemFocused
+
+    ' If no selected item, set background to parent backdrop
+    if itemInt = -1
+        return
+    end if
+
+    m.selectedFavoriteItem = m.itemGrid.content.getChild(m.itemGrid.itemFocused)
+
+    ' Set Background to item backdrop
+    if isValid(m.itemGrid.content.getChild(m.itemGrid.itemFocused))
+        SetBackground(m.itemGrid.content.getChild(m.itemGrid.itemFocused).backdropUrl)
+    end if
+
+    ' Load more data if focus is within last 5 rows, and there are more items to load
+
+    if m.loadItemsTask.totalRecordCount > 14
+        if focusedRow >= m.loadedRows - m.itemGrid.numRows and m.loadeditems < m.loadItemsTask.totalRecordCount
+            loadMoreData()
+        end if
+    end if
+end sub
+
+'When Image Loading Status changes
+sub newBGLoaded()
+    'If image load was sucessful, start the fade swap
+    if isStringEqual(m.newBackdrop.loadStatus, PosterLoadStatus.READY)
+        m.swapAnimation.control = AnimationControl.START
+    end if
+end sub
+
+'Swap Complete
+sub swapDone()
+    if isValid(m.swapAnimation) and isStringEqual(m.swapAnimation.state, AnimationState.STOPPED)
+        'Set main BG node image and hide transitioning node
+        m.backdrop.uri = m.newBackdrop.uri
+        m.backdrop.opacity = 0.25
+        m.newBackdrop.opacity = 0
+
+        'If there is another one to load
+        if not isStringEqual(m.newBackdrop.uri, m.queuedBGUri) and not isStringEqual(m.queuedBGUri, string.EMPTY)
+            SetBackground(m.queuedBGUri)
+            m.queuedBGUri = string.EMPTY
+        end if
+    end if
+end sub
+
+'Load next set of items
+sub loadMoreData()
+    if isStringEqual(m.loadItemsTask.state, TaskControl.RUN) then return
+
+    startLoadingSpinner(false)
+    m.loadItemsTask.startIndex = m.loadedItems
+    m.loadItemsTask.control = TaskControl.RUN
+end sub
+
+'Item Selected
+sub onItemSelected()
+    m.top.selectedItem = m.itemGrid.content.getChild(m.itemGrid.itemSelected)
+    m.top.selectedItem = invalid
+end sub
+
+sub alphaSelectedChanged()
+    if not isStringEqual(m.top.alphaSelected, string.EMPTY)
+        m.loadItemsTask.control = TaskControl.STOP
+        m.loadedRows = 0
+        m.loadedItems = 0
+        m.data = CreateObject("roSGNode", "ContentNode")
+        m.itemGrid.content = m.data
+        m.loadItemsTask.searchTerm = string.EMPTY
+        m.VoiceBox.text = string.EMPTY
+
+        loadInitialItems()
+    end if
+end sub
+
+sub onvoiceFilter()
+    if m.VoiceBox.text = string.EMPTY then return
+
+    if isStringEqual(m.voiceBox.text, "reset search") then m.voiceBox.text = string.EMPTY
+    if isStringEqual(m.voiceBox.text, "clear search") then m.voiceBox.text = string.EMPTY
+
+    m.loadedRows = 0
+    m.loadedItems = 0
+    m.data = CreateObject("roSGNode", "ContentNode")
+    m.itemGrid.content = m.data
+    m.top.alphaSelected = string.EMPTY
+    m.loadItemsTask.NameStartsWith = string.EMPTY
+
+    ' If user searched for a letter, selected it from the alpha menu
+    if m.voiceBox.text.len() = 1
+        alphaMenu = m.top.findNode("alphaMenu")
+        intConversion = m.voiceBox.text.ToInt() ' non numeric input returns as 0
+
+        if isStringEqual(m.voiceBox.text, "0") or (isValid(intConversion) and intConversion <> 0)
+            alphaMenu.jumpToItem = 0
+        else
+            ' loop through each option until we find a match
+            for i = 1 to alphaMenu.numRows - 1
+                alphaMenuOption = alphaMenu.content.getChild(i)
+                if Lcase(alphaMenuOption.TITLE) = Lcase(m.voiceBox.text)
+                    alphaMenu.jumpToItem = i
+                    exit for
+                end if
+            end for
+        end if
+
+        m.top.alphaSelected = m.voiceBox.text
+        return
+    end if
+
+    m.loadItemsTask.searchTerm = m.voiceBox.text
+
+    loadInitialItems()
+end sub
+
+'Check if options updated and any reloading required
+sub optionsClosed()
+    if isStringEqual(m.top.parentItem.Type, "CollectionFolder") or isStringEqual(m.top.parentItem.Type, "Folder") or isStringEqual(m.top.parentItem.CollectionType, "CollectionFolder")
+        ' Did the user just request "Random" on a PhotoAlbum?
+        if m.options.view = "singlephoto"
+            set_user_setting("photos.slideshow", "false")
+            set_user_setting("photos.random", "false")
+        else if m.options.view = "slideshowphoto"
+            set_user_setting("photos.slideshow", "true")
+            set_user_setting("photos.random", "false")
+        else if m.options.view = "randomphoto"
+            set_user_setting("photos.random", "true")
+            set_user_setting("photos.slideshow", "false")
+        end if
+    end if
+
+    reload = false
+
+    if isStringEqual(m.top.parentItem.collectionType, "music")
+        if not isStringEqual(m.options.view, m.view)
+            m.view = m.options.view
+            set_user_setting("display.music.view", m.view)
+            reload = true
+        end if
+    else
+        m.view = m.global.session.user.settings["display." + m.top.parentItem.Id + ".landing"]
+        if not isStringEqual(m.options.view, m.view)
+            'reload and store new view setting
+            m.view = m.options.view
+            m.filter = "All"
+            m.filterOptions = {}
+            set_user_setting("display." + m.top.parentItem.Id + ".filter", m.filter)
+            set_user_setting("display." + m.top.parentItem.Id + ".filterOptions", FormatJson(m.filterOptions))
+            set_user_setting("display." + m.top.parentItem.Id + ".landing", m.view)
+            reload = true
+        end if
+    end if
+
+    if not isStringEqual(m.options.sortField, m.sortField) or not isStringEqual(m.options.sortAscending, m.sortAscending)
+        m.sortField = m.options.sortField
+        m.sortAscending = m.options.sortAscending
+        reload = true
+
+        'Store sort settings
+        if m.sortAscending = true
+            sortAscendingStr = "true"
+        else
+            sortAscendingStr = "false"
+        end if
+
+        set_user_setting("display." + m.top.parentItem.Id + ".sortField", m.sortField)
+        set_user_setting("display." + m.top.parentItem.Id + ".sortAscending", sortAscendingStr)
+    end if
+
+    if not isStringEqual(m.options.filter, m.filter)
+        m.filter = m.options.filter
+        reload = true
+        'Store filter setting
+        set_user_setting("display." + m.top.parentItem.Id + ".filter", m.options.filter)
+    end if
+
+    if not isValid(m.options.filterOptions)
+        m.filterOptions = {}
+    end if
+
+    if not AssocArrayEqual(m.options.filterOptions, m.filterOptions)
+        m.filterOptions = m.options.filterOptions
+        reload = true
+        set_user_setting("display." + m.top.parentItem.Id + ".filterOptions", FormatJson(m.options.filterOptions))
+    end if
+
+    if reload
+        m.loadedRows = 0
+        m.loadedItems = 0
+        m.top.removeChild(m.itemGrid)
+        createItemGrid()
+        m.data = CreateObject("roSGNode", "ContentNode")
+        m.itemGrid.content = m.data
+        loadInitialItems()
+    end if
+
+    m.itemGrid.setFocus(m.itemGrid.opacity = 1)
+    m.genreList.setFocus(m.genreList.opacity = 1)
+    group = m.global.sceneManager.callFunc("getActiveScene")
+    group.lastFocus = m.itemGrid.opacity = 1 ? m.itemGrid : m.genreList
+
+end sub
+
+'Returns Focused Item
+function getItemFocused()
+    if m.itemGrid.isinFocusChain() and isValid(m.itemGrid.itemFocused)
+        return m.itemGrid.content.getChild(m.itemGrid.itemFocused)
+    end if
+
+    if m.genreList.isinFocusChain() and isValid(m.genreList.rowItemFocused)
+        return m.genreList.content.getChild(m.genreList.rowItemFocused[0]).getChild(m.genreList.rowItemFocused[1])
+    end if
+
+    return invalid
+end function
+
+function onKeyEvent(key as string, press as boolean) as boolean
+    if not press then return false
+
+    topGrp = m.itemGrid.opacity = 1 ? m.itemGrid : m.genreList
+
+    searchGrp = m.top.findNode("voiceBox")
+
+    if isStringEqual(key, KeyCode.LEFT) and searchGrp.isinFocusChain()
+        topGrp.setFocus(true)
+        searchGrp.setFocus(false)
+        group = m.global.sceneManager.callFunc("getActiveScene")
+        group.lastFocus = topGrp
+    end if
+
+    if isStringEqual(key, KeyCode.OPTIONS) and not isStringEqual(getCollectionType(), "nextup") and not isFavoriteViewAll()
+        if isStringEqual(getCollectionType(), "playlists")
+            itemToPlay = getItemFocused()
+            if not isValid(itemToPlay) then return true
+
+            if not m.global.session.user.Policy.IsAdministrator
+                confirmPlaylistAccess(itemToPlay.LookupCI("id"), itemToPlay.LookupCI("title"))
+                return true
+            end if
+
+            dialogData = [tr("Delete Playlist")]
+            m.global.sceneManager.callFunc("optionDialog", "libraryitem", itemToPlay.LookupCI("title") ?? tr("Options"), [], dialogData, { id: itemToPlay.LookupCI("id") })
+            return true
+        end if
+
+        if m.options.visible
+            m.options.visible = false
+            m.top.removeChild(m.options)
+            optionsClosed()
+        else
+            itemSelected = m.selectedFavoriteItem
+            if isValid(itemSelected)
+                m.options.selectedFavoriteItem = itemSelected
+            end if
+            m.options.visible = true
+            m.top.appendChild(m.options)
+            m.options.setFocus(true)
+            group = m.global.sceneManager.callFunc("getActiveScene")
+            group.lastFocus = m.options
+        end if
+
+        return true
+    end if
+
+    if isStringEqual(key, KeyCode.BACK)
+        if m.options.visible
+            m.options.visible = false
+            optionsClosed()
+        else
+            m.global.sceneManager.callfunc("popScene")
+            m.loadItemsTask.control = TaskControl.STOP
+        end if
+
+        return true
+    end if
+
+    if isStringEqual(key, KeyCode.OK)
+        markupGrid = m.top.findNode("itemGrid")
+        itemToPlay = getItemFocused()
+
+        if isValid(itemToPlay) and isStringEqual(itemToPlay.type, ItemType.PHOTO)
+            ' Spawn photo player task
+            photoPlayer = CreateObject("roSgNode", "PhotoDetails")
+            photoPlayer.itemsNode = markupGrid
+            photoPlayer.itemIndex = markupGrid.itemFocused
+            m.global.sceneManager.callfunc("pushScene", photoPlayer)
+            return true
+        end if
+    end if
+
+    if isStringEqual(key, KeyCode.PLAY)
+        if isStringEqual(getCollectionType(), "playlists")
+            if toggleAudioMiniPlayerPlayback() then return true
+        end if
+
+        itemToPlay = getItemFocused()
+
+        if isValid(itemToPlay)
+            m.top.quickPlayNode = itemToPlay
+            return true
+        end if
+    end if
+
+    if isStringEqual(key, KeyCode.LEFT) and topGrp.isinFocusChain() and m.alpha.visible
+        m.top.alphaActive = true
+        topGrp.setFocus(false)
+        m.alphaMenu.setFocus(true)
+        group = m.global.sceneManager.callFunc("getActiveScene")
+        group.lastFocus = m.alphaMenu
+        return true
+    end if
+
+    if isStringEqual(key, KeyCode.RIGHT) and m.alpha.isinFocusChain()
+        m.top.alphaActive = false
+        m.alphaMenu.setFocus(false)
+        topGrp.setFocus(true)
+        group = m.global.sceneManager.callFunc("getActiveScene")
+        group.lastFocus = topGrp
+        return true
+    end if
+
+    return false
+end function
+
+sub confirmPlaylistAccess(playlistID as string, selectedItemTitle as string)
+    m.getPlaylistDataTask.observeFieldScoped("playlistData", "onPlaylistDataLoaded")
+    m.getPlaylistDataTask.playlistID = playlistID
+    m.getPlaylistDataTask.selectedItemTitle = selectedItemTitle
+    m.getPlaylistDataTask.control = TaskControl.RUN
+end sub
+
+sub onPlaylistDataLoaded()
+    m.getPlaylistDataTask.unobserveFieldScoped("playlistData")
+
+    ' Confirm data is valid
+    if not isValidAndNotEmpty(m.getPlaylistDataTask.playlistData) then return
+    if not isChainValid(m.getPlaylistDataTask.playlistData, "canedit") then return
+
+    ' Confirm user has edit permissions
+    if not chainLookup(m.getPlaylistDataTask.playlistData, "canedit") then return
+
+    dialogData = [tr("Delete Playlist")]
+    m.global.sceneManager.callFunc("optionDialog", "libraryitem", m.getPlaylistDataTask.LookupCI("selectedItemTitle") ?? tr("Options"), [], dialogData, { id: m.getPlaylistDataTask.LookupCI("playlistID") })
+end sub
+
+sub OnScreenShown()
+    group = m.global.sceneManager.callFunc("getActiveScene")
+
+    if isValid(m.top.lastFocus)
+        m.top.lastFocus.setFocus(true)
+        group.lastFocus = m.top.lastFocus
+    else
+        m.top.setFocus(true)
+        group.lastFocus = m.top
+    end if
+
+    if isStringEqual(m.loadStatus, ViewLoadStatus.INIT)
+        m.loadStatus = ViewLoadStatus.FIRSTLOAD
+        return
+    end if
+
+    focusedItem = getItemFocused()
+
+    if isValid(focusedItem)
+        m.loadItemsTask1.itemId = focusedItem.LookupCI("id")
+        m.loadItemsTask1.observeField("content", "onItemDataLoaded")
+        m.loadItemsTask1.itemsToLoad = "metaData"
+        m.loadItemsTask1.control = TaskControl.RUN
+    end if
+end sub
+
+sub onItemDataLoaded()
+    itemData = m.loadItemsTask1.content
+    m.loadItemsTask1.unobserveField("content")
+    m.loadItemsTask1.content = []
+
+    if not isValidAndNotEmpty(itemData) then return
+
+    focusedItem = getItemFocused()
+    if not isValid(focusedItem) then return
+
+    focusedItem.callFunc("setWatched", chainLookupReturn(itemData[0], "json.UserData.Played", false), chainLookupReturn(itemData[0], "json.UserData.UnplayedItemCount", 0))
+end sub

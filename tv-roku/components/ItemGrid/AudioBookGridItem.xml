@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component name="AudioBookGridItem" extends="Group">
+  <children>
+    <Poster id="backdrop" translation="[0,10]" width="290" height="290" loadDisplayMode="scaleToZoom" uri="pkg:/images/white.9.png" />
+    <Poster id="itemPoster" translation="[0,10]" width="290" height="290" loadDisplayMode="scaleToZoom" />
+
+    <LayoutGroup id="title_group" layoutdirection="vert" translation="[5, 305]">
+      <ScrollingText
+        id="posterText"
+        font="font:SmallBoldSystemFont"
+        color="#FFFFFF"
+        maxWidth="280"
+        height="34"
+        horizAlign="left"
+        vertAlign="center" />
+
+      <ScrollingText
+        id="subText"
+        font="font:SmallBoldSystemFont"
+        color="#777777FF"
+        maxWidth="280"
+        height="32"
+        horizAlign="left"
+        vertAlign="center" />
+    </LayoutGroup>
+
+    <Rectangle id="progressBackground" visible="false" color="0x00000098" width="290" height="8" translation="[0,295]">
+      <Rectangle id="progress" width="0" height="8" />
+    </Rectangle>
+
+    <Animation id="showProgressBar" duration="0.5" repeat="false" easeFunction="linear">
+      <FloatFieldInterpolator id="showProgressBarField" key="[0.0, 1.0]" fieldToInterp="progress.width" />
+    </Animation>
+  </children>
+  <interface>
+    <field id="height" type="float" onChange="onHeightChanged" />
+    <field id="width" type="float" onChange="onWidthChanged" />
+    <field id="itemContent" type="node" onChange="itemContentChanged" />
+    <field id="itemHasFocus" type="boolean" onChange="focusChanged" />
+  </interface>
+</component>

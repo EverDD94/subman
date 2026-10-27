@@ -1,0 +1,34 @@
+## Channel Details
+
+title=Everflix
+major_version=3
+minor_version=2
+build_version=5
+
+### Main Menu Icons / Channel Poster Artwork
+
+mm_icon_focus_fhd=pkg:/images/channel-poster_fhd_dev.png
+mm_icon_focus_hd=pkg:/images/channel-poster_hd.png
+mm_icon_focus_sd=pkg:/images/channel-poster_sd.png
+
+### Splash Screen + Loading Screen Artwork
+
+splash_screen_fhd=pkg:/images/splash-screen_fhd.png
+splash_screen_hd=pkg:/images/splash-screen_hd.png
+splash_screen_sd=pkg:/images/splash-screen_sd.png
+
+splash_min_time=1000
+
+ui_resolutions=fhd
+
+confirm_partner_button=1
+
+supports_input_launch=1
+
+bs_const=printReg=false
+
+# Transport/voice control support
+
+supports_voice_roinput=1
+supports_etc_seek=1
+supports_etc_next=1

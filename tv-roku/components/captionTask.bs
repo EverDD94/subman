@@ -1,0 +1,767 @@
+import "pkg:/components/captionParser.bs"
+import "pkg:/components/captionShadow.bs"
+import "pkg:/source/api/baserequest.bs"
+import "pkg:/source/enums/CaptionMoveDirection.bs"
+import "pkg:/source/enums/MediaPlaybackState.bs"
+import "pkg:/source/enums/String.bs"
+import "pkg:/source/utils/config.bs"
+
+const SCREEN_PADDING = 60
+const LOWEST_CAPTION = 1080 - SCREEN_PADDING
+const VIEWABLE_AREA = 1080 - 2 * SCREEN_PADDING
+' Maximum width allowed before caption text wraps to the next line
+const SAFE_TEXT_WIDTH = Int(1920 * 0.75)
+
+sub init()
+    m.top.playerState = MediaPlaybackState.STOPPED
+    m.top.observeField("url", "fetchCaption")
+    m.top.currentCaption = []
+    m.top.currentPos = 0
+
+    m.captionTimer = m.top.findNode("captionTimer")
+    m.captionTimer.ObserveField("fire", "updateCaption")
+
+    m.captionList = []
+    m.reader = createObject("roUrlTransfer")
+    m.fontColor = CreateObject("roRegex", "color\s*=\s*(""[^""]*""|\'[^\']*\'|[^\s]+)", "i")
+
+    ' Caption Style
+    m.fontSizeDict = { "Default": 60, "Large": 60, "Extra Large": 70, "Medium": 50, "Small": 40, "Extra Small": 30 }
+    m.percentageDict = { "Default": "FF", "100%": "FF", "75%": "BF", "50%": "7F", "25%": "4B", "Off": "00" }
+    m.textColorDict = { "Default": "0xCCCCCC", "Bright White": "0xFFFFFF", "White": "0xCCCCCC", "Black": "0x000000", "Red": "0xFF0000", "Green": "0x008000", "Blue": "0x0000FF", "Yellow": "0xFFFF00", "Magenta": "0xFF00FF", "Cyan": "0x00FFFF" }
+    m.bgColorDict = { "Default": "0x000000", "Bright White": "0xFFFFFF", "White": "0xCCCCCC", "Black": "0x000000", "Red": "0xFF0000", "Green": "0x008000", "Blue": "0x0000FF", "Yellow": "0xFFFF00", "Magenta": "0xFF00FF", "Cyan": "0x00FFFF" }
+
+    deviceInfo = CreateObject("roDeviceInfo")
+    m.fontSize = chainLookupReturn(m.fontSizeDict, deviceInfo.GetCaptionsOption("Text/Size"), m.fontSizeDict.Default)
+    textColor = chainLookupReturn(m.textColorDict, deviceInfo.GetCaptionsOption("Text/Color"), m.textColorDict.Default)
+    m.textOpac = chainLookupReturn(m.percentageDict, deviceInfo.GetCaptionsOption("Text/Opacity"), m.percentageDict.Default)
+    m.textColor = `${textColor}${m.textOpac}`
+    deviceBGColor = chainLookupReturn(m.bgColorDict, deviceInfo.GetCaptionsOption("Background/Color"), m.bgColorDict.Default)
+    deviceBGOpacity = chainLookupReturn(m.percentageDict, deviceInfo.GetCaptionsOption("Background/Opacity"), m.percentageDict.Default)
+    m.bgColor = `${deviceBGColor}${deviceBGOpacity}`
+    m.textEffect = deviceInfo.GetCaptionsOption("Text/Effect")
+    m.windowPercentageDict = { "Default": "00", "100%": "FF", "75%": "BF", "50%": "7F", "25%": "4B", "Off": "00" }
+    deviceWindowColor = chainLookupReturn(m.bgColorDict, deviceInfo.GetCaptionsOption("Window/Color"), m.bgColorDict.Default)
+    deviceWindowOpacity = chainLookupReturn(m.windowPercentageDict, deviceInfo.GetCaptionsOption("Window/Opacity"), "00")
+    m.windowBgColor = `${deviceWindowColor}${deviceWindowOpacity}`
+
+    if isValidAndNotEmpty(m.global.fallbackFont)
+        m.fonts = m.global.fallbackFont
+    else
+        m.fonts = {
+            "regular": "font:LargeSystemFont",
+            "bold": "font:LargeBoldSystemFont",
+            "italic": "font:LargeSystemFont",
+            "bolditalic": "font:LargeBoldSystemFont"
+        }
+    end if
+    ' Calculate and store the max line height for all font variants (used for per-line backgrounds)
+    m.lineHeights = getLineHeights()
+
+    ' Hidden label used to measure caption text for word wrapping.
+    createMeasureLabel()
+
+end sub
+
+sub fetchCaption()
+    m.captionTimer.control = "stop"
+    re = CreateObject("roRegex", "(http.*?\.vtt)", "s")
+    url = re.match(m.top.url)[0]
+    if url <> invalid
+        m.reader.setUrl(url)
+        text = m.reader.GetToString()
+        m.captionList = parseVTT(text)
+        m.captionTimer.control = "start"
+    else
+        m.captionTimer.control = "stop"
+    end if
+end sub
+
+function newLayoutGroup(label)
+    newlg = CreateObject("roSGNode", "LayoutGroup")
+    newlg.appendchild(label)
+    newlg.layoutDirection = "vert"
+    newlg.horizalignment = "left"
+    newlg.vertalignment = "top"
+    newlg.itemSpacings = "[]"
+    return newlg
+end function
+
+function newRect(lg, id as string, styledText = invalid, drawingStyles = invalid)
+    rect = CreateObject("roSGNode", "Rectangle")
+    rect.addreplace("id", id)
+
+    ' Attach lg to measure its dimensions
+    rect.appendchild(lg)
+    lg.translation = [5, 5]
+    rectxy = lg.BoundingRect()
+
+    ' rect is transparent — window background and per-line cue backgrounds are drawn separately
+    rect.color = "0x00000000"
+    rect.width = rectxy.width + 10
+    rect.height = rectxy.height + 10
+
+    if lg.getchildCount() = 0
+        rect.width = 0
+        rect.height = 0
+    end if
+
+    ' Draw per-line cue background
+    createCueBackgroundBox(rect, lg, styledText, drawingStyles, m.bgColor, m.lineHeights)
+    ' Draw outline labels
+    createShadowLabels(rect, styledText, drawingStyles, m.textEffect, m.bgColor)
+    ' Add main label last so it renders on top of backgrounds and shadows
+    rect.appendchild(lg)
+    return rect
+end function
+
+' Creates a hidden MultiStyleLabel used to measure rendered text width for
+' caption word wrapping. It remains attached so boundingRect() returns
+' valid dimensions.
+sub createMeasureLabel()
+    m.measureGroup = CreateObject("roSGNode", "Group")
+    m.measureLabel = CreateObject("roSGNode", "MultiStyleLabel")
+    m.measureLabel.drawingStyles = {
+        "default": { "fontUri": m.fonts.regular, "fontSize": m.fontSize, "color": m.textColor }
+    }
+    m.measureGroup.appendChild(m.measureLabel)
+    m.top.appendChild(m.measureGroup)
+end sub
+
+' Wraps caption text so no visual line exceeds maxWidth pixels while
+' preserving inline style tags across inserted line breaks.
+' Balances per original line so wrapping never merges separate VTT lines
+' (e.g. dialogue turns) together.
+function wrapLongLines(text as string, maxWidth as integer) as string
+    lines = text.split(Chr(10))
+    wrapped = []
+    for each line in lines
+        singleWrapped = wrapSingleLine(line, maxWidth)
+        wrapped.push(balanceCaptionLines(singleWrapped, maxWidth))
+    end for
+    return wrapped.join(Chr(10))
+end function
+
+' Maximum number of visual lines a caption may be balanced across.
+const MAX_BALANCED_LINES = 3
+
+' Balances wrapped caption lines by redistributing words across up to
+' MAX_BALANCED_LINES lines. Originally this only balanced when exactly 2
+' lines were produced; that missed cases where 2 lines were both close to
+' maxWidth and a 3-line split would read better. This version searches for
+' the minimum line count that fits, then balances within that count.
+function balanceCaptionLines(text as string, maxWidth as integer) as string
+    lines = text.split(Chr(10))
+
+    ' Nothing to balance for single-line captions
+    if lines.count() < 2
+        return text
+    end if
+
+    words = []
+    for each line in lines
+        for each word in line.split(" ")
+            if word.Len() > 0 then words.push(word)
+        end for
+    end for
+
+    if words.count() < 3
+        return text
+    end if
+
+    ' Find the smallest line count (2 or 3) that fits every word under maxWidth,
+    ' probed with a simple greedy wrap.
+    targetLineCount = 0
+    for candidateCount = 2 to MAX_BALANCED_LINES
+        if candidateCount >= words.count()
+            exit for
+        end if
+        if canFitInLines(words, candidateCount, maxWidth)
+            targetLineCount = candidateCount
+            exit for
+        end if
+    end for
+
+    ' No arrangement fits within MAX_BALANCED_LINES; keep the original wrap.
+    if targetLineCount = 0
+        return text
+    end if
+
+    bestSplit = findBestSplit(words, targetLineCount, maxWidth)
+    if bestSplit = invalid
+        return text
+    end if
+
+    return bestSplit.join(Chr(10))
+end function
+
+' Checks whether words can be greedily wrapped into lineCount lines (or fewer)
+' without exceeding maxWidth on any line.
+function canFitInLines(words as object, lineCount as integer, maxWidth as integer) as boolean
+    linesUsed = 1
+    currentLine = ""
+
+    for each word in words
+        candidate = currentLine
+        if candidate.Len() > 0 then candidate += " "
+        candidate += word
+
+        if measureCaptionWidth(candidate) > maxWidth and currentLine.Len() > 0
+            linesUsed++
+            if linesUsed > lineCount then return false
+            currentLine = word
+            if measureCaptionWidth(currentLine) > maxWidth then return false
+        else
+            currentLine = candidate
+        end if
+    end for
+
+    return true
+end function
+
+' Finds the split of words into exactly lineCount lines that minimizes the
+' gap between the widest and narrowest line, keeping every line under
+' maxWidth. Brute-forced over split points; cheap given typical caption
+' word counts.
+function findBestSplit(words as object, lineCount as integer, maxWidth as integer) as object
+    splitCombinations = generateSplitCombinations(words.count(), lineCount)
+
+    bestLines = invalid
+    bestScore = invalid
+
+    for each split in splitCombinations
+        candidateLines = []
+        widths = []
+        start = 0
+        valid = true
+
+        for each cut in split
+            segment = words.slice(start, cut).join(" ")
+            width = measureCaptionWidth(segment)
+            if width > maxWidth
+                valid = false
+                exit for
+            end if
+            candidateLines.push(segment)
+            widths.push(width)
+            start = cut
+        end for
+
+        if not valid then continue for
+
+        maxW = widths[0]
+        minW = widths[0]
+        for each w in widths
+            if w > maxW then maxW = w
+            if w < minW then minW = w
+        end for
+        score = maxW - minW
+
+        if bestScore = invalid or score < bestScore
+            bestScore = score
+            bestLines = candidateLines
+        end if
+    end for
+
+    return bestLines
+end function
+
+' Generates every way to place (lineCount - 1) internal cut points across
+' wordCount words. E.g. 3 lines / 5 words -> [[1,2,5],[1,3,5],[1,4,5],[2,3,5]...]
+function generateSplitCombinations(wordCount as integer, lineCount as integer) as object
+    cutsNeeded = lineCount - 1
+    combinations = []
+
+    if cutsNeeded = 1
+        for i = 1 to wordCount - 1
+            combinations.push([i, wordCount])
+        end for
+    else if cutsNeeded = 2
+        for i = 1 to wordCount - 2
+            for j = i + 1 to wordCount - 1
+                combinations.push([i, j, wordCount])
+            end for
+        end for
+    end if
+
+    return combinations
+end function
+
+function measureCaptionWidth(text as string) as integer
+    m.measureLabel.text = text
+    return m.measureLabel.boundingRect().width
+end function
+
+function wrapSingleLine(line as string, maxWidth as integer) as string
+    ' Tokenize into tags vs. plain text
+    tokens = []
+    position = 0
+    lineLen = line.Len()
+    while position < lineLen
+        if line.Mid(position, 1) = "<"
+            tagEnd = line.Instr(position, ">")
+            if tagEnd = -1
+                tokens.push({ type: "text", value: line.Mid(position) })
+                position = lineLen
+            else
+                tokens.push({ type: "tag", value: line.Mid(position, tagEnd - position + 1) })
+                position = tagEnd + 1
+            end if
+        else
+            nextTag = line.Instr(position, "<")
+            if nextTag = -1
+                tokens.push({ type: "text", value: line.Mid(position) })
+                position = lineLen
+            else
+                tokens.push({ type: "text", value: line.Mid(position, nextTag - position) })
+                position = nextTag
+            end if
+        end if
+    end while
+
+    ' Expand plain-text tokens into words/spaces so we can break between them
+    expanded = []
+    for each token in tokens
+        if token.type = "tag"
+            expanded.push(token)
+        else
+            words = token.value.split(" ")
+            for i = 0 to words.count() - 1
+                if words[i].Len() > 0
+                    expanded.push({ type: "word", value: words[i] })
+                end if
+                if i < words.count() - 1
+                    expanded.push({ type: "space" })
+                end if
+            end for
+        end if
+    end for
+
+    openTags = []
+    output = ""
+    currentPlainText = ""
+
+    for each token in expanded
+        if token.type = "tag"
+            output += token.value
+            if token.value.StartsWith("</")
+                if openTags.count() > 0 then openTags.pop()
+            else
+                openTags.push(token.value)
+            end if
+        else if token.type = "space"
+            output += " "
+            currentPlainText += " "
+        else
+            candidateText = currentPlainText + token.value
+            m.measureLabel.text = candidateText
+            candidateWidth = m.measureLabel.boundingRect().width
+
+            if candidateWidth > maxWidth and currentPlainText.Trim().Len() > 0
+                ' Close currently open tags, break the line, then reopen
+                ' them so styling continues on the next visual line
+                for i = openTags.count() - 1 to 0 step -1
+                    tagName = openTags[i].Mid(1, openTags[i].Len() - 2)
+                    spacePos = tagName.Instr(0, " ")
+                    if spacePos <> -1 then tagName = tagName.Left(spacePos)
+                    output += `</${tagName}>`
+                end for
+                output += Chr(10)
+                for each tag in openTags
+                    output += tag
+                end for
+                currentPlainText = token.value
+                output += token.value
+            else
+                currentPlainText = candidateText
+                output += token.value
+            end if
+        end if
+    end for
+
+    return output
+end function
+
+sub updateCaption()
+    if LCase(m.top.playerState.right(1)) = "w"
+        m.top.playerState = m.top.playerState.left(len (m.top.playerState) - 1)
+        return
+    end if
+
+    ' Keep last captions visible while paused instead of clearing them.
+    if isStringEqual(m.top.playerState, "pausedon") then return
+
+    m.top.currentCaption = []
+
+    if not isStringEqual(m.top.playerState, "playingon") then return
+
+    m.top.currentPos = m.top.currentPos + 100
+    captions = []
+
+    for each entry in m.captionList
+        if entry["text"].count() = 0 then continue for ' Guard against empty text blocks
+        if entry["start"] <= m.top.currentPos and m.top.currentPos < entry["end"]
+
+            fullText = entry["text"].Join(Chr(10))
+
+            captionPosition = chainLookupReturn(entry["styles"], "position", string.EMPTY)
+
+            ' Only wrap captions without explicit position cues.
+            ' Balancing now happens inside wrapLongLines.
+            if isStringEqual(captionPosition, string.EMPTY)
+                fullText = wrapLongLines(fullText, SAFE_TEXT_WIDTH)
+            end if
+
+            ' look for style tags
+            currentStyle = {
+                "fontUri": m.fonts.regular,
+                "fontSize": m.fontSize,
+                "color": m.textColor
+            }
+            drawingStyles = {
+                "default": currentStyle
+            }
+            openTags = []
+            tagNumber = 0
+            styledText = string.EMPTY
+            parts = fullText.Split("<")
+            firstIter = true
+            for each part in parts
+                if firstIter
+                    ' first part will either be "" if it starts with a tag,
+                    ' or plain text before the first tag, so just add it and continue
+                    styledText += part
+                    firstIter = false
+                    continue for
+                end if
+                tagEnd = part.Instr(0, ">")
+                nextNewLine = part.Instr(0, Chr(10))
+                if tagEnd = -1 or (nextNewLine <> -1 and nextNewLine < tagEnd)
+                    ' no end bracket on the same line - treat as literal less-than sign
+                    styledText += `<${part}`
+                    continue for
+                end if
+                tagValue = LCase(part.Mid(0, tagEnd).Trim())
+                replaceTagWith = string.EMPTY
+                if tagValue.StartsWith("font")
+                    ' opening font tag
+                    colorName = invalid
+                    color = m.fontColor.Match(tagValue)
+                    if color.Count() > 1
+                        color = color[1].Replace("'", string.EMPTY).Replace("""", string.EMPTY).Trim()
+                        if color.StartsWith("#")
+                            ' hex color code (must be 3 or 6 digits)
+                            sanitizedColor = "#"
+                            colorChars = color.Mid(1).Split(string.EMPTY)
+                            isShortColor = colorChars.Count() = 3
+                            for each c in colorChars
+                                if c >= "0" and c <= "9" or c >= "a" and c <= "f"
+                                    sanitizedColor += c
+                                    if isShortColor
+                                        sanitizedColor += c
+                                    end if
+                                end if
+                            end for
+                            if sanitizedColor.Len() = 7
+                                color = sanitizedColor
+                                colorName = color
+                            end if
+                        else if color.StartsWith("rgb(") or color.StartsWith("rgba(")
+                            ' rgb or rgba color code (alpha is ignored)
+                            rgbValues = color.Mid(color.Instr("(") + 1).Replace(")", string.EMPTY).Split(",")
+                            if rgbValues.Count() >= 3
+                                r = rgbValues[0].Trim()
+                                g = rgbValues[1].Trim()
+                                b = rgbValues[2].Trim()
+                                ' verify they're numbers
+                                ' can't rely on val() because it returns 0 and the text will end up black
+                                if r.Left(1) >= "0" and r.Left(1) <= "9" and g.Left(1) >= "0" and g.Left(1) <= "9" and b.Left(1) >= "0" and b.Left(1) <= "9"
+                                    r = val(r, 10)
+                                    g = val(g, 10)
+                                    b = val(b, 10)
+                                    if r >= 0 and r <= 255 and g >= 0 and g <= 255 and b >= 0 and b <= 255
+                                        color = "#%02x%02x%02x".Format(r, g, b)
+                                        colorName = color
+                                    end if
+                                end if
+                            end if
+                        else
+                            ' is it the name of a color?
+                            cssColor = chainLookup(m.global.constants.cssColorDict, color)
+                            if isValid(cssColor)
+                                colorName = color
+                                color = cssColor
+                            end if
+                        end if
+                        if isValid(colorName)
+                            tagNumber++
+                            replaceTagWith += `tag${tagNumber}`
+                            newStyle = {
+                                "fontUri": currentStyle.fontUri,
+                                "fontSize": currentStyle.fontSize,
+                                "color": `${color}${m.textOpac}`
+                            }
+                            drawingStyles.AddReplace(replaceTagWith, newStyle)
+                            currentStyle = newStyle
+                        end if
+                    end if
+                    ' keep track of invalid tags
+                    if not isValid(replaceTagWith)
+                        openTags.push(replaceTagWith)
+                    end if
+                else if tagValue = "i"
+                    ' opening italic tag
+                    tagNumber++
+                    replaceTagWith = `tag${tagNumber}`
+                    newStyle = {
+                        "fontSize": currentStyle.fontSize,
+                        "color": currentStyle.color
+                    }
+                    if currentStyle.fontUri = m.fonts.bold
+                        newStyle.fontUri = m.fonts.bolditalic
+                    else
+                        newStyle.fontUri = m.fonts.italic
+                    end if
+                    drawingStyles.AddReplace(replaceTagWith, newStyle)
+                    currentStyle = newStyle
+                else if tagValue = "b"
+                    ' opening bold tag
+                    tagNumber++
+                    replaceTagWith = `tag${tagNumber}`
+                    newStyle = {
+                        "fontSize": currentStyle.fontSize,
+                        "color": currentStyle.color
+                    }
+                    if currentStyle.fontUri = m.fonts.italic
+                        newStyle.fontUri = m.fonts.bolditalic
+                    else
+                        newStyle.fontUri = m.fonts.bold
+                    end if
+                    drawingStyles.AddReplace(replaceTagWith, newStyle)
+                    currentStyle = newStyle
+                else if tagValue.StartsWith("/")
+                    ' closing tag
+                    if openTags.Count() > 0
+                        openTag = openTags.pop()
+                        if isValid(openTag)
+                            replaceTagWith = `/${openTag}`
+                        end if
+                    end if
+                end if
+                if replaceTagWith.Len() > 0
+                    ' MultiStyleLabel doesn't support nested tags, so if this is nested,
+                    ' we need to close the previous one before opening a new one,
+                    ' and reopen it after
+                    isClosing = replaceTagWith.StartsWith("/")
+                    lastValidTag = invalid
+                    for i = openTags.count() - 1 to 0 step -1
+                        ' do we have a valid tag still open?
+                        if isValid(openTags[i])
+                            lastValidTag = openTags[i]
+                            exit for
+                        end if
+                    end for
+                    if isValid(lastValidTag)
+                        if isClosing
+                            styledText += `<${replaceTagWith}><${lastValidTag}>`
+                            currentStyle = drawingStyles[lastValidTag]
+                        else
+                            openTags.push(replaceTagWith)
+                            styledText += `</${lastValidTag}><${replaceTagWith}>`
+                        end if
+                    else
+                        if isClosing
+                            currentStyle = drawingStyles["default"]
+                        else
+                            openTags.push(replaceTagWith)
+                        end if
+                        styledText += `<${replaceTagWith}>`
+                    end if
+                end if
+                styledText += part.Mid(tagEnd + 1)
+            end for
+
+            label = CreateObject("roSGNode", "MultiStyleLabel")
+            label.drawingStyles = drawingStyles
+            label.text = styledText
+            label.horizAlign = "center"
+
+            lines = newLayoutGroup(label)
+            rect = newRect(lines, entry.LookupCI("id"), styledText, drawingStyles)
+            ' Use the post-wrap line count (not the original VTT line count),
+            ' since wrapping may have split a line into more visual lines
+            wrappedLineCount = styledText.split(Chr(10)).count()
+            finalStyles = prepareStyles(entry["styles"], rect, wrappedLineCount)
+            rect.translation = finalStyles.translation
+
+            adjustForCaptionOverlaps(rect, captions)
+
+            ' Create window background
+            windowBg = createWindowBackground(entry.LookupCI("id"), styledText, rect.translation[1], m.windowBgColor, m.lineHeights)
+            if isValid(windowBg)
+                captions.push(windowBg)
+            end if
+            captions.push(rect)
+        end if
+    end for
+
+    m.top.currentCaption = captions
+end sub
+
+sub adjustForCaptionOverlaps(newCaption, existingCaptions, moveDirection = CaptionMoveDirection.UP)
+    newCaptionBounds = newCaption.sceneBoundingRect()
+
+    for i = existingCaptions.count() - 1 to 0 step -1
+        comparisonCaption = existingCaptions[i]
+
+        ' Don't compare the caption to itself
+        if isStringEqual(newCaption.lookupCI("id"), comparisonCaption.lookupCI("id")) then continue for
+
+        comparisonCaptionBounds = comparisonCaption.sceneBoundingRect()
+
+        overlapping = isOverlapping(newCaption, comparisonCaption)
+
+        if overlapping
+            ' If we're in the top half of the screen, push the other caption down
+            ' otherwise push the other caption up
+            if newCaptionBounds.y < 540
+                moveDirection = CaptionMoveDirection.DOWN
+            end if
+
+            if moveDirection = CaptionMoveDirection.DOWN
+                calculatedVerticalPosition = newCaptionBounds.y + newCaptionBounds.height + 5
+            else
+                calculatedVerticalPosition = newCaptionBounds.y - comparisonCaptionBounds.height - 5
+            end if
+
+            if calculatedVerticalPosition < 0 then calculatedVerticalPosition = 0
+
+            comparisonCaption.translation = [comparisonCaption.translation[0], calculatedVerticalPosition]
+            adjustForCaptionOverlaps(comparisonCaption, existingCaptions, moveDirection)
+        end if
+    end for
+end sub
+
+function isOverlapping(node1, node2) as boolean
+    node1Bounds = node1.sceneBoundingRect()
+    node2Bounds = node2.sceneBoundingRect()
+    return node1Bounds.x < (node2Bounds.x + node2Bounds.width) and node2Bounds.x < (node1Bounds.x + node1Bounds.width) and node1Bounds.y < (node2Bounds.y + node2Bounds.height) and node2Bounds.y < (node1Bounds.y + node1Bounds.height)
+end function
+
+function prepareStyles(styles as object, rect, lineCount = 1 as integer) as object
+    captionStyles = styles
+    finalStyles = { translation: [960, LOWEST_CAPTION] }
+
+    verticalPosition = LOWEST_CAPTION
+    horizontalPosition = 960 - (rect.BoundingRect().width / 2)
+
+    ' Use isValid instead of isValidAndNotEmpty to allow empty style objects ({})
+    ' to continue processing. An empty AA is valid — it just has no explicit cues.
+    if not isValid(captionStyles)
+        return finalStyles
+    end if
+
+    captionLine = chainLookupReturn(captionStyles, "line", string.EMPTY)
+    captionPosition = chainLookupReturn(captionStyles, "position", string.EMPTY)
+
+    ' Line
+    ' If no line cue is present, position the caption so its bottom edge sits at LOWEST_CAPTION.
+    ' Previously this case was never handled, causing captions to render off-screen.
+    captionLineHeight = (rect.BoundingRect().height / lineCount)
+    if isStringEqual(captionLine, string.EMPTY)
+        verticalPosition = LOWEST_CAPTION - rect.BoundingRect().height
+    else
+        verticalPosition = processLineCue(captionLine, captionLineHeight, rect.BoundingRect().height)
+    end if
+
+    ' Position
+    if not isStringEqual(captionPosition, string.EMPTY)
+        horizontalPosition = processPositionCue(captionPosition, rect.BoundingRect().width)
+    end if
+
+    finalStyles.translation = [horizontalPosition, verticalPosition]
+
+    return finalStyles
+end function
+
+function processPositionCue(captionPosition as string, captionLineWidth as float) as integer
+    ' position % defines the anchor point on screen, offset by half caption width to center on that point
+    calculatedPosition = 1920 * (val(captionPosition) / 100) - (captionLineWidth / 2)
+
+    if calculatedPosition + captionLineWidth > 1920
+        calculatedPosition = 1920 - captionLineWidth
+    end if
+
+    if calculatedPosition < 0
+        calculatedPosition = 0
+    end if
+
+    return calculatedPosition
+end function
+
+function processLineCue(captionLine as string, captionLineHeight as float, captionTotalHeight as float) as integer
+    ' A percentage
+    if captionLine.Instr("%") <> -1
+        ' Map the percentage directly to full screen height, matching WebVTT's
+        ' expected behavior. The safe-area clamp below still prevents the
+        ' caption from touching the very top edge.
+        calculatedPosition = 1080 * (val(captionLine) / 100)
+    else
+        ' Note: Non-numeric values are treated as 0
+        lineValue = val(captionLine)
+
+        if lineValue = 0 then return SCREEN_PADDING
+
+        if lineValue > 0
+            ' A positive line value. Count from the top
+            calculatedPosition = SCREEN_PADDING + lineValue * captionLineHeight
+        else
+            ' A negative line value. Count from the bottom
+            calculatedPosition = LOWEST_CAPTION - Abs(lineValue * captionLineHeight)
+        end if
+    end if
+
+    if calculatedPosition + captionTotalHeight > LOWEST_CAPTION
+        return LOWEST_CAPTION - captionTotalHeight
+    end if
+
+    if calculatedPosition < SCREEN_PADDING
+        return SCREEN_PADDING
+    end if
+
+    return calculatedPosition
+end function
+
+' Measures line heights using the regular font variant as a reference.
+' MultiStyleLabel reports consistent heights for bold/italic but regular may differ
+' due to font metrics. Called once during init() since fonts don't change during playback.
+function getLineHeights() as object
+    ' Measure line heights once at init using a temporary Group node
+    ' MultiStyleLabel must be attached to the scene graph to return valid boundingRect()
+    tempGroup = CreateObject("roSGNode", "Group")
+    testLabel = CreateObject("roSGNode", "MultiStyleLabel")
+    testLabel.drawingStyles = {
+        "default": {
+            "fontUri": m.fonts.regular,
+            "fontSize": m.fontSize,
+            "color": m.textColor
+        }
+    }
+    tempGroup.appendChild(testLabel)
+    m.top.appendChild(tempGroup)
+
+    ' Measure single line
+    testLabel.text = "Ag"
+    singleLineHeight = Int(testLabel.boundingRect().height)
+
+    ' Measure two lines to get the actual per-line height including LayoutGroup internal spacing
+    testLabel.text = "Ag" + chr(10) + "Ag"
+    twoLinesTotal = Int(testLabel.boundingRect().height)
+
+    m.top.removeChild(tempGroup)
+
+    return {
+        single: singleLineHeight,
+        multi: twoLinesTotal - singleLineHeight
+    }
+end function

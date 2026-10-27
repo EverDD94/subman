@@ -1,0 +1,2672 @@
+import "pkg:/source/api/Image.bs"
+import "pkg:/source/enums/ColorPalette.bs"
+import "pkg:/source/enums/ImageType.bs"
+import "pkg:/source/enums/ItemType.bs"
+import "pkg:/source/enums/KeyCode.bs"
+import "pkg:/source/enums/MediaPlaybackState.bs"
+import "pkg:/source/enums/MediaSegmentAction.bs"
+import "pkg:/source/enums/MediaSegmentType.bs"
+import "pkg:/source/enums/PlaybackMethod.bs"
+import "pkg:/source/enums/String.bs"
+import "pkg:/source/enums/SubtitleSelection.bs"
+import "pkg:/source/enums/TaskControl.bs"
+import "pkg:/source/enums/TimerControl.bs"
+import "pkg:/source/enums/TransportCommand.bs"
+import "pkg:/source/enums/VideoControl.bs"
+import "pkg:/source/utils/config.bs"
+import "pkg:/source/utils/misc.bs"
+
+const REPLAY_RETRIES = 3
+const BUFFERING_LOGO_RIGHT_PADDING = 30
+const ACCEPTED_DURATION_DELTA = 30
+
+sub init()
+    m.top.enableUI = false
+    m.playbackTestComplete = false
+
+    m.spinner = m.top.getScene().findNode("Spinner")
+    m.spinnerPercentLabel = m.top.findNode("spinnerPercent")
+    m.spinnerPercentTimer = m.top.findNode("spinnerPercentTimer")
+    m.spinnerPercentTimer.observeField("fire", "onPercentTick")
+
+    m.top.observeField("availableAudioTracks", "onAvailableAudioTracksChanged")
+
+    m.attemptDirectPlaySetting = chainLookupReturn(m.global.session, "user.settings.attemptDirectPlay", false)
+
+    m.subtitleOffset = 0
+
+    m.LoadProgramDetailsTask = createObject("roSGNode", "LoadProgramDetailsTask")
+    m.LoadProgramDetailsTask.observeField("programDetails", "onProgramDetailsLoaded")
+
+    m.LoadRecordingTimerTask = createObject("roSGNode", "LoadRecordingTimerTask")
+
+    ' Hide the overhang on init to prevent showing 2 clocks
+    m.top.getScene().findNode("overhang").visible = false
+    currentItem = m.global.queueManager.callFunc("getCurrentItem")
+    m.top.id = currentItem.id
+
+    m.top.seekMode = "accurate"
+    m.top.playbackSpeed = m.global.sceneManager.currentSpeed
+
+    m.playbackEnum = {
+        null: -10
+    }
+
+    preferredSubtitle = m.global.queueManager.callFunc("getPreferredSubtitleTrack")
+    m.top.SelectedSubtitle = isChainValid(preferredSubtitle, "StreamIndex") ? preferredSubtitle.StreamIndex : SubtitleSelection.NOTSET
+    m.originalClosedCaptionState = invalid
+
+    ' Load meta data
+    m.LoadMetaDataTask = CreateObject("roSGNode", "LoadVideoContentTask")
+    m.LoadMetaDataTask.selectedSubtitleIndex = m.top.SelectedSubtitle
+    m.LoadMetaDataTask.itemId = currentItem.id
+    m.LoadMetaDataTask.itemType = currentItem.type
+    m.LoadMetaDataTask.selectedAudioStreamIndex = currentItem.selectedAudioStreamIndex
+    m.LoadMetaDataTask.observeField("content", "onVideoContentLoaded")
+    if not isStringEqual(PlaybackMethod.PLAYNORMALLY, m.global.queueManager.callFunc("getForceTranscode"))
+        m.LoadMetaDataTask.mustTranscode = true
+    end if
+    m.LoadMetaDataTask.control = TaskControl.RUN
+
+    m.PreloadTrickplayImagesTask = CreateObject("roSGNode", "PreloadTrickplayImagesTask")
+    m.PreloadTrickplayImagesTask.videoID = currentItem.id
+
+    m.canUseFastReplace = false
+    m.positionText = m.top.trickPlayBar.getChild(8)
+
+    m.chapterList = m.top.findNode("chapterList")
+    m.chapterMenu = m.top.findNode("chapterMenu")
+    m.chapterMenu.focusBitmapBlendColor = chainLookupReturn(m.global.session, "user.settings.colorCursor", ColorPalette.HIGHLIGHT)
+    m.chapterMenu.color = ColorPalette.WHITE
+    m.chapterMenu.focusedColor = ColorPalette.WHITE
+    m.chapterContent = m.top.findNode("chapterContent")
+    m.osd = m.top.findNode("osd")
+    m.osd.observeField("action", "onOSDAction")
+    m.osd.isRecording = false
+    m.osd.recordingOffset = 0
+    m.castPopup = m.top.findNode("castPopup")
+    m.clock = m.osd.findNode("clock")
+    if isValid(m.clock)
+        m.clockTimer = m.clock.findNode("currentTimeTimer")
+        if isValid(m.clockTimer)
+            m.clockTimer.observeField("fire", "onClockTick")
+        end if
+    end if
+
+    m.videocontrols = m.osd.findNode("videoControls")
+    m.optioncontrols = m.osd.findNode("optionControls")
+    m.favoriteChannelButton = invalid
+    m.favoriteChannelId = string.EMPTY
+    m.channelIsFavorite = false
+    m.progressBarBackground = m.osd.findNode("progressBarBackground")
+    m.progressBarGroup = m.osd.findNode("progressBarGroup")
+
+    m.playbackTimer = m.top.findNode("playbackTimer")
+    m.bufferCheckTimer = m.top.findNode("bufferCheckTimer")
+    m.bufferStuckTimer = m.top.findNode("bufferStuckTimer")
+    m.buffer100Count = 0
+    m.top.observeField("state", "onState")
+    m.top.observeField("content", "onContentChange")
+    m.top.observeField("selectedSubtitle", "onSubtitleChange")
+    m.top.observeField("audioIndex", "onAudioIndexChange")
+    m.top.observeField("selectedSpeed", "onSelectedSpeedChange")
+
+    ' Get sibling data and pass to OSD
+    setSiblingData()
+
+    ' Custom Caption Function
+    m.top.observeField("allowCaptions", "onAllowCaptionsChange")
+    ' Voice/transport command observer (Alexa, Roku voice remote)
+    m.top.observeField("voiceCommand", "onVoiceCommand")
+
+    m.playbackTimer.observeField("fire", "ReportPlayback")
+    m.bufferPercentage = 0 ' Track whether content is being loaded
+    m.playReported = false
+    m.bufferCheckTimer.duration = 30
+    m.playbackRetries = 0 ' Track retry attempts for buffering failures
+    m.lastBufferError = 0 ' Timestamp of last buffering error
+
+    if m.global.session.user.settings["ui.design.hideclock"] = true
+        clockNode = findNodeBySubtype(m.top, "clock")
+        if clockNode[0] <> invalid then clockNode[0].parent.removeChild(clockNode[0].node)
+    end if
+
+    m.subtitleSyncValue = m.top.findNode("subtitleSyncValue")
+    m.subtitleSyncValue.font.size = 26
+    m.subtitleSyncValue.text = `${tr("Current Offset")}: 0 ms`
+
+    m.subtitleTimingButtons = m.top.findNode("subtitleTimingButtons")
+    m.subtitleTimingButtons.color = ColorPalette.BLACK90
+
+    m.subtitleSyncPlus100 = m.top.findNode("subtitleSyncPlus100")
+    m.subtitleSyncPlus100.fontSize = 25
+    m.subtitleSyncPlus100.background = ColorPalette.DARKGREY
+    m.subtitleSyncPlus100.color = ColorPalette.WHITE
+    m.subtitleSyncPlus100.focusBackground = ColorPalette.HIGHLIGHT
+    m.subtitleSyncPlus100.focusColor = ColorPalette.WHITE
+
+    m.subtitleSyncPlus500 = m.top.findNode("subtitleSyncPlus500")
+    m.subtitleSyncPlus500.fontSize = 25
+    m.subtitleSyncPlus500.background = ColorPalette.DARKGREY
+    m.subtitleSyncPlus500.color = ColorPalette.WHITE
+    m.subtitleSyncPlus500.focusBackground = ColorPalette.HIGHLIGHT
+    m.subtitleSyncPlus500.focusColor = ColorPalette.WHITE
+
+    m.subtitleSyncMinus100 = m.top.findNode("subtitleSyncMinus100")
+    m.subtitleSyncMinus100.fontSize = 25
+    m.subtitleSyncMinus100.background = ColorPalette.DARKGREY
+    m.subtitleSyncMinus100.color = ColorPalette.WHITE
+    m.subtitleSyncMinus100.focusBackground = ColorPalette.HIGHLIGHT
+    m.subtitleSyncMinus100.focusColor = ColorPalette.WHITE
+
+    m.subtitleSyncMinus500 = m.top.findNode("subtitleSyncMinus500")
+    m.subtitleSyncMinus500.fontSize = 25
+    m.subtitleSyncMinus500.background = ColorPalette.DARKGREY
+    m.subtitleSyncMinus500.color = ColorPalette.WHITE
+    m.subtitleSyncMinus500.focusBackground = ColorPalette.HIGHLIGHT
+    m.subtitleSyncMinus500.focusColor = ColorPalette.WHITE
+
+    m.subtitleSyncReset = m.top.findNode("subtitleSyncReset")
+    m.subtitleSyncReset.fontSize = 25
+    m.subtitleSyncReset.background = ColorPalette.DARKGREY
+    m.subtitleSyncReset.color = ColorPalette.WHITE
+    m.subtitleSyncReset.focusBackground = ColorPalette.HIGHLIGHT
+    m.subtitleSyncReset.focusColor = ColorPalette.WHITE
+
+    m.nextUp = m.top.findNode("nextUp")
+    m.nextUpInfoLoaded = false
+
+    m.skipSegmentButton = m.top.findNode("skipSegment")
+    m.skipSegmentButton.background = ColorPalette.LIGHTBLUE
+    m.skipSegmentButton.color = ColorPalette.DARKGREY
+    m.skipSegmentButton.focusBackground = chainLookupReturn(m.global.session, "user.settings.colorCursor", ColorPalette.HIGHLIGHT)
+    m.skipSegmentButton.focusColor = ColorPalette.WHITE
+
+    'Play Next Episode button
+    m.nextupbuttonseconds = m.global.session.user.settings["playback.nextupbuttonseconds"].ToInt()
+
+    ' Skip segment tracking
+    m.mediaSegmentDismissed = {}
+    m.currentSegmentType = invalid
+
+    m.checkedForNextEpisode = false
+    m.getNextEpisodeTask = createObject("roSGNode", "GetNextEpisodeTask")
+    m.getNextEpisodeTask.observeField("nextEpisodeData", "onNextEpisodeDataLoaded")
+
+    m.top.retrievingBar.filledBarBlendColor = ColorPalette.TRIADBLUE
+    m.top.bufferingBar.filledBarBlendColor = ColorPalette.TRIADBLUE
+    m.top.trickPlayBar.filledBarBlendColor = ColorPalette.TRIADBLUE
+
+    m.previewPos = 0 ' Track the seeking position in the video when the user starts seeking
+    m.seekSpeedIndex = 0 ' Index to track the current seek speed level
+    m.seekSpeeds = [-180, -60, -30, -10, 10, 30, 60, 180] ' seconds per press for the different seek speed levels
+
+    m.scrubber = m.osd.findNode("scrubber")
+    m.scrubberOldPosition = m.osd.findNode("scrubberOldPosition")
+
+    m.fastForwardRewindIcons = m.osd.findNode("fastForwardRewindIcons")
+    m.fastForwardOrRewindTimer = m.top.findNode("fastForwardOrRewindTimer")
+    m.fastForwardOrRewindTimer.observeField("fire", "onFastforwardOrRewindTick")
+
+    m.liveTvRewindLimitExceeded = m.osd.findNode("liveTVRewindLimitExceeded")
+
+    m.leftTenSecondSkipTimer = m.top.findNode("leftTenSecondSkipTimer")
+    m.leftTenSecondSkipTimer.observeField("fire", "onLeftTenSecondSkipTimerTick")
+    m.rightTenSecondSkipTimer = m.top.findNode("rightTenSecondSkipTimer")
+    m.rightTenSecondSkipTimer.observeField("fire", "onRightTenSecondSkipTimerTick")
+
+    m.bufferingVideoInfo = m.top.findNode("bufferingVideoInfo")
+    m.bufferingItemTitle = m.top.findNode("bufferingItemTitle")
+    m.bufferingItemSeason = m.top.findNode("bufferingItemSeason")
+    m.bufferingItemEpisode = m.top.findNode("bufferingItemEpisode")
+    m.bufferingItemEpisodeEnd = m.top.findNode("bufferingItemEpisodeEnd")
+    m.bufferingVideoInfo.visible = false
+
+    m.top.observeField("pauseBufferChanged", "onPauseBufferChangedChange")
+    startSpinnerWithPercent(0)
+    m.top.setFocus(true)
+end sub
+
+sub onAvailableAudioTracksChanged()
+    if not isValidAndNotEmpty(m.top.availableAudioTracks) then return
+
+    preferredAudioTrackName = m.global.queueManager.callFunc("getPreferredAudioTrackName")
+
+    for each audioTrack in m.top.availableAudioTracks
+        if isStringEqual(audioTrack.LookupCI("name"), preferredAudioTrackName)
+            m.global.queueManager.callFunc("setPreferredAudioTrackIndex", audioTrack.LookupCI("Track").toint())
+            m.top.audioIndex = audioTrack.LookupCI("Track")
+
+            if m.top.currentAudioTrack = audioTrack.LookupCI("Track")
+                ' We're already playing the track we want
+                return
+            end if
+
+            ' Save the current video position
+            if m.top.position <> 0
+                m.global.queueManager.callFunc("setTopStartingPoint", int(m.top.position) * 10000000&)
+            end if
+
+            m.top.control = VideoControl.STOP
+
+            m.LoadMetaDataTask.selectedAudioStreamIndex = m.top.audioIndex
+            m.LoadMetaDataTask.itemId = m.top.id
+            m.LoadMetaDataTask.observeField("content", "onVideoContentLoaded")
+            m.LoadMetaDataTask.control = TaskControl.RUN
+
+            exit for
+        end if
+    end for
+end sub
+
+' setSiblingData: Set the icon and title text for the previous and next items
+'
+sub setSiblingData()
+    previousItemTitleText = m.global.queueManager.callFunc("getPreviousItemTitleAndIcon")
+    if isValidAndNotEmpty(previousItemTitleText)
+        m.osd.previousItemIcon = previousItemTitleText[0]
+        m.osd.previousItemTitleText = previousItemTitleText[1]
+    else
+        m.osd.previousItemIcon = string.EMPTY
+        m.osd.previousItemTitleText = string.EMPTY
+    end if
+
+    nextItemTitleText = m.global.queueManager.callFunc("getNextItemTitleAndIcon")
+    if isValidAndNotEmpty(nextItemTitleText)
+        m.osd.nextItemIcon = nextItemTitleText[0]
+        m.osd.nextItemTitleText = nextItemTitleText[1]
+    else
+        m.osd.nextItemIcon = string.EMPTY
+        m.osd.nextItemTitleText = string.EMPTY
+    end if
+
+    updateTransportButtonsStatus()
+end sub
+
+' handleChapterSkipAction: Handles user command to skip chapters in playing video
+'
+sub handleChapterSkipAction(action as string)
+    if not isValidAndNotEmpty(m.chapters) then return
+
+    currentChapter = getCurrentChapterIndex()
+
+    if action = "chapternext"
+        if not m.osd.chapterNextEnabled then return
+        gotoChapter = currentChapter + 1
+        ' If there is no next chapter, exit
+        if gotoChapter > m.chapters.count() - 1 then return
+
+        newPosition = m.chapters[gotoChapter].StartPositionTicks / 10000000#
+        m.top.seek = newPosition
+        setVideoEndingTime(newPosition)
+        m.positionText.text = secondsToHuman(newPosition, true)
+        updateTransportButtonsStatus(newPosition)
+        return
+    end if
+
+    if action = "chapterback"
+        if not m.osd.chapterBackEnabled then return
+        gotoChapter = currentChapter - 1
+        ' If there is no previous chapter, restart current chapter
+        if gotoChapter < 0 then gotoChapter = 0
+
+        newPosition = m.chapters[gotoChapter].StartPositionTicks / 10000000#
+        m.top.seek = newPosition
+        setVideoEndingTime(newPosition)
+        m.positionText.text = secondsToHuman(newPosition, true)
+        updateTransportButtonsStatus(newPosition)
+        return
+    end if
+end sub
+
+' handleItemSkipAction: Handles user command to skip items
+'
+' @param {string} action - skip action to take
+sub handleItemSkipAction(action as string)
+    if action = "itemnext"
+        if not m.osd.itemNextEnabled then return
+        ' If there is something next in the queue, play it
+        if m.global.queueManager.callFunc("getPosition") < m.global.queueManager.callFunc("getCount") - 1
+            m.top.control = VideoControl.STOP
+            m.global.sceneManager.callFunc("clearPreviousScene")
+            m.global.queueManager.callFunc("moveForward")
+            m.global.queueManager.callFunc("playQueue")
+        end if
+
+        return
+    end if
+
+    if action = "itemback"
+        if not m.osd.itemBackEnabled then return
+        ' If there is something previous in the queue, play it
+        if m.global.queueManager.callFunc("getPosition") > 0
+            m.top.control = VideoControl.STOP
+            m.global.sceneManager.callFunc("clearPreviousScene")
+            m.global.queueManager.callFunc("moveBack")
+            m.global.queueManager.callFunc("playQueue")
+        end if
+
+        return
+    end if
+end sub
+
+' handleHideAction: Handles action to hide OSD menu
+'
+' @param {boolean} resume - controls whether or not to resume video playback when sub is called
+'
+sub handleHideAction(resume as boolean)
+    m.osd.visible = false
+    m.chapterList.visible = false
+    m.osd.showChapterList = false
+    m.chapterList.setFocus(false)
+    m.osd.hasFocus = false
+    m.osd.setFocus(false)
+    m.top.setFocus(true)
+    stopFastforwardOrRewind()
+    ' Always hide the custom trickplay image(s) when hiding the OSD
+    hideTrickplayImages()
+    if resume
+        m.top.control = VideoControl.RESUME
+    end if
+    ' Skip segment button could be visible but not have focus due to seeking, so hide and execute checkSegmentSkipButton
+    m.osd.isSeeking = false
+    hideSegmentSkipButton()
+    if not m.LoadMetaDataTask.isIntro and m.osd.isSeeking then checkSegmentSkipButton(m.top.position)
+    m.previewPos = m.top.position
+end sub
+
+' handleChapterListAction: Handles action to show chapter list
+'
+sub handleChapterListAction()
+    m.chapterList.visible = m.osd.showChapterList
+
+    if not m.chapterList.visible then return
+    m.chapterMenu.jumpToItem = getCurrentChapterIndex()
+    positionChapterList()
+
+    m.osd.hasFocus = false
+    m.osd.setFocus(false)
+    m.chapterMenu.setFocus(true)
+end sub
+
+' getCurrentChapterIndex: Finds current chapter index
+'
+' @param {dynamic} targetPosition - optional video position in seconds
+' @return {integer} indicating index of current chapter within chapter data or 0 if chapter lookup fails
+'
+function getCurrentChapterIndex(targetPosition = invalid as dynamic) as integer
+    if not isValidAndNotEmpty(m.chapters) then return 0
+
+    ' Give a 15 second buffer to compensate for user expectation and roku video position inaccuracy
+    ' Web client uses 10 seconds, but this wasn't enough for Roku in testing
+    currentPosition = (isValid(targetPosition) ? targetPosition : m.top.position) + 15
+    currentChapter = 0
+
+    for i = m.chapters.count() - 1 to 0 step -1
+        if currentPosition >= (m.chapters[i].StartPositionTicks / 10000000#)
+            currentChapter = i
+            exit for
+        end if
+    end for
+
+    return currentChapter
+end function
+
+' updateTransportButtonsStatus: Updates the enabled/disabled state of the OSD transport buttons
+'
+' @param {dynamic} currentPos - optional video position in seconds to use for chapter calculation
+sub updateTransportButtonsStatus(currentPos = invalid as dynamic)
+    if not isValid(m.osd) then return
+
+    ' Queue controls:
+    ' Previous item is enabled only if there is a previous item in the queue
+    m.osd.itemBackEnabled = (m.global.queueManager.callFunc("getPosition") > 0)
+
+    ' Next item is enabled only if there is a next item in the queue
+    m.osd.itemNextEnabled = (m.global.queueManager.callFunc("getPosition") < m.global.queueManager.callFunc("getCount") - 1)
+
+    ' Chapter controls:
+    ' Check if this media has chapter data (at least 2 chapters needed to skip between them)
+    hasChapters = isValidAndNotEmpty(m.chapters) and m.chapters.count() > 1
+
+    if hasChapters
+        m.osd.chapterBackEnabled = true
+        currentChapter = getCurrentChapterIndex(currentPos)
+        m.osd.chapterNextEnabled = (currentChapter < m.chapters.count() - 1)
+    else
+        m.osd.chapterBackEnabled = false
+        m.osd.chapterNextEnabled = false
+    end if
+end sub
+
+' handleVideoPlayPauseAction: Handles action to either play or pause the video content
+'
+sub handleVideoPlayPauseAction()
+    ' If video is paused, resume it
+    if m.top.state = "paused"
+        handleHideAction(true)
+        return
+    end if
+
+    ' Pause video
+    m.top.control = VideoControl.PAUSE
+end sub
+
+' handleShowSubtitleMenuAction: Handles action to show subtitle selection menu
+'
+sub handleShowSubtitleMenuAction()
+    m.top.selectSubtitlePressed = true
+end sub
+
+' handleShowAudioMenuAction: Handles action to show audio selection menu
+'
+sub handleShowAudioMenuAction()
+    m.top.selectAudioPressed = true
+end sub
+
+' handleShowSpeedMenuAction: Handles action to show speed selection menu
+'
+sub handleShowSpeedMenuAction()
+    m.top.selectSpeedPressed = true
+end sub
+
+' handleShowVideoInfoPopupAction: Handles action to show video info popup
+'
+sub handleShowVideoInfoPopupAction()
+    m.top.selectPlaybackInfoPressed = true
+end sub
+
+' handleShowVideoOverviewPopupAction: Handles action to show video overview popup
+'
+sub handleShowVideoOverviewPopupAction()
+    if not isValidAndNotEmpty(m.overview)
+        m.overview = "No overview data available"
+    end if
+
+    overviewPopupTitle = m.top.content.title
+
+    if m.top.content.live
+        if isValidAndNotEmpty(m.osd.itemSubtitleText)
+            overviewPopupTitle = m.osd.itemSubtitleText
+        else if isValidAndNotEmpty(m.osd.itemTitleText)
+            overviewPopupTitle = m.osd.itemTitleText
+        end if
+    end if
+
+    info = []
+    if isValid(m.premiere)
+        info.push("<header>" + m.premiere + "</header>")
+    end if
+    if isValid(m.overview)
+        info.push("<p>" + m.overview + "</p>")
+    end if
+
+    m.global.sceneManager.callFunc("standardDialog", overviewPopupTitle, { data: info })
+end sub
+
+sub handleShowCastCrewPopupAction()
+    if not isValidAndNotEmpty(m.castPeople)
+        m.global.sceneManager.callFunc("standardDialog", tr("Cast & Crew"), { data: ["<p>" + tr("No cast data available.") + "</p>"] })
+        return
+    end if
+
+    handleHideAction(false)
+    m.castPopup.callFunc("showCast", m.castPeople)
+end sub
+
+' onOSDAction: Process action events from OSD to their respective handlers
+'
+sub onOSDAction()
+    action = LCase(m.osd.action)
+
+    if action = "favoritechannel"
+        toggleFavoriteChannel()
+        return
+    end if
+
+    if action = "hide"
+        handleHideAction(false)
+        return
+    end if
+
+    if action = "play"
+        handleHideAction(true)
+        return
+    end if
+
+    if action = "chapterback" or action = "chapternext"
+        handleChapterSkipAction(action)
+        return
+    end if
+
+    if action = "chapterlist"
+        handleChapterListAction()
+        return
+    end if
+
+    if action = "videoplaypause"
+        handleVideoPlayPauseAction()
+        return
+    end if
+
+    if action = "showsubtitlemenu"
+        handleShowSubtitleMenuAction()
+        return
+    end if
+
+    if action = "showaudiomenu"
+        handleShowAudioMenuAction()
+        return
+    end if
+
+    if isStringEqual(action, "showspeedmenu")
+        handleShowSpeedMenuAction()
+        return
+    end if
+
+    if action = "showvideoinfopopup"
+        handleShowVideoInfoPopupAction()
+        return
+    end if
+
+    if isStringEqual(action, "showvideooverviewpopup")
+        handleShowVideoOverviewPopupAction()
+        return
+    end if
+
+    if isStringEqual(action, "showcastcrewpopup")
+        handleShowCastCrewPopupAction()
+        return
+    end if
+
+    if action = "itemback" or action = "itemnext"
+        handleItemSkipAction(action)
+        return
+    end if
+
+    if action = "showsyncmenu"
+        handleShowsyncmenuAction()
+        return
+    end if
+
+    if action = "stopfastforwardorrewind"
+        stopFastforwardOrRewind()
+        return
+    end if
+
+    if action = "handleseekkey"
+        handleSeekKey(m.osd.osdSeekKeyValue)
+        return
+    end if
+
+    if action = "checkskipsegmentbuttonvisible"
+        checkSkipSegmentButtonVisible()
+        return
+    end if
+
+    if action = "setskipsegmentbuttonfocus"
+        setSkipSegmentButtonFocus()
+        return
+    end if
+end sub
+
+' Show a channel favorite action in the OSD only for Live TV channels.
+sub configureFavoriteChannelButton(video as object)
+    m.favoriteChannelId = chainLookupReturn(video, "favoriteChannelId", string.EMPTY)
+    currentItem = m.global.queueManager.callFunc("getCurrentItem")
+    if not isValidAndNotEmpty(m.favoriteChannelId)
+        m.favoriteChannelId = chainLookupReturn(currentItem, "favoriteChannelId", string.EMPTY)
+    end if
+    if not isValidAndNotEmpty(m.favoriteChannelId)
+        currentType = LCase(chainLookupReturn(currentItem, "type", string.EMPTY))
+        if isStringEqual(currentType, ItemType.TVCHANNEL)
+            m.favoriteChannelId = chainLookupReturn(currentItem, "id", string.EMPTY)
+        else if isStringEqual(currentType, ItemType.PROGRAM)
+            m.favoriteChannelId = chainLookupReturn(currentItem, "json.ChannelId", string.EMPTY)
+            if not isValidAndNotEmpty(m.favoriteChannelId)
+                m.favoriteChannelId = chainLookupReturn(currentItem, "id", string.EMPTY)
+            end if
+        end if
+    end if
+
+    if not isValidAndNotEmpty(m.favoriteChannelId)
+        if isValid(m.favoriteChannelButton)
+            m.optioncontrols.removeChild(m.favoriteChannelButton)
+            m.favoriteChannelButton = invalid
+        end if
+        return
+    end if
+
+    if not isValid(m.favoriteChannelButton)
+        m.favoriteChannelButton = createObject("roSGNode", "IconButton")
+        m.favoriteChannelButton.id = "favoriteChannel"
+        m.favoriteChannelButton.padding = 16
+        m.favoriteChannelButton.height = 65
+        m.favoriteChannelButton.width = 100
+        m.favoriteChannelButton.background = ColorPalette.DARKGREY
+        m.favoriteChannelButton.focusBackground = chainLookupReturn(m.global.session, "user.settings.colorCursor", ColorPalette.HIGHLIGHT)
+        m.optioncontrols.appendChild(m.favoriteChannelButton)
+    end if
+
+    m.channelIsFavorite = chainLookupReturn(video, "isFavoriteChannel", false)
+    updateFavoriteChannelButton()
+end sub
+
+sub updateFavoriteChannelButton()
+    if not isValid(m.favoriteChannelButton) then return
+
+    m.favoriteChannelButton.icon = m.channelIsFavorite ? "pkg:/images/icons/favorite_selected.png" : "pkg:/images/icons/favorite_outline_white.png"
+end sub
+
+sub toggleFavoriteChannel()
+    if not isValidAndNotEmpty(m.favoriteChannelId) then return
+    if isValid(m.favoriteChannelTask)
+        if m.favoriteChannelTask.state = TaskControl.RUN then return
+    end if
+
+    m.channelIsFavorite = not m.channelIsFavorite
+    updateFavoriteChannelButton()
+    previousScene = m.global.sceneManager.callFunc("getPreviousScene")
+    if isValid(previousScene)
+        if previousScene.isSubType("LiveTVLibraryView")
+            previousScene.callFunc("updateChannelFavorite", { channelId: m.favoriteChannelId, isFavorite: m.channelIsFavorite })
+        end if
+    end if
+
+    m.favoriteChannelTask = createObject("roSGNode", "FavoriteItemsTask")
+    m.favoriteChannelTask.itemId = m.favoriteChannelId
+    m.favoriteChannelTask.favTask = m.channelIsFavorite ? "Favorite" : "Unfavorite"
+    m.favoriteChannelTask.control = TaskControl.RUN
+end sub
+
+sub handleShowsyncmenuAction()
+    ' Hide the OSD
+    handleHideAction(false)
+
+    m.subtitleTimingButtons.visible = true
+    m.subtitleSyncPlus100.focus = true
+    m.subtitleSyncPlus100.setfocus(true)
+end sub
+
+sub hidesyncmenuAction()
+    m.subtitleSyncPlus100.setFocus(false)
+    m.subtitleSyncPlus100.focus = false
+
+    m.subtitleSyncPlus500.setFocus(false)
+    m.subtitleSyncPlus500.focus = false
+
+    m.subtitleSyncMinus100.setFocus(false)
+    m.subtitleSyncMinus100.focus = false
+
+    m.subtitleSyncMinus500.setFocus(false)
+    m.subtitleSyncMinus500.focus = false
+
+    m.subtitleSyncReset.setFocus(false)
+    m.subtitleSyncReset.focus = false
+
+    m.top.setFocus(true)
+
+    m.subtitleTimingButtons.visible = false
+end sub
+
+' Only setup caption items if captions are allowed
+sub onAllowCaptionsChange()
+    if not m.top.allowCaptions then return
+
+    m.captionGroup = m.top.findNode("captionGroup")
+    m.captionGroup.createchildren(9, "LayoutGroup")
+    m.captionTask = createObject("roSGNode", "captionTask")
+    m.captionTask.observeField("currentCaption", "updateCaption")
+    m.captionTask.observeField("useThis", "checkCaptionMode")
+    m.top.observeField("subtitleTrack", "loadCaption")
+    m.top.observeField("globalCaptionMode", "toggleCaption")
+
+    if m.global.session.user.settings["playback.subs.custom"]
+        m.top.suppressCaptions = true
+        toggleCaption()
+    else
+        m.top.suppressCaptions = false
+    end if
+end sub
+
+' Set caption url to server subtitle track
+sub loadCaption()
+    if m.top.suppressCaptions
+        m.captionTask.url = m.top.subtitleTrack
+    end if
+end sub
+
+' Toggles visibility of custom subtitles and sets captionTask's player state
+sub toggleCaption()
+    m.captionTask.playerState = m.top.state + m.top.globalCaptionMode
+    if LCase(m.top.globalCaptionMode) = "on"
+        m.captionTask.playerState = m.top.state + m.top.globalCaptionMode + "w"
+        m.captionGroup.visible = true
+    else
+        m.captionGroup.visible = false
+    end if
+end sub
+
+' Removes old subtitle lines and adds new subtitle lines
+sub updateCaption()
+    m.captionGroup.removeChildrenIndex(m.captionGroup.getChildCount(), 0)
+    m.captionGroup.appendChildren(m.captionTask.currentCaption)
+end sub
+
+' Event handler for when selectedSubtitle changes
+sub onSubtitleChange()
+    switchWithoutRefresh = true
+
+    if m.top.SelectedSubtitle <> SubtitleSelection.NONE
+        ' If the global caption mode is off, then Roku can't display the subtitles natively and needs a video stop/start
+        if LCase(m.top.globalCaptionMode) <> "on" then switchWithoutRefresh = false
+    end if
+
+    ' If previous subtitle was encoded, then we need to a video stop/start to change subtitle content
+    if m.top.previousSubtitleWasEncoded then switchWithoutRefresh = false
+
+    if switchWithoutRefresh then return
+
+    ' Save the current video position
+    m.global.queueManager.callFunc("setTopStartingPoint", int(m.top.position) * 10000000&)
+
+    m.top.control = VideoControl.STOP
+
+    m.LoadMetaDataTask.selectedSubtitleIndex = m.top.SelectedSubtitle
+    m.LoadMetaDataTask.itemId = m.top.id
+    m.LoadMetaDataTask.observeField("content", "onVideoContentLoaded")
+    m.LoadMetaDataTask.control = TaskControl.RUN
+end sub
+
+' Event handler for when audioIndex changes
+sub onAudioIndexChange()
+    ' Skip initial audio index setting
+    if m.top.position = 0 then return
+
+    ' Save the current video position
+    m.global.queueManager.callFunc("setTopStartingPoint", int(m.top.position) * 10000000&)
+
+    m.top.control = VideoControl.STOP
+
+    m.LoadMetaDataTask.selectedAudioStreamIndex = m.top.audioIndex
+    m.LoadMetaDataTask.itemId = m.top.id
+    m.LoadMetaDataTask.observeField("content", "onVideoContentLoaded")
+    m.LoadMetaDataTask.control = TaskControl.RUN
+end sub
+
+' Event handler for when selectedSpeed changes
+sub onSelectedSpeedChange()
+    m.top.playbackSpeed = m.top.selectedSpeed
+    m.osd.playbackSpeed = m.top.selectedSpeed
+    ' you need to pause and resume video to have speed change take effect
+    if m.top.state = MediaPlaybackState.PLAYING
+        m.top.control = VideoControl.PAUSE
+        m.top.control = VideoControl.RESUME
+    end if
+end sub
+
+sub onPlaybackErrorDialogClosed(msg)
+    sourceNode = msg.getRoSGNode()
+    sourceNode.unobserveField("buttonSelected")
+    sourceNode.unobserveField("wasClosed")
+
+    m.global.sceneManager.callFunc("popScene")
+end sub
+
+sub onPlaybackErrorButtonSelected(msg)
+    sourceNode = msg.getRoSGNode()
+    sourceNode.close = true
+end sub
+
+sub showPlaybackErrorDialog(errorMessage as string)
+    dialog = createObject("roSGNode", "Dialog")
+    dialog.title = tr("Error During Playback")
+    dialog.buttons = [tr("OK")]
+    dialog.message = errorMessage
+    dialog.observeField("buttonSelected", "onPlaybackErrorButtonSelected")
+    dialog.observeField("wasClosed", "onPlaybackErrorDialogClosed")
+    m.top.getScene().dialog = dialog
+end sub
+
+sub onVideoContentLoaded()
+    m.LoadMetaDataTask.unobserveField("content")
+    m.LoadMetaDataTask.control = TaskControl.STOP
+
+    videoContent = m.LoadMetaDataTask.content
+    m.LoadMetaDataTask.content = []
+
+    hidesyncmenuAction()
+
+    ' If we have nothing to play, return to previous screen
+    if not isValid(videoContent)
+        showPlaybackErrorDialog(tr("There was an error retrieving the data for this item from the server."))
+        return
+    end if
+
+    if not isValid(videoContent[0])
+        showPlaybackErrorDialog(tr("There was an error retrieving the data for this item from the server."))
+        return
+    end if
+
+    m.isTranscoded = videoContent[0].isTranscoded
+    burnInSubtitles = chainLookupReturn(m.global, "session.user.settings.`playback.subs.burnin`", true)
+    subtitlesBurnedIn = m.isTranscoded and burnInSubtitles and chainLookupReturn(videoContent[0], "subtitlesBurnedIn", true)
+
+    if subtitlesBurnedIn
+        videoContent[0].content.SubtitleTracks = []
+    end if
+
+    ' If content is live, consider playback test completed
+    m.playbackTestComplete = videoContent[0].content.live
+
+    m.top.content = videoContent[0].content
+    configureFavoriteChannelButton(videoContent[0])
+    ' Build enriched Now Playing metadata for Roku Voice "what's playing" command
+    itemData = m.global.queueManager.callFunc("getCurrentItem")
+    if isValid(itemData)
+        json = itemData.json ?? itemData
+        mediaItemType = LCase(json.Type ?? string.EMPTY)
+        if isStringEqual(mediaItemType, "episode")
+            season = isValid(json.ParentIndexNumber) ? StrI(json.ParentIndexNumber).trim() : "0"
+            episode = isValid(json.IndexNumber) ? StrI(json.IndexNumber).trim() : "0"
+            seriesName = json.SeriesName ?? json.Name ?? json.title ?? string.EMPTY
+            episodeName = json.Name ?? json.title ?? string.EMPTY
+            displayTitle = `${seriesName} - S${season}E${episode} - ${episodeName}`
+        else
+            contentName = json.Name ?? json.title ?? string.EMPTY
+            displayTitle = isValid(json.ProductionYear) ? `${contentName} (${json.ProductionYear})` : contentName
+        end if
+        m.top.nowPlayingMetadata = { title: displayTitle, contentType: mediaItemType }
+    end if
+    m.top.PlaySessionId = videoContent[0].PlaySessionId
+    m.top.videoId = videoContent[0].id
+    m.top.container = videoContent[0].container
+    m.top.mediaSourceId = videoContent[0].mediaSourceId
+    m.top.fullSubtitleData = videoContent[0].fullSubtitleData
+    m.top.fullAudioData = videoContent[0].fullAudioData
+    m.top.audioIndex = videoContent[0].audioIndex
+    m.top.transcodeParams = videoContent[0].transcodeparams
+    m.chapters = videoContent[0].chapters
+    updateTransportButtonsStatus()
+    m.overview = videoContent[0].overview
+    m.premiere = videoContent[0].premiere
+    m.castPeople = videoContent[0].people
+    m.trickplay = videoContent[0].trickplay
+    m.top.showID = videoContent[0].showID
+    m.mediaSegments = videoContent[0].mediaSegments
+    m.runtimeticks = videoContent[0].runtimeticks
+
+    m.osd.itemTitleText = m.top.content.title
+    m.bufferingItemTitle.text = m.top.content.title
+    m.osd.playbackSpeed = m.top.playbackSpeed
+
+    m.trickplayDataFinal = invalid
+    if isValidAndNotEmpty(m.trickplay)
+        trickplayData = m.trickplay.LookupCI(m.top.id)
+        if isValidAndNotEmpty(trickplayData)
+            m.trickplayDataFinal = trickplayData.lookupCI(trickplayData.keys()[0])
+
+            if isValidAndNotEmpty(m.trickplayDataFinal)
+                ' Convert interval to seconds
+                m.iconInterval = m.trickplayDataFinal.Interval / 1000
+
+                m.canUseFastReplace = (m.trickplayDataFinal.TileHeight * m.trickplayDataFinal.Height) * (m.trickplayDataFinal.TileWidth * m.trickplayDataFinal.Width) < 2000000
+
+                m.PreloadTrickplayImagesTask.numImagesToLoad = fix((m.trickplayDataFinal.ThumbnailCount - 1) / (m.trickplayDataFinal.TileHeight * m.trickplayDataFinal.TileWidth))
+                m.PreloadTrickplayImagesTask.trickplayWidth = m.trickplayDataFinal.Width
+                m.PreloadTrickplayImagesTask.method = "ADD"
+                m.PreloadTrickplayImagesTask.control = TaskControl.RUN
+            end if
+        end if
+    end if
+
+    ' If video is an episode, attempt to add season and episode numbers to OSD and the display of info during buffering
+    if m.top.content.contenttype = 4
+        if isValid(videoContent[0].seasonNumber)
+            m.osd.seasonNumber = videoContent[0].seasonNumber
+            m.bufferingItemSeason.font.size = 32
+            m.bufferingItemSeason.text = `S${videoContent[0].seasonNumber}`
+        end if
+
+        if isValid(videoContent[0].episodeNumber)
+            m.osd.episodeNumber = videoContent[0].episodeNumber
+            m.bufferingItemEpisode.font.size = 32
+            m.bufferingItemEpisode.text = `E${videoContent[0].episodeNumber}`
+        end if
+
+        if isValid(videoContent[0].episodeNumberEnd)
+            m.osd.episodeNumberEnd = videoContent[0].episodeNumberEnd
+            m.bufferingItemEpisodeEnd.font.size = 32
+            m.bufferingItemEpisodeEnd.text = `-${videoContent[0].episodeNumberEnd}`
+        end if
+    end if
+
+    ' Attempt to add logo to OSD and the display of info during buffering
+    if isValidAndNotEmpty(videoContent[0].logoImage)
+        m.osd.logoImage = videoContent[0].logoImage
+
+        ' Create the buffering screen logo image node if it doesn't already exist
+        bufferingLogoImage = m.top.findNode("bufferingLogoImage")
+        if not isValid(bufferingLogoImage)
+            bufferingLogoImage = createObject("roSGNode", "Poster")
+            bufferingLogoImage.Id = "bufferingLogoImage"
+            bufferingLogoImage.translation = [103, 61]
+            m.top.appendChild(bufferingLogoImage)
+        end if
+        bufferingLogoImage.observeField("loadStatus", "onBufferingLogoLoadStatusChanged")
+        bufferingLogoImage.uri = videoContent[0].logoImage
+
+        ' Don't show both the logo and the video title if this isn't an episode or trailer
+        if m.top.content.contenttype <> 4 and videoContent[0].extraType <> "trailer"
+            m.osd.itemTitleText = string.EMPTY
+            m.bufferingItemTitle.text = string.EMPTY
+        end if
+    end if
+
+    populateChapterMenu()
+
+    if m.LoadMetaDataTask.isIntro
+        ' Disable trackplay bar for intro videos
+        m.top.enableTrickPlay = false
+    else
+        ' Allow custom captions for non intro videos unless the video is being transcoded and burn subtitles are enabled
+        m.top.allowCaptions = not subtitlesBurnedIn
+    end if
+
+    ' Allow default subtitles
+    m.top.unobserveField("selectedSubtitle")
+
+    ' Set subtitleTrack property if subs are natively supported by Roku
+    selectedSubtitle = invalid
+    updatedSubtitleData = []
+    for each subtitle in m.top.fullSubtitleData
+        if subtitlesBurnedIn
+            subtitle.IsEncoded = true
+            updatedSubtitleData.push(subtitle)
+        end if
+
+        if subtitle.Index = videoContent[0].selectedSubtitle
+            selectedSubtitle = subtitle
+        end if
+    end for
+
+    if subtitlesBurnedIn
+        m.top.fullSubtitleData = updatedSubtitleData
+        m.top.globalCaptionMode = "Off"
+    end if
+
+    if videoContent[0].selectedSubtitle = SubtitleSelection.NONE
+        m.top.globalCaptionMode = "Off"
+        m.top.subtitleTrack = ""
+    end if
+
+    if isValid(selectedSubtitle)
+        availableSubtitleTrackIndex = availSubtitleTrackIdx(selectedSubtitle.Track.TrackName)
+        if availableSubtitleTrackIndex <> SubtitleSelection.NONE
+            if not selectedSubtitle.IsEncoded
+                if selectedSubtitle.IsForced
+                    ' If IsForced, make sure to remember the Roku global setting so we can set it back when the video is done playing.
+                    m.originalClosedCaptionState = m.top.globalCaptionMode
+                end if
+                m.top.globalCaptionMode = "On"
+                m.top.subtitleTrack = m.top.availableSubtitleTracks[availableSubtitleTrackIndex].TrackName
+            end if
+        end if
+    end if
+
+    ' Check if video content selected a subtitle
+    if m.top.selectedSubtitle <> videoContent[0].selectedSubtitle
+        m.top.selectedSubtitle = videoContent[0].selectedSubtitle
+    end if
+
+    m.top.observeField("selectedSubtitle", "onSubtitleChange")
+
+    if isValid(m.top.audioIndex)
+        m.top.audioTrack = m.top.audioIndex.toStr()
+    else
+        m.top.audioTrack = "2"
+    end if
+
+    m.top.setFocus(true)
+    m.osd.live = m.top.content.live
+    refreshLiveOSDContent()
+
+    m.top.control = VideoControl.PLAY
+end sub
+
+' onBufferingLogoLoadStatusChanged: Handler for changes to buffering logo image's status.
+'
+' @param {dynamic} event - field change event
+sub onBufferingLogoLoadStatusChanged(event)
+    if LCase(event.GetData()) = "ready"
+        bufferingLogoImage = event.getRoSGNode()
+        bufferingLogoImage.unobserveField("loadStatus")
+
+        ' Move video info to the right based on the logo width
+        m.bufferingVideoInfo.translation = `[${m.bufferingVideoInfo.translation[0] + bufferingLogoImage.bitmapWidth + BUFFERING_LOGO_RIGHT_PADDING}, ${m.bufferingVideoInfo.translation[1]}]`
+        m.bufferingItemTitle.maxWidth = m.bufferingItemTitle.maxWidth - (bufferingLogoImage.bitmapWidth + BUFFERING_LOGO_RIGHT_PADDING)
+    end if
+end sub
+
+' displayTrickplayImage: Handler for displaying trickplay images.
+'
+' @param {integer} trickPosition - the position in the video that corresponds to the trickplay image to be displayed, in seconds
+sub displayTrickplayImage(trickPosition as integer)
+    if m.global.session.user.settings["playback.trickplay.displayTrickplayFormat"] = "single"
+        displaySingleTrickplayImage(trickPosition, 0)
+    else
+        for i = -2 to 2
+            displaySingleTrickplayImage(trickPosition, i)
+        end for
+    end if
+end sub
+
+' displaySingleTrickplayImage: Handler for a single trickplay images, with the ability to be called based on a position for the trickplay image to appear.  Intended to be called only by the main trickplay image display handler.
+'
+' @param {integer} trickPosition - the position in the video that corresponds to the tri
+' @param {integer} whichImage - the trickplay image location slot to display this image.  0 is the middle slot, and is used both for when displaying only a single moving image and multiple.  Negative and positive are relative to the 0 slot and are used when displaying multiple trickplay images.
+sub displaySingleTrickplayImage(trickPosition as integer, whichImage as integer)
+    if not isValid(m.trickplayDataFinal) then return
+
+    ' For the five image trickplay the center image is large, the other images are small.  These factors can be used to adjust the sizes.
+    largeTileSizeFactor = 1.2
+    smallTileSizeFactor = 0.7
+    tileBuffer = 15 ' Space between trickplay images when using the 5 tile trickplay image display
+
+    if whichImage = 0
+        if m.global.session.user.settings["playback.trickplay.displayTrickplayFormat"] = "single"
+            tileSizeFactor = 1.0
+        else
+            tileSizeFactor = largeTileSizeFactor
+        end if
+    else
+        tileSizeFactor = smallTileSizeFactor
+    end if
+
+    trickplayImage = m.top.findNode("trickplayImage" + str(whichImage))
+
+    delta = abs(m.seekSpeeds[m.seekSpeedIndex])
+    offsetTrickPosition = trickPosition + delta * whichImage
+    if offsetTrickPosition < 0 or offsetTrickPosition > m.osd.progressDuration
+        if isValid(trickplayImage) then trickplayImage.visible = false
+        return
+    end if
+
+    ' Index of trickplay image that matches seek timestamp - out of all trickplay images
+    iconIndex = fix(offsetTrickPosition / m.iconInterval)
+
+    ' Index of tileset that trickplay image is located in
+    tileIndex = Fix(iconIndex / (m.trickplayDataFinal.TileHeight * m.trickplayDataFinal.TileWidth))
+
+    ' Index of trickplay image within tileset
+    tileIconIndex = iconIndex - (tileIndex * (m.trickplayDataFinal.TileHeight * m.trickplayDataFinal.TileWidth))
+
+    ' Index of row trickplay image is on within tileset
+    iconRow = fix(tileIconIndex / m.trickplayDataFinal.TileWidth)
+
+    ' Index of column trickplay image is on within tileset
+    iconColumn = tileIconIndex mod m.trickplayDataFinal.TileWidth
+
+    ' Translation values for trickplay images
+    if m.global.session.user.settings["playback.trickplay.displayTrickplayFormat"] = "single"
+        previewPosPercentage = trickPosition / m.osd.progressDuration
+        offsetHoriz = m.progressBarGroup.translation[0] + m.progressBarBackground.width * previewPosPercentage - m.trickplayDataFinal.Width / 2
+    else
+        offsetHoriz = m.progressBarGroup.translation[0] + m.progressBarBackground.width / 2 - (m.trickplayDataFinal.Width * largeTileSizeFactor) / 2 + (tileBuffer + m.trickplayDataFinal.Width * smallTileSizeFactor) * whichImage + (whichImage < 1 ? 0 : m.trickplayDataFinal.Width * largeTileSizeFactor - m.trickplayDataFinal.Width * smallTileSizeFactor)
+    end if
+    offsetVert = m.progressBarGroup.translation[1] - 25 - m.trickplayDataFinal.Height * tileSizeFactor
+
+    if offsetHoriz < 0 then offsetHoriz = 0
+
+    trickplayImageUri = `tmp:/${m.top.id}-${tileIndex}.jpg`
+
+    ' If we've changed tiles, remove existing trickplayImage node if it exists and we can't use fast replace.
+    ' Otherwise loading the next image will fail. 'cause Roku.
+    if isValid(trickplayImage)
+        if trickplayImage.uri <> trickplayImageUri and not m.canUseFastReplace
+            m.osd.removeChild(trickplayImage)
+            trickplayImage = invalid
+        end if
+    end if
+
+    ' Trickplay image node doesn't exist, create it
+    if not isValid(trickplayImage)
+        newTrickplayImage = createObject("roSGNode", "Poster")
+        newTrickplayImage.id = `trickplayImage` + str(whichImage)
+        newTrickplayImage.loadDisplayMode = "noScale"
+        ' Insert trickplay image at top of OSD so video ending time node is visible over trickplay image
+        m.osd.insertChild(newTrickplayImage, 0)
+        trickplayImage = newTrickplayImage
+    end if
+
+    ' Only update the trickplay image's URI if needed
+    if trickplayImage.uri <> trickplayImageUri
+        trickplayImage.uri = trickplayImageUri
+    end if
+
+    ' Move clippingRect to next trickplay image within tileset - offsetting translation by an equal amount so it doesn't move
+    trickplayImage.height = tileSizeFactor * m.trickplayDataFinal.Height * m.trickplayDataFinal.TileHeight
+    trickplayImage.width = tileSizeFactor * m.trickplayDataFinal.Width * m.trickplayDataFinal.TileWidth
+    trickplayImage.translation = `[${offsetHoriz - (iconColumn * m.trickplayDataFinal.Width * tileSizeFactor)},  ${offsetVert - (iconRow * m.trickplayDataFinal.Height * tileSizeFactor)}]`
+    trickplayImage.clippingRect = `[${iconColumn * m.trickplayDataFinal.Width * tileSizeFactor}, ${iconRow * m.trickplayDataFinal.Height * tileSizeFactor}, ${m.trickplayDataFinal.Width * tileSizeFactor}, ${m.trickplayDataFinal.Height * tileSizeFactor}]`
+    trickplayImage.visible = true
+
+end sub
+
+' hideTrickplayImages: ' Hide all trickplay images by setting visible = false for each
+'
+sub hideTrickplayImages()
+    if m.global.session.user.settings["playback.trickplay.displayTrickplayFormat"] = "single"
+        if isValidAndNotEmpty(m.top.findNode("trickplayImage" + str(0)))
+            m.top.findNode("trickplayImage" + str(0)).visible = false
+        end if
+    else
+        for i = -2 to 2
+            if isValidAndNotEmpty(m.top.findNode("trickplayImage" + str(i)))
+                m.top.findNode("trickplayImage" + str(i)).visible = false
+            end if
+        end for
+    end if
+end sub
+
+' populateChapterMenu: ' Parse chapter data from API and appeand to chapter list menu
+'
+sub populateChapterMenu()
+    ' Clear any existing chapter list data
+    m.chapterContent.clear()
+
+    if not isValidAndNotEmpty(m.chapters)
+        chapterItem = CreateObject("roSGNode", "ContentNode")
+        chapterItem.title = tr("No Chapter Data Found")
+        chapterItem.playstart = m.playbackEnum.null
+        m.chapterContent.appendChild(chapterItem)
+        return
+    end if
+
+    for each chapter in m.chapters
+        chapterItem = CreateObject("roSGNode", "ContentNode")
+        chapterItem.title = chapter.Name
+        chapterItem.playstart = chapter.StartPositionTicks / 10000000#
+        m.chapterContent.appendChild(chapterItem)
+    end for
+end sub
+
+' Event handler for when video content field changes
+sub onContentChange()
+    if not isValid(m.top.content) then return
+    m.top.observeField("position", "onPositionChanged")
+end sub
+
+sub onNextEpisodeDataLoaded()
+    m.checkedForNextEpisode = true
+
+    ' If there is no next episode, disable next episode button
+    if m.getNextEpisodeTask.nextEpisodeData.Items.count() <> 2
+        m.nextupbuttonseconds = 0
+    end if
+end sub
+
+sub hideSegmentSkipButton()
+    m.currentSegmentEndTicks = 0
+    m.currentSegmentType = invalid
+    m.skipSegmentButton.visible = false
+    m.skipSegmentButton.text = string.EMPTY
+    m.skipSegmentButton.setFocus(false)
+    m.skipSegmentButton.focus = false
+
+    ' Notify that no skippable segment is active
+    m.top.hasActiveSegment = false
+    hideNextItem()
+    m.top.setFocus(true)
+end sub
+
+sub displaySegmentSkipButton(segmentType as string, endticks as double)
+    m.currentSegmentEndTicks = endticks
+    m.currentSegmentType = segmentType
+
+    ' Notify that a skippable segment is active
+    m.top.hasActiveSegment = true
+
+    if isValidAndNotEmpty(m.mediaSegmentDismissed) and m.mediaSegmentDismissed.DoesExist(m.currentSegmentType) then return
+
+    ' Check if user has specific instructions for this media segment type
+    userSetting = m.global.session.user.settings[`playback.mediasegments.${segmentType}`]
+    if isValid(userSetting)
+
+        ' User doesn't want anything to happen for this media segment type
+        if isStringEqual(userSetting, MediaSegmentAction.NONE) then return
+
+        ' User wants to auto-skip this media segment type.  Don't skip if we are in an active seek.
+        if isStringEqual(userSetting, MediaSegmentAction.SKIP) and not m.osd.isSeeking
+            skipCurrentSegment()
+            return
+        end if
+    end if
+
+    if m.castPopup.visible then return
+
+    ' Check if button is already showing
+    if isStringEqual(m.skipSegmentButton.text, tr(`Skip ${segmentType}`)) then return
+
+    if isStringEqual(segmentType, MediaSegmentType.OUTRO)
+        if m.nextupbuttonseconds = 0 then return ' is the button disabled?
+        if not m.osd.visible
+            displayNextItem() ' only show next episode info if OSD is not visible
+        end if
+    end if
+
+    m.skipSegmentButton.visible = true
+    m.skipSegmentButton.text = tr(`Skip ${segmentType}`)
+    if not m.osd.visible ' Only take focus if OSD is not visible
+        setSkipSegmentButtonFocus()
+    end if
+end sub
+
+sub hideNextItem()
+    m.nextUp.visible = false
+end sub
+
+sub displayNextItem()
+    ' Disable for mixed playlists
+    if m.global.queueManager.callFunc("getQueueUniqueTypes").count() <> 1 then return
+
+    ' Disable if we're at the end of the queue
+    if m.global.queueManager.callFunc("getPosition") >= m.global.queueManager.callFunc("getCount") - 1 then return
+
+    ' Only show if next in queue is an episode
+    currentQueuePosition = m.global.queueManager.callFunc("getPosition")
+    nextItem = m.global.queueManager.callFunc("getItemByIndex", currentQueuePosition + 1)
+    if not isValid(nextItem) then return
+    if not isStringEqual(nextItem.lookupCI("Type"), ItemType.EPISODE) then return
+
+    if m.nextUpInfoLoaded
+        m.nextUp.visible = true
+        return
+    end if
+
+    imageTags = nextItem.lookupCI("ImageTags")
+    nextItemPoster = m.top.findNode("nextItemPoster")
+    if isValid(nextItemPoster)
+        nextItemPoster.uri = ImageURL(nextItem.lookupCI("id"), ImageType.PRIMARY, { "maxHeight": 124, "maxWidth": 150, "Tag": chainLookupReturn(imageTags, ImageType.PRIMARY, `cacheBuster${rnd(99999)}`) })
+    end if
+
+    nextItemSeriesTitle = m.top.findNode("nextItemSeriesTitle")
+    if isValid(nextItemSeriesTitle)
+        nextItemSeriesTitle.font.size = 25
+        nextItemSeriesTitle.text = nextItem.lookupCI("SeriesName")
+    end if
+
+    nextItemEpisodeTitle = m.top.findNode("nextItemEpisodeTitle")
+    if isValid(nextItemEpisodeTitle)
+        seasonName = nextItem.lookupCI("SeasonName") ?? string.EMPTY
+        seasonName = seasonName.Replace("Season ", "S")
+
+        episodeNumber = isValid(nextItem.lookupCI("IndexNumber")) ? `E${nextItem.lookupCI("IndexNumber")}` : string.EMPTY
+
+        nextItemEpisodeTitle.font.size = 22
+        nextItemEpisodeTitle.text = `${seasonName}${episodeNumber} - ${nextItem.lookupCI("name")}`
+    end if
+
+    m.nextUp.visible = true
+    m.nextUpInfoLoaded = true
+end sub
+
+' checkSegmentSkipButton: Handler for displaying skip buttons during media segments.
+'
+' @param {integer} position - the position to check if in in a media segment
+
+sub checkSegmentSkipButton(position as double)
+    if not isValidAndNotEmpty(m.mediaSegments) then return
+    if m.castPopup.visible and m.skipSegmentButton.visible
+        m.skipSegmentButton.visible = false
+        m.skipSegmentButton.text = string.EMPTY
+        m.skipSegmentButton.setFocus(false)
+        m.skipSegmentButton.focus = false
+        hideNextItem()
+    end if
+
+    matchFound = false
+
+    currentPositionTicks = int(position) * 10000000&
+    for i = 0 to m.mediaSegments.TotalRecordCount - 1
+        mediaSegment = m.mediaSegments.items[i]
+
+        if currentPositionTicks < mediaSegment.StartTicks then continue for
+
+        ' Don't display skip button if we are within 5 seconds of the segment end time
+        if currentPositionTicks >= (mediaSegment.EndTicks - 50000000) then continue for
+
+        ' Current position is between media segment's start and end ticks. Display a skip button
+        displaySegmentSkipButton(mediaSegment.type, mediaSegment.EndTicks)
+
+        matchFound = true
+
+        exit for
+    end for
+
+    ' Check if no match was found.  Reset skip button values if needed and hide the skip segment button if it is visible
+    if not matchFound
+        ' When we are no longer in a media segment, we want to reset the currentSegmentType and mediaSegmentDismissed values so that if we encounter another segment of the same type later in the video, the button will show again.
+        ' Since this routine is called frequently, to reduce assignment cycles, check if segment button values have changed before resetting values
+        if isValid(m.currentSegmentType) or (isValid(m.mediaSegmentDismissed) and m.mediaSegmentDismissed.count() > 0)
+            m.currentSegmentType = invalid
+            m.mediaSegmentDismissed = {}
+        end if
+        if m.skipSegmentButton.visible
+            hideSegmentSkipButton()
+        end if
+    end if
+end sub
+
+sub playbackFailureTest()
+    if not isValid(m.runtimeticks)
+        m.playbackTestComplete = true
+        return
+    end if
+
+    if not isValid(m.top.duration)
+        m.playbackTestComplete = true
+        return
+    end if
+
+    runtimeSeconds = m.runtimeticks / 10000000&
+
+    ' Jellyfin's reported duration must be within 30 seconds of Roku's duration
+    if Abs(m.top.duration - runtimeSeconds) < ACCEPTED_DURATION_DELTA
+        m.playbackTestComplete = true
+        return
+    end if
+
+    startSpinnerWithPercent(0)
+
+    if isStringEqual(PlaybackMethod.PLAYNORMALLY, m.global.queueManager.callFunc("getForceTranscode"))
+        m.global.queueManager.callFunc("setForceTranscode", PlaybackMethod.FORCETRANSCODEALLOWREMUX)
+    else if isStringEqual(PlaybackMethod.FORCETRANSCODEALLOWREMUX, m.global.queueManager.callFunc("getForceTranscode"))
+        m.global.queueManager.callFunc("setForceTranscode", PlaybackMethod.FORCETRANSCODEDISABLEREMUX)
+        m.playbackTestComplete = true
+    end if
+
+    m.global.queueManager.callFunc("setTranscodeReason", tr("Roku thought it could direct play this media, but the playback duration was incorrect."))
+
+    ' Stop playback and exit player
+    m.top.control = VideoControl.STOP
+
+    m.LoadMetaDataTask.mustTranscode = true
+    m.LoadMetaDataTask.observeField("content", "onVideoContentLoaded")
+    m.LoadMetaDataTask.control = TaskControl.RUN
+end sub
+
+' When Video Player state changes
+sub onPositionChanged()
+    if not m.playbackTestComplete
+        if m.attemptDirectPlaySetting
+            if not m.isTranscoded
+                playbackFailureTest()
+            end if
+        end if
+    end if
+
+    ' Pass video position data into OSD
+    if m.osd.progressDuration = 0
+        m.osd.progressPercentage = 0
+    else
+        m.osd.progressPercentage = m.top.position / m.osd.progressDuration
+    end if
+
+    ' Ensure position text is accurate
+    m.positionText.text = secondsToHuman(m.top.position, true)
+
+    m.osd.positionTime = m.top.position
+    m.osd.remainingPositionTime = m.osd.progressDuration - m.top.position
+    m.osd.live = m.top.content.live
+    m.osd.progressDuration = m.top.duration
+
+    ' Update the caption task playback position.
+    ' The position is calculated in milliseconds based on the current
+    ' video playback position plus the configured subtitle offset.
+    if isValid(m.captionTask)
+        newPos = Int(m.top.position * 1000) + m.subtitleOffset
+        m.captionTask.currentPos = newPos
+    end if
+
+    ' Check if dialog is open
+    m.dialog = m.top.getScene().findNode("dialogBackground")
+    if not isValid(m.dialog)
+        ' Do not show Next Episode button for intro videos
+        if not m.LoadMetaDataTask.isIntro
+            checkSegmentSkipButton(m.top.position)
+        end if
+    end if
+    ' Only update live TV trackers if content is live, to avoid unnecessary calls
+    if m.top.content.live then updateLiveTvTrackers()
+end sub
+
+sub bufferStuckAt100Check()
+    if not isStringEqual(m.top.state, MediaPlaybackState.BUFFERING)
+        ' If video is not buffering, stop timer
+        m.buffer100Count = 0
+        m.bufferStuckTimer.control = "stop"
+        m.bufferStuckTimer.unobserveField("fire")
+        return
+    end if
+
+    bufferingPercent = chainLookupReturn(m.top.bufferingStatus, "percentage", 0)
+    if bufferingPercent <> 100 then return
+
+    if m.buffer100Count >= 1
+        if not m.isTranscoded
+            ' We're moving to transcoding, stop timer
+            m.buffer100Count = 0
+            m.bufferStuckTimer.control = "stop"
+            m.bufferStuckTimer.unobserveField("fire")
+
+            if isStringEqual(PlaybackMethod.PLAYNORMALLY, m.global.queueManager.callFunc("getForceTranscode"))
+                m.global.queueManager.callFunc("setForceTranscode", PlaybackMethod.FORCETRANSCODEALLOWREMUX)
+            else if isStringEqual(PlaybackMethod.FORCETRANSCODEALLOWREMUX, m.global.queueManager.callFunc("getForceTranscode"))
+                m.global.queueManager.callFunc("setForceTranscode", PlaybackMethod.FORCETRANSCODEDISABLEREMUX)
+            end if
+
+            m.global.queueManager.callFunc("setTranscodeReason", tr("Roku's video player got stuck buffering video"))
+
+            ' Stop playback and exit player
+            m.top.control = VideoControl.STOP
+
+            m.LoadMetaDataTask.mustTranscode = true
+            m.LoadMetaDataTask.observeField("content", "onVideoContentLoaded")
+            m.LoadMetaDataTask.control = TaskControl.RUN
+            return
+        end if
+
+        return
+    end if
+
+    m.buffer100Count++
+end sub
+
+'
+' When Video Player state changes
+sub onState(msg)
+    if isValid(m.captionTask)
+        m.captionTask.playerState = m.top.state + m.top.globalCaptionMode
+    end if
+
+    ' Pass video state into OSD
+    m.osd.playbackState = m.top.state
+
+    ' When buffering, start timer to monitor buffering process
+    if isStringEqual(m.top.state, MediaPlaybackState.BUFFERING) and m.bufferCheckTimer <> invalid
+        startSpinnerWithPercent(0)
+        ' start timer
+        if m.attemptDirectPlaySetting and not m.top.content.live
+            m.bufferStuckTimer.control = "start"
+            m.bufferStuckTimer.ObserveField("fire", "bufferStuckAt100Check")
+        end if
+
+        m.bufferCheckTimer.control = "start"
+        m.bufferCheckTimer.ObserveField("fire", "bufferCheck")
+    else if isStringEqual(m.top.state, MediaPlaybackState.ERROR)
+        print "Error: " m.top.errorCode, m.top.errorMsg, " ErrorStr: " m.top.errorStr
+        print m.top.errorInfo
+
+        if not m.playReported and m.top.content.live
+            if m.playbackRetries < REPLAY_RETRIES
+                print "Live TV playback failed - retrying with remux forced"
+                m.playbackRetries = m.playbackRetries + 1
+                m.global.queueManager.callFunc("setForceTranscode", PlaybackMethod.FORCELIVETVREMUX)
+
+                m.top.control = VideoControl.STOP
+
+                m.LoadMetaDataTask.itemId = m.top.id
+                m.LoadMetaDataTask.observeField("content", "onVideoContentLoaded")
+                m.LoadMetaDataTask.control = TaskControl.RUN
+            else
+                print "Live TV playback failed after " + m.playbackRetries.ToStr() + " attempts - showing error and exiting"
+                showPlaybackErrorDialog(tr("Live TV Playback Failed"))
+
+                ' Stop playback and exit player
+                m.top.control = VideoControl.STOP
+                m.top.backPressed = true
+                return
+            end if
+
+        else if not m.playReported and m.attemptDirectPlaySetting and not m.isTranscoded
+            if isStringEqual(PlaybackMethod.PLAYNORMALLY, m.global.queueManager.callFunc("getForceTranscode"))
+                m.global.queueManager.callFunc("setForceTranscode", PlaybackMethod.FORCETRANSCODEALLOWREMUX)
+            else if isStringEqual(PlaybackMethod.FORCETRANSCODEALLOWREMUX, m.global.queueManager.callFunc("getForceTranscode"))
+                m.global.queueManager.callFunc("setForceTranscode", PlaybackMethod.FORCETRANSCODEDISABLEREMUX)
+            end if
+
+            m.global.queueManager.callFunc("setTranscodeReason", `${tr("Roku's video player threw the following error")}: ${m.top.errorStr}`)
+
+            ' Stop playback and exit player
+            m.top.control = VideoControl.STOP
+
+            m.LoadMetaDataTask.mustTranscode = true
+            m.LoadMetaDataTask.observeField("content", "onVideoContentLoaded")
+            m.LoadMetaDataTask.control = TaskControl.RUN
+            return
+
+        else
+            ' Reset retry counter if more than 30 seconds have passed since last error
+            currentTime = CreateObject("roDateTime").AsSeconds()
+            if m.playbackRetries > 0 and (currentTime - m.lastBufferError) > 30
+                print "Playback stabilized - resetting retry count from " + m.playbackRetries.ToStr()
+                m.playbackRetries = 0
+            end if
+
+            ' Attempt to retry playback up to REPLAY_RETRIES times before showing error
+            if m.playbackRetries < REPLAY_RETRIES
+                m.playbackRetries = m.playbackRetries + 1
+                m.lastBufferError = currentTime
+                print "Player error encountered - retry attempt " + m.playbackRetries.ToStr() + " of " + REPLAY_RETRIES.ToStr()
+                ' Stop and restart playback from current position
+                currentPosition = m.top.position
+                m.top.control = VideoControl.STOP
+                m.top.seek = currentPosition
+                m.top.control = VideoControl.PLAY
+            else
+                ' All retries exhausted, show error and exit
+                print "Playback failed after " + REPLAY_RETRIES.ToStr() + " retry attempts"
+                showPlaybackErrorDialog(tr("Error During Playback"))
+
+                ' Stop playback and exit player
+                m.top.control = VideoControl.STOP
+                m.top.backPressed = true
+            end if
+        end if
+    else if isStringEqual(m.top.state, MediaPlaybackState.PLAYING)
+
+        ' Reset retry counter when playback is successful
+        if m.playbackRetries > 0
+            print "Playback resumed successfully after retry"
+            m.playbackRetries = 0
+            m.bufferCheckTimer.duration = 30
+        end if
+
+        ' Check if next episode is available
+        m.osd.progressDuration = m.top.duration
+        resetSpinner()
+        if isValid(m.top.showID)
+            if m.top.showID <> string.EMPTY and not m.checkedForNextEpisode and m.top.content.contenttype = 4
+                m.getNextEpisodeTask.showID = m.top.showID
+                m.getNextEpisodeTask.videoID = m.top.id
+                m.getNextEpisodeTask.control = TaskControl.RUN
+            end if
+        end if
+
+        if m.playReported = false
+            ReportPlayback("start")
+            m.playReported = true
+            createOSDMediaSegmentMarkers()
+        else
+            ReportPlayback()
+        end if
+        m.playbackTimer.control = "start"
+        m.osd.isSeeking = false
+        ' If this is a LiveTV session and we haven't yet set the Live TV Start Time (to ignore rebuffering/retries) then set the Live TV Start Time
+        if m.top.content.live and m.osd.liveTvStartTime = 0
+            setLiveTvValues()
+        end if
+
+        if not m.top.content.live
+            if m.attemptDirectPlaySetting
+                m.playbackCheckTimer = m.top.findNode("playbackCheckTimer")
+                m.playbackCheckTimer.ObserveFieldscoped("fire", "playbackCheck")
+                m.playbackCheckTimer.control = "start"
+            end if
+        end if
+    else if isStringEqual(m.top.state, MediaPlaybackState.PAUSED)
+        m.playbackTimer.control = "stop"
+        ReportPlayback()
+    else if isStringEqual(m.top.state, MediaPlaybackState.STOPPED)
+        m.playbackTimer.control = "stop"
+        if m.playReported
+            ReportPlayback("stop")
+            m.playReported = false
+        end if
+    else if isStringEqual(m.top.state, MediaPlaybackState.FINISHED)
+        m.playbackTimer.control = "stop"
+        ReportPlayback("stop")
+        m.playReported = false
+    end if
+end sub
+
+' setLiveTvValues: Set appropriate values for Live TV sessions, including calculating recording offset and live TV rewind limit for recordings that are in progress.  This is intended to be called at the start of a Live TV session, and will check if the Live TV session is also a recording that is in progress to set additional values.
+'
+sub setLiveTvValues()
+    if not isValid(m.clock) then return
+
+    liveTvStartTime = m.clock.callFunc("getCurrentTime")
+    ' Determine if this is a recording that is in progress, and if so then attempt to set values appropriately.
+    if not isValid(m.LoadProgramDetailsTask)
+        m.osd.liveTvStartTime = liveTvStartTime
+        return
+    end if
+
+    if not isStringEqual(chainLookup(m.LoadProgramDetailsTask, "programDetails.json.type"), ItemType.RECORDING)
+        m.osd.liveTvStartTime = liveTvStartTime
+        return
+    end if
+
+    if not isValid(m.LoadRecordingTimerTask) or not isChainValid(m.LoadRecordingTimerTask, "recordingTimerDetails.json.StartDate")
+        m.osd.liveTvStartTime = liveTvStartTime
+        return
+    end if
+
+    if m.LoadProgramDetailsTask.programDetails.json.Status = "InProgress" and isChainValid(m.LoadProgramDetailsTask, "programDetails.json.TimerId")
+        ' Create date time is stored in UTC for server 12.0.0 and later. Prior to server v12.0.0 the create date time is stored in local time zone.
+
+        createDate = createObject("roDateTime")
+        createDate.FromISO8601String(m.LoadProgramDetailsTask.programDetails.json.DateCreated)
+        if serverVersionMeetsMinimumRequirements(m.global.session.server.version, [12, 0, 0])
+            createDate.toLocalTime()
+        end if
+
+        startDate = createObject("roDateTime")
+        startDate.FromISO8601String(m.LoadRecordingTimerTask.recordingTimerDetails.json.StartDate)
+        startDate.toLocalTime()
+
+        endDate = createObject("roDateTime")
+        endDate.FromISO8601String(m.LoadRecordingTimerTask.recordingTimerDetails.json.EndDate)
+        endDate.toLocalTime()
+
+        ' Create date includes any prepadding time, but we need to subtract/add pre/post padding to the start/end date to get the total planned duration.
+        recordingCreateInSeconds = createDate.AsSeconds()
+        recordingStartInSeconds = startDate.AsSeconds() - m.LoadRecordingTimerTask.recordingTimerDetails.json.PrePaddingSeconds
+        recordingEndInSeconds = endDate.AsSeconds() + m.LoadRecordingTimerTask.recordingTimerDetails.json.PostPaddingSeconds
+        durationInSeconds = recordingEndInSeconds - recordingStartInSeconds
+
+        ' If the recording started after the beginning program time, then set a recording offset
+        if recordingCreateInSeconds <= recordingStartInSeconds
+            m.osd.recordingOffset = 0
+        else
+            m.osd.recordingOffset = recordingCreateInSeconds - recordingStartInSeconds
+            ' Check that recordingOffset is within the bounds of the recording duration.  If not, set recording offset to 0 to avoid OSD issues
+            if m.osd.recordingOffset < 0 or m.osd.recordingOffset > durationInSeconds
+                m.osd.recordingOffset = 0
+            end if
+        end if
+        m.osd.liveTvRewindLimit = durationInSeconds
+
+        liveTvStartTime = recordingStartInSeconds
+        m.osd.recordingStartTime = createDate.AsSeconds()
+    end if
+    m.osd.liveTvStartTime = liveTvStartTime
+end sub
+
+sub playbackCheck()
+    ' If we have a valid position, and it's greater than 0, no need to trigger transcode
+    if isValid(m.top.position)
+        if m.top.position > 0 then return
+    end if
+
+    if not m.isTranscoded
+        startSpinnerWithPercent(0)
+
+        if isStringEqual(PlaybackMethod.PLAYNORMALLY, m.global.queueManager.callFunc("getForceTranscode"))
+            m.global.queueManager.callFunc("setForceTranscode", PlaybackMethod.FORCETRANSCODEALLOWREMUX)
+        else if isStringEqual(PlaybackMethod.FORCETRANSCODEALLOWREMUX, m.global.queueManager.callFunc("getForceTranscode"))
+            m.global.queueManager.callFunc("setForceTranscode", PlaybackMethod.FORCETRANSCODEDISABLEREMUX)
+        end if
+
+        m.global.queueManager.callFunc("setTranscodeReason", tr("Roku thought it could direct play this media, but playback never started."))
+
+        ' Stop playback and exit player
+        m.top.control = VideoControl.STOP
+
+        m.LoadMetaDataTask.mustTranscode = true
+        m.LoadMetaDataTask.observeField("content", "onVideoContentLoaded")
+        m.LoadMetaDataTask.control = TaskControl.RUN
+        return
+    end if
+end sub
+
+sub setVideoEndingTime(videoSeekPosition = invalid as dynamic)
+    m.clock = m.osd.findNode("clock")
+    if not isValid(m.clock) then return
+    if not isValid(m.top.content) then return
+
+    if m.top.content.live then return
+
+    currentTime = m.clock.callFunc("getCurrentTime")
+    remainingTime = getRemainingTime(videoSeekPosition)
+    videoEndingTime = m.clock.callFunc("getFormattedTime", (currentTime + remainingTime), false, false)
+
+    m.osd.videoEndingTime = videoEndingTime
+end sub
+
+function getRemainingTime(videoSeekPosition = invalid as dynamic)
+    seekTime = isValid(videoSeekPosition) ? videoSeekPosition : m.top.position
+
+    return m.osd.progressDuration - seekTime
+end function
+
+'
+' Report playback to server
+sub ReportPlayback(state = "update" as string)
+
+    if m.top.position = invalid then return
+
+    params = {
+        "ItemId": m.top.id,
+        "PlaySessionId": m.top.PlaySessionId,
+        "PositionTicks": int(m.top.position) * 10000000&, 'Ensure a LongInteger is used
+        "IsPaused": isStringEqual(m.top.state, MediaPlaybackState.PAUSED)
+    }
+    if isValid(m.top.content) and isValid(m.top.content.live) and m.top.content.live
+        params.append({
+            "MediaSourceId": m.top.transcodeParams.MediaSourceId,
+            "LiveStreamId": m.top.transcodeParams.LiveStreamId
+        })
+        m.bufferCheckTimer.duration = 30
+    end if
+
+    if inArray(["stop", "finished"], state) and isValid(m.originalClosedCaptionState)
+        m.top.globalCaptionMode = m.originalClosedCaptionState
+        m.originalClosedCaptionState = invalid
+    end if
+
+    ' Report playstate via worker task
+    playstateTask = m.global.playstateTask
+    playstateTask.setFields({ status: state, params: params })
+    playstateTask.control = TaskControl.RUN
+end sub
+
+'
+' Check the the buffering has not hung
+sub bufferCheck(msg)
+
+    if m.top.state <> "buffering"
+        ' If video is not buffering, stop timer
+        m.bufferCheckTimer.control = "stop"
+        m.bufferCheckTimer.unobserveField("fire")
+        return
+    end if
+
+    if m.top.bufferingStatus <> invalid
+        ' Check that the buffering percentage is increasing
+        if m.top.bufferingStatus["percentage"] > m.bufferPercentage
+            m.bufferPercentage = m.top.bufferingStatus["percentage"]
+            ' Reset retry counter if buffering is progressing
+            if m.playbackRetries > 0
+                m.playbackRetries = 0
+                m.bufferCheckTimer.duration = 30
+            end if
+        else if m.top.content.live = true
+            m.top.callFunc("refresh")
+        else
+            ' Reset retry counter if more than 30 seconds have passed since last error
+            currentTime = CreateObject("roDateTime").AsSeconds()
+            if m.playbackRetries > 0 and (currentTime - m.lastBufferError) > 30
+                print "Buffer stabilized - resetting retry count from " + m.playbackRetries.ToStr()
+                m.playbackRetries = 0
+                m.bufferCheckTimer.duration = 30
+            end if
+
+            ' Attempt to retry playback up to REPLAY_RETRIES times
+            if m.playbackRetries < REPLAY_RETRIES
+                m.playbackRetries = m.playbackRetries + 1
+                m.lastBufferError = currentTime
+                print "Buffering stalled - retry attempt " + m.playbackRetries.ToStr() + " of " + REPLAY_RETRIES.ToStr()
+
+                ' Extend buffer check duration for subsequent retries to allow more time
+                m.bufferCheckTimer.duration = 30 + (m.playbackRetries * 15)
+
+                ' Stop and restart playback from current position
+                currentPosition = m.top.position
+                m.top.control = VideoControl.STOP
+                m.top.seek = currentPosition
+                m.top.control = VideoControl.PLAY
+            else
+                ' All retries exhausted, show error
+                print "Buffering failed after " + REPLAY_RETRIES.ToStr() + " retry attempts"
+                showPlaybackErrorDialog(tr("There was an error retrieving the data for this item from the server."))
+
+                ' Stop playback and exit player
+                m.top.control = VideoControl.STOP
+                m.top.backPressed = true
+            end if
+        end if
+    end if
+
+end sub
+
+' stateAllowsOSD: Check if current video state allows showing the OSD
+'
+' @return {boolean} indicating if video state allows the OSD to show
+function stateAllowsOSD() as boolean
+    validStates = ["playing", "paused", "stopped"]
+    return inArray(validStates, m.top.state)
+end function
+
+
+' availSubtitleTrackIdx: Returns Roku's index for requested subtitle track
+'
+' @param {string} tracknameToFind - TrackName for subtitle we're looking to match
+' @return {integer} indicating Roku's index for requested subtitle track. Returns SubtitleSelection.NONE if not found
+function availSubtitleTrackIdx(tracknameToFind as string) as integer
+    idx = 0
+    for each availTrack in m.top.availableSubtitleTracks
+        ' The TrackName must contain the URL we supplied originally, though
+        ' Roku mangles the name a bit, so we check if the URL is a substring, rather
+        ' than strict equality
+        if Instr(1, availTrack.TrackName, tracknameToFind)
+            return idx
+        end if
+        idx = idx + 1
+    end for
+    return SubtitleSelection.NONE
+end function
+
+sub skipCurrentSegment()
+    seekPosition = m.currentSegmentEndTicks / 10000000#
+
+    if seekPosition > (m.osd.progressDuration - 2)
+        if m.global.queueManager.callFunc("getPosition") < m.global.queueManager.callFunc("getCount") - 1
+            handleItemSkipAction("itemnext")
+            return
+        else
+            seekPosition = m.osd.progressDuration - 1
+        end if
+    end if
+
+    startSpinnerWithPercent(0)
+    m.top.seek = seekPosition
+    m.osd.isSeeking = false
+
+    if m.castPopup.visible then return
+
+    handleHideAction(false)
+end sub
+
+sub onProgramDetailsLoaded()
+    if m.top.content.live and isStringEqual(chainLookup(m.LoadProgramDetailsTask, "programDetails.json.type"), ItemType.RECORDING)
+        if isChainValid(m.LoadProgramDetailsTask, "programDetails.json.TimerId") and m.LoadProgramDetailsTask.programDetails.json.Status = "InProgress"
+            ' Only load the recording timer once by checking if LoadRecordingTimerTask is already valid.  This also handles the case where we fail to load the recording timer - we won't keep trying to load it on every program details refresh.
+            if isValid(m.LoadRecordingTimerTask) and not isChainValid(m.LoadRecordingTimerTask, "recordingTimerDetails.json.Status")
+                m.osd.isRecording = true
+                m.LoadRecordingTimerTask.timerId = m.LoadProgramDetailsTask.programDetails.json.TimerId
+                m.LoadRecordingTimerTask.control = TaskControl.RUN
+            end if
+        end if
+    end if
+    ' CurrentProgram can be invalid if we're coming from search results for a show that is not currently airing
+    if not isChainValid(m.LoadProgramDetailsTask, "programDetails.json.CurrentProgram") then return
+
+    titleText = string.EMPTY
+
+    if isValidAndNotEmpty(m.LoadProgramDetailsTask.programDetails.json.CurrentProgram.ChannelNumber)
+        titleText += `${tr("CH")} ${m.LoadProgramDetailsTask.programDetails.json.CurrentProgram.ChannelNumber} `
+    end if
+
+    if isValidAndNotEmpty(m.LoadProgramDetailsTask.programDetails.json.CurrentProgram.Name)
+        titleText += m.LoadProgramDetailsTask.programDetails.json.CurrentProgram.Name
+    end if
+
+    m.osd.itemTitleText = titleText
+
+    if isValidAndNotEmpty(m.LoadProgramDetailsTask.programDetails.json.CurrentProgram.EpisodeTitle)
+        m.osd.itemSubtitleText = m.LoadProgramDetailsTask.programDetails.json.CurrentProgram.EpisodeTitle
+    else
+        m.osd.itemSubtitleText = string.EMPTY
+    end if
+
+    m.overview = m.LoadProgramDetailsTask.programDetails.json.CurrentProgram.Overview
+end sub
+
+' showOSD: Show the OSD and set focus to the appropriate element based on whichfocus parameter
+'
+' @param {string} whichfocus - indicates which element should be focused when showing the OSD. Accepts "videoControls" or "progressBar"
+sub showOSD(whichfocus as string)
+    hideNextItem() ' Hide next up info display when OSD is visible
+    setVideoEndingTime()
+    updateTransportButtonsStatus()
+    m.osd.visible = true
+    m.osd.hasFocus = true
+    if whichfocus = "videoControls"
+        m.osd.previewPos = m.osd.isSeeking ? m.previewPos : m.top.position
+        m.scrubber.visible = false
+        m.videocontrols.setFocus(true)
+    else if whichfocus = "progressBar"
+        m.scrubber.visible = true
+        m.progressBarGroup.setFocus(true)
+        m.videoControls.setFocus(false)
+        m.videoControls.getChild(m.osd.defaultButtonIndex).focus = false
+        m.top.control = VideoControl.PAUSE
+    end if
+    m.skipSegmentButton.setFocus(false)
+    m.skipSegmentButton.focus = false
+    m.scrubberOldPosition.visible = true
+    m.osd.setFocus(true)
+end sub
+
+sub onClockTick()
+    if not isValid(m.osd) then return
+    if not m.osd.visible then return
+
+    if m.osd.isSeeking
+        setVideoEndingTime(m.previewPos)
+    else
+        setVideoEndingTime()
+    end if
+end sub
+
+sub positionChapterList()
+    optionControls = m.osd.findNode("optionControls")
+    chapterList = m.top.findNode("chapterList")
+
+    if optionControls = invalid or chapterList = invalid
+        return
+    end if
+
+    optionControlsRect = optionControls.boundingRect()
+    chapterList.translation = [optionControlsRect.x, optionControlsRect.y + optionControlsRect.height]
+end sub
+
+sub refreshLiveOSDContent()
+    if not m.top.content.live then return
+    m.LoadProgramDetailsTask.programId = m.top.id
+    m.LoadProgramDetailsTask.control = TaskControl.RUN
+end sub
+
+sub changeSubtitleTimeOffset(offsetAmount as integer)
+    ' If the subtitles are 60+ seconds off, the user needs to get better subtitles
+    if abs(m.subtitleOffset + offsetAmount) >= 60000 then return
+
+    m.subtitleOffset += offsetAmount
+    m.subtitleSyncValue.text = `${tr("Current Offset")}: ${m.subtitleOffset.toStr()} ms`
+end sub
+
+function onKeyEvent(key as string, press as boolean) as boolean
+    if m.castPopup.visible
+        if press and m.castPopup.callFunc("handleKey", key)
+            if not m.castPopup.visible then m.top.setFocus(true)
+        end if
+        return true
+    end if
+
+    if m.subtitleTimingButtons.visible
+        if m.subtitleTimingButtons.isInFocusChain()
+            if not press then return false
+
+            if isStringEqual(key, KeyCode.RIGHT)
+                if m.subtitleSyncMinus500.hasfocus()
+                    m.subtitleSyncMinus500.focus = false
+                    m.subtitleSyncMinus100.focus = true
+                    m.subtitleSyncMinus100.setfocus(true)
+                    return true
+                end if
+
+                if m.subtitleSyncMinus100.hasfocus()
+                    m.subtitleSyncMinus100.focus = false
+                    m.subtitleSyncPlus100.focus = true
+                    m.subtitleSyncPlus100.setfocus(true)
+                    return true
+                end if
+
+                if m.subtitleSyncPlus100.hasfocus()
+                    m.subtitleSyncPlus100.focus = false
+                    m.subtitleSyncPlus500.focus = true
+                    m.subtitleSyncPlus500.setfocus(true)
+                    return true
+                end if
+
+                if m.subtitleSyncPlus500.hasfocus()
+                    m.subtitleSyncPlus500.focus = false
+                    m.subtitleSyncReset.focus = true
+                    m.subtitleSyncReset.setfocus(true)
+                    return true
+                end if
+            end if
+
+            if isStringEqual(key, KeyCode.LEFT)
+                if m.subtitleSyncMinus100.hasfocus()
+                    m.subtitleSyncMinus100.focus = false
+                    m.subtitleSyncMinus500.focus = true
+                    m.subtitleSyncMinus500.setfocus(true)
+                    return true
+                end if
+
+                if m.subtitleSyncPlus100.hasfocus()
+                    m.subtitleSyncPlus100.focus = false
+                    m.subtitleSyncminus100.focus = true
+                    m.subtitleSyncMinus100.setfocus(true)
+                    return true
+                end if
+
+                if m.subtitleSyncPlus500.hasfocus()
+                    m.subtitleSyncPlus500.focus = false
+                    m.subtitleSyncPlus100.focus = true
+                    m.subtitleSyncPlus100.setfocus(true)
+                    return true
+                end if
+
+                if m.subtitleSyncReset.hasfocus()
+                    m.subtitleSyncReset.focus = false
+                    m.subtitleSyncPlus500.focus = true
+                    m.subtitleSyncPlus500.setfocus(true)
+                    return true
+                end if
+            end if
+
+            if isStringEqual(key, KeyCode.OK)
+                if m.subtitleSyncReset.hasfocus()
+                    changeSubtitleTimeOffset(m.subtitleOffset > 0 ? - m.subtitleOffset : abs(m.subtitleOffset))
+                    return true
+                end if
+
+                if m.subtitleSyncMinus100.hasfocus()
+                    changeSubtitleTimeOffset(-100)
+                    return true
+                end if
+
+                if m.subtitleSyncMinus500.hasfocus()
+                    changeSubtitleTimeOffset(-500)
+                    return true
+                end if
+
+                if m.subtitleSyncPlus100.hasfocus()
+                    changeSubtitleTimeOffset(100)
+                    return true
+                end if
+
+                if m.subtitleSyncPlus500.hasfocus()
+                    changeSubtitleTimeOffset(500)
+                    return true
+                end if
+            end if
+
+            hidesyncmenuAction()
+            return true
+        end if
+    end if
+
+    ' Keypress handler while user is inside the chapter menu
+    if m.chapterMenu.hasFocus()
+        if not press then return false
+
+        if key = KeyCode.OK
+            focusedChapter = m.chapterMenu.itemFocused
+            selectedChapter = m.chapterMenu.content.getChild(focusedChapter)
+            seekTime = selectedChapter.playstart
+
+            ' Don't seek if user clicked on No Chapter Data
+            if seekTime = m.playbackEnum.null then return true
+
+            m.top.seek = seekTime
+            m.positionText.text = secondsToHuman(seekTime, true)
+            return true
+        end if
+
+        if key = KeyCode.BACK
+            m.chapterList.visible = false
+            m.osd.showChapterList = false
+            m.chapterMenu.setFocus(false)
+            m.osd.hasFocus = true
+            m.osd.setFocus(true)
+            return true
+        end if
+
+        if key = KeyCode.PLAY and not m.osd.Seeking
+            handleVideoPlayPauseAction()
+        end if
+
+        return true
+    end if
+
+
+    if not press
+        ' Look for the key release event.  If it's the left or right key then reset the ten second skip timers
+        if key = KeyCode.Left or key = KeyCode.RIGHT then resetTenSecondSkipTimers()
+        return false
+    end if
+
+    ' Handle press and navigation from the skip segment button.  If the OSD is visible then the skip segment button acts as part of the OSD navigation.
+    if m.skipSegmentButton.focus
+        ' If user clicks OK while focused on skip segment button, skip the segment
+        if key = KeyCode.OK
+            skipCurrentSegment()
+            hideSegmentSkipButton()
+            return true
+            ' Specialized handling of moving into the OSD videocontrols from the skip segment button so that the right most video control button is focused.
+        else if key = KeyCode.LEFT and m.osd.visible
+            m.skipSegmentButton.setFocus(false)
+            m.skipSegmentButton.focus = false
+            m.top.setFocus(false)
+            m.osd.setFocus(true)
+            m.osd.callFunc("focusRightmostVideoControl")
+            return true
+            ' Move to the progress bar of the OSD
+        else if key = KeyCode.UP and m.osd.visible
+            m.skipSegmentButton.setFocus(false)
+            m.skipSegmentButton.focus = false
+            m.osd.callFunc("setOsdStatus", "progressBarGroup")
+            return true
+            ' When the OSD is visible down or right from the skip segment button do nothing.
+        else if (key = KeyCode.DOWN or key = KeyCode.RIGHT) and m.osd.visible
+            return true
+        end if
+    end if
+
+    ' Handle keypresses for video seeking
+    if key = KeyCode.RIGHT or key = KeyCode.LEFT or key = KeyCode.FASTFORWRD or key = KeyCode.REWIND or (m.osd.isSeeking and (key = Keycode.BACK or key = Keycode.OK or key = Keycode.PLAY))
+        if not m.LoadMetaDataTask.isIntro
+            ' Don't allow user to open menu prior to video loading
+            if not stateAllowsOSD() then return true
+            if not m.osd.visible
+                showOSD("progressBar")
+            else
+                m.osd.callFunc("setOsdStatus", "progressBarGroup")
+            end if
+            handleSeekKey(key)
+        end if
+        return true
+    end if
+
+    ' Skip back 10 seconds on replay key press, but only if not currently seeking as it would interfere with seek controls
+    if key = KeyCode.REPLAY
+        if not m.osd.isSeeking
+            m.top.seek = m.top.position - 10
+        end if
+        return true
+    end if
+
+    ' Handle remaining keypresses for when we are not currently seeking.
+    if not m.osd.isSeeking
+        if key = KeyCode.DOWN or key = KeyCode.UP
+            if not m.LoadMetaDataTask.isIntro
+                ' Don't allow user to open menu prior to video loading
+                if not stateAllowsOSD() then return true
+
+                setSiblingData()
+                refreshLiveOSDContent()
+                showOSD("videoControls")
+                return true
+            end if
+
+        else if key = KeyCode.OK
+            if not m.LoadMetaDataTask.isIntro
+                ' Don't allow user to open menu prior to video loading
+                if not stateAllowsOSD() then return true
+
+                ' Show OSD, but don't pause video
+                setSiblingData()
+                if m.skipSegmentButton.visible
+                    hideSegmentSkipButton()
+                end if
+                refreshLiveOSDContent()
+                showOSD("videoControls")
+                return true
+            end if
+
+            return false
+        end if
+
+        ' Disable OSD for intro videos
+        if not m.LoadMetaDataTask.isIntro
+            if key = KeyCode.PLAY
+
+                ' Don't allow user to open menu prior to video loading
+                if not stateAllowsOSD() then return true
+
+                ' If video is paused, resume it and don't show OSD
+                if m.top.state = "paused"
+                    m.top.control = VideoControl.RESUME
+                    return true
+                end if
+
+                ' Pause video and show OSD
+                m.top.control = VideoControl.PAUSE
+                setSiblingData()
+                if m.skipSegmentButton.visible
+                    hideSegmentSkipButton()
+                end if
+                refreshLiveOSDContent()
+                showOSD("videoControls")
+                return true
+            end if
+        end if
+    end if
+
+    if key = KeyCode.BACK and m.osd.visible
+        handleHideAction(true)
+        return true
+    end if
+
+    if key = KeyCode.BACK and not m.osd.isSeeking
+        ' If user presses back when any segment skip button is showing and the OSD is hidden, then hide button and disable it so it doesn't show again
+        if m.skipSegmentButton.visible and not m.osd.visible
+            if isValid(m.currentSegmentType)
+                m.mediaSegmentDismissed[m.currentSegmentType] = true
+            end if
+            hideSegmentSkipButton()
+            return true
+        end if
+
+        m.PreloadTrickplayImagesTask.method = "REMOVE"
+        m.PreloadTrickplayImagesTask.control = TaskControl.RUN
+
+        m.global.queueManager.callFunc("bypassNextPreferredAudioTrackIndexReset")
+        m.global.queueManager.callFunc("clear")
+        m.top.control = VideoControl.STOP
+    end if
+
+    return false
+end function
+
+' createOSDMediaSegmentMarkers: Creates markers on the OSD progress bar for media segments such as intros, outros, and credits. Markers are created based on the StartTicks and EndTicks of each media segment and are displayed as semi-transparent rectangles overlaid on the progress bar.
+'
+sub createOSDMediaSegmentMarkers()
+    ' --- Clear any existing markers ---
+    childCount = m.progressBarBackground.getChildCount()
+    if childCount > 2
+        m.progressBarBackground.removeChildrenIndex((childCount - 2), 2)
+    end if
+
+    if not isValidAndNotEmpty(m.mediaSegments) then return
+
+    osdBarWidth = 0
+    if m.progressBarBackground <> invalid and m.progressBarBackground.width <> invalid
+        osdBarWidth = m.progressbarBackground.width
+    else
+        osdBarWidth = m.adMarkers.width
+    end if
+
+    if osdBarWidth <= 0 then osdBarWidth = 1280
+
+    for i = 0 to m.mediaSegments.TotalRecordCount - 1
+        startSegmentPos = cint(m.mediaSegments.items[i].StartTicks / 10000000)
+        endSegmentPos = cint(m.mediaSegments.items[i].EndTicks / 10000000)
+        osdMarkerStartPos = (startSegmentPos / m.osd.progressDuration) * osdBarWidth
+        osdMarkerWidth = ((endSegmentPos / m.osd.progressDuration) * osdBarWidth) - osdMarkerStartPos
+        osdMarker = CreateObject("roSGNode", "Rectangle")
+        osdMarker.id = "MediaSegment"
+        osdMarker.width = osdMarkerWidth
+        osdMarker.height = m.progressBarBackground.height
+        osdMarker.color = ColorPalette.WHITE
+        osdMarker.opacity = 0.5
+        osdMarker.translation = [osdMarkerStartPos, 0]
+        m.progressBarBackground.appendChild(osdMarker)
+    end for
+end sub
+
+' handleSeekKey: High level handler for processing key events related to seeking within the video.
+'
+' @param {string} key - the key that was pressed
+sub handleSeekKey(key as string)
+    if not m.osd.isSeeking
+        ' If seeking hasn't started then OK or Play should just hide the OSD, otherwise begin seek mode
+        if key = KeyCode.OK or key = KeyCode.PLAY
+            handleHideAction(false)
+        else
+            startSeek(key)
+        end if
+    else
+        processSeek(key)
+    end if
+end sub
+
+' startSeek: Initializes variables and UI state for when the user starts seeking within the video.
+'
+' @param {string} key - the key that was pressed
+sub startSeek(key as string)
+    m.osd.isSeeking = true
+    m.previewPos = m.top.position
+
+    if key = KeyCode.LEFT or key = KeyCode.RIGHT or key = KeyCode.FASTFORWRD or key = KeyCode.REWIND
+        checkPause()
+    end if
+
+    ' Set seek speed index based on initial key press
+    if key = KeyCode.REWIND or key = KeyCode.LEFT
+        m.seekSpeedIndex = (m.seekSpeeds.count() / 2) - 1
+    else
+        m.seekSpeedIndex = (m.seekSpeeds.count() / 2)
+    end if
+
+    m.skipSegmentButton.setFocus(false)
+    m.skipSegmentButton.focus = false
+    updateDisplayForSeek(key)
+end sub
+
+' processSeek: Processes the user's seek command for a seek that in already in progress.
+'
+' @param {string} key - the key that was pressed
+sub processSeek(key as string)
+    if key = KeyCode.LEFT or key = KeyCode.RIGHT
+        checkPause()
+        ' Reset to normal speed on left/right press
+        if key = KeyCode.RIGHT
+            m.seekSpeedIndex = (m.seekSpeeds.count() / 2)
+        else if key = KeyCode.LEFT
+            m.seekSpeedIndex = (m.seekSpeeds.count() / 2) - 1
+        end if
+
+        ' Hide all FF/Rewind icons
+        stopFastforwardOrRewind()
+        updateDisplayForSeek(key)
+    else if key = KeyCode.FASTFORWRD
+        checkPause()
+        ' If we were rewinding and the user presses the fast forward key, then stop the seek at the current seek position.
+        if m.fastForwardOrRewindTimer.control = "start" and m.seekSpeedIndex < (m.seekSpeeds.count() / 2)
+            stopFastforwardOrRewind()
+            return
+            ' If we were not currently fast forwarding or rewinding, then set the first level of fast forward.
+        else if m.fastForwardOrRewindTimer.control = "stop"
+            m.seekSpeedIndex = (m.seekSpeeds.count() / 2)
+            ' If we are already fast forwarding, then increase the speed, but cap it at the maximum defined speed.
+        else if m.seekSpeedIndex < m.seekSpeeds.count() - 1
+            m.seekSpeedIndex++
+        end if
+        ' Clear Rewind icons
+        for count = 0 to (m.seekSpeeds.count() / 2) - 1
+            m.fastForwardRewindIcons.getChild(count).visible = false
+        end for
+        updateDisplayForSeek(key)
+    else if key = KeyCode.REWIND
+        checkPause()
+        ' If we were fast forwarding and the user presses the rewind key, then stop the seek at the current seek position.
+        if m.fastForwardOrRewindTimer.control = "start" and m.seekSpeedIndex > (m.seekSpeeds.count() / 2 - 1)
+            stopFastforwardOrRewind()
+            return
+            ' If we are not currently fast forwarding or rewinding, then set the first level of fast forward.
+        else if m.fastForwardOrRewindTimer.control = "stop"
+            m.seekSpeedIndex = (m.seekSpeeds.count() / 2) - 1
+            ' If we are already rewinding, then increase the speed, but cap it at the maximum defined speed.
+        else if m.seekSpeedIndex > 0
+            m.seekSpeedIndex--
+        end if
+        ' Clear FF icons
+        for count = (m.seekSpeeds.count() / 2) to m.seekSpeeds.count() - 1
+            m.fastForwardRewindIcons.getChild(count).visible = false
+        end for
+        updateDisplayForSeek(key)
+    else if key = KeyCode.OK or key = KeyCode.PLAY
+        commitSeek()
+        ' If user presses down while seeking, move focus to the skip segment button if it's visible
+    else if key = KeyCode.DOWN and m.skipSegmentButton.visible
+        stopFastforwardOrRewind()
+        m.skipSegmentButton.setFocus(true)
+        m.skipSegmentButton.focus = true
+        m.scrubber.visible = false
+        ' If user presses up while seeking, move focus to the progress bar if the skip segment button is visible
+    else if key = KeyCode.UP and m.skipSegmentButton.visible
+        stopFastforwardOrRewind()
+        m.skipSegmentButton.setFocus(false)
+        m.skipSegmentButton.focus = false
+        m.top.setFocus(true)
+        m.scrubber.visible = true
+        ' If user presses up or down while seeking and the skip segment button is not visible, just stop fast forward or rewind so they can navigate the OSD menu with normal speed
+    else if key = KeyCode.UP or key = KeyCode.DOWN
+        stopFastforwardOrRewind()
+        ' If user presses back while seeking, exit seek mode and return to normal playback
+    else if key = KeyCode.BACK
+        m.osd.isSeeking = false
+        stopFastforwardOrRewind()
+        hideTrickplayImages()
+        handleHideAction(false)
+        m.top.control = VideoControl.RESUME
+    end if
+end sub
+
+' updateDisplayForSeek: Updates the OSD display to reflect the current seek position and speed.
+'
+' @param {string} key - the key that was pressed
+sub updateDisplayForSeek(key as string)
+    ' Show the appropriate number of fast forward or rewind icons based on the current seek speed
+    if key = KeyCode.FASTFORWRD or key = KeyCode.REWIND
+        m.fastForwardRewindIcons.getChild(m.seekSpeedIndex).visible = true
+    end if
+    ' Define the delta for the seek based on the current seek speed index
+    delta = m.seekSpeeds[m.seekSpeedIndex]
+    m.previewPos = m.osd.callFunc("clampSeek", m.previewPos + delta)
+    if m.top.content.live then updateLiveTvTrackers()
+    m.osd.callFunc("updateProgressBar", m.top.content.live, m.previewPos)
+
+    if not m.top.content.live
+        displayTrickplayImage(m.previewPos)
+        setVideoEndingTime(m.previewPos)
+    end if
+    ' If the user has pressed fastforward or rewind, then start the fastforward/rewind timer which will continue to update the preview position until the user presses another key to change the seek speed or direction
+    if key = KeyCode.FASTFORWRD or key = KeyCode.REWIND
+        m.fastForwardOrRewindTimer.control = "stop"
+        m.fastForwardOrRewindTimer.control = "start"
+        ' If the user has pressed left or right, then we want to stop fastforward/rewind and just update the preview position once.  Start the ten second skip timer to see if they continue to hod down the left or right key.
+    else if key = KeyCode.LEFT or key = KeyCode.RIGHT
+        stopFastforwardOrRewind()
+        if key = KeyCode.LEFT
+            m.leftTenSecondSkipTimer.control = "start"
+        else if key = KeyCode.RIGHT
+            m.rightTenSecondSkipTimer.control = "start"
+        end if
+    end if
+    if not m.LoadMetaDataTask.isIntro then checkSegmentSkipButton(m.previewPos)
+end sub
+
+' commitSeek: Finalizes the seek operation by setting the video to the new position and resuming playback.
+'
+sub commitSeek()
+    if m.osd.isSeeking
+        stopFastforwardOrRewind()
+        hideTrickplayImages()
+        setVideoEndingTime(m.previewPos)
+        startSpinnerWithPercent(0)
+        m.top.seek = m.previewPos
+        m.top.control = VideoControl.RESUME
+        m.liveTVRewindLimitExceeded.visible = false
+        handleHideAction(false)
+    end if
+end sub
+
+' checkPause: Checks if the rewind limit for live TV has been exceeded and if so, pauses the video.
+'
+sub checkPause()
+    if not m.liveTVRewindLimitExceeded.visible
+        m.top.control = VideoControl.PAUSE
+    end if
+end sub
+
+' stopFastforwardOrRewind: Stops the fast-forward or rewind operation and removes the fast-forward/rewind icons.
+'
+sub stopFastforwardOrRewind()
+    for count = 0 to m.seekSpeeds.count() - 1
+        m.fastForwardRewindIcons.getChild(count).visible = false
+    end for
+    m.fastForwardOrRewindTimer.control = "stop"
+end sub
+
+' onFastforwardOrRewindTick: Updates the preview position and OSD display for each tick of the fast-forward or rewind timer, and checks if the user has reached the limits of seeking for live TV or the beginning/end of the video.
+'
+sub onFastforwardOrRewindTick()
+    delta = m.seekSpeeds[m.seekSpeedIndex]
+    m.previewPos = m.osd.callFunc("clampSeek", m.previewPos + delta)
+    m.osd.callFunc("updateProgressBar", m.top.content.live, m.previewPos)
+    setVideoEndingTime(m.previewPos)
+    displayTrickplayImage(m.previewPos)
+    if not m.LoadMetaDataTask.isIntro
+        checkSegmentSkipButton(m.previewPos)
+    end if
+    '  Look for the beginning or end of the video and handle it by stopping fast forward or rewind.
+    if (m.previewPos >= m.osd.progressDuration - 5) or (m.previewPos <= 5) or (m.top.content.live and (m.previewPos <= (m.top.pauseBufferEnd - m.osd.liveTvRewindLimit)))
+
+        ' If this is live TV and the user has exceeded the rewind limit, then show the rewind limit message
+        if m.top.content.live and (m.previewPos <= (m.top.pauseBufferEnd - m.osd.liveTvRewindLimit))
+            m.scrubberOldPosition.visible = true
+            m.liveTVRewindLimitExceeded.visible = true
+        else
+            m.liveTVRewindLimitExceeded.visible = false
+        end if
+        stopFastforwardOrRewind()
+        ' Resume playback if this is live TV and we are at the end of media or we have reached the live TV rewind limit
+        if m.top.content.live
+            if m.previewPos >= (m.osd.progressDuration - 5) or m.previewPos <= (m.top.pauseBufferEnd - m.osd.liveTvRewindLimit)
+                m.top.seek = m.previewPos
+                m.top.control = VideoControl.RESUME
+            end if
+        end if
+    end if
+
+end sub
+
+' resetSpinner: Resets the buffering spinner and hides it from view.
+'
+sub resetSpinner()
+    m.bufferingVideoInfo.visible = false
+    bufferingLogoImage = m.top.findNode("bufferingLogoImage")
+    if isValid(bufferingLogoImage) then bufferingLogoImage.visible = false
+    m.spinnerPercentTimer.control = "stop"
+    m.spinnerPercentLabel.visible = false
+    stopLoadingSpinner()
+end sub
+
+' onPercentTick: Updates the buffering spinner percentage based on the current buffering status of the video.
+'
+sub onPercentTick()
+    if m.top.bufferingStatus <> invalid
+        m.spinnerPercent = m.top.bufferingStatus["percentage"]
+    end if
+    setSpinnerPercent(m.spinnerPercent)
+end sub
+
+' startSpinnerWithPercent: Starts the buffering spinner and displays the current buffering percentage to the user.
+'
+sub startSpinnerWithPercent(percentVal = 0 as integer)
+    m.bufferingVideoInfo.visible = true
+    bufferingLogoImage = m.top.findNode("bufferingLogoImage")
+    if isValid(bufferingLogoImage) then bufferingLogoImage.visible = true
+    setSpinnerPercent(percentVal)
+    m.spinnerPercentLabel.translation = [m.spinner.translation[0] + m.spinner.poster.bitmapWidth / 2 - m.spinnerPercentLabel.width / 2, m.spinner.translation[1] + m.spinner.poster.bitmapHeight / 2 - m.spinnerPercentLabel.height / 2]
+    m.spinnerPercentLabel.visible = true
+    startLoadingSpinner(true)
+    m.spinner.visible = true
+end sub
+
+' setSpinnerPercent: Updates the text label that displays the current buffering percentage on the buffering spinner.
+'
+' @param {integer} percent - the key that was pressed
+sub setSpinnerPercent(percent as integer)
+    m.spinnerPercentTimer.control = "stop"
+    m.spinnerPercent = percent
+    if isValid(m.spinnerPercentLabel)
+        m.spinnerPercentLabel.text = ""
+        m.spinnerPercentLabel.visible = false
+        m.spinnerPercentLabel.text = str(int(m.spinnerPercent)) + "%"
+        m.spinnerPercentLabel.visible = true
+    end if
+    m.spinnerPercentTimer.control = "start"
+end sub
+
+' onLeftTenSecondSkipTimerTick: Updates the OSD display for a 10 second skip in the left direction, and resets the timer duration to allow for faster repeated skips if the user continues to hold the left key.
+'
+sub onLeftTenSecondSkipTimerTick()
+    m.leftTenSecondSkipTimer.duration = "0.125"
+    updateDisplayForSeek(KeyCode.LEFT)
+end sub
+
+' onRightTenSecondSkipTimerTick: Updates the OSD display for a 10 second skip in the right direction, and resets the timer duration to allow for faster repeated skips if the user continues to hold the right key.
+'
+sub onRightTenSecondSkipTimerTick()
+    m.rightTenSecondSkipTimer.duration = "0.125"
+    updateDisplayForSeek(KeyCode.RIGHT)
+end sub
+
+' resetTenSecondSkipTimers: Resets the timers for 10 second skips in both directions.
+'
+sub resetTenSecondSkipTimers()
+    m.leftTenSecondSkipTimer.control = "stop"
+    m.rightTenSecondSkipTimer.control = "stop"
+    m.leftTenSecondSkipTimer.duration = "0.5"
+    m.rightTenSecondSkipTimer.duration = "0.5"
+end sub
+
+' onPauseBufferChangedChange: Updates the OSD trackers for live TV when the pause buffer changes.
+'
+sub onPauseBufferChangedChange()
+    updateLiveTvTrackers()
+    m.previewPos = m.osd.isSeeking ? m.previewPos : m.top.position
+    m.previewPos = m.osd.callFunc("clampSeek", m.previewPos)
+    m.osd.callFunc("updateProgressBar", m.top.content.live, m.previewPos)
+end sub
+
+' updateLiveTvTrackers: Updates the OSD trackers for live TV based on the current pause buffer end and position.
+'
+sub updateLiveTvTrackers()
+    m.osd.progressDuration = m.top.pauseBufferEnd
+    m.osd.positionTime = m.top.position
+    m.osd.previewPos = m.osd.isSeeking ? m.previewPos : m.top.position
+    if m.top.pauseBufferEnd > m.osd.liveTvRewindLimit
+        m.osd.liveTvStartOffset = m.top.pauseBufferEnd - m.osd.liveTvRewindLimit
+    else
+        m.osd.liveTvStartOffset = 0
+    end if
+    ' Check if the current paused position or rewind is outside of the allowed rewind window, and if so, move it to the edge of the window and resume playback
+    if (m.osd.positionTime < (m.top.pauseBufferEnd - m.osd.liveTvRewindLimit)) and m.top.state = "paused"
+        if not m.LoadMetaDataTask.isIntro and stateAllowsOSD() and not m.osd.visible
+            showOSD("videoControls")
+        end if
+        m.scrubberOldPosition.visible = true
+        m.liveTVRewindLimitExceeded.visible = true
+        stopFastforwardOrRewind()
+        m.top.control = VideoControl.RESUME
+    end if
+
+end sub
+
+' checkSkipSegmentButtonVisible: Passes the boolean visibility value of the skip segment button to the OSD.
+'
+sub checkSkipSegmentButtonVisible()
+    m.osd.skipSegmentButtonVisible = m.skipSegmentButton.visible
+end sub
+
+'   setSkipSegmentButtonFocus: Sets focus to the skip segment button if it is currently visible.
+'
+sub setSkipSegmentButtonFocus()
+    if m.skipSegmentButton.visible
+        m.skipSegmentButton.setFocus(true)
+        m.skipSegmentButton.focus = true
+    end if
+end sub
+
+' onVoiceCommand: Handles voice/transport commands from Alexa or Roku voice remote.
+' Receives an assocarray with keys "type" and "position" (in seconds).
+' Types handled: "play", "pause", "playpause", "seek"
+'
+sub onVoiceCommand()
+    cmd = m.top.voiceCommand
+    if not isChainValid(cmd, "type") then return
+
+    cmdType = LCase(cmd.type)
+
+    if isStringEqual(cmdType, TransportCommand.PLAY)
+        stopFastforwardOrRewind()
+        if m.previewPos > 0
+            m.top.seek = m.previewPos
+            setVideoEndingTime(m.previewPos)
+        end if
+        m.top.control = VideoControl.RESUME
+        return
+    end if
+
+    if isStringEqual(cmdType, TransportCommand.PAUSE)
+        stopFastforwardOrRewind()
+        m.top.control = VideoControl.PAUSE
+        return
+    end if
+
+    if isStringEqual(cmdType, TransportCommand.PLAYPAUSE)
+        stopFastforwardOrRewind()
+        handleVideoPlayPauseAction()
+        return
+    end if
+
+    if isStringEqual(cmdType, TransportCommand.SEEK) and isValid(cmd.position)
+        m.top.seek = cmd.position
+        setVideoEndingTime(cmd.position)
+        return
+    end if
+
+    if isStringEqual(cmdType, TransportCommand.SKIP)
+        skipCurrentSegment()
+        return
+    end if
+end sub

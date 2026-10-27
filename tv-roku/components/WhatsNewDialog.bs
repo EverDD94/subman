@@ -1,0 +1,53 @@
+import "pkg:/source/enums/ColorPalette.bs"
+import "pkg:/source/utils/misc.bs"
+
+sub init()
+    m.content = m.top.findNode("content")
+
+    setPalette()
+
+    m.top.id = "OKDialog"
+    m.top.height = 900
+    m.top.title = `What's New In ${m.global.app.version}`
+    m.top.buttons = [tr("OK")]
+
+    dialogStyles = {
+        "default": {
+            "fontSize": 27,
+            "fontUri": "font:SystemFontFile",
+            "color": chainLookupReturn(m.global.session, "user.settings.colorDialogText", ColorPalette.WHITE)
+        },
+        "b": {
+            "fontSize": 27,
+            "fontUri": "font:SystemFontFile",
+            "color": chainLookupReturn(m.global.session, "user.settings.colorDialogBoldText", ColorPalette.TRIADGREEN)
+        },
+        "author": {
+            "fontSize": 27,
+            "fontUri": "font:SystemFontFile",
+            "color": chainLookupReturn(m.global.session, "user.settings.colorWhatsNewAuthor", ColorPalette.HIGHLIGHT)
+        }
+    }
+
+    whatsNewList = ParseJSON(ReadAsciiFile("pkg:/source/static/whatsNew/" + m.global.app.version.ToStr().trim() + ".json"))
+
+    for each item in whatsNewList
+        textLine = m.content.CreateChild("StdDlgMultiStyleTextItem")
+        textLine.drawingStyles = dialogStyles
+        textLine.text = "• " + item.description + " <author>" + item.author + "</author>"
+    end for
+end sub
+
+sub setPalette()
+    dlgPalette = createObject("roSGNode", "RSGPalette")
+    dlgPalette.colors = {
+        DialogBackgroundColor: chainLookupReturn(m.global.session, "user.settings.colorDialogBackground", ColorPalette.ELEMENTBACKGROUND),
+        DialogFocusColor: chainLookupReturn(m.global.session, "user.settings.colorCursor", ColorPalette.HIGHLIGHT),
+        DialogFocusItemColor: chainLookupReturn(m.global.session, "user.settings.colorDialogSelectedText", ColorPalette.WHITE),
+        DialogSecondaryTextColor: ColorPalette.RED,
+        DialogSecondaryItemColor: chainLookupReturn(m.global.session, "user.settings.colorDialogBorderLine", ColorPalette.LIGHTBLUE),
+        DialogTextColor: chainLookupReturn(m.global.session, "user.settings.colorDialogText", ColorPalette.WHITE)
+    }
+
+    m.top.palette = dlgPalette
+end sub

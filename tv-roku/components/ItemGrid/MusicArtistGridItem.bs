@@ -1,0 +1,156 @@
+import "pkg:/source/enums/ColorPalette.bs"
+import "pkg:/source/enums/ItemType.bs"
+import "pkg:/source/enums/PosterLoadStatus.bs"
+import "pkg:/source/utils/config.bs"
+import "pkg:/source/utils/misc.bs"
+
+sub init()
+    m.itemPoster = m.top.findNode("itemPoster")
+    m.placeholderBackground = m.top.findNode("placeholderBackground")
+    m.placeholderBackground.color = ColorPalette.ELEMENTBACKGROUND
+    m.postTextBackground = m.top.findNode("postTextBackground")
+    m.posterText = m.top.findNode("posterText")
+    m.posterText.font.size = 30
+    m.backdrop = m.top.findNode("backdrop")
+
+    m.itemPoster.observeField("loadStatus", "onPosterLoadStatusChanged")
+
+    'Parent is MarkupGrid and it's parent is the ItemGrid
+    m.topParent = m.top.GetParent().GetParent()
+
+    'Get the imageDisplayMode for these grid items
+    if m.topParent.imageDisplayMode <> invalid
+        m.itemPoster.loadDisplayMode = m.topParent.imageDisplayMode
+    end if
+
+    m.gridTitles = m.global.session.user.settings["itemgrid.gridTitles"]
+    m.hasPoster = false
+    m.forceTitleVisible = false
+    m.posterText.visible = false
+    m.postTextBackground.visible = false
+end sub
+
+sub onHeightChanged()
+    m.placeholderBackground.height = m.top.height
+    m.backdrop.height = m.top.height
+    m.itemPoster.height = m.top.height
+    m.postTextBackground.translation = [5, m.top.height - 40]
+end sub
+
+sub onWidthChanged()
+    m.placeholderBackground.width = m.top.width
+    m.backdrop.width = m.top.width
+    m.itemPoster.width = m.top.width
+    m.posterText.maxwidth = m.top.width
+    m.postTextBackground.width = m.top.width - 10
+end sub
+
+sub itemContentChanged()
+    m.posterText.visible = false
+    m.postTextBackground.visible = false
+    m.placeholderBackground.visible = false
+    m.backdrop.visible = false
+
+    if isValid(m.topParent.showItemTitles)
+        if isStringEqual(m.topParent.showItemTitles, "showalways")
+            m.posterText.visible = true
+            m.postTextBackground.visible = true
+        end if
+    end if
+
+    itemData = m.top.itemContent
+
+    if not isValid(itemData) then return
+
+    fallbackTitle = getFallbackTitle(itemData)
+    posterURL = itemData.PosterUrl
+    m.hasPoster = isValidAndNotEmpty(posterURL)
+    m.forceTitleVisible = not m.hasPoster or not isValidAndNotEmpty(itemData.LookupCI("title"))
+
+    if isStringEqual(itemData.type, ItemType.MUSICALBUM)
+        m.backdrop.uri = "pkg:/images/icons/album.png"
+    else if isStringEqual(itemData.type, ItemType.MUSICARTIST)
+        m.backdrop.uri = "pkg:/images/missingArtist.png"
+    else if isStringEqual(chainLookup(itemData, "json.type"), "musicgenre")
+        m.backdrop.uri = "pkg:/images/icons/musicFolder.png"
+    end if
+
+    m.posterText.text = fallbackTitle
+
+    if m.hasPoster
+        m.itemPoster.uri = posterURL
+    else
+        m.itemPoster.uri = ""
+        showMissingPlaceholder()
+    end if
+
+    ' Avoid flashing the missing-art background while a valid poster URL is still loading.
+    if m.hasPoster and not isStringEqual(m.itemPoster.loadStatus, PosterLoadStatus.READY)
+        m.placeholderBackground.visible = false
+        m.backdrop.visible = true
+    end if
+    if m.top.itemHasFocus then focusChanged()
+end sub
+
+'Display or hide title Visibility on focus change
+sub focusChanged()
+    if m.top.itemHasFocus = true
+        m.posterText.repeatCount = -1
+    else
+        m.posterText.repeatCount = 0
+    end if
+
+    if isValid(m.topParent.showItemTitles)
+        if isStringEqual(m.topParent.showItemTitles, "showonhover")
+            m.posterText.visible = m.top.itemHasFocus
+            m.postTextBackground.visible = m.posterText.visible
+        end if
+    end if
+
+    if m.forceTitleVisible
+        showPosterText()
+    end if
+end sub
+
+'Hide backdrop and text when poster loaded
+sub onPosterLoadStatusChanged()
+    if m.hasPoster and isStringEqual(m.itemPoster.loadStatus, PosterLoadStatus.READY)
+        m.placeholderBackground.visible = false
+        m.backdrop.visible = false
+    else if m.hasPoster and isStringEqual(m.itemPoster.loadStatus, PosterLoadStatus.FAILED)
+        m.forceTitleVisible = true
+        showMissingPlaceholder()
+    else if not m.hasPoster
+        showMissingPlaceholder()
+    end if
+end sub
+
+sub showMissingPlaceholder()
+    m.placeholderBackground.visible = true
+    m.backdrop.visible = true
+    showPosterText()
+end sub
+
+sub showPosterText()
+    m.posterText.visible = true
+    m.postTextBackground.visible = true
+end sub
+
+function getFallbackTitle(itemData as object) as string
+    title = itemData.LookupCI("title")
+    if isValidAndNotEmpty(title) then return title
+
+    title = itemData.LookupCI("name")
+    if isValidAndNotEmpty(title) then return title
+
+    title = chainLookup(itemData, "json.name")
+    if isValidAndNotEmpty(title) then return title
+
+    if isStringEqual(itemData.LookupCI("type"), ItemType.MUSICARTIST)
+        return tr("Unknown Artist")
+    else if isStringEqual(itemData.LookupCI("type"), ItemType.MUSICALBUM)
+        return tr("Unknown Album")
+    end if
+
+    return tr("Unknown")
+end function

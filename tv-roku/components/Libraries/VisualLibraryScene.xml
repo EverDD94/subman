@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component name="VisualLibraryScene" extends="JFScreen">
+  <children>
+    <BackdropImage
+      id="backdropImage"
+      maskUri="pkg:/images/backgroundmask.png"
+      translation="[820, 0]"
+      maskSize="[1220,700]" />
+
+    <LibraryItemGrid
+      id="itemGrid"
+      itemComponentName="GridItemSmall"
+      vertFocusAnimationStyle="fixed"
+      itemSpacing="[20, 20]" />
+
+    <RowList
+      id="genrelist"
+      itemComponentName="GridItemSmall"
+      vertFocusAnimationStyle="fixed"
+      itemSpacing="[0, 60]"
+      opacity="0"
+      translation="[100, 260]"
+      showRowLabel="true"
+      numColumns="1"
+      rowItemSpacing="[ [20, 0] ]" />
+
+    <DropdownMenuRow
+      id="dropdownOptionGroup"
+      translation="[100, 120]" />
+
+    <ChipsRow
+      id="chipsRow"
+      translation="[100, 200]" />
+
+    <Animation id="toggleDropdownOptionsAnimation" duration="1" repeat="false" easeFunction="linear">
+      <FloatFieldInterpolator id="dropdownOptionsFade" key="[0.0, 1.0]" keyValue="[1.00, 0.00]" fieldToInterp="dropdownOptionGroup.opacity" />
+      <Vector2DFieldInterpolator id="dropdownOptionsMove" key="[0.1, .9]" keyValue="[[100, 60], [100, 0]]" fieldToInterp="dropdownOptionGroup.translation" />
+      <Vector2DFieldInterpolator id="itemGridMove" key="[0.1, .9]" keyValue="[[100, 260], [100, 120]]" fieldToInterp="itemGrid.translation" />
+      <Vector2DFieldInterpolator id="chipsRowMove" key="[0.1, .9]" keyValue="[[100, 200], [100, 60]]" fieldToInterp="chipsRow.translation" />
+      <Vector2DFieldInterpolator id="genreListMove" key="[0.1, .9]" keyValue="[[100, 260], [100, 120]]" fieldToInterp="genrelist.translation" />
+    </Animation>
+
+    <Text id="selectedItemName" visible="false" translation="[120, 40]" wrap="true" font="font:LargeBoldSystemFont" width="850" height="196" horizAlign="left" vertAlign="center" />
+    <Poster id="itemLogo" visible="false" translation="[120, 40]" loadDisplayMode="scaleToFit" width="384" height="196" />
+
+    <LayoutGroup layoutDirection="horiz" translation="[120, 260]" itemSpacings="[30]" id="infoGroup">
+      <Text id="selectedItemProductionYear" font="font:SmallestSystemFont" />
+      <Text id="runtime" font="font:SmallestSystemFont" />
+      <Text id="selectedItemOfficialRating" font="font:SmallestSystemFont" />
+
+      <LayoutGroup id="communityRatingGroup" visible="false" layoutDirection="horiz" itemSpacings="[-5]">
+        <Poster id="star" uri="pkg:/images/sharp_star_white_18dp.png" height="28" width="28" blendColor="#00a4dcFF" />
+        <Text id="communityRating" font="font:SmallestSystemFont" />
+      </LayoutGroup>
+
+      <LayoutGroup layoutDirection="horiz" id="criticRatingGroup">
+        <Poster id="criticRatingIcon" height="28" width="28" />
+        <Text id="criticRatingLabel" font="font:SmallestSystemFont" />
+      </LayoutGroup>
+    </LayoutGroup>
+
+    <Text id="selectedItemOverview" font="font:SmallestSystemFont" translation="[120, 320]" wrap="true" lineSpacing="20" maxLines="4" width="900" ellipsisText="..." />
+
+    <Text translation="[0,540]" id="emptyText" font="font:LargeSystemFont" width="1910" horizAlign="center" vertAlign="center" height="64" visible="false" />
+    <LibraryFilterDialog id="options" visible="false" />
+
+    <Alpha id="alpha" wrap="false" />
+    <SlideOutButton id="librarySettings" translation="[32, 50]" background="0x00000000" highlightBackground="#555555" padding="20" icon="pkg:/images/icons/settings.png" text="Library Settings" height="50" width="60" />
+  </children>
+  <interface>
+    <function name="getItemFocused" />
+    <function name="redrawItems" />
+    <field id="mediaType" type="string" />
+    <field id="parentItem" type="node" onChange="loadInitialItems" />
+    <field id="selectedItem" type="node" alwaysNotify="true" />
+    <field id="quickPlayNode" type="node" alwaysNotify="true" />
+    <field id="imageDisplayMode" type="string" value="" />
+    <field id="alphaSelected" type="string" alias="alpha.letterSelected" onChange="alphaSelectedChanged" alwaysNotify="true" />
+    <field id="searchTerm" type="string" onChange="onSearchTermChanged" alwaysNotify="true" />
+    <field id="alphaActive" type="boolean" value="false" />
+    <field id="showItemTitles" type="string" value="" />
+  </interface>
+</component>

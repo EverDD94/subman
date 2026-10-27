@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component name="Settings" extends="JFScreen">
+  <children>
+
+    <Text id="path" translation="[95, 175]" font="font:SmallestBoldSystemFont" />
+    <MultiStyleLabel id="version" translation="[95, 1000]" />
+
+    <LabelList
+      translation="[120, 250]"
+      id="settingsMenu"
+      font="font:SmallSystemFont"
+      itemSize="[510, 54]"
+      itemSpacing="[0,10]"
+      numRows="11"
+      vertFocusAnimationStyle="floatingFocus" />
+
+    <Poster translation="[710, 230]" id="testRectangle" width="1110" height="800" uri="pkg:/images/white.9.png" />
+
+    <Text id="settingDesc" translation="[730, 270]" width="1065" wrap="true" horizAlign="left" />
+
+    <RadioButtonList id="radioSetting" numRows="6" vertFocusAnimationStyle="floatingFocus" translation="[1034, 510]" />
+
+    <RadioButtonList id="boolSetting" vertFocusAnimationStyle="floatingFocus" translation="[1034, 610]">
+      <ContentNode role="content">
+        <ContentNode title="Disabled" />
+        <ContentNode title="Enabled" />
+      </ContentNode>
+    </RadioButtonList>
+
+    <ColorGrid
+      id="colorgrid"
+      translation="[740, 390]"
+      itemComponentName="ColorOption"
+      numColumns="15"
+      numRows="9"
+      rowHeights="[50]"
+      visible="false"
+      vertFocusAnimationStyle="fixed"
+      itemSize="[50, 50]"
+      itemSpacing="[20, 20]"
+      drawFocusFeedback="true" />
+
+    <Slider id="slider" translation="[740, 510]" />
+
+    <IntegerKeyboard translation="[1034, 510]" id="integerSetting" domain="numeric" visible="false" />
+    <Timer id="keypressTimer" duration="5" />
+  </children>
+</component>

@@ -1,0 +1,71 @@
+import "pkg:/source/enums/ColorPalette.bs"
+import "pkg:/source/enums/LiveTVChannelIdentifier.bs"
+import "pkg:/source/enums/PosterLoadStatus.bs"
+import "pkg:/source/utils/misc.bs"
+
+sub init()
+    m.channelLogo = m.top.findNode("channelLogo")
+
+    m.borderTop = m.top.findNode("borderTop")
+    m.borderTop.color = ColorPalette.MIDGREY
+
+    m.backdrop = m.top.findNode("backdrop")
+    m.backdrop.color = ColorPalette.BLACK90
+
+    m.channelTitle = m.top.findNode("channelTitle")
+    m.channelTitle.font.size = 27
+    m.channelTitle.color = ColorPalette.OFFWHITE
+end sub
+
+sub onWidthChanged()
+    channelIdentifier = chainLookupReturn(m.global.session, "user.settings.tvGuideChannelDisplay", LiveTVChannelIdentifier.LOGOANDTITLE)
+
+    if isStringEqual(channelIdentifier, LiveTVChannelIdentifier.LOGOANDTITLE)
+        m.channelLogo.visible = true
+        m.channelTitle.visible = true
+        logoWidth = int(m.top.width / 3)
+        titleWidth = m.top.width - logoWidth
+    else if isStringEqual(channelIdentifier, LiveTVChannelIdentifier.TITLE)
+        m.channelLogo.visible = false
+        m.channelTitle.visible = true
+        logoWidth = 0
+        titleWidth = m.top.width
+    else
+        m.channelLogo.visible = true
+        m.channelTitle.visible = false
+        logoWidth = m.top.width
+        titleWidth = 0
+    end if
+
+    m.channelLogo.width = logoWidth
+    m.channelLogo.translation = [titleWidth, 0]
+    m.channelTitle.maxWidth = titleWidth
+
+    m.borderTop.width = m.top.width
+    m.backdrop.width = m.top.width
+end sub
+
+sub onHeightChanged()
+    m.channelLogo.height = m.top.height
+    m.backdrop.height = m.top.height
+    m.channelTitle.height = m.top.height
+end sub
+
+sub contentChanged()
+    ' Reset all values due to Roku's component reuse
+    m.channelLogo.uri = ""
+    m.channelTitle.text = ""
+
+    itemData = m.top.content
+
+    if not isValid(itemData) then return
+
+    if isValidAndNotEmpty(itemData.LookupCI("hdsmalliconurl"))
+        m.channelLogo.uri = itemData.LookupCI("hdsmalliconurl")
+    end if
+
+    if isValid(itemData.LookupCI("title"))
+        m.channelTitle.text = itemData.LookupCI("title")
+    end if
+
+end sub

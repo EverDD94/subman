@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component name="searchResults" extends="JFScreen">
+  <children>
+    <Rectangle width="1920" height="1080" color="#000000" opacity="0.75" />
+    <LayoutGroup layoutDirection="horiz" id="SearchAlphabox" translation="[70, 120]">
+      <SearchBox id="SearchBox" visible="true" focusable="true" />
+    </LayoutGroup>
+    <LayoutGroup layoutDirection="vert" id="searchResults" translation="[470, 150]">
+      <Text id="SearchHelpText" text="" />
+      <SearchRow
+        id="searchRow"
+        itemComponentName="GridItemMedium"
+        visible="true"
+        itemSize="[1350, 360]"
+        rowItemSpacing="[ [40, 0] ]"
+        itemSpacing="[0, 60]"
+        numColumns="1"
+        vertFocusAnimationStyle="fixed"
+        numRows="2"
+        rowSize="3"
+        showRowLabel="[true]"
+        showRowCounter="[true]"
+        focusable="true" />
+    </LayoutGroup>
+    <OptionsSlider id="options" />
+  </children>
+  <interface>
+    <field id="query" type="string" alwaysNotify="true" />
+    <field id="selectedItem" type="node" alwaysNotify="true" />
+    <field id="quickPlayNode" type="node" alwaysNotify="true" />
+    <field id="imageDisplayMode" type="string" value="" />
+    <field id="searchAlpha" type="string" alias="SearchBox.search_values" alwaysNotify="true" onChange="searchMedias" />
+  </interface>
+</component>

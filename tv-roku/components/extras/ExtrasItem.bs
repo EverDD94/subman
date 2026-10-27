@@ -1,0 +1,110 @@
+import "pkg:/source/enums/ItemType.bs"
+import "pkg:/source/utils/misc.bs"
+
+sub init()
+    m.extrasType = {
+        BEHINDTHESCENES: "Behind the Scenes",
+        CLIP: "Clip",
+        DELETEDSCENE: "Deleted Scene",
+        FEATURETTE: "Featurette",
+        INTERVIEW: "Interview",
+        SAMPLE: "Sample",
+        SCENE: "Scene",
+        SHORT: "Short",
+        THEMESONG: "ThemeSong",
+        THEMEVIDEO: "ThemeVideo",
+        TRAILER: "Trailer",
+        UNKNOWN: "Extra"
+    }
+
+    initPosterImg()
+    initName()
+    initRole()
+
+    m.name.height = 34
+    m.name.font.size = 25
+    m.name.horizAlign = "left"
+    m.name.vertAlign = "bottom"
+
+    m.role.font.size = 22
+end sub
+
+sub initPosterImg()
+    m.posterImg = m.top.findNode("posterImg")
+    m.posterDisplayMode = m.posterImg.loadDisplayMode
+end sub
+
+sub initName()
+    m.name = m.top.findNode("pLabel")
+end sub
+
+sub initRole()
+    m.role = m.top.findNode("subTitle")
+end sub
+
+sub showContent()
+    ' validate nodes to prevent crash
+    if not isValid(m.posterImg) then initPosterImg()
+    if not isValid(m.name) then initName()
+    if not isValid(m.role) then initRole()
+
+    if isValid(m.top.itemContent)
+        cont = m.top.itemContent
+
+        m.name.text = cont.labelText
+        m.name.maxWidth = cont.imageWidth
+        m.role.maxWidth = cont.imageWidth
+        m.posterImg.uri = cont.posterUrl
+        m.posterImg.loadDisplayMode = m.posterDisplayMode
+        m.posterImg.width = cont.imageWidth
+
+        ' People without a photo get the person icon, kept square instead of stretched to the poster
+        if not isValidAndNotEmpty(cont.posterUrl) and isStringEqual(cont.LookupCI("type"), ItemType.PERSON)
+            m.posterImg.uri = "pkg:/images/baseline_person_white_48dp.png"
+            m.posterImg.loadDisplayMode = "scaleToFit"
+        end if
+
+        if isStringEqual(cont.LookupCI("type"), ItemType.MUSICVIDEO)
+            m.posterImg.width = 400
+            m.name.maxWidth = 400
+            m.role.maxWidth = 400
+            m.posterImg.height = 260
+        end if
+
+        if isChainValid(cont, "json.ExtraType")
+            if cont.json.ExtraType <> ""
+                cont.subTitle = m.extrasType[UCase(cont.json.ExtraType)]
+            end if
+        end if
+
+        if isChainValid(cont, "json.officialrating")
+            if cont.json.officialrating <> ""
+                if cont.subTitle.Instr(` - ${cont.json.officialrating}`) = -1
+                    cont.subTitle += ` - ${cont.json.officialrating}`
+                end if
+            end if
+        end if
+
+        m.role.Text = cont.subTitle.trim()
+    else
+        m.role.text = tr("Unknown")
+        m.posterImg.uri = "pkg:/images/baseline_person_white_48dp.png"
+    end if
+end sub
+
+sub focusChanged()
+    if m.top.itemHasFocus = true
+        m.name.repeatCount = -1
+        m.role.repeatCount = -1
+    else
+        m.name.repeatCount = 0
+        m.role.repeatCount = 0
+    end if
+
+    if m.global.device.isAudioGuideEnabled = true
+        txt2Speech = CreateObject("roTextToSpeech")
+        txt2Speech.Flush()
+        txt2Speech.Say(m.name.text)
+        txt2Speech.Say(m.role.text)
+    end if
+end sub

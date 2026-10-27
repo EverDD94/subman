@@ -23,6 +23,11 @@ REASONS: dict[str, tuple[str, str, str]] = {
         "Casi siempre es por el nombre del archivo o la carpeta (en español, con letras cambiadas o "
         "con basura como «26rf» o «@canal»). Renómbralo como «Título original (Año)», o pon tú un "
         ".srt junto al video y subman lo sincroniza."),
+    "sin_solucion": (
+        "Sin solución por ahora",
+        "Se ha intentado varias veces (OpenSubtitles, Addic7ed y, si hay Gemini, traduciendo uno en inglés) "
+        "y no hay ningún subtítulo que cuadre con este video.",
+        "Se vuelve a probar una vez al mes por si aparece. Si tienes un .srt, ponlo junto al video."),
     "forzado": (
         "Subtítulo incompleto o «forzado»",
         "El subtítulo tiene muy pocas líneas: suele ser uno «forzado», que sólo traduce carteles o "
@@ -62,6 +67,8 @@ def reason(row, label: str = "") -> dict:
     status = row["status"]
     if status == "ok":
         return {"code": "ok", **extra}
+    if "attempts" in row.keys() and (row["attempts"] or 0) >= 4:  # manager.GIVE_UP
+        return {"code": "sin_solucion", **extra}
     if status == "error":
         return {"code": "error", **extra}
     if status == "pendiente":

@@ -194,6 +194,22 @@ class Gemini:
             raise GeminiError(QUOTA_MSG + detail, "quota")
         raise GeminiError(DOWN_MSG + detail, "down")
 
+    def translate(self, texts: list[str], lang: str = "es", batch: int = 150) -> list[str]:
+        """Traduce las líneas de un subtítulo (en tandas) al idioma ``lang``. Mismo número de líneas."""
+        names = {"es": "español neutro (latinoamericano)"}
+        out: list[str] = []
+        for i in range(0, len(texts), batch):
+            chunk = texts[i:i + batch]
+            prompt = (f"Traduce al {names.get(lang, lang)} estas líneas de subtítulos de una serie o película. "
+                      "Natural y breve, como subtítulos profesionales; conserva los saltos de línea y etiquetas <i>. "
+                      f'Responde sólo con JSON: {{"lines": [...]}} con exactamente {len(chunk)} elementos, en el mismo orden.\n'
+                      + json.dumps(chunk, ensure_ascii=False))
+            lines = json.loads(self.ask(prompt)).get("lines", [])
+            if len(lines) != len(chunk):
+                raise GeminiError(f"la traducción devolvió {len(lines)} líneas en vez de {len(chunk)}", "down")
+            out += [str(l) for l in lines]
+        return out
+
     def test(self) -> dict:
         self.timeout, keep = 25, self.timeout  # para probar no hace falta esperar un minuto por modelo
         try:

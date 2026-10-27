@@ -183,6 +183,9 @@ public class CustomPlaybackTransportControlGlue extends PlaybackTransportControl
             }
         };
         rowPresenter.setDescriptionPresenter(detailsPresenter);
+        // Everflix: blue progress like the rest of the app
+        rowPresenter.setProgressColor(0xFF3D63E0);
+        rowPresenter.setSecondaryProgressColor(0x55F4F2EE);
         return rowPresenter;
     }
 
@@ -243,6 +246,11 @@ public class CustomPlaybackTransportControlGlue extends PlaybackTransportControl
             primaryActionsAdapter.add(fastForwardAction);
         }
 
+        // Everflix: "next episode" sits with the main controls, like on Netflix
+        if (playerAdapter.hasNextItem()) {
+            primaryActionsAdapter.add(skipNextAction);
+        }
+
         if (playerAdapter.hasSubs()) {
             primaryActionsAdapter.add(closedCaptionsAction);
         }
@@ -267,10 +275,6 @@ public class CustomPlaybackTransportControlGlue extends PlaybackTransportControl
 
         if (playerAdapter.hasPreviousItem()) {
             secondaryActionsAdapter.add(skipPreviousAction);
-        }
-
-        if (playerAdapter.hasNextItem()) {
-            secondaryActionsAdapter.add(skipNextAction);
         }
 
         if (playerAdapter.hasChapters()) {

@@ -1011,6 +1011,7 @@ dialog.sheet .foot{display:none}
   <div class="card">
     <div class="row" style="justify-content:space-between"><h2 style="margin:0">Nombres y carpetas</h2>
       <div class="row"><button class="btn sec" id="nmScan">Revisar nombres</button><button class="btn" id="nmAuto">Identificar todo</button>
+        <button class="btn sec" id="nmRecheck" title="Vuelve a comprobar desde cero todas las ya ordenadas (duración, nombre original y año) y reidentifica las que no cuadran">Rechequear todo</button>
         <button class="btn bad" id="nmStop" hidden>Parar</button></div></div>
     <p class="muted">Jellyfin acierta casi siempre cuando cada película está en su propia carpeta con el título, el año y su número de TheMovieDB,
       por ejemplo <span class="path">After (2019) [tmdbid-338952]/After (2019).mp4</span>. Aquí salen las que no están así.
@@ -1052,6 +1053,7 @@ dialog.sheet .foot{display:none}
   <div class="card">
     <div class="row" style="justify-content:space-between"><h2 style="margin:0">Películas duplicadas</h2>
       <span class="row"><button class="btn sec" id="dupEmpty">Borrar carpetas vacías</button>
+      <button class="btn sec" id="dupRecheck" title="Mira las apartadas y devuelve a la biblioteca las que no eran duplicadas">Rechequear apartadas</button>
       <button class="btn" id="dupScan">Buscar duplicados</button></span></div>
     <p class="muted" id="dupIntro"></p>
     <div id="dupState"></div>
@@ -2039,7 +2041,7 @@ async function loadNames() {
   nm = await api("/api/names");
   const fresh = nm.at !== nmShown;  // mientras revisa, no volver a pintar la lista (se borraría lo que escribes)
   $("#nmScan").disabled = nm.running || !nm.jellyfin;
-  $("#nmAuto").disabled = nm.running || !nm.jellyfin || !nm.tmdb;
+  $("#nmAuto").disabled = $("#nmRecheck").disabled = nm.running || !nm.jellyfin || !nm.tmdb;
   $("#nmAuto").title = !nm.tmdb ? "Pon la clave de TheMovieDB en Ajustes" : "";
   $("#nmStop").hidden = !nm.running;
   const res = nm.result;
@@ -2224,6 +2226,10 @@ $("#nmScan").onclick = async () => { await api("/api/names/scan", {}); loadNames
 $("#nmAuto").onclick = async () => {
   const r = await api("/api/names/auto", {}); if (r.ok === false) return toast(r.error); loadNames();
 };
+$("#nmRecheck").onclick = async () => {
+  const r = await api("/api/names/auto", {fresh: true}); if (r.ok === false) return toast(r.error);
+  toast("Rechequeando todo desde cero..."); loadNames();
+};
 $("#nmStop").onclick = async () => { await api("/api/names/stop", {}); toast("Parando en cuanto termine la película actual..."); };
 $("#nmAll").onchange = e => document.querySelectorAll("#nmLoose input").forEach(c => c.checked = e.target.checked);
 $("#nmOrganize").onclick = async () => {
@@ -2390,11 +2396,14 @@ async function loadDupes() {
   $("#dupIntro").innerHTML = (dup.jellyfin ? "Usa las fichas de Jellyfin para saber qué archivos son la misma película, y el nombre y la duración para el resto."
     : "Compara el nombre y la duración. Si pones Jellyfin en Ajustes, también usa sus fichas (más fiable con nombres raros).")
     + ` Lo que apartes se mueve a <span class="path">${esc(dup.dest)}</span>; no se borra nada.`;
-  $("#dupScan").disabled = dup.running;
+  $("#dupScan").disabled = $("#dupRecheck").disabled = dup.running;
   $("#dupState").innerHTML = dup.running ? `<b>${esc(dup.message || "buscando...")}</b>`
     : dup.error ? `<span class="pill falla">error</span> ${esc(dup.error)}`
     : dup.groups ? `<span class="muted">${dup.groups.length ? "Películas con más de una copia: " + dup.groups.length : "No hay películas repetidas."} · buscado ${when(dup.at)}</span>`
     : `<span class="muted">Pulsa «Buscar duplicados».</span>`;
+  if (!dup.running && dup.recheck) $("#dupState").innerHTML += `<div class="muted">Rechequeo ${when(dup.recheck.at)}: ${dup.recheck.back.length
+    ? `<b>${dup.recheck.back.length}</b> no eran duplicadas y han vuelto a la biblioteca:` + dup.recheck.back.map(b => `<div class="path">${esc(b.src)} · ${esc(b.why)}</div>`).join("")
+    : "todas las apartadas siguen siendo duplicadas."}</div>`;
   renderDupes();
   $("#dupMovedCard").hidden = !dup.moved.length; $("#dupDest2").textContent = dup.dest;
   $("#dupMoved").innerHTML = dup.moved.map(r => `<tr><td>${esc(r.title || "")}<div class="path">${esc(r.src)}</div><div class="muted" style="font-size:12px">${when(r.moved)}</div></td>
@@ -2494,6 +2503,7 @@ $("#dupEmpty").onclick = async () => {
   const r = await api("/api/dupes/empty-dirs", {});
   toast(r.ok ? (r.removed ? `Borradas ${r.removed} carpetas vacías (lo tienes en el Registro)` : "No hay carpetas vacías") : r.error);
 };
+$("#dupRecheck").onclick = async () => { await api("/api/dupes/recheck", {}); toast("Rechequeando las apartadas..."); loadDupes(); };
 $("#dupScan").onclick = async () => { await api("/api/dupes/scan", {}); loadDupes(); };
 $("#dupBest").onclick = () => {  // también en las dudosas: todo lo que no es la mejor se aparta
   (dup.groups || []).forEach(g => g.files.forEach(f => { f.move = !f.keep; }));

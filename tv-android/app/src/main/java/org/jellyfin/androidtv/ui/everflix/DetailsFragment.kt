@@ -61,6 +61,7 @@ import org.jellyfin.androidtv.ui.navigation.NavigationRepository
 import org.jellyfin.androidtv.util.PlaybackHelper
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.imageApi
+import org.jellyfin.sdk.api.client.extensions.itemsApi
 import org.jellyfin.sdk.api.client.extensions.libraryApi
 import org.jellyfin.sdk.api.client.extensions.tvShowsApi
 import org.jellyfin.sdk.api.client.extensions.userLibraryApi
@@ -106,6 +107,7 @@ private fun DetailsScreen(id: UUID) {
 	var episodes by remember { mutableStateOf<List<BaseItemDto>>(emptyList()) }
 	var similar by remember { mutableStateOf<List<BaseItemDto>>(emptyList()) }
 	val playButton = remember { FocusRequester() }
+	val firstPoster = remember { FocusRequester() }
 	val videoQueueManager = koinInject<VideoQueueManager>()
 	// Chosen languages; null audio = file default, "" subtitles = off
 	var audioLang by remember { mutableStateOf<String?>(null) }
@@ -121,7 +123,7 @@ private fun DetailsScreen(id: UUID) {
 		val loaded = withContext(Dispatchers.IO) {
 			runCatching { api.userLibraryApi.getItem(itemId = id).content }.onFailure { Timber.w(it) }.getOrNull()
 		} ?: return@LaunchedEffect
-		if (loaded.type != BaseItemKind.SERIES && loaded.type != BaseItemKind.MOVIE && loaded.type != BaseItemKind.EPISODE) {
+		if (loaded.type !in setOf(BaseItemKind.SERIES, BaseItemKind.MOVIE, BaseItemKind.EPISODE, BaseItemKind.BOX_SET, BaseItemKind.PERSON)) {
 			navigationRepository.navigate(Destinations.legacyItemDetails(id), replace = true)
 			return@LaunchedEffect
 		}
@@ -136,12 +138,21 @@ private fun DetailsScreen(id: UUID) {
 					}
 					seasons = api.tvShowsApi.getSeasons(seriesId = seriesId).content.items
 					season = loaded.seasonId ?: nextUp?.seasonId ?: seasons.firstOrNull()?.id
+				} else if (loaded.type == BaseItemKind.BOX_SET || loaded.type == BaseItemKind.PERSON) {
+					similar = api.itemsApi.getItems(
+						parentId = loaded.id.takeIf { loaded.type == BaseItemKind.BOX_SET },
+						personIds = if (loaded.type == BaseItemKind.PERSON) setOf(loaded.id) else null,
+						recursive = true,
+						includeItemTypes = setOf(BaseItemKind.MOVIE, BaseItemKind.SERIES),
+						sortBy = setOf(org.jellyfin.sdk.model.api.ItemSortBy.PREMIERE_DATE),
+						fields = ItemRepository.itemFields,
+					).content.items
 				} else {
 					similar = api.libraryApi.getSimilarItems(itemId = loaded.id, limit = 20, fields = ItemRepository.itemFields).content.items
 				}
 			}.onFailure { Timber.w(it, "Failed to load details") }
 		}
-		runCatching { playButton.requestFocus() }
+		runCatching { playButton.requestFocus() }.onFailure { runCatching { firstPoster.requestFocus() } }
 	}
 
 	LaunchedEffect(season) {
@@ -175,7 +186,7 @@ private fun DetailsScreen(id: UUID) {
 		) {
 			Box(Modifier.fillMaxWidth(0.6f)) { HeroDetails(if (current.type == BaseItemKind.SERIES) nextUp ?: current else current) }
 
-			Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 20.dp)) {
+			if (current.type != BaseItemKind.PERSON) Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 20.dp)) {
 				val label = when {
 					canResume -> "Continuar"
 					current.type == BaseItemKind.SERIES && nextUp != null -> "Ver T${nextUp?.parentIndexNumber ?: 1} · E${nextUp?.indexNumber ?: 1}"
@@ -234,13 +245,19 @@ private fun DetailsScreen(id: UUID) {
 					}
 				}
 			} else if (similar.isNotEmpty()) {
-				SectionTitle("MÁS COMO ESTA")
+				SectionTitle(
+					when (current.type) {
+						BaseItemKind.BOX_SET -> "EN ESTA COLECCIÓN · ${similar.size}"
+						BaseItemKind.PERSON -> "APARECE EN · ${similar.size}"
+						else -> "MÁS COMO ESTA"
+					}
+				)
 				LazyRow(
 					horizontalArrangement = Arrangement.spacedBy(14.dp),
 					contentPadding = PaddingValues(top = 10.dp, end = 56.dp, bottom = 8.dp),
 				) {
-					items(similar, key = { it.id }) { other ->
-						PosterCard(api, other) { navigationRepository.navigate(Destinations.itemDetails(other.id)) }
+					itemsIndexed(similar, key = { _, it -> it.id }) { index, other ->
+						PosterCard(api, other, if (index == 0) Modifier.focusRequester(firstPoster) else Modifier) { navigationRepository.navigate(Destinations.itemDetails(other.id)) }
 					}
 				}
 			}
@@ -386,11 +403,11 @@ private fun EpisodeCard(api: ApiClient, ep: BaseItemDto, onClick: () -> Unit) {
 }
 
 @Composable
-private fun PosterCard(api: ApiClient, item: BaseItemDto, onClick: () -> Unit) {
+private fun PosterCard(api: ApiClient, item: BaseItemDto, modifier: Modifier = Modifier, onClick: () -> Unit) {
 	val interaction = remember { MutableInteractionSource() }
 	val focused by interaction.collectIsFocusedAsState()
 	Box(
-		Modifier
+		modifier
 			.width(120.dp)
 			.aspectRatio(2f / 3f)
 			.scale(if (focused) 1.08f else 1f)

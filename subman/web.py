@@ -1848,7 +1848,14 @@ class App:
                 row["season"] = seasons[0]
             eps = channels.pick(list(msgs.values()), titles, year, "tv", row["season"])
             if eps:
-                return {"channel": c["link"], "title": c["title"], "ids": [m["id"] for m in eps]}
+                labels = {}
+                for m in eps:
+                    x = channels.describe(m["name"], m["text"])
+                    if x["label"]:
+                        labels[str(m["id"])] = [x["season"], x["label"]]
+                if labels:  # por orden de subida, para que la numeración siga la del canal
+                    eps = sorted(eps, key=lambda m: m["id"])
+                return {"channel": c["link"], "title": c["title"], "ids": [m["id"] for m in eps], "labels": labels}
         return None
 
     def _dl_follow(self, cfg: dict, dl) -> None:
@@ -1865,12 +1872,15 @@ class App:
                     continue
                 new = tg.videos(c["link"], min_id=c["last_id"], limit=100)
                 kind, titles = c["follow_kind"] or "tv", [c["follow_title"] or ""]
-                hits = [m for m in channels.pick(new, titles, None, kind) if not dl.has_message(c["link"], m["id"])]
+                hits = sorted((m for m in channels.pick(new, titles, None, kind) if not dl.has_message(c["link"], m["id"])),
+                              key=lambda m: m["id"])
                 for m in hits:
                     ep = channels.describe(m["name"], m["text"])
                     rid = dl.add(kind, c["follow_tmdb"], c["follow_title"], None, "canal", season=ep["season"])
+                    lab = {str(m["id"]): [ep["season"], ep["label"]]} if ep["label"] else {}
                     dl.set(rid, source=json.dumps({"channel": c["link"], "title": c["title"], "ids": [m["id"]],
-                                                   "file": m["name"]}, ensure_ascii=False))
+                                                   "file": m["text"].splitlines()[0] if ep["label"] and m["text"] else m["name"],
+                                                   "labels": lab}, ensure_ascii=False))
                     log.info("canales: %s nuevo en %s", m["name"], c["link"])
                 last = max([m["id"] for m in new] + [c["last_id"]])
                 chs.set(c["id"], last_id=last, checked=time.time(),
@@ -1917,7 +1927,18 @@ class App:
 
             def put(path: Path, _info=None):
                 """Cada video pasa a la biblioteca en cuanto termina, sin esperar al resto de la temporada."""
-                final = downloads.place(path, dl.target(row, path, db))
+                lab = (src or {}).get("labels", {}).get(str((_info or {}).get("id")))
+                if lab and row["kind"] == "tv":  # reality de canal: «Capitulo 16», «Debate 7»…
+                    to = dl.labeled_target(row, path, db, lab[0], lab[1])
+                    if to is None:
+                        log.info("descargas: %s ya lo tienes; no se guarda", lab[1])
+                        path.unlink(missing_ok=True)
+                        got_names.append(path.name)
+                        note(got=json.dumps(got_names, ensure_ascii=False))
+                        return
+                else:
+                    to = dl.target(row, path, db)
+                final = downloads.place(path, to)
                 downloads.extract_subs(final, cfg.get("languages") or ["es"])
                 got_names.append(path.name)
                 placed.append(str(final))

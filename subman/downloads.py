@@ -183,6 +183,36 @@ class Downloads:
         return folder / (episode_name(show, season, ep[1], last, titles) + video.suffix.lower())
 
 
+    def show_folder(self, row: dict, db: TMDb) -> Path:
+        """La carpeta de la serie: la que ya tengas (aunque no lleve [tmdbid]) o una nueva como en ``target``."""
+        new = self.target(row, Path("x.mkv"), db).parent.parent
+        want = [w for w in (row["title"], db.tv(row["tmdb"]).get("name")) if w]
+        for root in {new.parent, *(Path(self.cfg["downloads"].get(k) or "") for k in ("realitys_dir", "series_dir", "es_series_dir"))}:
+            if not str(root) or not root.is_dir():
+                continue
+            for d in root.iterdir():
+                name = re.sub(r"\s*[\[(].*$", "", d.name).strip().lower()
+                if d.is_dir() and any(name == safe_name(w).lower() for w in want):
+                    return d
+        return new
+
+    def labeled_target(self, row: dict, video: Path, db: TMDb, season: int, label: str) -> Path | None:
+        """Realitys de canal: «Serie - S11E25 - Capitulo 16» con el siguiente número libre de la temporada
+        (los debates y el casting también cuentan). None si ese «Capitulo 16» ya está."""
+        folder = self.show_folder(row, db) / _season_folder(season)
+        prefix, top = None, 0
+        for f in folder.iterdir() if folder.is_dir() else []:
+            ep = episode_numbers(f) if f.suffix.lower() in VIDEO_EXT else None
+            if not ep:
+                continue
+            if f.stem[ep[3]:].strip(" -").lower().replace("í", "i") == label.lower():
+                return None
+            top = max(top, ep[1])
+            prefix = prefix or f.stem[:ep[2]].rstrip(" -")
+        prefix = prefix or safe_name(db.tv(row["tmdb"]).get("name") or row["title"])
+        return folder / f"{prefix} - S{season:02d}E{top + 1:02d} - {label}{video.suffix.lower()}"
+
+
 REALITY = 10764  # género «Reality» de TheMovieDB (Love Island, Gran Hermano…)
 
 

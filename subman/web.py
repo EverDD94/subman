@@ -21,7 +21,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, auth, autoid, bot, config, convert, diagnose, discover, downloads, duplicates, friends, notices, formats, gemini, identify, jellyfin, manager, notify, peek, phono, providers, series, tmdb, updater
+from . import __version__, auth, autoid, bot, channels, config, convert, diagnose, discover, downloads, duplicates, friends, notices, formats, gemini, identify, jellyfin, manager, notify, peek, phono, providers, series, tmdb, updater
 from .library import Library
 
 log = logging.getLogger(__name__)
@@ -1452,6 +1452,64 @@ class App:
         self.dl_wake.set()
         return {"ok": True, **self.downloads_state()}
 
+    # --- Proveedores: Phono y tus canales/grupos de Telegram ------------------------------
+    def providers_state(self) -> dict:
+        cfg = self.cfg()
+        return {"phono": cfg["downloads"].get("phono", True),
+                "channels": channels.Channels(self.library(cfg).db).rows(), "telegram": bool(self._tg_user(cfg))}
+
+    def providers_save(self, b: dict) -> dict:
+        cfg = self.cfg()
+        chs = channels.Channels(self.library(cfg).db)
+        if "phono" in b:
+            with self.lock:
+                cfg = self.cfg()
+                cfg["downloads"]["phono"] = bool(b["phono"])
+                config.save(self.config_path, cfg)
+        if b.get("delete"):
+            chs.delete(int(b["delete"]))
+        ch = b.get("channel")
+        if ch:
+            kinds = ",".join(k for k in ("movie", "tv") if k in (ch.get("kinds") or [])) or "movie,tv"
+            mode = "auto" if ch.get("mode") == "auto" else "pedido"
+            if ch.get("id"):
+                cid = int(ch["id"])
+                kw = {"kinds": kinds, "mode": mode}
+                if "enabled" in ch:
+                    kw["enabled"] = 1 if ch["enabled"] else 0
+            else:
+                tg = self._telegram(cfg)
+                if not tg or not self._tg_user(cfg):
+                    raise ValueError("conecta primero tu Telegram (más arriba, en Descargas)")
+                link = channels.norm_link(ch.get("link") or "")
+                if mode == "auto" and not (ch.get("follow") or "").strip():
+                    raise ValueError("di qué serie o película tiene que seguir en automático")
+                if any(c["link"] == link for c in chs.rows()):
+                    raise ValueError("ese canal ya está en la lista")
+                title = tg.chat_title(link)
+                cid = chs.add(link, title, kinds, mode)
+                kw = {}
+            follow = (ch.get("follow") or "").strip()
+            if mode == "auto" and follow:
+                if not cfg.get("tmdb", {}).get("api_key"):
+                    raise ValueError("falta la clave de TheMovieDB")
+                db = tmdb.TMDb(cfg["tmdb"]["api_key"], cfg["tmdb"].get("language") or "es-MX")
+                fk = "movie" if ch.get("follow_kind") == "movie" else "tv"
+                ids = db.search(follow) if fk == "movie" else db.search_tv(follow)
+                if not ids:
+                    raise ValueError(f"no encuentro «{follow}» en TheMovieDB")
+                info = db.movie(ids[0]) if fk == "movie" else db.tv(ids[0])
+                old = chs.get(cid) or {}
+                kw.update(follow_kind=fk, follow_tmdb=ids[0], follow_title=info.get("name") or follow, checked=None)
+                if old.get("follow_tmdb") != ids[0]:
+                    kw["last_id"] = None  # empieza a mirar desde ahora
+            elif mode == "auto" and not (chs.get(cid) or {}).get("follow_tmdb"):
+                raise ValueError("di qué serie o película tiene que seguir en automático")
+            if kw:
+                chs.set(cid, **kw)
+        self.dl_wake.set()
+        return {"ok": True, **self.providers_state()}
+
     def telegram_code(self, b: dict) -> dict:
         api_id = re.sub(r"\D", "", str(b.get("api_id") or ""))
         api_hash = (b.get("api_hash") or "").strip()
@@ -1674,6 +1732,7 @@ class App:
                     dl.set(r["id"], state="cola", detail="")
         if d["auto"]:
             self._dl_enqueue(cfg, dl)
+        self._dl_follow(cfg, dl)
         row = dl.next()
         if not row:
             self.dl.update(message="nada pendiente")
@@ -1723,53 +1782,129 @@ class App:
                 dl.add(w["kind"], w["tmdb"], w["title"], w["year"], "auto")
                 log.info("descargas: %s en la cola", w["title"])
 
+    def _dl_phono(self, cfg: dict, dl, row: dict, db):
+        """(enlace al bot, qué es) si Phono la tiene; si no, el porqué en palabras."""
+        d = cfg["downloads"]
+        rid = row["id"]
+        api = phono.Phono()
+        card = dl.find(row, api, db)
+        if not card:
+            return "Phono aún no la tiene"
+        cid = card["content_id"]
+        if row["kind"] == "movie":
+            f = phono.pick(api.files(cid), d["audio"])
+            link = phono.bot_link(f["download_url"]) if f else None
+            if not link:
+                return "Phono no tiene una versión en español ni en inglés"
+            dl.set(rid, file=f["file_name"], size=f.get("file_size_bytes"))
+            return link, f["file_name"]
+        seasons = phono.seasons(api.buttons(cid))
+        if not seasons:
+            return "Phono no tiene temporadas para descargar"
+        if row["season"] is None:  # una fila por temporada
+            first, *rest = sorted(seasons)
+            for n in rest:
+                dl.add("tv", row["tmdb"], row["title"], row["year"], row["how"], season=n)
+            dl.set(rid, season=first)
+            row["season"] = first
+        s = seasons.get(row["season"])
+        if not s:
+            return f"Phono no tiene la temporada {row['season']}"
+        dl.set(rid, file=s["text"])
+        return (s["bot"], s["code"]), f"temporada {row['season']}"
+
+    def _dl_channels(self, cfg: dict, dl, row: dict, db) -> dict | None:
+        """Busca en tus canales y grupos (Ajustes › Proveedores). {channel, title, ids} o None."""
+        chans = channels.Channels(dl.db).for_kind(row["kind"])
+        tg = self._telegram(cfg)
+        if not chans or not tg:
+            return None
+        info = db.tv(row["tmdb"]) if row["kind"] == "tv" else db.movie(row["tmdb"])
+        titles = [t for t in dict.fromkeys([row["title"], info.get("original"), info.get("name")]) if t]
+        year = row["year"] or info.get("year")
+        for c in chans:
+            msgs: dict[int, dict] = {}
+            try:
+                for t in titles:
+                    for m in tg.videos(c["link"], query=t, limit=200):
+                        msgs[m["id"]] = m
+            except Exception as e:
+                log.info("canales: %s: %s", c["link"], e)
+                continue
+            if row["kind"] == "movie":
+                hit = channels.pick(list(msgs.values()), titles, year, "movie")
+                if hit:
+                    return {"channel": c["link"], "title": c["title"], "ids": [hit[0]["id"]], "file": hit[0]["name"]}
+                continue
+            seasons = sorted({channels.describe(m["name"], m["text"])["season"] for m in msgs.values()} - {None})
+            if row["season"] is None and seasons:  # una fila por temporada, cada una con sus capítulos
+                for n in seasons[1:]:
+                    eps = channels.pick(list(msgs.values()), titles, year, "tv", n)
+                    if eps and n not in dl.seasons_in(row["tmdb"]):
+                        new = dl.add("tv", row["tmdb"], row["title"], row["year"], row["how"], season=n)
+                        dl.set(new, source=json.dumps({"channel": c["link"], "title": c["title"],
+                                                       "ids": [m["id"] for m in eps]}, ensure_ascii=False))
+                dl.set(row["id"], season=seasons[0])
+                row["season"] = seasons[0]
+            eps = channels.pick(list(msgs.values()), titles, year, "tv", row["season"])
+            if eps:
+                return {"channel": c["link"], "title": c["title"], "ids": [m["id"] for m in eps]}
+        return None
+
+    def _dl_follow(self, cfg: dict, dl) -> None:
+        """Canales automáticos: lo nuevo que encaje con lo que siguen entra en la cola."""
+        chs = channels.Channels(dl.db)
+        due = chs.due()
+        tg = self._telegram(cfg) if due else None
+        if not tg:
+            return
+        for c in due:
+            try:
+                if not c["last_id"]:  # la primera vez: desde ahora, no todo lo viejo
+                    chs.set(c["id"], last_id=tg.last_id(c["link"]), checked=time.time(), note="mirando lo que suban desde ahora")
+                    continue
+                new = tg.videos(c["link"], min_id=c["last_id"], limit=100)
+                kind, titles = c["follow_kind"] or "tv", [c["follow_title"] or ""]
+                hits = [m for m in channels.pick(new, titles, None, kind) if not dl.has_message(c["link"], m["id"])]
+                for m in hits:
+                    ep = channels.describe(m["name"], m["text"])
+                    rid = dl.add(kind, c["follow_tmdb"], c["follow_title"], None, "canal", season=ep["season"])
+                    dl.set(rid, source=json.dumps({"channel": c["link"], "title": c["title"], "ids": [m["id"]],
+                                                   "file": m["name"]}, ensure_ascii=False))
+                    log.info("canales: %s nuevo en %s", m["name"], c["link"])
+                last = max([m["id"] for m in new] + [c["last_id"]])
+                chs.set(c["id"], last_id=last, checked=time.time(),
+                        note=f"{len(hits)} nuevo(s) a la cola" if hits else "nada nuevo")
+            except Exception as e:
+                log.info("canales: %s: %s", c["link"], e)
+                chs.set(c["id"], checked=time.time(), note=f"error: {str(e)[:150]}")
+
     def _dl_one(self, cfg: dict, dl, row: dict) -> None:
         d = cfg["downloads"]
         rid = row["id"]
-        self.dl.update(current=rid, what=row["title"], done=0, total=0, speed=0.0, stop=None, message=f"{row['title']}: buscando en Phono")
+        self.dl.update(current=rid, what=row["title"], done=0, total=0, speed=0.0, stop=None, message=f"{row['title']}: buscando")
         label = self._dl_label(row)
         status = bot.Status(cfg)  # el mensaje que se va editando en tu bot
         placed: list[str] = []
         try:
-            dl.set(rid, state="buscando", detail="buscando en Phono")
-            api = phono.Phono()
+            dl.set(rid, state="buscando", detail="buscando en Phono y en tus canales")
             db = tmdb.TMDb(cfg["tmdb"]["api_key"], cfg["tmdb"].get("language") or "es-MX")
-            card = dl.find(row, api, db)
-            if not card:
-                dl.set(rid, state="no-esta", detail="Phono aún no la tiene; se vuelve a mirar mañana",
-                       retry=time.time() + downloads.RETRY_MISSING)
-                return
-            cid = card["content_id"]
-            if row["kind"] == "movie":
-                f = phono.pick(api.files(cid), d["audio"])
-                link = phono.bot_link(f["download_url"]) if f else None
-                if not link:
-                    dl.set(rid, state="no-esta", detail="Phono no tiene una versión en español ni en inglés",
-                           retry=time.time() + downloads.RETRY_MISSING)
-                    return
-                dl.set(rid, file=f["file_name"], size=f.get("file_size_bytes"))
-                what = f["file_name"]
-            else:
-                seasons = phono.seasons(api.buttons(cid))
-                if not seasons:
-                    dl.set(rid, state="no-esta", detail="Phono no tiene temporadas para descargar",
-                           retry=time.time() + downloads.RETRY_MISSING)
-                    return
-                if row["season"] is None:  # una fila por temporada
-                    first, *rest = sorted(seasons)
-                    for n in rest:
-                        dl.add("tv", row["tmdb"], row["title"], row["year"], row["how"], season=n)
-                    dl.set(rid, season=first)
-                    row["season"] = first
-                s = seasons.get(row["season"])
-                if not s:
-                    dl.set(rid, state="no-esta", detail=f"Phono no tiene la temporada {row['season']}",
-                           retry=time.time() + downloads.RETRY_MISSING)
-                    return
-                link = (s["bot"], s["code"])
-                what = f"temporada {row['season']}"
-                dl.set(rid, file=s["text"])
-            dl.set(rid, state="pidiendo", detail=f"pidiendo {what} al bot")
+            src = json.loads(row.get("source") or "null")
+            link, what = None, ""
+            if not src:
+                got = self._dl_phono(cfg, dl, row, db) if d.get("phono", True) else "Phono está apagado en Proveedores"
+                if isinstance(got, tuple):
+                    link, what = got
+                else:
+                    src = self._dl_channels(cfg, dl, row, db)
+                    if not src:
+                        dl.set(rid, state="no-esta", detail=f"{got}; tampoco está en tus canales. Se vuelve a mirar mañana",
+                               retry=time.time() + downloads.RETRY_MISSING)
+                        return
+            if src:
+                what = f"{len(src['ids'])} video(s) de {src.get('title') or src['channel']}"
+                dl.set(rid, source=json.dumps(src, ensure_ascii=False), file=src.get("file") or what)
+            dl.set(rid, state="pidiendo", detail=f"bajando {what}" if src else f"pidiendo {what} al bot")
             self.dl.update(message=f"{row['title']}: pidiendo al bot", last=time.time())
             tmp = Path(d["tmp_dir"]) / str(rid)
 
@@ -1832,10 +1967,15 @@ class App:
                 self.dl.update(message=f"{row['title']}: esperando que pulses el anuncio en Telegram")
                 self._nag(cfg, rid, label, name, status)
 
-            self._telegram(cfg).fetch(link[1], tmp, bot=link[0], progress=progress,
-                                      stop=lambda: self.dl["stop"] == rid, on_manual=manual,
-                                      skip=lambda name, size: name in got_names, on_file=put,
-                                      remind=label if d.get("remind", True) and not by_bot else "")
+            if src:
+                self._telegram(cfg).take(src["channel"], src["ids"], tmp, progress=progress,
+                                         stop=lambda: self.dl["stop"] == rid,
+                                         skip=lambda name, size: name in got_names, on_file=put)
+            else:
+                self._telegram(cfg).fetch(link[1], tmp, bot=link[0], progress=progress,
+                                          stop=lambda: self.dl["stop"] == rid, on_manual=manual,
+                                          skip=lambda name, size: name in got_names, on_file=put,
+                                          remind=label if d.get("remind", True) and not by_bot else "")
             if self.dl["stop"] == rid:
                 shutil.rmtree(tmp, ignore_errors=True)
                 status.show(f"✖️ Cancelada\n\n{label}", final=True)
@@ -1993,6 +2133,7 @@ def make_handler(app: App):
         "/api/discover/mood": lambda q: app._dsc(lambda d: {"rows": d.mood(q.get("m", [""])[0], q.get("kind", [""])[0])}),
         "/api/discover/deck": lambda q: app._dsc(lambda d: {"items": d.deck()}),
         "/api/downloads": lambda q: app.downloads_state(),
+        "/api/providers": lambda q: app.providers_state(),
         "/api/discover/platforms": lambda q: app._dsc(lambda d: {"platforms": d.platforms_summary()}),
         "/api/discover/platform": lambda q: app._dsc(lambda d: {"items": d.platform(q.get("p", [""])[0], q.get("kind", ["movie"])[0],
                                                                                    q.get("new", ["1"])[0] == "1", int(q.get("page", ["1"])[0]))}),
@@ -2053,6 +2194,7 @@ def make_handler(app: App):
         "/api/downloads/clear": lambda b: app.downloads_clear(),
         "/api/downloads/seasons": lambda b: app.downloads_seasons(b),
         "/api/downloads/settings": lambda b: app.downloads_settings(b),
+        "/api/providers": lambda b: app.providers_save(b),
         "/api/telegram/code": lambda b: app.telegram_code(b),
         "/api/telegram/login": lambda b: app.telegram_login(b),
         "/api/telegram/logout": lambda b: app.telegram_logout(),

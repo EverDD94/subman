@@ -162,6 +162,87 @@ class Telegram:
     def log_out(self) -> None:
         self._run(self.client.log_out())
 
+    # --- canales y grupos (Ajustes › Proveedores) ---------------------------------------
+    async def _chat(self, link: str, join: bool = False):
+        """La entidad de ``t.me/nombre`` o de un enlace de invitación ``t.me/+abc`` (con ``join`` entra si hace falta)."""
+        from telethon.tl.functions.channels import JoinChannelRequest
+        from telethon.tl.functions.messages import CheckChatInviteRequest, ImportChatInviteRequest
+        from telethon.tl.types import ChatInviteAlready
+        tail = link.split("/", 1)[1]
+        if tail.startswith("+") or tail.startswith("joinchat/"):
+            code = tail.split("/")[-1].lstrip("+")
+            r = await self.client(CheckChatInviteRequest(code))
+            if isinstance(r, ChatInviteAlready):
+                return r.chat
+            if not join:
+                raise ValueError("todavía no estás dentro de ese grupo")
+            return (await self.client(ImportChatInviteRequest(code))).chats[0]
+        ent = await self.client.get_entity(tail)
+        if join and getattr(ent, "left", False):
+            try:
+                await self.client(JoinChannelRequest(ent))
+            except Exception as e:
+                log.info("Telegram: no se pudo entrar en %s (%s)", link, e)
+        return ent
+
+    def chat_title(self, link: str) -> str:
+        """Comprueba el enlace (entrando si es una invitación) y devuelve su nombre."""
+        async def go():
+            ent = await self._chat(link, join=True)
+            return getattr(ent, "title", None) or getattr(ent, "username", None) or link
+        return self._run(go())
+
+    @staticmethod
+    def _video(m) -> dict | None:
+        f = getattr(m, "file", None)
+        if f is None:
+            return None
+        name = f.name or ""
+        big = (f.mime_type or "").startswith("video/") and (f.size or 0) > 50 * 2**20
+        if not (_VIDEO_NAME.search(name) or big) or _SAMPLE.search(name):
+            return None
+        return {"id": m.id, "name": name, "text": m.message or "", "size": f.size or 0}
+
+    def videos(self, link: str, query: str = "", min_id: int = 0, limit: int = 100) -> list[dict]:
+        """Videos del canal: con ``query`` los que Telegram encuentra con ese texto; si no, los últimos
+        (sólo los más nuevos que ``min_id``). [{id, name, text, size}], del más nuevo al más viejo."""
+        async def go():
+            ent = await self._chat(link)
+            out = []
+            async for m in self.client.iter_messages(ent, search=query or None, min_id=min_id, limit=limit):
+                v = self._video(m)
+                if v:
+                    out.append(v)
+            return out
+        return self._run(go(), timeout=180)
+
+    def last_id(self, link: str) -> int:
+        async def go():
+            msgs = await self.client.get_messages(await self._chat(link), limit=1)
+            return msgs[0].id if msgs else 0
+        return self._run(go())
+
+    def take(self, link: str, ids: list[int], dest: Path, progress=lambda what, done, total: None,
+             stop=lambda: False, skip=lambda name, size: False, on_file=lambda path, info: None) -> list[Path]:
+        """Descarga esos mensajes del canal, uno detrás de otro."""
+        async def go():
+            ent = await self._chat(link)
+            got = []
+            for mid in ids:
+                if stop():
+                    break
+                m = await self.client.get_messages(ent, ids=mid)
+                if not m or not m.file:
+                    log.info("Telegram: el mensaje %s de %s ya no está", mid, link)
+                    continue
+                if skip(_safe(m.file.name or f"phono-{m.id}.mkv"), m.file.size or 0):
+                    continue
+                path = await self._download(m, Path(dest), progress, stop)
+                got.append(path)
+                await asyncio.get_running_loop().run_in_executor(None, on_file, path, {})
+            return got
+        return self._run(go(), timeout=None)
+
     # --- pedir al bot -------------------------------------------------------------------
     def fetch(self, code: str, dest: Path, bot: str = BOT, progress=lambda what, done, total: None,
               stop=lambda: False, on_manual=lambda bot: None, skip=lambda name, size: False,

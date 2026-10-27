@@ -44,7 +44,7 @@ DEFAULTS: dict = {
     "downloads": {"enabled": False, "auto": True, "movies_dir": "", "series_dir": "",
                   "realitys_dir": "", "es_movies_dir": "", "es_series_dir": "",
                   "tmp_dir": "/media/Descargando", "gap_minutes": 2, "daily": 20, "audio": ["es", "en"],
-                  "min_free_gb": 20, "remind": True, "summary_hour": 22},
+                  "min_free_gb": 20, "remind": True, "summary_hour": 22, "phono": True},
 }
 
 HEADER = """# Configuración de Videotecario (antes subman). Se puede editar a mano o desde la web (puerto 8787).

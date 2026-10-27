@@ -41,16 +41,7 @@ fun SettingsCustomizationScreen() {
 			)
 		}
 
-		item {
-			var appTheme by rememberPreference(userPreferences, UserPreferences.appTheme)
-
-			ListButton(
-				headingContent = { Text(stringResource(R.string.pref_app_theme)) },
-				captionContent = { Text(stringResource(appTheme.nameRes)) },
-				onClick = { router.push(Routes.CUSTOMIZATION_THEME) },
-				modifier = Modifier.focusKey(Routes.CUSTOMIZATION_THEME)
-			)
-		}
+		// Everflix: CUSTOMIZATION_THEME hidden to keep settings simple
 
 		item {
 			var clockBehavior by rememberPreference(userPreferences, UserPreferences.clockBehavior)
@@ -123,13 +114,6 @@ fun SettingsCustomizationScreen() {
 			)
 		}
 
-		item {
-			ListButton(
-				leadingContent = { Icon(painterResource(R.drawable.ic_house), contentDescription = null) },
-				headingContent = { Text(stringResource(R.string.home_prefs)) },
-				onClick = { router.push(Routes.HOME) },
-				modifier = Modifier.focusKey(Routes.HOME)
-			)
-		}
+		// Everflix: HOME hidden to keep settings simple
 	}
 }

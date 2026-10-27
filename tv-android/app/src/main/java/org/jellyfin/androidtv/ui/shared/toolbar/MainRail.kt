@@ -176,6 +176,15 @@ fun MainRail(
 		Box(Modifier.padding(horizontal = 12.dp, vertical = 8.dp).fillMaxWidth().height(1.dp).background(RailInk.copy(alpha = 0.15f)))
 
 		RailItem(
+			icon = R.drawable.ic_add,
+			label = "Mis peticiones",
+			open = open,
+			active = activeButton == MainToolbarActiveButton.Requests,
+			modifier = target(MainToolbarActiveButton.Requests),
+		) {
+			if (activeButton != MainToolbarActiveButton.Requests) navigationRepository.navigate(Destinations.everflixRequests)
+		}
+		RailItem(
 			icon = R.drawable.ic_settings,
 			label = stringResource(R.string.lbl_settings),
 			open = open,

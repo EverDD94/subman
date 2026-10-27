@@ -74,43 +74,35 @@ class SearchFragment : Fragment() {
 		Row {
 			MainRail(MainToolbarActiveButton.Search)
 
-			Column(modifier = Modifier.padding(top = 32.dp)) {
-
-			Row(
-				horizontalArrangement = Arrangement.spacedBy(12.dp),
-				verticalAlignment = Alignment.CenterVertically,
+			// Everflix: Netflix-style on-screen keyboard on the left, results on the right
+			Column(
 				modifier = Modifier
+					.padding(start = 24.dp, top = 40.dp)
 					.focusRestorer()
 					.focusGroup()
-					.padding(horizontal = 48.dp)
+					.focusRequester(textInputFocusRequester),
 			) {
-				if (speechRecognizerAvailability) {
-					SearchVoiceInput(
-						onQueryChange = { query = query.copy(text = it) },
-						onQuerySubmit = {
-							viewModel.searchImmediately(query.text)
-							resultFocusRequester.requestFocus()
-						}
-					)
+				Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+					if (speechRecognizerAvailability) {
+						SearchVoiceInput(
+							onQueryChange = { query = query.copy(text = it) },
+							onQuerySubmit = {
+								viewModel.searchImmediately(query.text)
+								resultFocusRequester.requestFocus()
+							}
+						)
+					}
 				}
-
-				SearchTextInput(
+				EverflixKeyboard(
 					query = query.text,
 					onQueryChange = {
 						query = query.copy(text = it)
-						viewModel.searchDebounced(query.text)
+						viewModel.searchDebounced(it)
 					},
-					onQuerySubmit = {
-						viewModel.searchImmediately(query.text)
-						// Note: We MUST change the focus to somewhere else when the keyboard is submitted because some vendors (like Amazon)
-						// will otherwise just keep showing a (fullscreen) keyboard, soft-locking the app.
-						resultFocusRequester.requestFocus()
-					},
-					modifier = Modifier
-						.weight(1f)
-						.focusRequester(textInputFocusRequester),
 				)
 			}
+
+			Column(modifier = Modifier.padding(top = 32.dp)) {
 
 			DownloadSuggestions(query.text)
 

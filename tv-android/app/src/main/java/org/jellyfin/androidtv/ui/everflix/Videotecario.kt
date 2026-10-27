@@ -29,6 +29,14 @@ data class DiscoverTitle(
 	val asked: Boolean,
 )
 
+data class MyRequest(
+	val title: String,
+	val year: Int?,
+	val poster: String,
+	val status: String,
+	val why: String?,
+)
+
 /**
  * Tiny client for Videotecario (subman), which runs on the same NAS as Jellyfin.
  * Titles you search for and don't have are sent as a request: nothing downloads until the owner
@@ -64,6 +72,23 @@ class Videotecario(jellyfinUrl: String?, private val token: String?) {
 				)
 			}
 		}.onFailure { Timber.w(it, "Videotecario search failed") }.getOrDefault(emptyList())
+	}
+
+	/** What this user asked for, newest first, with where each one is (pending, approved, downloading…). */
+	suspend fun mine(): List<MyRequest> = withContext(Dispatchers.IO) {
+		val base = base ?: return@withContext emptyList()
+		runCatching {
+			val body = request(URL("$base/api/pedir/mine"), null) ?: return@runCatching emptyList()
+			Json.parseToJsonElement(body).jsonObject["items"]?.jsonArray.orEmpty().map { it.jsonObject }.map { o ->
+				MyRequest(
+					title = o["title"]?.jsonPrimitive?.content.orEmpty(),
+					year = o["year"]?.jsonPrimitive?.intOrNull,
+					poster = o["poster"]?.jsonPrimitive?.content.orEmpty(),
+					status = o["status"]?.jsonPrimitive?.content.orEmpty(),
+					why = o["why"]?.jsonPrimitive?.content,
+				)
+			}
+		}.onFailure { Timber.w(it, "Videotecario requests failed") }.getOrDefault(emptyList())
 	}
 
 	/** Sends the request for approval. Returns null when it worked, or the message to show. */

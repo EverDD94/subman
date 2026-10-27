@@ -81,6 +81,7 @@ import timber.log.Timber
 const val EXTRA_ALL = "everflix_all"
 const val ALL_SERIES = "series"
 const val ALL_MOVIES = "movies"
+private const val PAGE_SIZE = 100
 
 class LibraryFragment : Fragment() {
 	override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?) = content {
@@ -110,8 +111,14 @@ private fun LibraryScreen(library: BaseItemDto?, allShows: Boolean) {
 	var focused by remember { mutableIntStateOf(0) }
 	val firstCard = remember { FocusRequester() }
 
-	LaunchedEffect(library?.id, allShows) {
-		items = withContext(Dispatchers.IO) {
+	var total by remember { mutableIntStateOf(0) }
+	var loading by remember { mutableStateOf(false) }
+
+	// Loads the library in pages of 100 so big libraries are complete without a long first wait
+	suspend fun loadMore() {
+		if (loading || (total > 0 && items.size >= total)) return
+		loading = true
+		val page = withContext(Dispatchers.IO) {
 			runCatching {
 				api.itemsApi.getItems(
 					parentId = library?.id,
@@ -120,11 +127,25 @@ private fun LibraryScreen(library: BaseItemDto?, allShows: Boolean) {
 					sortBy = setOf(ItemSortBy.DATE_CREATED),
 					sortOrder = setOf(SortOrder.DESCENDING),
 					fields = ItemRepository.itemFields,
-					limit = if (library == null) 600 else 300,
-				).content.items
-			}.onFailure { Timber.w(it, "Failed to load library") }.getOrDefault(emptyList())
+					startIndex = items.size,
+					limit = PAGE_SIZE,
+				).content
+			}.onFailure { Timber.w(it, "Failed to load library") }.getOrNull()
 		}
+		if (page != null) {
+			total = page.totalRecordCount
+			items = items + page.items
+		}
+		loading = false
+	}
+
+	LaunchedEffect(library?.id, allShows) {
+		loadMore()
 		if (items.isNotEmpty()) runCatching { firstCard.requestFocus() }
+	}
+
+	LaunchedEffect(focused) {
+		if (focused >= items.size - 20) loadMore()
 	}
 
 	val current = items.getOrNull(focused)
@@ -148,7 +169,7 @@ private fun LibraryScreen(library: BaseItemDto?, allShows: Boolean) {
 				}
 
 				Text(
-					text = "$title · ${items.size}".uppercase(),
+					text = "$title · ${maxOf(total, items.size)}".uppercase(),
 					color = Color.White.copy(alpha = 0.8f),
 					fontSize = 13.sp,
 					fontWeight = FontWeight.W800,

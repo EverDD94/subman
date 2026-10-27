@@ -76,11 +76,19 @@ class HomeFragmentHelper(
 	}
 
 	/** Everflix "Para ti": movies and series mixed in one row, never split by library. */
-	fun loadForYou(title: String, sortBy: ItemSortBy, unwatchedOnly: Boolean): HomeFragmentRow {
+	fun loadForYou(
+		title: String,
+		sortBy: ItemSortBy,
+		unwatchedOnly: Boolean = false,
+		favoritesOnly: Boolean = false,
+		startIndex: Int? = null,
+	): HomeFragmentRow {
 		val query = GetItemsRequest(
 			recursive = true,
 			includeItemTypes = setOf(BaseItemKind.SERIES, BaseItemKind.MOVIE),
 			isPlayed = if (unwatchedOnly) false else null,
+			isFavorite = if (favoritesOnly) true else null,
+			startIndex = startIndex,
 			sortBy = setOf(sortBy),
 			sortOrder = setOf(SortOrder.DESCENDING),
 			fields = ItemRepository.browseFields,
@@ -89,7 +97,7 @@ class HomeFragmentHelper(
 			enableTotalRecordCount = false,
 		)
 
-		return HomeFragmentBrowseRowDefRow(BrowseRowDef(title, query, 0, false, true, arrayOf(ChangeTriggerType.LibraryUpdated)))
+		return HomeFragmentBrowseRowDefRow(BrowseRowDef(title, query, 0, false, true, arrayOf(ChangeTriggerType.LibraryUpdated, ChangeTriggerType.FavoriteUpdate)))
 	}
 
 	fun loadOnNow(): HomeFragmentRow {

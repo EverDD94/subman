@@ -111,7 +111,9 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 			rows.add(helper.loadResumeVideo())
 			rows.add(helper.loadNextUp())
 			rows.add(helper.loadForYou("Novedades", ItemSortBy.DATE_CREATED, unwatchedOnly = false))
-			rows.add(helper.loadForYou("Recomendado para ti", ItemSortBy.RANDOM, unwatchedOnly = true))
+			rows.add(helper.loadForYou("Mi lista", ItemSortBy.DATE_CREATED, favoritesOnly = true))
+			// Same picks all day long: a slice of what you haven't seen that moves on each day
+			rows.add(helper.loadForYou("Recomendado para ti", ItemSortBy.PREMIERE_DATE, unwatchedOnly = true, startIndex = (java.time.LocalDate.now().dayOfYear * 7) % 120))
 			rows.add(helper.loadForYou("Lo más valorado que no has visto", ItemSortBy.COMMUNITY_RATING, unwatchedOnly = true))
 			if (currentUser.policy?.enableLiveTvAccess == true && HomeSectionType.LIVE_TV in homesections) {
 				rows.add(HomeFragmentLiveTVRow(requireActivity(), userRepository))

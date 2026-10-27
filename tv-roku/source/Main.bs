@@ -1,0 +1,397 @@
+import "pkg:/components/manager/ViewCreator.bs"
+import "pkg:/source/enums/ItemType.bs"
+import "pkg:/source/enums/String.bs"
+
+sub Main (args as dynamic) as void
+    ' The main function that runs when the application is launched.
+    m.screen = CreateObject("roSGScreen")
+    m.port = CreateObject("roMessagePort")
+    m.screen.setMessagePort(m.port)
+
+    ' Set global constants
+    setConstants()
+
+    ' Set any initial Global Variables
+    m.global = m.screen.getGlobalNode()
+    SaveAppToGlobal()
+    SaveDeviceToGlobal()
+
+    session.Init()
+
+    m.scene = m.screen.CreateScene("BaseScene")
+
+    ' Set default background color
+    m.scene.backgroundColor = chainLookupReturn(m.global.session, "user.settings.colorBackground", ColorPalette.VIEWBACKGROUND)
+
+    m.screen.show() ' vscode_rale_tracker_entry
+    playEverflixIntro()
+    'vscode_rdb_on_device_component_entry
+
+    playstateTask = CreateObject("roSGNode", "PlaystateTask")
+    playstateTask.id = "playstateTask"
+
+    sceneManager = CreateObject("roSGNode", "SceneManager")
+    sceneManager.observeField("dataReturned", m.port)
+
+    overhang = m.scene.findNode("overhang")
+
+    m.global.addFields({ app_loaded: false, playstateTask: playstateTask, sceneManager: sceneManager })
+    m.global.addFields({ queueManager: CreateObject("roSGNode", "QueueManager") })
+    m.global.addFields({ audioPlayer: CreateObject("roSGNode", "AudioPlayer") })
+    m.global.addFields({ jumpTo: {} })
+    m.global.addFields({ fallbackFont: {} })
+
+    m.global.observeField("jumpTo", m.port)
+
+    audioMiniPlayer = m.scene.findNode("audioMiniPlayer")
+    if isValid(audioMiniPlayer)
+        audioMiniPlayer.callFunc("setup")
+    end if
+
+    app_start:
+    ' First thing to do is validate the ability to use the API
+    if not LoginFlow() then return
+
+    ' Set user's chosen colors
+    setUserColors()
+
+    ' remove login scenes from the stack
+    sceneManager.callFunc("clearScenes")
+
+    ' load home page
+    group = CreateHomeGroup()
+    group.callFunc("loadLibraries")
+    stopLoadingSpinner()
+    sceneManager.callFunc("pushScene", group)
+
+    m.scene.observeField("exit", m.port)
+
+    ' Download and store the fallback font to tmp:/
+    ' This font may be used for CJK subtitles
+    downloadFallbackFont()
+
+    ' Refresh overhang title font so it can change to fallback if desired
+    if isValid(overhang)
+        titleLabel = overhang.findNode("overlayTitle")
+        if isValid(titleLabel)
+            titleLabel.font = "font:LargeSystemFont"
+        end if
+    end if
+
+    if isValid(audioMiniPlayer)
+        songLabel = audioMiniPlayer.findNode("song")
+        if isValid(songLabel)
+            songLabel.font = "font:MediumSystemFont"
+        end if
+    end if
+
+    ' Delete any old library filters
+    clearOldLibraryFilters()
+
+    displayWhatsNewPopup(args)
+
+    ' Handle input messages
+    input = CreateObject("roInput")
+    input.SetMessagePort(m.port)
+
+    device = CreateObject("roDeviceInfo")
+    device.setMessagePort(m.port)
+    device.EnableScreensaverExitedEvent(true)
+    device.EnableAudioGuideChangedEvent(true)
+    device.EnableLowGeneralMemoryEvent(true)
+    device.EnableCodecCapChangedEvent(true)
+
+    ' Check if we were sent content to play with the startup command (Deep Link)
+    onDeepLinkingEvent(args)
+
+    while true
+        msg = wait(0, m.port)
+
+        if type(msg) = "roSGScreenEvent" and msg.isScreenClosed()
+            print "SCREEN CLOSED"
+            return
+        end if
+
+        if isNodeEvent(msg, "exit")
+            print "CLOSING SCREEN"
+            return
+        end if
+
+        if isNodeEvent(msg, "jumpTo")
+            onJumpToEvent(msg)
+        else if isNodeEvent(msg, "closeSidePanel")
+            onCloseSidePanelEvent()
+        else if isNodeEvent(msg, "quickPlayNode")
+            onQuickPlayEvent(msg)
+        else if isNodeEvent(msg, "refreshSeasonDetailsData")
+            onRefreshSeasonDetailsDataEvent()
+        else if isNodeEvent(msg, "refreshPlaylistData")
+            onRefreshPlaylistDataEvent()
+        else if isNodeEvent(msg, "refreshMovieDetailsData")
+            onRefreshMovieDetailsDataEvent()
+        else if isNodeEvent(msg, "selectedItem")
+            onSelectedItemEvent(msg)
+        else if isNodeEvent(msg, "movieSelected")
+            onMovieSelectedEvent(msg)
+        else if isNodeEvent(msg, "seriesSelected")
+            onSeriesSelectedEvent(msg)
+        else if isNodeEvent(msg, "seasonSelected")
+            onSeasonSelectedEvent(msg)
+        else if isNodeEvent(msg, "playSeriesFromStart")
+            onPlaySeriesFromStartEvent(msg)
+        else if isNodeEvent(msg, "playSeasonFromStart")
+            onPlaySeasonFromStartEvent(msg)
+        else if isNodeEvent(msg, "musicAlbumSelected")
+            onMusicAlbumSelectedEvent(msg)
+        else if isNodeEvent(msg, "appearsOnSelected")
+            onAppearsOnSelectedEvent(msg)
+        else if isNodeEvent(msg, "similarArtistSelected")
+            onSimilarArtistSelectedEvent(msg)
+        else if isNodeEvent(msg, "playSong")
+            onPlaySongEvent(msg)
+        else if isNodeEvent(msg, "playAlbumSelected")
+            onPlayAlbumEvent(msg)
+        else if isNodeEvent(msg, "shuffleAlbumSelected")
+            onShuffleAlbumEvent(msg)
+        else if isNodeEvent(msg, "subtitleToDelete")
+            onSubtitleToDeleteEvent(msg)
+        else if isNodeEvent(msg, "subtitleSearchButtonSelected")
+            onSubtitleSearchButtonSelectedEvent()
+        else if isNodeEvent(msg, "subtitleLanguageButtonSelected")
+            onSubtitleLanguageButtonSelectedEvent()
+        else if isNodeEvent(msg, "playlistItemSelected")
+            onPlaylistItemSelectedEvent(msg)
+        else if isNodeEvent(msg, "playArtistSelected")
+            onPlayArtistSelectedEvent(msg)
+        else if isNodeEvent(msg, "instantMixSelected")
+            onInstantMixSelectedEvent(msg)
+        else if isNodeEvent(msg, "search_value")
+            onSearch_valueEvent(msg)
+        else if isNodeEvent(msg, "itemSelected")
+            onItemSelectedEvent(msg)
+        else if isNodeEvent(msg, "buttonSelected")
+            onButtonSelectedEvent(msg)
+        else if isNodeEvent(msg, "content")
+            onContentEvent(msg)
+        else if isNodeEvent(msg, "userMenuOptionSelected")
+            button = msg.getRoSGNode()
+            group = sceneManager.callFunc("getActiveScene")
+            if isStringEqual(button.id, "change_server")
+                unset_setting("server")
+                session.server.Delete()
+                SignOut(false)
+                setUserColors()
+                sceneManager.callFunc("clearScenes")
+                goto app_start
+            else if isStringEqual(button.id, "change_user")
+                SignOut(false)
+                ' Reset colors to defaults
+                setUserColors()
+                sceneManager.callFunc("clearScenes")
+                goto app_start
+            else if isStringEqual(button.id, "sign_out")
+                SignOut()
+                setUserColors()
+                sceneManager.callFunc("clearScenes")
+                goto app_start
+            end if
+        else if isNodeEvent(msg, "state")
+            onStateEvent(msg)
+        else if type(msg) = "roDeviceInfoEvent"
+            onRoDeviceInfoEvent(msg)
+        else if type(msg) = "roInputEvent"
+            if msg.IsInput()
+                info = msg.GetInfo()
+                onDeepLinkingEvent(info)
+            end if
+        else if isNodeEvent(msg, "returnData")
+            onReturnDataEvent(msg)
+        else if isNodeEvent(msg, "dataReturned")
+            onDataReturnedEvent(msg)
+        else
+            print "Unhandled " type(msg)
+            print msg
+        end if
+    end while
+end sub
+
+sub downloadFallbackFont()
+    configEncoding = api.system.GetConfigurationByName("encoding")
+
+    if not isChainValid(configEncoding, "EnableFallbackFont") then return
+    if not configEncoding.EnableFallbackFont then return
+
+    files = api.fallbackFont.GetFonts()
+    if not isValidAndNotEmpty(files) then return
+
+    fallbackFont = {}
+    for each fontFile in files
+        if not isChainValid(fontFile, "name") then continue for
+
+        fontName = chainLookup(fontFile, "name")
+
+        lowerCaseFontName = LCase(fontName)
+        if not lowerCaseFontName.endsWith(".ttf") and not lowerCaseFontName.endsWith(".otf") then continue for
+
+        fontUri = `tmp:/${fontName}`
+        fileNeeded = false
+
+        if lowerCaseFontName.instr("bold") <> -1 and lowerCaseFontName.instr("italic") <> -1
+            if not isValid(fallbackFont.boldItalic)
+                fallbackFont.boldItalic = fontUri
+                fileNeeded = true
+            end if
+        else if lowerCaseFontName.instr("bold") <> -1
+            if not isValid(fallbackFont.bold)
+                fallbackFont.bold = fontUri
+                fileNeeded = true
+            end if
+        else if lowerCaseFontName.instr("italic") <> -1
+            if not isValid(fallbackFont.italic)
+                fallbackFont.italic = fontUri
+                fileNeeded = true
+            end if
+        else if not isValid(fallbackFont.regular)
+            fallbackFont.regular = fontUri
+            fileNeeded = true
+        end if
+
+        if fileNeeded
+            ' This exercise prevents downloading font files we won't use
+            APIRequest(api.fallbackFont.GetFontURL(fontName)).gettofile(fontUri)
+
+            ' Stop loop if we've downloaded all needed fonts
+            if fallbackFont.count() = 4 then exit for
+        end if
+    end for
+
+    if fallbackFont.count() = 0 then return ' No valid font files were downloaded
+
+    ' Make sure every style is set
+    if not isValid(fallbackFont.regular)
+        if isValid(fallbackFont.bold)
+            fallbackFont.regular = fallbackFont.bold
+        else if isValid(fallbackFont.italic)
+            fallbackFont.regular = fallbackFont.italic
+        else if isValid(fallbackFont.boldItalic)
+            fallbackFont.regular = fallbackFont.boldItalic
+        end if
+    end if
+
+    if not isValid(fallbackFont.bold)
+        fallbackFont.bold = fallbackFont.regular
+    end if
+
+    if not isValid(fallbackFont.italic)
+        fallbackFont.italic = fallbackFont.regular
+    end if
+
+    if not isValid(fallbackFont.boldItalic)
+        if isValid(fallbackFont.italic)
+            fallbackFont.boldItalic = fallbackFont.italic
+        else if isValid(fallbackFont.bold)
+            fallbackFont.boldItalic = fallbackFont.bold
+        else
+            fallbackFont.boldItalic = fallbackFont.regular
+        end if
+    end if
+
+    m.global.fallbackFont = fallbackFont
+end sub
+
+sub clearOldLibraryFilters()
+    forgetFilters = m.global.session.user.settings["itemgrid.forgetFilters"] ?? true
+    if not forgetFilters then return
+
+    for each settingKeys in m.global.session.user.settings.keys()
+        if isStringEqual(left(settingKeys, 8), "display.")
+            if isStringEqual(right(settingKeys, 7), ".filter") or isStringEqual(right(settingKeys, 14), ".filterOptions")
+                m.global.session.user.settings.delete(settingKeys)
+                unset_user_setting(settingKeys)
+            end if
+        end if
+    end for
+end sub
+
+sub displayWhatsNewPopup(args)
+    ' Bypass What's New popup if server is Jellyfin demo
+    if isStringEqual(m.global.session.server.url, "https://demo.jellyfin.org/stable")
+        set_user_setting("LastRunVersion", m.global.app.version)
+    end if
+
+    ' Bypass What's New popup if deep linking arguments were passed
+    if isValidAndNotEmpty(args.mediaType) and isValidAndNotEmpty(args.contentId)
+        set_user_setting("LastRunVersion", m.global.app.version)
+    end if
+
+    ' Has the current user run this version before?
+    usersLastRunVersion = m.global.session.user.settings.lastRunVersion
+    if ChannelVersionUpdated(usersLastRunVersion)
+        set_user_setting("LastRunVersion", m.global.app.version)
+        ' show what's new popup
+        if m.global.session.user.settings["load.allowwhatsnew"]
+            m.global.sceneManager.callFunc("whatsNewDialog")
+        end if
+    end if
+end sub
+
+sub setUserColors()
+    setBackgroundColor()
+    setBackgroundImage()
+    setOverhangColors()
+end sub
+
+sub setBackgroundColor()
+    m.scene.backgroundColor = chainLookupReturn(m.global.session, "user.settings.colorBackground", ColorPalette.VIEWBACKGROUND)
+end sub
+
+sub setBackgroundImage()
+    selectedBackgroundImage = chainLookupReturn(m.global.session, "user.settings.imageBackground", string.EMPTY)
+
+    if isStringEqual(selectedBackgroundImage, "splash")
+        selectedBackgroundImage = api.branding.GetSplashScreen({
+            format: "jpg",
+            foregroundLayer: 1,
+            fillWidth: 1920,
+            width: 1920,
+            fillHeight: 1080,
+            height: 1080,
+            tag: "splash"
+        })
+    end if
+
+    m.scene.callFunc("setBackgroundImage", selectedBackgroundImage)
+end sub
+
+sub setOverhangColors()
+    overhang = m.scene.findNode("overhang")
+    if not isValid(overhang) then return
+
+    overlayCurrentUserSelection = overhang.findNode("overlayCurrentUserSelection")
+    overlayCurrentUserSelection.blendColor = chainLookupReturn(m.global.session, "user.settings.colorCursor", ColorPalette.HIGHLIGHT)
+
+    overlayCurrentUser = overhang.findNode("overlayCurrentUser")
+    overlayCurrentUser.color = chainLookupReturn(m.global.session, "user.settings.colorHomeUsername", ColorPalette.WHITE)
+end sub
+
+' Everflix: intro de la E al abrir (máx. 7 s).
+sub playEverflixIntro()
+    intro = m.scene.createChild("Video")
+    intro.width = 1920
+    intro.height = 1080
+    intro.enableUI = false
+    intro.disableScreenSaver = true
+    content = CreateObject("roSGNode", "ContentNode")
+    content.url = "pkg:/videos/intro.mp4"
+    content.streamFormat = "mp4"
+    intro.content = content
+    intro.setFocus(true)
+    intro.control = "play"
+    timer = CreateObject("roTimespan")
+    while timer.TotalMilliseconds() < 7000
+        wait(100, m.port)
+        if intro.state = "finished" or intro.state = "error" then exit while
+    end while
+    intro.control = "stop"
+    m.scene.removeChild(intro)
+end sub

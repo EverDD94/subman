@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component name="UserSelect" extends="JFScreen">
+  <children>
+    <Rectangle id="unhideUsers" translation="[-600, 0]" width="600" height="1080">
+      <Text
+        id="unhideUserHeader"
+        text="Unhide Users"
+        horizAlign="left"
+        font="font:MediumSystemFont"
+        height="100"
+        width="400"
+        translation="[120, 120]" />
+
+      <LabelList
+        translation="[120,220]"
+        id="hiddenUsers"
+        itemSize="[400,60]"
+        vertFocusAnimationStyle="floatingFocus"
+        itemSpacing="[0, 10]"
+        textVertAlign="top" />
+    </Rectangle>
+
+    <Rectangle id="viewContent" translation="[0, 0]">
+      <Text
+        text="Select User"
+        horizAlign="center"
+        font="font:LargeSystemFont"
+        height="100"
+        width="1920"
+        translation="[0, 150]" />
+
+      <UserRow id="userRow" rowFocusAnimationStyle="fixedFocusWrap" translation="[130, 310]" />
+
+      <StandardButton
+        id="manualLogin"
+        text="Manual Login"
+        height="85"
+        width="350"
+        translation="[785,800]" />
+
+      <Text
+        id="manageHiddenUsers"
+        text="Manage Hidden Users"
+        horizAlign="center"
+        font="font:SmallestSystemFont"
+        height="100"
+        width="350"
+        translation="[785, 925]" />
+    </Rectangle>
+
+    <Animation id="hiddenUserAnimation" duration="0.5" repeat="false" easeFunction="linear">
+      <Vector2DFieldInterpolator id="hiddenUserSlider" key="[0.0, 1.0]" keyValue="[[-600, 0], [0, 0]]" fieldToInterp="unhideUsers.translation" />
+      <Vector2DFieldInterpolator id="viewContentSlider" key="[0.0, 1.0]" keyValue="[[0, 0], [600, 0]]" fieldToInterp="viewContent.translation" />
+    </Animation>
+  </children>
+  <interface>
+    <field id="showUser" type="node" alwaysNotify="true" />
+    <field id="hideUser" type="node" alwaysNotify="true" />
+    <field id="forgetUser" type="string" alwaysNotify="true" />
+    <field id="itemSelected" type="string" alwaysNotify="true" />
+    <field id="itemContent" type="array" onChange="itemContentChanged" />
+    <field id="hiddenUserList" type="array" onChange="onHiddenUserListChanged" />
+  </interface>
+</component>

@@ -1,0 +1,551 @@
+import "pkg:/source/api/baserequest.bs"
+import "pkg:/source/api/Image.bs"
+import "pkg:/source/enums/AnimationControl.bs"
+import "pkg:/source/enums/ColorPalette.bs"
+import "pkg:/source/enums/ImageType.bs"
+import "pkg:/source/enums/KeyCode.bs"
+import "pkg:/source/enums/MediaPlaybackState.bs"
+import "pkg:/source/enums/String.bs"
+import "pkg:/source/enums/TaskControl.bs"
+import "pkg:/source/enums/VideoControl.bs"
+import "pkg:/source/enums/ViewLoadStatus.bs"
+import "pkg:/source/utils/config.bs"
+import "pkg:/source/utils/misc.bs"
+
+sub init()
+    m.audioMiniPlayerContainerBorder = m.top.findNode("audioMiniPlayerContainerBorder")
+    m.audioMiniPlayerContainerBorder.color = ColorPalette.LIGHTGREY
+    m.audioMiniPlayerContainerBorder.opacity = .3
+    m.audioMiniPlayerContainerBorder.visible = false
+
+    m.audioMiniPlayerContainer = m.top.findNode("audioMiniPlayerContainer")
+    m.audioMiniPlayerContainer.color = ColorPalette.DARKGREY
+    m.top.visible = false
+    m.audioMiniPlayerContainer.visible = false
+
+    m.slideDownAnimation = m.top.findNode("slideDown")
+    m.slideUpAnimation = m.top.findNode("slideUp")
+
+    setupAnimationTasks()
+    setupInfoNodes()
+    setupButtons()
+
+    m.song = m.top.findNode("song")
+    m.song.font.size = 40
+
+    m.seekBar.color = ColorPalette.BLACK77
+    m.playPosition.color = ColorPalette.SMOKE
+
+    m.currentItemIsFavorite = false
+    m.previouslySelectedButtonIndex = 0
+    m.selectedButtonIndex = 1
+end sub
+
+sub setupButtons()
+    buttons = ["buttons", "previous", "stop", "play", "next", "favorite", "nowPlaying"]
+
+    for each button in buttons
+        m[button] = m.top.findNode(button)
+    end for
+
+    if isValid(m.favorite)
+        m.favoriteFocusBox = m.favorite.findNode("favoriteFocusBox")
+        m.favoriteIcon = m.favorite.findNode("favoriteIcon")
+    end if
+end sub
+
+function getButtonByIndex(index as integer) as dynamic
+    if not isValid(m.buttons) then return invalid
+    if index < 0 or index >= m.buttons.getChildCount() then return invalid
+
+    return m.buttons.getChild(index)
+end function
+
+sub setButtonDefaultStyle(button as dynamic)
+    if not isValid(button) then return
+
+    if isStringEqual(button.id, "favorite")
+        setFavoriteButtonStyle(false)
+        return
+    end if
+
+    button.blendColor = ColorPalette.WHITE
+    button.opacity = .85
+end sub
+
+sub setButtonSelectedStyle(button as dynamic)
+    if not isValid(button) then return
+
+    if isStringEqual(button.id, "favorite")
+        setFavoriteButtonStyle(true)
+        return
+    end if
+
+    button.blendColor = chainLookupReturn(m.global.session, "user.settings.colorCursor", ColorPalette.HIGHLIGHT)
+    button.opacity = 1
+end sub
+
+sub setFavoriteButtonStyle(isFocused as boolean)
+    if not isValid(m.favoriteIcon) then return
+
+    m.favoriteIcon.blendColor = m.currentItemIsFavorite ? ColorPalette.RED : ColorPalette.WHITE
+
+    m.favoriteIcon.opacity = isFocused ? 1 : .85
+
+    ' Keep focus separate from the heart tint so favorite state remains visible.
+    if isValid(m.favoriteFocusBox)
+        m.favoriteFocusBox.visible = isFocused
+        m.favoriteFocusBox.blendColor = chainLookupReturn(m.global.session, "user.settings.colorCursor", ColorPalette.HIGHLIGHT)
+        m.favoriteFocusBox.opacity = 1
+    end if
+end sub
+
+' Event handler when user selected a different playback button
+sub onButtonSelectedChange()
+    ' Change previously selected button back to default image
+    selectedButton = getButtonByIndex(m.previouslySelectedButtonIndex)
+    setButtonDefaultStyle(selectedButton)
+
+    ' Change selected button image to selected image
+    selectedButton = getButtonByIndex(m.selectedButtonIndex)
+    setButtonSelectedStyle(selectedButton)
+end sub
+
+sub updateMiniPlayerFocusStyle()
+    if not isValid(m.audioMiniPlayerContainerBorder) then return
+
+    if m.top.selected
+        m.audioMiniPlayerContainerBorder.color = chainLookupReturn(m.global.session, "user.settings.colorCursor", ColorPalette.HIGHLIGHT)
+        m.audioMiniPlayerContainerBorder.opacity = .9
+        return
+    end if
+
+    m.audioMiniPlayerContainerBorder.color = ColorPalette.LIGHTGREY
+    m.audioMiniPlayerContainerBorder.opacity = .3
+end sub
+
+sub highlightPlayButton()
+    m.previouslySelectedButtonIndex = m.selectedButtonIndex
+    m.selectedButtonIndex = 1
+    onButtonSelectedChange()
+end sub
+
+function isVisible() as boolean
+    return m.audioMiniPlayerContainer.visible
+end function
+
+sub onSlideDownAnimationStateChange()
+    if not isStringEqual(m.slideDownAnimation.state, "stopped") then return
+
+    m.slideDownAnimation.unobserveFieldScoped("state")
+    m.audioMiniPlayerContainerBorder.visible = false
+    m.audioMiniPlayerContainer.visible = false
+    m.top.visible = false
+
+    m.previouslySelectedButtonIndex = m.selectedButtonIndex
+    m.selectedButtonIndex = -1
+    onButtonSelectedChange()
+
+    ' We hiding a mini player that is currently selected
+    if isSelected()
+        setSelected(false)
+        removeFocus()
+    end if
+end sub
+
+sub setVisible(newVisibleState as boolean)
+
+    if newVisibleState
+        ' Keep repeated show requests from restarting the mini-player animation.
+        if isVisible()
+            updateMiniPlayerFocusStyle()
+            return
+        end if
+
+        m.audioMiniPlayerContainerBorder.visible = true
+        m.audioMiniPlayerContainer.visible = true
+        m.top.visible = true
+        updateMiniPlayerFocusStyle()
+        highlightPlayButton()
+        m.slideUpAnimation.control = AnimationControl.START
+    else
+        m.slideDownAnimation.observeFieldScoped("state", "onSlideDownAnimationStateChange")
+        m.slideDownAnimation.control = AnimationControl.START
+        return
+    end if
+end sub
+
+function isSelected() as boolean
+    return m.top.selected
+end function
+
+sub setSelected(newSelectedState as boolean)
+    m.top.selected = newSelectedState
+    updateMiniPlayerFocusStyle()
+
+    if m.top.selected
+        m.previouslySelectedButtonIndex = m.selectedButtonIndex
+        m.selectedButtonIndex = 1
+        onButtonSelectedChange()
+    end if
+
+    if not m.top.selected
+        highlightPlayButton()
+    end if
+end sub
+
+sub setupAnimationTasks()
+    m.playPositionAnimation = m.top.FindNode("playPositionAnimation")
+    m.playPositionAnimationWidth = m.top.FindNode("playPositionAnimationWidth")
+end sub
+
+' Creates audio node used to play song(s)
+sub setup()
+    m.global.audioPlayer.observeFieldScoped("position", "audioPositionChanged")
+    m.global.audioPlayer.observeFieldScoped("audioData", "onAudioDataChanged")
+    m.global.audioPlayer.observeFieldScoped("state", "onAudioPlayerStateChanged")
+    updatePlayButtonState()
+end sub
+
+sub onAudioDataChanged()
+    stopLoadingSpinner()
+    updatePlayButtonState()
+
+    ' If user starts playing a mixed playlist, hide mini player
+    if m.global.queueManager.callFunc("getQueueUniqueTypes").count() <> 1
+        setVisible(false)
+        return
+    end if
+
+    data = m.global.audioPlayer.audioData
+    if not isValidAndNotEmpty(data)
+        setVisible(false)
+        return
+    end if
+
+    useMetaTask = false
+    currentItem = m.global.queueManager.callFunc("getCurrentItem")
+    if not isValid(currentItem)
+        setVisible(false)
+        return
+    end if
+
+    setCurrentFavoriteState(currentItem)
+
+    if not isValid(currentItem.RunTimeTicks)
+        useMetaTask = true
+    end if
+
+    if not isValid(currentItem.AlbumArtist)
+        useMetaTask = true
+    end if
+
+    if not isValid(currentItem.name)
+        useMetaTask = true
+    end if
+
+    if not isValid(currentItem.Artists)
+        useMetaTask = true
+    end if
+
+    if not isValid(getFavoriteState(currentItem))
+        useMetaTask = true
+    end if
+
+    if useMetaTask
+        ' Load meta data
+        m.LoadMetaDataTask = CreateObject("roSGNode", "LoadItemsTask")
+        m.LoadMetaDataTask.itemsToLoad = "metaData"
+        m.LoadMetaDataTask.itemId = currentItem.id
+        m.LoadMetaDataTask.observeField("content", "onMetaDataLoaded")
+        m.LoadMetaDataTask.control = TaskControl.RUN
+    else
+        setPosterImage(ImageURL(currentItem.id, ImageType.PRIMARY, { "maxHeight": 180, "maxWidth": 180 }))
+        setOnScreenTextValues(currentItem)
+        m.songDuration = currentItem.RunTimeTicks / 10000000.0
+    end if
+end sub
+
+sub onAudioPlayerStateChanged()
+    updatePlayButtonState()
+end sub
+
+sub updatePlayButtonState()
+    if not isValid(m.play) then return
+
+    if isStringEqual(m.global.audioPlayer.state, MediaPlaybackState.PLAYING)
+        m.play.uri = "pkg:/images/icons/pause.png"
+    else
+        m.play.uri = "pkg:/images/icons/play.png"
+    end if
+end sub
+
+function getFavoriteState(item as dynamic) as dynamic
+    if isChainValid(item, "json.UserData.IsFavorite") then return chainLookup(item, "json.UserData.IsFavorite")
+    if isChainValid(item, "UserData.IsFavorite") then return chainLookup(item, "UserData.IsFavorite")
+
+    ' The node field defaults to false, so only true proves favorite state is known.
+    favorite = chainLookup(item, "favorite")
+    if isValid(favorite) and favorite = true then return true
+
+    return invalid
+end function
+
+sub updateFavoriteButtonState()
+    if not isValid(m.favorite) then return
+
+    selectedButton = getButtonByIndex(m.selectedButtonIndex)
+    if isValid(selectedButton) and isStringEqual(selectedButton.id, "favorite")
+        setButtonSelectedStyle(m.favorite)
+    else
+        setButtonDefaultStyle(m.favorite)
+    end if
+end sub
+
+sub setCurrentFavoriteState(item as dynamic)
+    favoriteState = getFavoriteState(item)
+    m.currentItemIsFavorite = isValid(favoriteState) ? favoriteState : false
+    updateFavoriteButtonState()
+end sub
+
+sub updateCurrentItemFavoriteValue(isFavorite as boolean)
+    currentItem = m.global.queueManager.callFunc("getCurrentItem")
+    if not isValid(currentItem) then return
+
+    if isChainValid(currentItem, "json.UserData")
+        itemData = currentItem.json
+        itemData.UserData.AddReplace("IsFavorite", isFavorite)
+        currentItem.json = itemData
+    end if
+
+    if isChainValid(currentItem, "UserData")
+        currentItem.UserData.AddReplace("IsFavorite", isFavorite)
+    end if
+
+    if isChainValid(currentItem, "favorite")
+        currentItem.favorite = isFavorite
+    end if
+end sub
+
+sub runFavoriteTask(itemId as string, isFavorite as boolean)
+    m.favoriteItemsTask = CreateObject("roSGNode", "FavoriteItemsTask")
+    m.favoriteItemsTask.favTask = isFavorite ? "Favorite" : "Unfavorite"
+    m.favoriteItemsTask.itemId = itemId
+    m.favoriteItemsTask.control = TaskControl.RUN
+end sub
+
+sub favoriteClicked()
+    currentItem = m.global.queueManager.callFunc("getCurrentItem")
+    itemId = chainLookup(currentItem, "id")
+    if not isValidAndNotEmpty(itemId) then return
+
+    m.currentItemIsFavorite = not m.currentItemIsFavorite
+
+    updateCurrentItemFavoriteValue(m.currentItemIsFavorite)
+    updateFavoriteButtonState()
+    runFavoriteTask(itemId, m.currentItemIsFavorite)
+end sub
+
+sub setupInfoNodes()
+    m.albumCover = m.top.findNode("albumCover")
+    m.playPosition = m.top.findNode("playPosition")
+    m.seekBar = m.top.findNode("seekBar")
+end sub
+
+sub audioPositionChanged()
+    if not isVisible() then return
+
+    stopLoadingSpinner()
+
+    if m.global.audioPlayer.position = 0
+        m.playPosition.width = 0
+    end if
+
+    if not isValid(m.global.audioPlayer.position)
+        playPositionBarWidth = 0
+    else if not isValid(m.songDuration)
+        playPositionBarWidth = 0
+    else
+        songPercentComplete = m.global.audioPlayer.position / m.songDuration
+        playPositionBarWidth = m.seekBar.width * songPercentComplete
+    end if
+
+    ' Ensure position bar is never wider than the seek bar
+    if playPositionBarWidth > m.seekBar.width
+        playPositionBarWidth = m.seekBar.width
+    end if
+
+    ' Use animation to make the display smooth
+    m.playPositionAnimationWidth.keyValue = [m.playPosition.width, playPositionBarWidth]
+    m.playPositionAnimation.control = AnimationControl.START
+end sub
+
+sub playAction()
+    if m.global.audioPlayer.state = MediaPlaybackState.PLAYING
+        m.global.audioPlayer.control = VideoControl.PAUSE
+        return
+    end if
+
+    if m.global.audioPlayer.state = MediaPlaybackState.PAUSED
+        m.global.audioPlayer.control = VideoControl.RESUME
+        return
+    end if
+
+    if m.global.audioPlayer.state = MediaPlaybackState.FINISHED
+        m.global.audioPlayer.control = VideoControl.PLAY
+        return
+    end if
+end sub
+
+sub stopClicked()
+    m.global.queueManager.callFunc("clear")
+    m.global.audioPlayer.control = "stop"
+end sub
+
+function findCurrentSongIndex(songList) as integer
+    if not isValidAndNotEmpty(songList) then return 0
+
+    for i = 0 to songList.count() - 1
+        if isStringEqual(songList[i].id, m.global.queueManager.callFunc("getCurrentItem").id)
+            return i
+        end if
+    end for
+
+    return 0
+end function
+
+sub onMetaDataLoaded(event as object)
+    metaDataTask = event.getRoSGNode()
+    if not isValid(metaDataTask) then return
+
+    metaDataTask.unobserveField("content")
+
+    currentItem = m.global.queueManager.callFunc("getCurrentItem")
+    currentItemId = chainLookup(currentItem, "id")
+    ' Metadata tasks can complete after the user skips tracks. Do not apply stale
+    ' title, poster, or favorite state to the new current queue item.
+    if not isStringEqual(metaDataTask.itemId, currentItemId) then return
+    if not isValidAndNotEmpty(metaDataTask.content) then return
+
+    data = metaDataTask.content[0]
+    if isValidAndNotEmpty(data) and isValid(data.json)
+        if not isStringEqual(chainLookup(data.json, "id"), currentItemId) then return
+
+        setPosterImage(data.posterURL)
+        setOnScreenTextValues(data.json)
+        setCurrentFavoriteState(data.json)
+        updateCurrentItemFavoriteValue(m.currentItemIsFavorite)
+
+        if isValid(data.json.RunTimeTicks)
+            m.songDuration = data.json.RunTimeTicks / 10000000.0
+        end if
+    end if
+end sub
+
+' Set poster image on screen
+sub setPosterImage(posterURL)
+    if isValid(posterURL)
+        if not isStringEqual(m.albumCover.uri, posterURL)
+            m.albumCover.uri = posterURL
+        end if
+    end if
+end sub
+
+' Populate on screen text variables
+sub setOnScreenTextValues(json)
+    if isValid(json) and isValid(json.Artists[0])
+        setFieldTextValue("song", `${json.Artists[0].replace(chr(8208), "-")} - ${json.name.trim()}`)
+    else
+        setFieldTextValue("song", `${json.name.trim()}`)
+    end if
+end sub
+
+' Remove focus from mini player
+sub removeFocus()
+    group = m.global.sceneManager.callFunc("getActiveScene")
+    if isChainValid(group, "lastFocus")
+        group.lastFocus.setFocus(true)
+        if isStringEqual(group.lastFocus.subtype(), "TextButton")
+            group.lastFocus.focus = true
+        end if
+    end if
+end sub
+
+sub nowPlayingClicked()
+    setSelected(false)
+    removeFocus()
+
+    data = {
+        selectionType: "nowplaying"
+    }
+    m.top.getScene().jumpTo = data
+end sub
+
+' Process key press events
+function onKeyEvent(key as string, press as boolean) as boolean
+    if not press then return false
+
+    if not isSelected() then return false
+
+    if key = KeyCode.RIGHT
+        if m.selectedButtonIndex >= m.buttons.getChildCount() - 1 then return false
+
+        m.previouslySelectedButtonIndex = m.selectedButtonIndex
+        m.selectedButtonIndex = m.selectedButtonIndex + 1
+
+        onButtonSelectedChange()
+        return true
+    end if
+
+    if key = KeyCode.LEFT
+        if m.selectedButtonIndex = 0 then return false
+        m.previouslySelectedButtonIndex = m.selectedButtonIndex
+        m.selectedButtonIndex = m.selectedButtonIndex - 1
+
+        onButtonSelectedChange()
+        return true
+    end if
+
+    if key = KeyCode.OK
+        selectedButton = getButtonByIndex(m.selectedButtonIndex)
+        if not isValid(selectedButton) then return false
+
+        selectedButtonID = selectedButton.id
+
+        if isStringEqual(selectedButtonID, "play")
+            playAction()
+            return true
+        else if isStringEqual(selectedButtonID, "previous")
+            m.global.audioPlayer.callFunc("playPrevious")
+            return true
+        else if isStringEqual(selectedButtonID, "next")
+            m.global.audioPlayer.callFunc("playNext")
+            return true
+        else if isStringEqual(selectedButtonID, "stop")
+            stopClicked()
+            return true
+        else if isStringEqual(selectedButtonID, "favorite")
+            favoriteClicked()
+            return true
+        else if isStringEqual(selectedButtonID, "nowPlaying")
+            nowPlayingClicked()
+            return true
+        end if
+    end if
+
+    if isStringEqual(key, KeyCode.PLAY)
+        return true
+    end if
+
+    if key = KeyCode.REPLAY
+        setSelected(false)
+        removeFocus()
+        return true
+    end if
+
+    setSelected(false)
+    removeFocus()
+
+    return false
+end function
+

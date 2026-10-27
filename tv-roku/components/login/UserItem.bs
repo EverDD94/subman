@@ -1,0 +1,50 @@
+import "pkg:/source/enums/ColorPalette.bs"
+import "pkg:/source/enums/PosterLoadStatus.bs"
+import "pkg:/source/utils/misc.bs"
+
+sub init()
+    m.top.findNode("profileType").color = ColorPalette.LIGHTGREY
+
+    m.profileImage = m.top.findNode("profileImage")
+    m.profileImage.observeField("loadStatus", "onPosterLoadStatusChanged")
+end sub
+
+sub onPosterLoadStatusChanged()
+    if m.profileImage.loadStatus <> PosterLoadStatus.LOADING
+        m.profileImage.unobserveField("loadStatus")
+    end if
+
+    if isStringEqual(m.profileImage.loadStatus, PosterLoadStatus.FAILED)
+        m.profileImage.uri = "pkg:/images/baseline_person_white_48dp.png"
+    end if
+end sub
+
+sub onFocusChanged()
+    itemData = m.top.itemContent
+    if not isValid(itemData) then return
+
+    m.top.findNode("forgetUserIcon").visible = m.top.itemHasFocus
+
+    if m.top.itemHasFocus
+        m.top.findNode("profileType").color = ColorPalette.WHITE
+    else
+        m.top.findNode("profileType").color = ColorPalette.LIGHTGREY
+    end if
+end sub
+
+sub itemContentChanged()
+    itemData = m.top.itemContent
+    if not isValid(itemData) then return
+
+    profileName = m.top.findNode("profileName")
+
+    m.top.findNode("profileType").text = itemData.isPublic ? tr("Public Profile") : tr("Saved Profile")
+
+    if itemData.imageURL = ""
+        m.profileImage.uri = "pkg:/images/baseline_person_white_48dp.png"
+    else
+        m.profileImage.uri = itemData.imageURL
+    end if
+
+    profileName.text = itemData.name
+end sub

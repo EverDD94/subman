@@ -1,0 +1,27 @@
+{
+  "files": [
+    {
+      "src": "source/**/!(Main.brs)",
+      "dest": "source"
+    },
+    {
+      "src": "components/**/*",
+      "dest": "components"
+    },
+    {
+      "src": "locale/**/*",
+      "dest": "locale"
+    },
+    {
+      "src": "settings/**/*",
+      "dest": "settings"
+    },
+    "manifest"
+  ],
+  "diagnosticFilters": ["node_modules/**/*", "**/roku_modules/**/*"],
+  "autoImportComponentScript": true,
+  "stagingDir": "build",
+  "retainStagingDir": true,
+  "plugins": [],
+  "sourceMap": true
+}

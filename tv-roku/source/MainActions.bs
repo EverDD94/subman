@@ -1,0 +1,403 @@
+import "pkg:/components/manager/ViewCreator.bs"
+import "pkg:/source/enums/CollectionType.bs"
+import "pkg:/source/enums/ItemType.bs"
+import "pkg:/source/enums/ResumePopupAction.bs"
+import "pkg:/source/enums/String.bs"
+import "pkg:/source/utils/misc.bs"
+
+namespace MainAction
+    sub onPlayButtonClicked(activeScene as object)
+        startLoadingSpinner()
+        activeScene.itemContent.id = chainLookup(activeScene, "selectedVideoStreamId")
+        ' Use selected audio stream if set by user before playback
+        activeScene.itemContent.selectedAudioStreamIndex = chainLookup(activeScene, "selectedAudioStreamIndex") ?? 0
+        activeScene.itemContent.startingPoint = 0
+        playItem(activeScene.itemContent, { method: "push", bypassNextPreferredAudioTrackIndexReset: true })
+    end sub
+
+    sub onResumeButtonClicked(activeScene as object)
+        startLoadingSpinner()
+        activeScene.itemContent.id = chainLookup(activeScene, "selectedVideoStreamId")
+        activeScene.itemContent.selectedAudioStreamIndex = chainLookup(activeScene, "selectedAudioStreamIndex") ?? 0
+        activeScene.itemContent.startingPoint = chainLookup(activeScene, "itemContent.json.UserData.PlaybackPositionTicks") ?? 0
+        playItem(activeScene.itemContent, { method: "push", bypassNextPreferredAudioTrackIndexReset: true })
+    end sub
+
+    sub onPartButtonClicked(activeScene as object)
+        partData = {
+            data: [{
+                id: chainLookup(activeScene, "additionalParts.masterID"),
+                type: "partselect",
+                Track: {
+                    description: "Part 1"
+                }
+            }]
+        }
+
+        selectedPart = chainLookup(activeScene, "selectedPart.id") ?? string.EMPTY
+
+        i = 2
+        for each part in chainLookup(activeScene, "additionalParts.parts.Items")
+            part.type = "partselect"
+            part.Track = {}
+            part.Track.description = `Part ${i}`
+
+            if selectedPart <> string.EMPTY
+                if isStringEqual(part.id, selectedPart)
+                    part.selected = true
+                end if
+            end if
+
+            partData.data.push(part)
+
+            i++
+        end for
+
+        m.global.sceneManager.callFunc("radioDialog", tr("Select Part"), partData)
+        m.global.sceneManager.observeField("returnData", m.port)
+    end sub
+
+    sub onTrailerButtonClicked(activeScene as object)
+        startLoadingSpinner()
+
+        if isChainValid(activeScene, "additionalParts.masterID")
+            trailerData = api.items.GetLocalTrailers(activeScene.additionalParts.masterID, { userId: m.global.session.user.id })
+        else
+            trailerData = api.items.GetLocalTrailers(activeScene.id, { userId: m.global.session.user.id })
+        end if
+
+        if isValid(trailerData) and isValid(trailerData[0]) and isValid(trailerData[0].id)
+            playItem(trailerData, { method: "set", bypassNextPreferredAudioTrackIndexReset: true })
+        else
+            stopLoadingSpinner()
+        end if
+
+        if isChainValid(activeScene, "lastFocus")
+            activeScene.lastFocus.setFocus(true)
+        end if
+    end sub
+
+    sub onWatchedButtonClicked(activeScene as object)
+        movie = chainLookup(activeScene, "itemContent")
+        if not isChainValid(movie, "watched") or not isValid(movie.id) then return
+
+        isFavorite = chainLookup(movie, "favorite")
+        isWatched = not movie.watched
+
+        setPlayed(movie.id, isWatched)
+
+        if isChainValid(movie, "json.UserData")
+            movieData = movie.json
+            movieData.UserData.AddReplace("IsFavorite", isFavorite)
+            movieData.UserData.AddReplace("Played", isWatched)
+            movieData.UserData.AddReplace("PlaybackPositionTicks", 0)
+            movie.json = movieData
+        end if
+
+        movie.favorite = isFavorite
+        movie.watched = isWatched
+        updateWatchedButton(activeScene, isWatched)
+    end sub
+
+    sub updateWatchedButton(activeScene as object, isWatched as boolean)
+        watchedButton = activeScene.findNode("watched-button")
+        if not isValid(watchedButton) then return
+
+        if isWatched
+            watchedButton.text = tr("Watched")
+            watchedButton.AUDIO_GUIDE_SUFFIX = tr("Watched")
+            return
+        end if
+
+        watchedButton.text = tr("Mark As Played")
+        watchedButton.AUDIO_GUIDE_SUFFIX = tr("Mark As Played")
+    end sub
+
+    sub onMyListButtonClicked(activeScene as object)
+        movie = chainLookup(activeScene, "itemContent")
+        if not isValid(movie.id) then return
+
+        if activeScene.isInMyList
+            MainAction.removeItemFromMyList(movie.id)
+        else
+            MainAction.addItemToMyList(movie.id)
+        end if
+
+        activeScene.isInMyList = not activeScene.isInMyList
+    end sub
+
+    sub onPlaylistButtonClicked(activeScene as object)
+        startLoadingSpinner()
+
+        movie = chainLookup(activeScene, "itemContent")
+        if not isValid(movie.id) then return
+
+        m.LoadPlaylistsTask = createObject("roSGNode", "LoadItemsTask")
+        m.LoadPlaylistsTask.itemId = movie.id
+        m.LoadPlaylistsTask.itemsToLoad = "playlists"
+        m.LoadPlaylistsTask.observeFieldScoped("content", m.port)
+        m.LoadPlaylistsTask.control = TaskControl.RUN
+    end sub
+
+    sub onFavoriteButtonClicked(activeScene as object)
+        movie = chainLookup(activeScene, "itemContent")
+        if not isChainValid(movie, "favorite") or not isValid(movie.id) then return
+
+        isFavorite = not movie.favorite
+        isWatched = chainLookup(movie, "watched")
+
+        if isFavorite
+            api.users.MarkFavorite(movie.id, { userId: m.global.session.user.id })
+        else
+            api.users.UnmarkFavorite(movie.id, { userId: m.global.session.user.id })
+        end if
+
+        if isChainValid(movie, "json.UserData")
+            movieData = movie.json
+            movieData.UserData.AddReplace("IsFavorite", isFavorite)
+            movieData.UserData.AddReplace("Played", isWatched)
+            movie.json = movieData
+        end if
+
+        movie.favorite = isFavorite
+        movie.watched = isWatched
+    end sub
+
+    sub onEditSubtitlesButtonClicked(activeScene as object)
+        subtitleSearchView = createObject("roSGNode", "SubtitleSearchView")
+        subtitleSearchView.observeField("subtitleLanguageButtonSelected", m.port)
+        subtitleSearchView.observeField("subtitleSearchButtonSelected", m.port)
+        subtitleSearchView.observeField("subtitleToDelete", m.port)
+
+        ' Set preferredSubtitleLanguage data so we can default the dropdown and popup correctly
+        subtitleSearchView.cultures = api.localization.GetCultures()
+        preferredSubtitleLanguage = chainLookup(m.global.session, "user.configuration.SubtitleLanguagePreference")
+        if not isValidAndNotEmpty(preferredSubtitleLanguage)
+            preferredSubtitleLanguage = "eng"
+        end if
+
+        subtitleSearchView.preferredSubtitleLanguage = preferredSubtitleLanguage
+
+        ' Load the My Subtitles data now so it's up to date if user adds/deletes something it's updated
+        ' If the data is bad, don't load the view
+        metaData = ItemMetaData(activeScene.itemContent.id)
+        if isValidAndNotEmpty(metaData)
+            subtitleSearchView.itemContent = metaData
+            m.global.sceneManager.callFunc("pushScene", subtitleSearchView)
+        end if
+    end sub
+
+    sub onGoToSeriesButtonClicked(activeScene as object)
+        CreateSeriesDetailsGroup(activeScene.itemContent.showID)
+    end sub
+
+    sub onGoToSeasonButtonClicked(activeScene as object)
+        CreateSeasonDetailsGroupByID(activeScene.itemContent.LookupCI("showID"), activeScene.itemContent.LookupCI("seasonID"))
+    end sub
+
+    sub playItem(item as dynamic, params = {} as object)
+        if not isValid(item) then return
+
+        startLoadingSpinner()
+
+        playItemParams = {
+            method: "push",
+            bypassNextPreferredAudioTrackIndexReset: false,
+            resetShuffle: false,
+            setShuffle: false,
+            showAudioPlayerView: false,
+            position: -1
+        }
+
+        playItemParams.append(params)
+
+        if playItemParams.bypassNextPreferredAudioTrackIndexReset
+            m.global.queueManager.callFunc("bypassNextPreferredAudioTrackIndexReset")
+        end if
+
+        if playItemParams.resetShuffle
+            m.global.queueManager.callFunc("resetShuffle")
+        end if
+
+        m.global.queueManager.callFunc("clear")
+        m.global.queueManager.callFunc(playItemParams.method, item)
+
+        if playItemParams.setShuffle
+            m.global.queueManager.callFunc("setShuffle", true)
+        end if
+
+        if playItemParams.position <> -1
+            m.global.queueManager.callFunc("setPosition", playItemParams.position)
+        end if
+
+        m.global.queueManager.callFunc("playQueue", playItemParams.showAudioPlayerView)
+    end sub
+
+    ' Check if this is a, "OK" Dialog and close if so
+    sub closeOKDialog(msg)
+        dialog = msg.getRoSGNode()
+        if isStringEqual(dialog.id, "OKDialog")
+            dialog.unobserveField("buttonSelected")
+            dialog.close = true
+        end if
+    end sub
+
+    sub setPlayed(itemID as string, isPlayed as boolean)
+        group = m.global.sceneManager.callFunc("getActiveScene")
+        if isValid(group)
+            if isStringEqual(group.subtype(), "VisualLibraryScene")
+                group.selectedItem = invalid
+                group.quickPlayNode = invalid
+                itemFocused = group.callFunc("getItemFocused")
+                itemFocused.callFunc("setWatched", isPlayed)
+            end if
+        end if
+
+        if isPlayed
+            date = CreateObject("roDateTime")
+            dateStr = date.ToISOString()
+            api.users.MarkPlayed(itemID, { "DatePlayed": dateStr, "PlaybackPositionTicks": 0, userId: m.global.session.user.id })
+            return
+        end if
+
+        api.users.UnmarkPlayed(itemID, { userId: m.global.session.user.id })
+    end sub
+
+    sub addItemToFavorites(itemID as string)
+        api.users.MarkFavorite(itemID, { userId: m.global.session.user.id })
+
+        group = m.global.sceneManager.callFunc("getActiveScene")
+        if isValid(group)
+            if isStringEqual(group.subtype(), "home")
+                group.callFunc("refresh")
+                return
+            end if
+            if isStringEqual(group.subtype(), "albumView")
+                pageItemID = chainLookupReturn(group, "pageContent.id", String.EMPTY)
+                if isStringEqual(pageItemID, itemID)
+                    group.IsFavorite = true
+                end if
+            end if
+        end if
+    end sub
+
+    sub removeItemFromFavorites(itemID as string)
+        api.users.UnmarkFavorite(itemID, { userId: m.global.session.user.id })
+
+        group = m.global.sceneManager.callFunc("getActiveScene")
+        if isValid(group)
+            if isStringEqual(group.subtype(), "home")
+                group.callFunc("refresh")
+                return
+            end if
+            if isStringEqual(group.subtype(), "albumView")
+                pageItemID = chainLookupReturn(group, "pageContent.id", String.EMPTY)
+                if isStringEqual(pageItemID, itemID)
+                    group.IsFavorite = false
+                end if
+            end if
+        end if
+    end sub
+
+    sub addItemToMyList(itemID as string)
+        data = api.GetUserViews({ "userId": m.global.session.user.id })
+        if not isChainValid(data, "items") then return
+
+        myListPlaylist = invalid
+
+        for each item in data.LookupCI("items")
+            if isStringEqual(item.LookupCI("CollectionType"), "playlists")
+                myListPlaylist = api.items.Get({
+                    "userid": m.global.session.user.id,
+                    "includeItemTypes": "Playlist",
+                    "nameStartsWith": "|My List|",
+                    "parentId": item.LookupCI("id")
+                })
+                exit for
+            end if
+        end for
+
+        ' My list playlist exists. Add item to it
+        if isValid(myListPlaylist) and isValidAndNotEmpty(myListPlaylist.items)
+            api.playlists.Add(myListPlaylist.items[0].LookupCI("id"), {
+                ids: itemID,
+                userid: m.global.session.user.id
+            })
+
+            group = m.global.sceneManager.callFunc("getActiveScene")
+            if isValid(group)
+                if isStringEqual(group.subtype(), "home")
+                    group.callFunc("refresh")
+                end if
+            end if
+
+            return
+        end if
+
+        ' My list playlist does not exist. Create it with this item
+        api.playlists.Create({
+            name: "|My List|",
+            ids: [itemID],
+            userid: m.global.session.user.id,
+            mediatype: "Unknown",
+            users: [
+                {
+                    userid: m.global.session.user.id,
+                    canedit: true
+                }
+            ],
+            ispublic: false
+        })
+
+        group = m.global.sceneManager.callFunc("getActiveScene")
+        if isValid(group)
+            if isStringEqual(group.subtype(), "home")
+                group.callFunc("refresh")
+            end if
+        end if
+    end sub
+
+    ' Remove item from user's My List playlist
+    sub removeItemFromMyList(itemID as string)
+
+        data = api.GetUserViews({ "userId": m.global.session.user.id })
+        if not isChainValid(data, "items") then return
+
+        myListPlaylist = invalid
+
+        for each item in data.LookupCI("items")
+            if isStringEqual(item.LookupCI("CollectionType"), "playlists")
+                myListPlaylist = api.items.Get({
+                    "userid": m.global.session.user.id,
+                    "includeItemTypes": "Playlist",
+                    "nameStartsWith": "|My List|",
+                    "parentId": item.LookupCI("id")
+                })
+                exit for
+            end if
+        end for
+
+        ' My list playlist exists. Remove item from it
+        if isValid(myListPlaylist) and isValidAndNotEmpty(myListPlaylist.items)
+            api.playlists.Remove(myListPlaylist.items[0].LookupCI("id"), {
+                entryIds: itemID
+            })
+
+            group = m.global.sceneManager.callFunc("getActiveScene")
+            if isValid(group)
+                if isStringEqual(group.subtype(), "home")
+                    group.callFunc("refresh")
+                end if
+            end if
+        end if
+    end sub
+
+    ' Remove item from playlist
+    sub removeItemFromPlaylist(playlistID as string, itemID as string)
+        if isValidAndNotEmpty(playlistID) and isValidAndNotEmpty(itemID)
+            api.playlists.Remove(playlistID, {
+                entryIds: itemID
+            })
+        end if
+    end sub
+end namespace

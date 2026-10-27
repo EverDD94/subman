@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component name="MusicSongData" extends="JFContentItem">
+  <interface>
+    <field id="id" type="string" />
+    <field id="title" type="string" />
+    <field id="trackNumber" type="integer" />
+    <field id="playCount" type="integer" />
+    <field id="favoriteStatus" type="string" />
+    <field id="RunTimeTicks" type="float" />
+    <field id="ArtistItems" type="array" />
+    <field id="AlbumId" type="string" />
+    <field id="image" type="node" onChange="setPoster" />
+    <field id="overview" type="string" />
+  </interface>
+</component>

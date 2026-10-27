@@ -1,0 +1,791 @@
+import "pkg:/source/enums/MediaPlaybackState.bs"
+import "pkg:/source/utils/config.bs"
+import "pkg:/source/utils/parsedUrl.bs"
+
+function isNodeEvent(msg, field as string) as boolean
+    return type(msg) = "roSGNodeEvent" and msg.getField() = field
+end function
+
+function getMsgPicker(msg, subnode = "" as string) as object
+    node = msg.getRoSGNode()
+    ' Subnode allows for handling alias messages
+    if subnode <> ""
+        node = node.findNode(subnode)
+    end if
+    coords = node.rowItemSelected
+    target = node.content.getChild(coords[0]).getChild(coords[1])
+    return target
+end function
+
+function getButton(msg, subnode = "buttons" as string) as object
+    buttons = msg.getRoSGNode().findNode(subnode)
+    if buttons = invalid then return invalid
+    active_button = buttons.focusedChild
+    return active_button
+end function
+
+function leftPad(base as string, fill as string, length as integer) as string
+    while len(base) < length
+        base = fill + base
+    end while
+    return base
+end function
+
+function ticksToHuman(ticks as longinteger) as string
+    totalSeconds = int(ticks / 10000000)
+    hours = stri(int(totalSeconds / 3600)).trim()
+    minutes = stri(int((totalSeconds - (val(hours) * 3600)) / 60)).trim()
+    seconds = stri(totalSeconds - (val(hours) * 3600) - (val(minutes) * 60)).trim()
+    if val(hours) > 0 and val(minutes) < 10 then minutes = "0" + minutes
+    if val(seconds) < 10 then seconds = "0" + seconds
+    r = ""
+    if val(hours) > 0 then r = hours + ":"
+    r = r + minutes + ":" + seconds
+    return r
+end function
+
+function ticksToAudioGuide(ticks as longinteger) as string
+    totalSeconds = int(ticks / 10000000)
+    hours = stri(int(totalSeconds / 3600)).trim()
+    minutes = stri(int((totalSeconds - (val(hours) * 3600)) / 60)).trim()
+    seconds = stri(totalSeconds - (val(hours) * 3600) - (val(minutes) * 60)).trim()
+
+    if val(hours) > 0 and val(minutes) < 10 then minutes = "0" + minutes
+    if val(seconds) < 10 then seconds = "0" + seconds
+
+    r = ""
+    if val(hours) > 0 then r = hours + " hours, "
+    r = `${r} ${minutes} minutes, ${seconds} seconds`
+    return r
+end function
+
+function secondsToHuman(totalSeconds as integer, addLeadingMinuteZero as boolean) as string
+    humanTime = ""
+    hours = stri(int(totalSeconds / 3600)).trim()
+    minutes = stri(int((totalSeconds - (val(hours) * 3600)) / 60)).trim()
+    seconds = stri(totalSeconds - (val(hours) * 3600) - (val(minutes) * 60)).trim()
+
+    if val(hours) > 0 or addLeadingMinuteZero
+        if val(minutes) < 10
+            minutes = "0" + minutes
+        end if
+    end if
+
+    if val(seconds) < 10
+        seconds = "0" + seconds
+    end if
+
+    if val(hours) > 0
+        hours = hours + ":"
+    else
+        hours = ""
+    end if
+
+    humanTime = hours + minutes + ":" + seconds
+
+    return humanTime
+end function
+
+' Format time as 12 or 24 hour format based on system clock setting
+function formatTime(time) as string
+    hours = time.getHours()
+    minHourDigits = 1
+    if m.global.device.clockFormat = "12h"
+        meridian = "AM"
+        if hours = 0
+            hours = 12
+            meridian = "AM"
+        else if hours = 12
+            hours = 12
+            meridian = "PM"
+        else if hours > 12
+            hours = hours - 12
+            meridian = "PM"
+        end if
+    else
+        ' For 24hr Clock, no meridian and pad hours to 2 digits
+        minHourDigits = 2
+        meridian = ""
+    end if
+
+    return Substitute("{0}:{1} {2}", leftPad(stri(hours).trim(), "0", minHourDigits), leftPad(stri(time.getMinutes()).trim(), "0", 2), meridian)
+
+end function
+
+function div_ceiling(a as integer, b as integer) as integer
+    if a < b then return 1
+    if int(a / b) = a / b
+        return a / b
+    end if
+    return a / b + 1
+end function
+
+'Returns the item selected or -1 on backpress or other unhandled closure of dialog.
+function get_dialog_result(dialog, port)
+    while dialog <> invalid
+        msg = wait(0, port)
+        if isNodeEvent(msg, "backPressed")
+            return -1
+        else if isNodeEvent(msg, "itemSelected")
+            return dialog.findNode("optionList").itemSelected
+        end if
+    end while
+    'Dialog has closed outside of this loop, return -1 for failure
+    return -1
+end function
+
+function lastFocusedChild(obj as object) as object
+    if isValid(obj)
+        if isValid(obj.focusedChild) and isValid(obj.focusedChild.focusedChild) and LCase(obj.focusedChild.focusedChild.subType()) = "tvseasondetails"
+            if isValid(obj.focusedChild.focusedChild.lastFocus)
+                return obj.focusedChild.focusedChild.lastFocus
+            end if
+        end if
+
+        child = obj
+        for i = 0 to obj.getChildCount()
+            if isValid(obj.focusedChild)
+                child = child.focusedChild
+            end if
+        end for
+        return child
+    else
+        return invalid
+    end if
+end function
+
+function show_dialog(message as string, options = [], defaultSelection = 0) as integer
+    lastFocus = lastFocusedChild(m.scene)
+
+    dialog = createObject("roSGNode", "JFMessageDialog")
+    if options.count() then dialog.options = options
+    if message.len() > 0
+        reg = CreateObject("roFontRegistry")
+        font = reg.GetDefaultFont()
+        dialog.fontHeight = font.GetOneLineHeight()
+        dialog.fontWidth = font.GetOneLineWidth(message, 999999999)
+        dialog.message = message
+    end if
+
+    if defaultSelection > 0
+        dialog.findNode("optionList").jumpToItem = defaultSelection
+    end if
+
+    dialog.visible = true
+    m.scene.appendChild(dialog)
+    dialog.setFocus(true)
+    group = m.global.sceneManager.callFunc("getActiveScene")
+    if isValid(group)
+        group.lastFocus = dialog.findNode("optionList")
+    end if
+
+    port = CreateObject("roMessagePort")
+    dialog.observeField("backPressed", port)
+    dialog.findNode("optionList").observeField("itemSelected", port)
+
+    result = get_dialog_result(dialog, port)
+
+    m.scene.removeChildIndex(m.scene.getChildCount() - 1)
+    lastFocus.setFocus(true)
+    group = m.global.sceneManager.callFunc("getActiveScene")
+    if isValid(group)
+        group.lastFocus = lastFocus
+    end if
+
+    return result
+end function
+
+function message_dialog(message = "" as string)
+    return show_dialog(message, ["OK"])
+end function
+
+function option_dialog(options, message = "", defaultSelection = 0) as integer
+    return show_dialog(message, options, defaultSelection)
+end function
+
+function capitalize(input as string) as string
+    return UCase(input.left(1)) + input.mid(1)
+end function
+
+' take an incomplete url string and use it to make educated guesses about
+' the complete url. then tests these guesses to see if it can find a jf server
+' returns the url of the server it found, or an empty string
+function inferServerUrl(url as string) as string
+    ' if this server is already stored, just use the value directly
+    ' the server had to get resolved in the first place to get into the registry
+    saved = get_setting("saved_servers")
+    if isValid(saved)
+        savedServers = ParseJson(saved)
+        if isValid(savedServers.lookup(url)) then return url
+    end if
+
+    port = CreateObject("roMessagePort")
+    hosts = CreateObject("roAssociativeArray")
+    reqs = []
+    candidates = urlCandidates(url)
+    for each endpoint in candidates
+        req = CreateObject("roUrlTransfer")
+        reqs.push(req) ' keep in scope outside of loop, else -10001
+        finalUrl = `${endpoint.proto}://${endpoint.host}${endpoint.port = "" ? "" : `:${endpoint.port}`}${endpoint.path}`
+        req.seturl(`${finalUrl}/system/info/public${endpoint.query = "" ? "" : `?${endpoint.query}`}`)
+        req.setMessagePort(port)
+        hosts.addreplace(req.getidentity().ToStr(), `${finalUrl}${endpoint.query = "" ? "" : `?${endpoint.query}`}`)
+        if isStringEqual(endpoint.proto, "https")
+            req.setCertificatesFile("common:/certs/ca-bundle.crt")
+        end if
+        req.AsyncGetToString()
+    end for
+    handled = 0
+    timeout = CreateObject("roTimespan")
+    if hosts.count() > 0
+        while timeout.totalseconds() < 15
+            resp = wait(0, port)
+            if type(resp) = "roUrlEvent"
+                ' TODO
+                ' if response code is a 300 redirect then we should return the redirect url
+                ' Make sure this happens or make it happen
+                if resp.GetResponseCode() = 200 and isJellyfinServer(resp.GetString())
+                    selectedUrl = hosts.lookup(resp.GetSourceIdentity().ToStr())
+                    return selectedUrl
+                end if
+            end if
+            handled += 1
+            if handled = reqs.count()
+                return ""
+            end if
+        end while
+    end if
+    return ""
+end function
+
+function isString(input as dynamic) as boolean
+    if isStringEqual(type(input), "roString") then return true
+    if isStringEqual(type(input), "String") then return true
+    return false
+end function
+
+' this is the "educated guess" logic for inferServerUrl that generates a list of complete url's as candidates
+' for the tests in inferServerUrl. takes an incomplete url as an arg and returns a list of extrapolated
+' full urls. returned urls are all ParsedUrls.
+function urlCandidates(input as string)
+    url = ParsedUrl(input)
+    ' if the parsed url is invalid then the string is not a valid url
+    if not isValid(url) then return []
+    supportedProtos = ["http", "https"]
+    protoCandidates = isValidAndNotEmpty(url.proto) ? [url.proto] : supportedProtos ' if no proto was declared, try all supported
+    urlPort = isValidAndNotEmpty(url.port) ? `:${url.port}` : ""
+    urlQuery = isValidAndNotEmpty(url.query) ? `?${url.query}` : ""
+    finalCandidates = []
+    for each proto in protoCandidates:
+        finalCandidates.push(ParsedUrl(`${proto}://${url.host}${urlPort}${url.path}${urlQuery}`))
+        if not isValidAndNotEmpty(url.port) ' if the port isn't defined, use default jellyfin and proto ports
+            ' jellyfin defaults
+            if isStringEqual(proto, "https")
+                finalCandidates.push(ParsedUrl(`${url.proto}://${url.host}:8920${url.path}${urlQuery}`))
+            else if isStringEqual(proto, "http")
+                finalCandidates.push(ParsedUrl(`${url.proto}://${url.host}:8096${url.path}${urlQuery}`))
+            end if
+        end if
+    end for
+    return finalCandidates
+end function
+
+sub setFieldTextValue(field, value)
+    node = m.top.findNode(field)
+    if node = invalid or value = invalid then return
+
+    ' Handle non strings... Which _shouldn't_ happen, but hey
+    if type(value) = "roInt" or type(value) = "Integer"
+        value = str(value).trim()
+    else if type(value) = "roFloat" or type(value) = "Float"
+        value = str(value).trim()
+    else if type(value) <> "roString" and type(value) <> "String"
+        value = ""
+    end if
+
+    node.text = value
+end sub
+
+' Returns whether or not passed value is valid
+function isValid(input as dynamic) as boolean
+    return input <> invalid
+end function
+
+' Returns whether or not passed value is a number
+function isNumber(input as dynamic) as boolean
+    if not isValid(input) then return false
+    itemType = type(input)
+    if inArray(["roInt", "Integer"], itemType) then return true
+    if inArray(["roLongInteger", "LongInteger"], itemType) then return true
+    if inArray(["roFloat", "Float"], itemType) then return true
+    if inArray(["roDouble", "Double"], itemType) then return true
+    return false
+end function
+
+' Returns whether or not passed string values are equal
+function isStringEqual(input1, input2) as boolean
+    if not isAllValid([input1, input2]) then return false
+    if type(input1) <> "roString" and type(input1) <> "String" then return false
+    if type(input2) <> "roString" and type(input2) <> "String" then return false
+
+    return LCase(input1) = LCase(input2)
+end function
+
+' Returns whether or not all items in passed array are valid
+function isAllValid(input as object) as boolean
+    for each item in input
+        if not isValid(item) then return false
+    end for
+    return true
+end function
+
+' isChainValid: Returns whether or not all the properties in the passed property chain are valid.
+' Stops evaluating at first found false value
+'
+' @param {dynamic} root - high-level object to test property chain against
+' @param {string} propertyPath - chain of properties under root object to test
+' @return {boolean} indicating if all properties in chain are valid
+function isChainValid(root as dynamic, propertyPath as string) as boolean
+    rootPath = root
+    properties = propertyPath.Split(".")
+
+    if not isValid(rootPath) then return false
+
+    ' Root path is valid, and no properties were passed. Return state of root
+    if properties.count() = 0 then return true
+    if properties[0] = "" then return true
+
+    rootPath = rootPath.LookupCI(properties[0])
+
+    if not isValid(rootPath) then return false
+
+    properties.shift()
+
+    if properties.count() <> 0
+        nextPath = properties.join(".")
+        return isChainValid(rootPath, nextPath)
+    end if
+
+    return true
+end function
+
+' chainLookupReturn: Loops through passed chain of properties and returns final property chain if chain is valid
+' Returns passed default if the chain of properties is invalid
+'
+' @param {dynamic} root - high-level object to test property chain against
+' @param {string} propertyPath - chain of properties under root object to test
+' @param {dynamic} default - value to return if chain of properties is invalid
+' @return {dynamic} value of final chain of properties
+function chainLookupReturn(root as dynamic, propertyPath as string, default as dynamic) as dynamic
+    rootPath = root
+
+    regex = CreateObject("roRegex", "[^\.`]+|`[^`]+`", "")
+    properties = regex.MatchAll(propertyPath)
+
+    if not isValid(rootPath) then return default
+
+    ' Root path is valid, and no properties were passed. Return state of root
+    if properties.count() = 0 then return rootPath
+    if properties[0].count() = 0 then return rootPath
+    if properties[0][0] = "" then return rootPath
+
+    rootPath = rootPath.LookupCI(properties[0][0].Replace("`", ""))
+
+    if not isValid(rootPath) then return default
+
+    propertyLength = Len(properties[0][0])
+
+    properties.shift()
+
+    if properties.count() <> 0
+        nextPath = propertyPath.Mid(propertyLength + 1)
+        return chainLookupReturn(rootPath, nextPath, default)
+    end if
+
+    return rootPath
+end function
+
+' chainLookup: Returns value from property chain using case insensitive lookups
+'
+' @param {dynamic} root - high-level object to test property chain against
+' @param {string} propertyPath - chain of properties under root object to test
+' @return {dynamic} value of requested item
+function chainLookup(root as dynamic, propertyPath as string) as dynamic
+    rootPath = root
+    properties = propertyPath.Split(".")
+
+    if not isValid(rootPath) then return rootPath
+
+    ' Root path is valid, and no properties were passed. Return root
+    if properties.count() = 0 then return rootPath
+    if properties[0] = "" then return rootPath
+
+    rootPath = rootPath.LookupCI(properties[0])
+    if not isValid(rootPath) then return invalid
+
+    properties.shift()
+
+    if properties.count() = 0 then return rootPath
+
+    nextPath = properties.join(".")
+    return chainLookup(rootPath, nextPath)
+end function
+
+' Returns whether or not passed value is valid and not empty
+' Accepts a string, or any countable type (arrays and lists)
+function isValidAndNotEmpty(input as dynamic) as boolean
+    if not isValid(input) then return false
+    ' Use roAssociativeArray instead of list so we get access to the doesExist() method
+    countableTypes = { "array": 1, "list": 1, "roarray": 1, "roassociativearray": 1, "rolist": 1 }
+    inputType = LCase(type(input))
+    if inputType = "string" or inputType = "rostring"
+        trimmedInput = input.trim()
+        return trimmedInput <> ""
+    else if inputType = "rosgnode"
+        inputId = input.id
+        return inputId <> invalid
+    else if countableTypes.doesExist(inputType)
+        return input.count() > 0
+    else
+        print "Called isValidAndNotEmpty() with invalid type: ", inputType
+        return false
+    end if
+end function
+
+' Returns true if the string is a loopback, such as 'localhost' or '127.0.0.1'
+function isLocalhost(url as string) as boolean
+    ' https://stackoverflow.com/questions/8426171/what-regex-will-match-all-loopback-addresses
+    rgx = CreateObject("roRegex", "^localhost$|^127(?:\.[0-9]+){0,2}\.[0-9]+$|^(?:0*\:)*?:?0*1$", "i")
+    return rgx.isMatch(url)
+end function
+
+' Rounds number to nearest integer
+function roundNumber(f as float) as integer
+    ' BrightScript only has a "floor" round
+    ' This compares floor to floor + 1 to find which is closer
+    m = int(f)
+    n = m + 1
+    x = abs(f - m)
+    y = abs(f - n)
+    if y > x
+        return m
+    else
+        return n
+    end if
+end function
+
+' Converts ticks to minutes
+function getMinutes(ticks) as integer
+    ' A tick is .1ms, so 1/10,000,000 for ticks to seconds,
+    ' then 1/60 for seconds to minutes... 1/600,000,000
+    return roundNumber(ticks / 600000000.0)
+end function
+
+'
+' Returns whether or not the channel version number is higher than the passed version number
+function ChannelVersionUpdated(versionToCheck)
+    if not isValidAndNotEmpty(versionToCheck) then return true
+
+    version = versionToCheck.split(".")
+    if version.Count() < 3
+        for i = version.Count() to 3 step 1
+            version.push("0")
+        end for
+    end if
+
+    currentVersion = m.global.app.version.split(".")
+
+    ' Check Major version
+    if currentVersion[0].ToInt() > version[0].ToInt() then return true
+
+    ' Check Minor version
+    if currentVersion[1].ToInt() > version[1].ToInt() then return true
+
+    ' Check Patch version
+    if currentVersion[2].ToInt() > version[2].ToInt() then return true
+
+    return false
+end function
+
+function findNodeBySubtype(node, subtype)
+    foundNodes = []
+
+    for each child in node.getChildren(-1, 0)
+        if lcase(child.subtype()) = "group"
+            return findNodeBySubtype(child, subtype)
+        end if
+
+        if lcase(child.subtype()) = lcase(subtype)
+            foundNodes.push({
+                node: child,
+                parent: node
+            })
+        end if
+    end for
+
+    return foundNodes
+end function
+
+function AssocArrayEqual(Array1 as object, Array2 as object) as boolean
+    if not isValid(Array1) or not isValid(Array2)
+        return false
+    end if
+
+    if not Array1.Count() = Array2.Count()
+        return false
+    end if
+
+    for each key in Array1
+        if not Array2.DoesExist(key)
+            return false
+        end if
+
+        if Array1[key] <> Array2[key]
+            return false
+        end if
+    end for
+
+    return true
+end function
+
+' Search string array for search value. Return if it's found
+function inArray(haystack as object, needle as dynamic) as boolean
+    valueToFind = needle
+
+    if LCase(type(valueToFind)) <> "rostring" and LCase(type(valueToFind)) <> "string"
+        valueToFind = str(needle)
+    end if
+
+    for each item in haystack
+        if isStringEqual(item, valueToFind) then return true
+    end for
+
+    return false
+end function
+
+function toString(input) as string
+    if LCase(type(input)) = "rostring" or LCase(type(input)) = "string"
+        return input
+    end if
+
+    return str(input)
+end function
+
+'
+' startLoadingSpinner: Start a loading spinner and attach it to the main BaseScene.
+' Displays an invisible ProgressDialog node by default to disable keypresses while loading.
+'
+' @param {boolean} [disableRemote=true]
+sub startLoadingSpinner(disableRemote = true as boolean)
+    if not isValid(m.scene)
+        m.scene = m.top.getScene()
+    end if
+
+    if not m.scene.isLoading
+        m.scene.disableRemote = disableRemote
+        m.scene.isLoading = true
+    end if
+end sub
+
+sub stopLoadingSpinner()
+    if not isValid(m.scene)
+        m.scene = m.top.getScene()
+    end if
+
+    if m.scene.isLoading
+        m.scene.disableRemote = false
+        m.scene.isLoading = false
+    end if
+end sub
+
+' accepts the raw json string of /system/info/public and returns
+' a boolean indicating if ProductName is "Jellyfin Server"
+function isJellyfinServer(systemInfo as object) as boolean
+    data = ParseJson(systemInfo)
+    if isValid(data) and isValid(data.ProductName)
+        return LCase(data.ProductName) = m.global.constants.jellyfin_server
+    end if
+    return false
+end function
+
+' Takes an array of data, shuffles the order, then returns the array
+' uses the Fisher-Yates shuffling algorithm
+function shuffleArray(array as object) as object
+    for i = array.count() - 1 to 0 step -1
+        j = Rnd(i + 1) - 1
+        t = array[i] : array[i] = array[j] : array[j] = t
+    end for
+    return array
+end function
+
+' convert value to boolean and return value
+function toBoolean(value as dynamic) as dynamic
+    if value = invalid then return invalid
+    if Type(value) = "Boolean" then return value
+    if Type(value) <> "String" then return value
+
+    if value = "true"
+        return true
+    else if value = "false"
+        return false
+    else
+        return value
+    end if
+end function
+
+' focusAudioMiniPlayer: Moves cursor focus to audio mini player, it it's shown
+'
+sub focusAudioMiniPlayer()
+    scene = m.top.getScene()
+    if not isValid(scene) then return
+
+    audioMiniPlayer = scene.findNode("audioMiniPlayer")
+    if not isValid(audioMiniPlayer) then return
+
+    if not audioMiniPlayer.callFunc("isVisible") then return
+
+    audioMiniPlayer.callFunc("setSelected", true)
+    audioMiniPlayer.setfocus(true)
+end sub
+
+' Hides the audio mini player
+sub hideAudioMiniPlayer()
+    scene = m.top.getScene()
+    if not isValid(scene) then return
+
+    audioMiniPlayer = scene.findNode("audioMiniPlayer")
+    if not isValid(audioMiniPlayer) then return
+
+    audioMiniPlayer.callFunc("setVisible", false)
+end sub
+
+' isSelectedAudioMiniPlayer: Returns bool value indicating if audio mini player is selected
+'
+function isSelectedAudioMiniPlayer() as boolean
+    scene = m.top.getScene()
+    if not isValid(scene) then return false
+
+    audioMiniPlayer = scene.findNode("audioMiniPlayer")
+    if not isValid(audioMiniPlayer) then return false
+
+    return audioMiniPlayer.callFunc("isSelected")
+end function
+
+' toggleActiveAudioPlayback: Toggles the loaded audio player item without changing queue position.
+'
+function toggleActiveAudioPlayback() as boolean
+    if isStringEqual(m.global.audioPlayer.state, MediaPlaybackState.PLAYING)
+        stopLoadingSpinner()
+        m.global.audioPlayer.control = "pause"
+        return true
+    end if
+
+    if isStringEqual(m.global.audioPlayer.state, MediaPlaybackState.PAUSED)
+        stopLoadingSpinner()
+        m.global.audioPlayer.control = "resume"
+        return true
+    end if
+
+    if isStringEqual(m.global.audioPlayer.state, MediaPlaybackState.BUFFERING)
+        return true
+    end if
+
+    if isStringEqual(m.global.audioPlayer.state, MediaPlaybackState.FINISHED)
+        currentItem = m.global.queueManager.callFunc("getCurrentItem")
+        if not isValid(currentItem) then return false
+
+        if isValidAndNotEmpty(m.global.audioPlayer.id) and isValidAndNotEmpty(currentItem.id)
+            if isStringEqual(m.global.audioPlayer.id, currentItem.id)
+                stopLoadingSpinner()
+                m.global.audioPlayer.control = "play"
+                return true
+            end if
+        end if
+
+        return false
+    end if
+
+    return false
+end function
+
+' toggleAudioMiniPlayerPlayback: Toggles active mini-player audio playback if shown.
+'
+function toggleAudioMiniPlayerPlayback() as boolean
+    scene = m.top.getScene()
+    if not isValid(scene) then return false
+
+    audioMiniPlayer = scene.findNode("audioMiniPlayer")
+    if not isValid(audioMiniPlayer) then return false
+    if not audioMiniPlayer.callFunc("isVisible") then return false
+    if audioMiniPlayer.callFunc("isSelected") then return true
+
+    return toggleActiveAudioPlayback()
+end function
+
+function findDefaultTrack(streams as dynamic)
+    ' Usually the first audio stream, so this should be fast.
+    ' But it's not always the first audio stream :-(
+    for i = 0 to streams.Count() - 1
+        if isStringEqual(streams[i].LookupCI("type"), "audio")
+            if chainLookupReturn(streams[i], "IsDefault", false)
+                return i
+            end if
+        end if
+    end for
+
+    ' No default?  Return the first one.
+    return 1
+end function
+
+function getDefaultAudioTrackIndex(streams as dynamic)
+    for i = 0 to streams.Count() - 1
+        if isStringEqual(streams[i].LookupCI("type"), "audio")
+            if chainLookupReturn(streams[i], "IsDefault", false)
+                return i
+            end if
+        end if
+    end for
+
+    return -1
+end function
+
+function serverVersionMeetsMinimumRequirements(systemVersion as string, targetVersion as roArray) as boolean
+    version = systemVersion.split(".")
+    if version.Count() < 3
+        for i = version.Count() to 3 step 1
+            version.push("0")
+        end for
+    end if
+
+    ' Check Major version
+    if targetVersion[0] < version[0].ToInt() then return true
+    if targetVersion[0] > version[0].ToInt() then return false
+
+    ' Check Minor version
+    if targetVersion[1] < version[1].ToInt() then return true
+    if targetVersion[1] > version[1].ToInt() then return false
+
+    ' Check Patch version
+    if targetVersion[2] < version[2].ToInt() then return true
+    if targetVersion[2] > version[2].ToInt() then return false
+
+    ' Server is the exact version needed
+    return true
+end function
+
+' MaskGroup sizes are not automatically scaled by SceneGraph on HD devices
+' when using an FHD design resolution. Apply HD_SCALE_FACTOR to keep
+' masks aligned correctly. Callers should use asset/maskSize values divisible
+' by 3 (e.g. 66, not 64) to avoid truncation error from Int().
+' isHDDevice is cached on m.global.device at startup (see SaveDeviceToGlobal
+' in globals.bs) to avoid repeated roDeviceInfo lookups as more MaskGroup
+' usages are added.
+const HD_SCALE_FACTOR = 2.0 / 3.0
+
+function scaleMaskSize(size as integer) as integer
+    if chainLookupReturn(m.global.device, "isHDDevice", false)
+        return Int(size * HD_SCALE_FACTOR)
+    end if
+
+    return size
+end function

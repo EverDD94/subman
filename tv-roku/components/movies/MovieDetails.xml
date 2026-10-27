@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component name="MovieDetails" extends="JFScreen">
+  <children>
+    <LayoutGroup id="container" layoutDirection="vert" itemSpacings="[30]" translation="[100, 320]">
+      <LayoutGroup id="infoGroup" layoutDirection="horiz" horizAlignment="left" itemSpacings="[20]">
+        <Text id="releaseYear" font="font:SmallestSystemFont" />
+        <Text id="aired" font="font:SmallestSystemFont" />
+        <Text id="dot" font="font:SmallestSystemFont" text="•" />
+        <Text id="genres" font="font:SmallestSystemFont" />
+        <Text id="officialRating" font="font:SmallestBoldSystemFont" />
+        <Text id="runtime" font="font:SmallestSystemFont" />
+
+        <LayoutGroup id="communityRatingGroup" layoutDirection="horiz" itemSpacings="[-5]">
+          <Poster id="star" uri="pkg:/images/sharp_star_white_18dp.png" height="32" width="32" blendColor="#cb272a" />
+          <Text id="communityRating" font="font:SmallestSystemFont" />
+        </LayoutGroup>
+
+        <LayoutGroup id="criticRatingGroup" layoutDirection="horiz" itemSpacings="[-5]">
+          <Poster id="criticRatingIcon" height="32" width="32" />
+          <Text id="criticRatingLabel" font="font:SmallestSystemFont" />
+        </LayoutGroup>
+
+        <Text id="ends-at" font="font:SmallestSystemFont" />
+      </LayoutGroup>
+
+      <LayoutGroup id="infoGroup" layoutDirection="horiz" horizAlignment="left" itemSpacings="[50]">
+        <LayoutGroup layoutDirection="vert" itemSpacings="[30]">
+          <Text id="overview" wrap="true" maxLines="8" width="1000" />
+          <Text
+            id="director"
+            font="font:SmallestSystemFont"
+            color="#aaaaaa"
+            wrap="true"
+            maxLines="2"
+            width="1000"
+            ellipsisText="..." />
+
+          <LayoutGroup layoutDirection="vert" itemSpacings="[0]">
+            <LayoutGroup layoutDirection="horiz" horizAlignment="left">
+              <Text id="rotationWarning" font="font:smallestboldSystemFont" vertAlign="top" color="#eeeeee" />
+            </LayoutGroup>
+            <LayoutGroup layoutDirection="horiz" horizAlignment="left">
+              <ScrollingText id="video_codec" vertAlign="bottom" height="39" maxwidth="990" font="font:SmallestSystemFont" color="#aaaaaa" />
+              <Text id="video_codec_count" font="font:smallestSystemFont" vertAlign="top" color="#aaaaaa" />
+            </LayoutGroup>
+            <LayoutGroup layoutDirection="horiz" horizAlignment="left">
+              <ScrollingText id="audio_codec" vertAlign="bottom" height="39" maxwidth="990" font="font:SmallestSystemFont" color="#aaaaaa" />
+              <Text id="audio_codec_count" font="font:smallestSystemFont" vertAlign="top" color="#aaaaaa" />
+            </LayoutGroup>
+            <LayoutGroup layoutDirection="horiz" horizAlignment="left">
+              <ScrollingText id="subtitle_codec" vertAlign="bottom" height="39" maxwidth="990" font="font:SmallestSystemFont" color="#aaaaaa" />
+              <Text id="subtitle_codec_count" font="font:smallestSystemFont" vertAlign="top" color="#aaaaaa" />
+            </LayoutGroup>
+          </LayoutGroup>
+        </LayoutGroup>
+
+        <MarkupList
+          id="buttons"
+          itemComponentName="MovieDetailButton"
+          focusFootprintBitmapUri=""
+          itemSpacing="[0, 10]"
+          itemSize="[600, 75]"
+          numRows="6"
+          vertFocusAnimationStyle="floatingFocus">
+          <ContentNode role="content">
+            <ButtonData id="play-button" focus="true" text="Play" AUDIO_GUIDE_SUFFIX="Play" iconSide="left" fontSize="35" padding="35" icon="pkg:/images/icons/36px/play.png" height="75" width="600" />
+            <!-- Dynamically inserted/removed by updatePlayButtons() based on playback progress -->
+            <ButtonData id="play-from-beginning-button" text="Play from beginning" AUDIO_GUIDE_SUFFIX="Play from beginning" iconSide="left" fontSize="35" padding="35" icon="pkg:/images/icons/36px/play_from_beginning.png" height="75" width="600" />
+            <ButtonData id="part-button" iconSide="left" fontSize="35" padding="35" icon="pkg:/images/icons/36px/puzzle.png" height="75" width="600" />
+            <ButtonData id="options-button" text="Options" AUDIO_GUIDE_SUFFIX="Options" iconSide="left" fontSize="35" padding="35" icon="pkg:/images/icons/36px/options.png" height="75" width="600" />
+            <ButtonData id="trailer-button" text="Play Trailer" AUDIO_GUIDE_SUFFIX="Play Trailer" iconSide="left" fontSize="35" padding="35" icon="pkg:/images/icons/36px/trailer.png" height="75" width="600" />
+            <ButtonData id="mylist-button" text="Add To My List" AUDIO_GUIDE_SUFFIX="Add To My List" iconSide="left" fontSize="35" padding="35" icon="pkg:/images/icons/36px/addToMyList.png" height="75" width="600" />
+            <ButtonData id="playlist-button" text="Add To Playlist" AUDIO_GUIDE_SUFFIX="Add To Playlist" iconSide="left" fontSize="35" padding="35" icon="pkg:/images/icons/36px/plus.png" height="75" width="600" />
+            <ButtonData id="watched-button" text="Watched" AUDIO_GUIDE_SUFFIX="Watched" iconSide="left" fontSize="35" padding="35" icon="pkg:/images/icons/36px/check.png" height="75" width="600" />
+            <ButtonData id="favorite-button" text="Favorite" AUDIO_GUIDE_SUFFIX="Favorite" iconSide="left" fontSize="35" padding="35" icon="pkg:/images/icons/36px/heart.png" height="75" width="600" />
+            <ButtonData id="editSubtitlesButton" text="Manage Subtitles" AUDIO_GUIDE_SUFFIX="Manage Subtitles" iconSide="left" fontSize="35" padding="35" icon="pkg:/images/icons/36px/cc.png" height="75" width="600" />
+            <ButtonData id="goToSeriesButton" text="Go To Series" AUDIO_GUIDE_SUFFIX="Go To Series" iconSide="left" fontSize="35" padding="35" icon="pkg:/images/icons/36px/tv.png" height="75" width="600" />
+            <ButtonData id="goToSeasonButton" text="Go To Season" AUDIO_GUIDE_SUFFIX="Go To Season" iconSide="left" fontSize="35" padding="35" icon="pkg:/images/icons/36px/numberList.png" height="75" width="600" />
+          </ContentNode>
+          <Rectangle
+            id="scrollBar"
+            width="6"
+            translation="[620, 0]">
+            <Rectangle
+              id="thumb"
+              height="100"
+              width="6">
+            </Rectangle>
+          </Rectangle>
+        </MarkupList>
+      </LayoutGroup>
+    </LayoutGroup>
+
+    <Animation id="scrollBarThumbSlideAnimation" duration=".4" repeat="false">
+      <Vector2DFieldInterpolator id="scrollBarThumbSlideInterpolator" key="[0.0, 1.0]" keyValue="[[0, 0], [0, 0]]" fieldToInterp="thumb.translation" />
+    </Animation>
+
+    <MovieOptions id="movieOptions" visible="false" />
+
+    <!-- "Cast and Crew" row -->
+    <extrasSlider id="movieExtras" visible="false" />
+  </children>
+  <interface>
+    <field id="buttonSelected" type="string" alwaysNotify="true" />
+    <field id="itemContent" type="node" />
+    <field id="logoImageURI" type="string" onChange="onLogoImageURIChange" />
+    <field id="trailerAvailable" type="bool" onChange="trailerAvailableChanged" value="true" />
+    <field id="isInMyList" type="bool" onChange="onIsInMyListChanged" />
+    <field id="additionalParts" type="assocarray" onChange="additionalPartsChanged" />
+    <field id="selectedPart" type="assocarray" onChange="onSelectedPartChanged" />
+    <field id="selectedAudioStreamIndex" type="integer" />
+    <field id="selectedVideoStreamId" type="string" />
+    <field id="quickPlayNode" type="node" alwaysNotify="true" />
+    <field id="refreshMovieDetailsData" type="bool" alwaysNotify="true" />
+  </interface>
+</component>

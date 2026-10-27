@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component name="QueueManager" extends="Group">
+  <interface>
+    <function name="clear" />
+    <function name="clearHold" />
+    <function name="deleteAtIndex" />
+    <function name="getCount" />
+    <function name="getCurrentItem" />
+    <function name="getHold" />
+    <function name="getIsShuffled" />
+    <function name="getItemByIndex" />
+    <function name="getItemType" />
+    <function name="getNextItemTitleAndIcon" />
+    <function name="getItemTitleAndIcon" />
+    <function name="getPosition" />
+    <function name="getPreviousItemTitleAndIcon" />
+    <function name="getQueue" />
+    <function name="getQueueTypes" />
+    <function name="getQueueUniqueTypes" />
+    <function name="getUnshuffledQueue" />
+    <function name="hold" />
+    <function name="isPrerollActive" />
+    <function name="moveBack" />
+    <function name="moveForward" />
+    <function name="peek" />
+    <function name="playQueue" />
+    <function name="pop" />
+    <function name="push" />
+    <function name="resetShuffle" />
+    <function name="setShuffle" />
+    <function name="set" />
+    <function name="getEpisodeToShowAtFinish" />
+    <function name="setEpisodeToShowAtFinish" />
+    <function name="bypassNextPreferredAudioTrackIndexReset" />
+    <function name="getTranscodeCodec" />
+    <function name="getForceTranscode" />
+    <function name="setForceTranscode" />
+    <function name="getTranscodeReason" />
+    <function name="setTranscodeReason" />
+    <function name="getLastKnownItemID" />
+    <function name="setLastKnownItemID" />
+    <function name="getLastKnownItemExtraType" />
+    <function name="setLastKnownItemExtraType" />
+    <function name="getPreferredSubtitleTrack" />
+    <function name="setPreferredSubtitleTrack" />
+    <function name="getPreferredAudioTrackIndex" />
+    <function name="setPreferredAudioTrackIndex" />
+    <function name="getPreferredAudioTrackName" />
+    <function name="setPreferredAudioTrackName" />
+    <function name="setSelectedAudioStreamIndex" />
+    <function name="setTopStartingPoint" />
+    <function name="setPosition" />
+    <function name="setPrerollStatus" />
+    <function name="toggleShuffle" />
+    <function name="top" />
+  </interface>
+</component>

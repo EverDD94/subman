@@ -1,0 +1,204 @@
+import "pkg:/source/enums/ColorPalette.bs"
+import "pkg:/source/enums/ItemType.bs"
+import "pkg:/source/enums/PosterLoadStatus.bs"
+import "pkg:/source/enums/String.bs"
+import "pkg:/source/utils/config.bs"
+import "pkg:/source/utils/misc.bs"
+
+sub init()
+    m.itemPoster = m.top.findNode("itemPoster")
+    m.itemIcon = m.top.findNode("itemIcon")
+    m.posterText = m.top.findNode("posterText")
+    m.posterText.font.size = 30
+    m.backdrop = m.top.findNode("backdrop")
+    m.playedIndicator = m.top.findNode("playedIndicator")
+
+    m.title = m.top.findNode("title")
+    m.title.font.size = 26
+
+    m.itemTextExtra = m.top.findNode("itemTextExtra")
+    m.itemTextExtra.font.size = 23
+
+    m.itemPoster.observeField("loadStatus", "onPosterLoadStatusChanged")
+
+    m.itemIconBackground = m.top.findNode("itemIconBackground")
+    m.itemIconBackground.color = chainLookupReturn(m.global.session, "user.settings.colorBackground", ColorPalette.VIEWBACKGROUND)
+
+    'Parent is MarkupGrid and it's parent is the ItemGrid
+    m.topParent = m.top.GetParent().GetParent()
+
+    if not isValid(m.topParent.showItemTitles)
+        ' Search items need to only look 1 level above
+        if m.topParent.GetParent().isSubType("SearchRow")
+            m.topParent = m.topParent.GetParent()
+        else
+            m.topParent = m.topParent.GetParent().GetParent()
+        end if
+    end if
+
+    'Get the imageDisplayMode for these grid items
+    if m.topParent.imageDisplayMode <> invalid
+        m.itemPoster.loadDisplayMode = m.topParent.imageDisplayMode
+    end if
+end sub
+
+sub onHeightChanged()
+    calculatedHeight = m.top.height
+
+    showItemTitles = chainLookupReturn(m.topParent, "showItemTitles", "showonhover")
+    if not isStringEqual(showItemTitles, "hidealways")
+        calculatedHeight -= 60
+    end if
+
+    ' If we have a second line of text, further reduce the image height to make room
+    if not isStringEqual(m.itemTextExtra.text, string.EMPTY)
+        calculatedHeight -= 12
+    end if
+
+    m.backdrop.height = calculatedHeight
+    m.itemPoster.height = calculatedHeight
+    m.posterText.height = calculatedHeight
+    m.title.translation = [0, calculatedHeight + 30]
+    m.itemTextExtra.translation = [0, calculatedHeight + 60]
+
+    m.itemIconBackground.translation = [m.itemIconBackground.translation[0], calculatedHeight - 37]
+end sub
+
+sub onWidthChanged()
+    m.backdrop.width = m.top.width
+    m.itemPoster.width = m.top.width
+    m.posterText.width = m.top.width
+    m.title.maxWidth = m.top.width
+    m.itemTextExtra.maxWidth = m.top.width
+    m.playedIndicator.translation = [m.top.width - m.playedIndicator.width, 22]
+    m.itemIconBackground.translation = [m.top.width - m.itemIconBackground.width, m.itemIconBackground.translation[1]]
+end sub
+
+sub itemContentChanged()
+    m.backdrop.blendColor = ColorPalette.ELEMENTBACKGROUND
+
+    m.title.visible = false
+    m.itemTextExtra.visible = false
+
+    if isValid(m.topParent.showItemTitles)
+        if LCase(m.topParent.showItemTitles) = "showalways"
+            m.title.visible = true
+            m.itemTextExtra.visible = true
+        end if
+    end if
+
+    itemData = m.top.itemContent
+
+    if not isValid(itemData) then return
+
+    m.playedIndicator.data = {
+        played: chainLookupReturn(itemData, "json.UserData.Played", false),
+        unplayedCount: chainLookupReturn(itemData, "json.UserData.UnplayedItemCount", 0)
+    }
+
+    ' Set Series and Episode Number for Extra Text
+    extraPrefix = string.EMPTY
+    if isValid(itemData.json.ParentIndexNumber)
+        extraPrefix = "S" + StrI(itemData.json.ParentIndexNumber).trim()
+    end if
+
+    if isValid(itemData.json.IndexNumber)
+        extraPrefix = extraPrefix + "E" + StrI(itemData.json.IndexNumber).trim()
+    end if
+
+    if extraPrefix.len() > 0
+        extraPrefix = extraPrefix + " - "
+    end if
+
+    m.itemTextExtra.text = extraPrefix + itemData.title
+
+    if isValidAndNotEmpty(itemData.json.Type)
+        if isStringEqual(itemData.json.Type, ItemType.STUDIO)
+            m.itemTextExtra.text = `${itemData.json.SeriesCount} ${tr("Series")}`
+        end if
+
+        if inArray([ItemType.MOVIE, ItemType.SERIES, ItemType.MUSICALBUM, ItemType.AUDIO, ItemType.PLAYLIST, ItemType.PROGRAM, ItemType.MUSICVIDEO], itemData.json.Type)
+            m.itemTextExtra.text = itemData.SubTitle
+        end if
+    end if
+
+    m.itemIcon.uri = string.EMPTY
+
+    if isValidAndNotEmpty(itemData.LookupCI("type"))
+        if isStringEqual(itemData.LookupCI("type"), ItemType.PHOTO)
+            m.itemIcon.uri = "pkg:/images/media_type_icons/photo.png"
+        end if
+
+        if isStringEqual(itemData.LookupCI("type"), ItemType.FOLDER)
+            m.itemIcon.uri = "pkg:/images/media_type_icons/photoFolder.png"
+        end if
+
+        if isStringEqual(itemData.LookupCI("type"), ItemType.VIDEO)
+            m.itemIcon.uri = "pkg:/images/media_type_icons/movie.png"
+        end if
+    end if
+
+    m.itemIconBackground.visible = m.itemIcon.uri <> string.EMPTY
+
+    if isChainValid(itemData, "imageDimensions")
+        imageDimensions = itemData.imageDimensions
+        m.itemPoster.width = imageDimensions[0]
+        m.backdrop.width = imageDimensions[0]
+        m.posterText.width = imageDimensions[0]
+
+        m.title.maxWidth = imageDimensions[0] - 16
+        m.itemTextExtra.maxWidth = imageDimensions[0] - 16
+
+        m.itemPoster.height = imageDimensions[1]
+        m.backdrop.height = imageDimensions[1]
+        m.posterText.height = imageDimensions[1] + 40
+
+        m.playedIndicator.translation = [imageDimensions[0] - 60, m.playedIndicator.translation[1]]
+        m.title.translation = [m.title.translation[0], imageDimensions[1] + 30]
+        m.itemTextExtra.translation = [m.itemTextExtra.translation[0], imageDimensions[1] + 65]
+    end if
+
+    m.itemPoster.uri = itemData.PosterUrl
+    m.posterText.text = itemData.title
+    m.title.text = isValidAndNotEmpty(itemData.json.SeriesName) ? itemData.json.SeriesName : itemData.title
+
+    ' Don't show the same text for both the title and subtitle
+    if isStringEqual(m.itemTextExtra.text, m.title.text)
+        m.itemTextExtra.text = string.EMPTY
+    end if
+
+    'If Poster not loaded, ensure backdrop is shown until loaded
+    if m.itemPoster.loadStatus <> PosterLoadStatus.READY
+        m.backdrop.visible = true
+        m.posterText.visible = true
+    end if
+
+    if not isStringEqual(m.itemTextExtra.text, string.EMPTY)
+        onHeightChanged()
+    end if
+end sub
+
+sub focusChanged()
+    if m.top.itemHasFocus = true
+        m.title.repeatCount = -1
+        m.itemTextExtra.repeatCount = -1
+    else
+        m.title.repeatCount = 0
+        m.itemTextExtra.repeatCount = 0
+    end if
+
+    if isValid(m.topParent.showItemTitles)
+        if LCase(m.topParent.showItemTitles) = "showonhover"
+            m.title.visible = m.top.itemHasFocus
+            m.itemTextExtra.visible = m.top.itemHasFocus
+        end if
+    end if
+end sub
+
+'Hide backdrop and text when poster loaded
+sub onPosterLoadStatusChanged()
+    if m.itemPoster.loadStatus = PosterLoadStatus.READY
+        m.backdrop.visible = false
+        m.posterText.visible = false
+    end if
+end sub

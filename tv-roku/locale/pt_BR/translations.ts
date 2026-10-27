@@ -1,0 +1,6487 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE TS>
+<TS version="2.0" language="fr_CA" sourcelanguage="en_US">
+<defaultcodec>UTF-8</defaultcodec>
+<context>
+    <name>default</name>
+    <message>
+        <source>192.168.1.100:8096 or https://example.com/jellyfin</source>
+        <translation>192.168.1.100:8096 ou https://exemplo.com/jellyfin</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancelar</translation>
+    </message>
+    <message>
+        <source>Connect to Server</source>
+        <translation>Conectar ao Servidor</translation>
+    </message>
+    <message>
+        <source>Ends at %1</source>
+        <translation>Termina em %1</translation>
+    </message>
+    <message>
+        <source>Enter Configuration</source>
+        <translation>Insira a Configuração</translation>
+    </message>
+    <message>
+        <source>Favorite</source>
+        <translation>Favorito</translation>
+    </message>
+    <message>
+        <source>Loading...</source>
+        <translation>Carregando…</translation>
+    </message>
+    <message>
+        <source>Login attempt failed.</source>
+        <translation>Falha na tentativa de login.</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>OK</translation>
+    </message>
+    <message>
+        <source>Options</source>
+        <translation>Opções</translation>
+    </message>
+    <message>
+        <source>Play</source>
+        <translation>Reproduzir</translation>
+    </message>
+    <message>
+        <source>Please sign in</source>
+        <translation>Por favor, inicie a sessão</translation>
+    </message>
+    <message>
+        <source>Search</source>
+        <translation>Busca</translation>
+    </message>
+    <message>
+        <source>Server not found, is it online?</source>
+        <translation>Servidor não encontrado, ele está online?</translation>
+    </message>
+    <message>
+        <source>Shuffle</source>
+        <translation>Aleatório</translation>
+    </message>
+    <message>
+        <source>Sign In</source>
+        <translation>Entrar</translation>
+    </message>
+    <message>
+        <source>Submit</source>
+        <translation>Enviar</translation>
+    </message>
+    <message>
+        <source>Watched</source>
+        <translation>Assistido</translation>
+    </message>
+    <message>
+        <source>Change server</source>
+        <translation>Alterar Servidor</translation>
+    </message>
+    <message>
+        <source>Sign out</source>
+        <translation>Sair</translation>
+    </message>
+    <message>
+        <source>Add User</source>
+        <translation>Adicionar Usuário</translation>
+    </message>
+    <message>
+        <source>Profile</source>
+        <translation>Perfil</translation>
+    </message>
+    <message>
+        <source>My Media</source>
+        <translation>Minha Mídia</translation>
+    </message>
+    <message>
+        <source>Continue Watching</source>
+        <translation>Continuar Assistindo</translation>
+    </message>
+    <message>
+        <source>Next Up</source>
+        <translation>A Seguir</translation>
+    </message>
+    <message>
+        <source>Latest in</source>
+        <translation>Mais recente em</translation>
+    </message>
+    <message>
+        <source>Home</source>
+        <translation>Início</translation>
+    </message>
+    <message>
+        <source>Enter a username</source>
+        <translation>Insira nome de usuário</translation>
+    </message>
+    <message>
+        <source>Enter a password</source>
+        <translation>Insira uma senha</translation>
+    </message>
+    <message>
+        <source>Enter a value...</source>
+        <translation>Insira um valor…</translation>
+    </message>
+    <message>
+        <source>Sort Field</source>
+        <translation>Ordenar Por</translation>
+    </message>
+    <message>
+        <source>Date Added</source>
+        <translation>Data de Adição</translation>
+    </message>
+    <message>
+        <source>Release Date</source>
+        <translation>Data de Lançamento</translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation>Nome</translation>
+    </message>
+    <message>
+        <source>Sort Order</source>
+        <translation>Ordenar</translation>
+    </message>
+    <message>
+        <source>Descending</source>
+        <translation>Decrescente</translation>
+    </message>
+    <message>
+        <source>Ascending</source>
+        <translation>Crescente</translation>
+    </message>
+    <message>
+        <source>Password</source>
+        <translation>Senha</translation>
+    </message>
+    <message>
+        <source>Username</source>
+        <translation>Usuário</translation>
+    </message>
+    <message>
+        <source>Genres</source>
+        <translation>Gêneros</translation>
+    </message>
+    <message>
+        <source>Director</source>
+        <translation>Diretor</translation>
+    </message>
+    <message>
+        <source>Video</source>
+        <translation>Vídeo</translation>
+    </message>
+    <message>
+        <source>Audio</source>
+        <translation>Áudio</translation>
+    </message>
+    <message>
+        <source>Server</source>
+        <translation>Servidor</translation>
+    </message>
+    <message>
+        <source>View Channel</source>
+        <translation>Ver canal</translation>
+    </message>
+    <message>
+        <source>Channels</source>
+        <translation>Canais</translation>
+        <extracomment>Menu option for showing Live TV Channel List</extracomment>
+    </message>
+    <message>
+        <source>Repeat</source>
+        <translation>Repetir</translation>
+        <extracomment>If TV Shows has previously been broadcasted</extracomment>
+    </message>
+    <message>
+        <source>Codec Support</source>
+        <translation>Suporte para Codecs</translation>
+        <extracomment>Settings Menu - Title for settings group related to codec support</extracomment>
+    </message>
+    <message>
+        <source>Not found</source>
+        <translation>Não encontrado</translation>
+        <extracomment>Title of message box when the requested content is not found on the server</extracomment>
+    </message>
+    <message>
+        <source>...or enter server URL manually:</source>
+        <translation>Se nenhum servidor estiver listado acima, você também poderá inserir a URL do servidor manualmente:</translation>
+        <extracomment>Instructions on initial app launch when the user is asked to manually enter a server URL</extracomment>
+    </message>
+    <message>
+        <source>Enable or disable Direct Play for optional codecs</source>
+        <translation>Habilite ou desabilite o Direct Play para codecs opcionais</translation>
+        <extracomment>Settings Menu - Title for settings group related to codec support</extracomment>
+    </message>
+    <message>
+        <source>Cancel Recording</source>
+        <translation>Cancelar gravação</translation>
+    </message>
+    <message>
+        <source>Connecting to Server</source>
+        <translation>Conectando ao servidor</translation>
+        <extracomment>Message to display to user while client is attempting to connect to the server</extracomment>
+    </message>
+    <message>
+        <source>Pick a Jellyfin server from the local network</source>
+        <translation>Selecione um servidor Jellyfin disponível em sua rede local:</translation>
+        <extracomment>Instructions on initial app launch when the user is asked to pick a server from a list</extracomment>
+    </message>
+    <message>
+        <source>Error Getting Playback Information</source>
+        <translation>Erro ao obter informações de reprodução</translation>
+        <extracomment>Dialog Title: Received error from server when trying to get information about the selected item for playback</extracomment>
+    </message>
+    <message>
+        <source>Support Direct Play of MPEG-2 content (e.g., Live TV). This will prevent transcoding of MPEG-2 content, but uses significantly more bandwidth.</source>
+        <translation>Suporta reprodução direta de conteúdo MPEG-2 (por exemplo, TV ao vivo). Isto impedirá a transcodificação de conteúdo MPEG-2, mas utilizará significativamente mais largura de banda.</translation>
+        <extracomment>Settings Menu - Description for option</extracomment>
+    </message>
+    <message>
+        <source>Support Direct Play of MPEG-4 content. This may need to be disabled for playback of DIVX encoded video files.</source>
+        <translation>Suporta reprodução direta de conteúdo MPEG-4. Pode ser necessário desabilitar isso para reprodução de arquivos de vídeo codificados em DIVX.</translation>
+        <extracomment>Settings Menu - Description for option</extracomment>
+    </message>
+    <message>
+        <source>Record</source>
+        <translation>Gravar</translation>
+    </message>
+    <message>
+        <source>Record Series</source>
+        <translation>Série recorde</translation>
+    </message>
+    <message>
+        <source>Cancel Series Recording</source>
+        <translation>Cancelar gravação de série</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Fechar</translation>
+    </message>
+    <message>
+        <source>Unknown</source>
+        <translation>Desconhecido</translation>
+        <extracomment>Title for a cast member for which we have no information for</extracomment>
+    </message>
+    <message>
+        <source>Enter the server name or IP address</source>
+        <translation>Digite o nome do servidor ou endereço IP</translation>
+        <extracomment>Title of KeyboardDialog when manually entering a server URL</extracomment>
+    </message>
+    <message>
+        <source>Version</source>
+        <translation>Versão</translation>
+    </message>
+    <message>
+        <source>MPEG-2</source>
+        <translation>MPEG-2</translation>
+        <extracomment>Name of codec used in settings menu</extracomment>
+    </message>
+    <message>
+        <source>MPEG-4</source>
+        <translation>MPEG-4</translation>
+        <extracomment>Name of codec used in settings menu</extracomment>
+    </message>
+    <message>
+        <source>Ends at</source>
+        <translation>Termina em</translation>
+        <extracomment>(Past Tense) For defining a day and time when a program ended (e.g. Ended Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>TV Guide</source>
+        <translation>Programação</translation>
+        <extracomment>Menu option for showing Live TV Guide / Schedule</extracomment>
+    </message>
+    <message>
+        <source>The requested content does not exist on the server</source>
+        <translation>O conteúdo solicitado não existe no servidor</translation>
+        <extracomment>Content of message box when the requested content is not found on the server</extracomment>
+    </message>
+    <message>
+        <source>An error was encountered while playing this item. Server did not provide required transcoding data.</source>
+        <translation>Foi encontrado um erro ao reproduzir este item. O servidor não forneceu os dados de transcodificação necessários.</translation>
+        <extracomment>Content of message box when trying to play an item which requires transcoding, and the server did not provide transcode url</extracomment>
+    </message>
+    <message>
+        <source>Playback</source>
+        <translation>Reprodução</translation>
+        <extracomment>Title for Playback section in user setting screen.</extracomment>
+    </message>
+    <message>
+        <source>Remember Me?</source>
+        <translation>Lembrar de mim?</translation>
+        <extracomment>User Setting - Setting title</extracomment>
+    </message>
+    <message>
+        <source>%1 of %2</source>
+        <translation>%1 de %2</translation>
+        <extracomment>Item position and count. %1 = current item. %2 = total number of items</extracomment>
+    </message>
+    <message>
+        <source>Custom Subtitles</source>
+        <translation>Legendas personalizadas</translation>
+        <extracomment>Name of a setting - custom subtitles that support CJK fonts</extracomment>
+    </message>
+    <message>
+        <source>Slideshow On</source>
+        <translation>Apresentação de slides ativada</translation>
+    </message>
+    <message>
+        <source>Movie Library Default View</source>
+        <translation>Visualização padrão da biblioteca de filmes</translation>
+        <extracomment>Settings Menu - Title for option</extracomment>
+    </message>
+    <message>
+        <source>Settings that apply when Grid views are enabled.</source>
+        <translation>Configurações que se aplicam quando as visualizações em grade estão habilitadas.</translation>
+    </message>
+    <message>
+        <source>Disable Unwatched Episode Count</source>
+        <translation>Desativar contagem de episódios não assistidos</translation>
+        <extracomment>Settings Menu - Title for option</extracomment>
+    </message>
+    <message>
+        <source>Use the replay button to slowly animate to the first item in the folder. (If disabled, the folder will reset to the first item immediately).</source>
+        <translation>Alterar padrão Use o botão de repetição para animar lentamente o primeiro item da pasta. (Se desativado, a pasta será redefinida para o primeiro item imediatamente).</translation>
+        <extracomment>Description for option in Setting Screen</extracomment>
+    </message>
+    <message>
+        <source>Hide all clocks in Jellyfin. Jellyfin will need to be closed and reopened for changes to take effect.</source>
+        <translation>Oculte todos os relógios no Jellyfin. O Jellyfin precisará ser fechado e reaberto para que as alterações entrem em vigor.</translation>
+        <extracomment>Settings Menu - Description for option</extracomment>
+    </message>
+    <message>
+        <source>Skip Details for Single Seasons</source>
+        <translation>Ignorar detalhes para temporadas únicas</translation>
+        <extracomment>Settings Menu - Title for option</extracomment>
+    </message>
+    <message>
+        <source>Set how many seconds before the end of an episode the Next Episode button should appear. Set to 0 to disable.</source>
+        <translation>Caso não exista um segmento de encerramento, defina quantos segundos antes do fim do episódio o botão &quot;Pular Encerramento&quot; deve aparecer. Defina 0 para desativar.</translation>
+        <extracomment>Settings Menu - Description for option</extracomment>
+    </message>
+    <message>
+        <source>Show What&apos;s New popup when Jellyfin is updated to a new version.</source>
+        <translation>Mostrar pop-up de novidades quando o Jellyfin for atualizado para uma nova versão.</translation>
+        <extracomment>Settings Menu - Description for option</extracomment>
+    </message>
+    <message>
+        <source>Album Artists (Presentation)</source>
+        <translation>Artistas do álbum (apresentação)</translation>
+    </message>
+    <message>
+        <source>Audio Codec Support</source>
+        <translation>Suporte para Codificador de áudio</translation>
+        <extracomment>Settings Menu - Title of option</extracomment>
+    </message>
+    <message>
+        <source>The source file is entirely compatible with this client and the session is receiving the file without modifications.</source>
+        <translation>O arquivo fonte é totalmente compatível com este cliente e a sessão está recebendo o arquivo sem modificações.</translation>
+        <extracomment>Direct play info box text in GetPlaybackInfoTask.brs</extracomment>
+    </message>
+    <message>
+        <source>Global</source>
+        <translation>Global</translation>
+        <extracomment>User Setting - Setting title</extracomment>
+    </message>
+    <message>
+        <source>What&apos;s New?</source>
+        <translation>O que há de novo?</translation>
+        <extracomment>Popup title - Popup displays all the major changes to the app since the last version</extracomment>
+    </message>
+    <message>
+        <source>Random</source>
+        <translation>aleatório</translation>
+        <extracomment>General use word when we want to randomize data</extracomment>
+    </message>
+    <message>
+        <source>If enabled, the number of unwatched episodes in a series/season will be removed.</source>
+        <translation>Se ativado, o número de episódios não assistidos em uma série/temporada será removido.</translation>
+        <extracomment>Settings Menu - Description for option</extracomment>
+    </message>
+    <message>
+        <source>Compatibility</source>
+        <translation>Compatível</translation>
+        <extracomment>User Setting - Setting title</extracomment>
+    </message>
+    <message>
+        <source>Use Web Client&apos;s Home Section Arrangement</source>
+        <translation>Use o arranjo da seção inicial do cliente Web</translation>
+        <extracomment>User Setting - Setting title</extracomment>
+    </message>
+    <message>
+        <source>Make the arrangement of the Roku home view sections match the web client&apos;s home screen. Jellyfin will need to be closed and reopened for change to take effect.</source>
+        <translation>Faça com que a organização das seções da visualização inicial do Roku corresponda à tela inicial do cliente web. O Jellyfin precisará ser fechado e reaberto para que as alterações entrem em vigor.</translation>
+        <extracomment>User Setting - Setting description</extracomment>
+    </message>
+    <message>
+        <source>Bit Rate</source>
+        <translation>Taxa de bits</translation>
+        <extracomment>Video streaming bit rate</extracomment>
+    </message>
+    <message>
+        <source>Slideshow Paused</source>
+        <translation>Apresentação de slides pausada</translation>
+    </message>
+    <message>
+        <source>Slideshow Resumed</source>
+        <translation>Apresentação de slides retomada</translation>
+    </message>
+    <message>
+        <source>Album Artists (Grid)</source>
+        <translation>Artistas do álbum (grade)</translation>
+    </message>
+    <message>
+        <source>View All</source>
+        <translation>Ver tudo</translation>
+    </message>
+    <message>
+        <source>Disable Community Rating for Episodes</source>
+        <translation>Desativar classificação da comunidade para episódios</translation>
+    </message>
+    <message>
+        <source>Enable or disable the &apos;Maximum Bitrate&apos; setting.</source>
+        <translation>Ative ou desative a configuração ‘Taxa de bits máxima’.</translation>
+    </message>
+    <message>
+        <source>Libraries</source>
+        <translation>Bibliotecas</translation>
+    </message>
+    <message>
+        <source>Settings relating to the appearance of Library pages</source>
+        <translation>Configurações relacionadas à aparência das páginas da Biblioteca</translation>
+    </message>
+    <message>
+        <source>Loading trailer</source>
+        <translation>Carregando trailer</translation>
+        <extracomment>Dialog title in Main.brs</extracomment>
+    </message>
+    <message>
+        <source>Value</source>
+        <translation>Valor</translation>
+        <extracomment>User Setting - Setting title</extracomment>
+    </message>
+    <message>
+        <source>Apply max resolution to all files or only transcoded files.</source>
+        <translation>Aplique resolução máxima a todos os arquivos ou apenas aos arquivos transcodificados.</translation>
+        <extracomment>User Setting - Description</extracomment>
+    </message>
+    <message>
+        <source>(Dialog will close automatically)</source>
+        <translation>(A caixa de diálogo fechará automaticamente)</translation>
+    </message>
+    <message>
+        <source>Networks</source>
+        <translation>Redes</translation>
+    </message>
+    <message>
+        <source>Hides tagline text on details pages.</source>
+        <translation>Oculta o texto do slogan nas páginas de detalhes.</translation>
+    </message>
+    <message>
+        <source>Use Splashscreen as Home Background</source>
+        <translation>Use a tela inicial como plano de fundo da página inicial</translation>
+        <extracomment>Option Title in user setting screen</extracomment>
+    </message>
+    <message>
+        <source>Settings relating to how the application looks.</source>
+        <translation>Configurações relacionadas à aparência do aplicativo.</translation>
+    </message>
+    <message>
+        <source>Grid View Settings</source>
+        <translation>Configurações de visualização em grade</translation>
+    </message>
+    <message>
+        <source>No Chapter Data Found</source>
+        <translation>Nenhum dado de capítulo encontrado</translation>
+        <extracomment>Message shown in OSD when no chapter data is returned by the API</extracomment>
+    </message>
+    <message>
+        <source>Go directly to the episode list if a TV series has only one season.</source>
+        <translation>Se ativado, ao selecionar uma série com apenas uma temporada, a navegação irá direto para a lista de episódios, em vez de exibir os detalhes da série e a lista de temporadas.</translation>
+        <extracomment>Settings Menu - Description for option</extracomment>
+    </message>
+    <message>
+        <source>Unplayed</source>
+        <translation>Não reproduzido</translation>
+    </message>
+    <message>
+        <source>Default view for Movie Libraries.</source>
+        <translation>Exibição padrão para bibliotecas de filmes.</translation>
+        <extracomment>Settings Menu - Description for option</extracomment>
+    </message>
+    <message>
+        <source>Select when to show titles.</source>
+        <translation>Selecione quando exibir títulos.</translation>
+        <extracomment>Settings Menu - Description for option</extracomment>
+    </message>
+    <message>
+        <source>Always Hide</source>
+        <translation>Sempre ocultar</translation>
+    </message>
+    <message>
+        <source>Configure the maximum playback bitrate.</source>
+        <translation>Configure a taxa de bits máxima de reprodução.</translation>
+    </message>
+    <message>
+        <source>Enable Limit</source>
+        <translation>Habilitar Limite</translation>
+    </message>
+    <message>
+        <source>Bitrate Limit</source>
+        <translation>Limite da taxa de bits</translation>
+    </message>
+    <message>
+        <source>Maximum Bitrate</source>
+        <translation>Taxa máxima de bits</translation>
+    </message>
+    <message>
+        <source>Set the maximum bitrate in Mbps. Set to 0 to use Roku&apos;s specifications. This setting must be enabled to take effect.</source>
+        <translation>Defina a taxa de bits máxima em Mbps. Defina como 0 para usar as especificações do Roku. Esta configuração deve estar habilitada para entrar em vigor.</translation>
+    </message>
+    <message>
+        <source>Next Episode Button Time</source>
+        <translation>Hora do botão do próximo episódio</translation>
+        <extracomment>Settings Menu - Title for option</extracomment>
+    </message>
+    <message>
+        <source>Artists (Presentation)</source>
+        <translation>Artistas (Apresentação)</translation>
+    </message>
+    <message>
+        <source>Artists (Grid)</source>
+        <translation>Artistas (Grade)</translation>
+    </message>
+    <message>
+        <source>Album</source>
+        <translation>Álbum</translation>
+    </message>
+    <message>
+        <source>Albums</source>
+        <translation>Álbuns</translation>
+    </message>
+    <message>
+        <source>Reason</source>
+        <translation>Motivo</translation>
+    </message>
+    <message>
+        <source>Random On</source>
+        <translation>Aleatório ativado</translation>
+    </message>
+    <message>
+        <source>Media Grid options.</source>
+        <translation>Opções de grade de mídia.</translation>
+    </message>
+    <message>
+        <source>Show item count in the library and index of selected item.</source>
+        <translation>Mostra a contagem de itens na biblioteca e o índice do item selecionado.</translation>
+        <extracomment>Description for option in Setting Screen</extracomment>
+    </message>
+    <message>
+        <source>Studios</source>
+        <translation>Estúdios</translation>
+    </message>
+    <message>
+        <source>Shows</source>
+        <translation>Programas</translation>
+    </message>
+    <message>
+        <source>Hide Taglines</source>
+        <translation>Ocultar slogans</translation>
+        <extracomment>Option Title in user setting screen</extracomment>
+    </message>
+    <message>
+        <source>Blur Unwatched Episodes</source>
+        <translation>Desfocar episódios não assistidos</translation>
+        <extracomment>Option Title in user setting screen</extracomment>
+    </message>
+    <message>
+        <source>Options that alter the design of Jellyfin.</source>
+        <translation>Opções que alteram o design do Jellyfin.</translation>
+        <extracomment>Description for Design Elements user settings.</extracomment>
+    </message>
+    <message>
+        <source>Use generated splashscreen image as Jellyfin&apos;s home background. Jellyfin will need to be closed and reopened for change to take effect.</source>
+        <translation>Use gerar imagem da tela inicial como plano de fundo inicial do Jellyfin. O Jellyfin precisará ser fechado e reaberto para que as alterações entrem em vigor.</translation>
+        <extracomment>Description for option in Setting Screen</extracomment>
+    </message>
+    <message>
+        <source>Play Trailer</source>
+        <translation>Reproduzir trailer</translation>
+    </message>
+    <message>
+        <source>Max Days Next Up</source>
+        <translation>Máximo de dias a seguir</translation>
+        <extracomment>Option Title in user setting screen</extracomment>
+    </message>
+    <message>
+        <source>Video Codec</source>
+        <translation>Codec de vídeo</translation>
+    </message>
+    <message>
+        <source>Audio Codec</source>
+        <translation>Codec de áudio</translation>
+    </message>
+    <message>
+        <source>WxH</source>
+        <translation>largura x altura</translation>
+        <extracomment>Video width x height</extracomment>
+    </message>
+    <message>
+        <source>Random Off</source>
+        <translation>Aleatório desligado</translation>
+    </message>
+    <message>
+        <source>Played</source>
+        <translation>Jogado</translation>
+    </message>
+    <message>
+        <source>Show What&apos;s New Popup</source>
+        <translation>Mostrar pop-up de novidades</translation>
+        <extracomment>Settings Menu - Title for option</extracomment>
+    </message>
+    <message>
+        <source>Set Watched</source>
+        <translation>Definir assistido</translation>
+        <extracomment>Button Text - When pressed, marks item as Warched</extracomment>
+    </message>
+    <message>
+        <source>Go to season</source>
+        <translation>Ir para temporada</translation>
+        <extracomment>Continue Watching Popup Menu - Navigate to the Season Page</extracomment>
+    </message>
+    <message>
+        <source>Use voice remote to search</source>
+        <translation>Use o controle remoto por voz para pesquisar</translation>
+        <extracomment>Help text in search voice text box</extracomment>
+    </message>
+    <message>
+        <source>Search now</source>
+        <translation>Pesquise agora</translation>
+        <extracomment>Help text in search Box</extracomment>
+    </message>
+    <message>
+        <source>You can search for Titles, People, Live TV Channels and more</source>
+        <translation>Você pode pesquisar títulos, pessoas, canais de TV ao vivo e muito mais</translation>
+        <extracomment>Help text in search results</extracomment>
+    </message>
+    <message>
+        <source>Quick Connect</source>
+        <translation>Conexão rápida</translation>
+    </message>
+    <message>
+        <source>Options for TV Shows.</source>
+        <translation>Opções para programas de TV.</translation>
+        <extracomment>Description for TV Shows user settings.</extracomment>
+    </message>
+    <message>
+        <source>Blur images of unwatched episodes.</source>
+        <translation>Desfocar imagens de episódios não assistidos.</translation>
+    </message>
+    <message>
+        <source>Design Elements</source>
+        <translation>Elementos de design</translation>
+    </message>
+    <message>
+        <source>Bring the theater experience straight to your living room with the ability to play custom intros before the main feature.</source>
+        <translation>Leve a experiência do teatro diretamente para a sua sala com a capacidade de reproduzir introduções personalizadas antes do filme principal.</translation>
+        <extracomment>Settings Menu - Description for option</extracomment>
+    </message>
+    <message>
+        <source>Attempt Direct Play for H.264 media with unsupported profile levels before falling back to transcoding if it fails.</source>
+        <translation>Tente a reprodução direta para mídia H.264 com níveis de perfil não suportados antes de voltar à transcodificação se falhar.</translation>
+        <extracomment>Settings Menu - Description for option</extracomment>
+    </message>
+    <message>
+        <source>Attempt Direct Play for HEVC media with unsupported profile levels before falling back to transcoding if it fails.</source>
+        <translation>Tente a reprodução direta para mídia HEVC com níveis de perfil não suportados antes de voltar à transcodificação se falhar.</translation>
+        <extracomment>Settings Menu - Description for option</extracomment>
+    </message>
+    <message>
+        <source>Settings relating to playback and supported codec and media types.</source>
+        <translation>Configurações relacionadas à reprodução e codecs e tipos de mídia suportados.</translation>
+    </message>
+    <message>
+        <source>Set the maximum amount of days a show should stay in the &apos;Next Up&apos; list without watching it.</source>
+        <translation>Defina o número máximo de dias que um programa deve permanecer na lista &apos;Seguir&apos; sem assisti-lo.</translation>
+        <extracomment>Settings Menu - Description for option</extracomment>
+    </message>
+    <message>
+        <source>Transcoding Information</source>
+        <translation>Informações sobre transcodificação</translation>
+    </message>
+    <message>
+        <source>Playback Information</source>
+        <translation>Informações sobre reprodução</translation>
+    </message>
+    <message>
+        <source>Codec Tag</source>
+        <translation>Etiqueta de Codificador</translation>
+    </message>
+    <message>
+        <source>direct</source>
+        <translation>Reprodução Direta</translation>
+    </message>
+    <message>
+        <source>Stream Information</source>
+        <translation>Informações de transmissão</translation>
+    </message>
+    <message>
+        <source>Codec</source>
+        <translation>Codificador</translation>
+    </message>
+    <message>
+        <source>Level</source>
+        <translation>Nível</translation>
+        <extracomment>Video profile level</extracomment>
+    </message>
+    <message>
+        <source>Container</source>
+        <translation>Contêiner</translation>
+        <extracomment>Video streaming container</extracomment>
+    </message>
+    <message>
+        <source>Video range type</source>
+        <translation>Tipo de intervalo de vídeo</translation>
+    </message>
+    <message>
+        <source>Pixel format</source>
+        <translation>Formato de pixels</translation>
+        <extracomment>Video pixel format</extracomment>
+    </message>
+    <message>
+        <source>Unable to find any albums or songs belonging to this artist</source>
+        <translation>Não foi possível encontrar álbuns ou músicas pertencentes a este artista</translation>
+        <extracomment>Popup message when we find no audio data for an artist</extracomment>
+    </message>
+    <message>
+        <source>Replace Roku&apos;s default subtitle functions with custom functions that support CJK fonts. Fallback fonts must be configured and enabled on the server for CJK rendering to work.</source>
+        <translation>Substitua as funções de legenda padrão do Roku por funções personalizadas que suportam fontes CJK. As fontes substitutas devem ser configuradas e habilitadas no servidor para que a renderização CJK funcione.</translation>
+        <extracomment>Description of a setting - custom subtitles that support CJK fonts</extracomment>
+    </message>
+    <message>
+        <source>Text Subtitles Only</source>
+        <translation>Apenas legendas de texto</translation>
+        <extracomment>Name of a setting - should we hide subtitles that might transcode</extracomment>
+    </message>
+    <message>
+        <source>Only display text subtitles to minimize transcoding.</source>
+        <translation>Exiba apenas legendas de texto para minimizar a transcodificação.</translation>
+        <extracomment>Description of a setting - should we hide subtitles that might transcode</extracomment>
+    </message>
+    <message>
+        <source>all</source>
+        <translation>todos</translation>
+        <extracomment>all will reset the searchTerm so all data will be availible</extracomment>
+    </message>
+    <message>
+        <source>Slideshow Off</source>
+        <translation>Apresentação de slides desativada</translation>
+    </message>
+    <message>
+        <source>MPEG-4 Support</source>
+        <translation>Suporte MPEG-4</translation>
+        <extracomment>Settings Menu - Title for option</extracomment>
+    </message>
+    <message>
+        <source>Parental Ratings</source>
+        <translation>Avaliações dos pais</translation>
+        <extracomment>Used in Filter menu</extracomment>
+    </message>
+    <message>
+        <source>Resumable</source>
+        <translation>remontar</translation>
+    </message>
+    <message>
+        <source>Item Titles</source>
+        <translation>Títulos de itens</translation>
+        <extracomment>Title of a setting - when should we show the title text of a grid item</extracomment>
+    </message>
+    <message>
+        <source>Show On Hover</source>
+        <translation>Mostrar ao passar o mouse</translation>
+    </message>
+    <message>
+        <source>Always Show</source>
+        <translation>Sempre mostra</translation>
+    </message>
+    <message>
+        <source>Song</source>
+        <translation>Canção</translation>
+    </message>
+    <message>
+        <source>Songs</source>
+        <translation>Músicas</translation>
+    </message>
+    <message>
+        <source>Hide the star and community rating for episodes of a TV show. This is to prevent spoilers of an upcoming good/bad episode.</source>
+        <translation>Oculte a classificação por estrelas e a comunidade de episódios de um programa de TV. Isso é para evitar spoilers de um próximo episódio bom/ruim.</translation>
+    </message>
+    <message>
+        <source>General</source>
+        <translation>Geral</translation>
+    </message>
+    <message>
+        <source>Biographical information for this person is not currently available.</source>
+        <translation>As informações biográficas desta pessoa não estão disponíveis no momento.</translation>
+    </message>
+    <message>
+        <source>Settings relating to the appearance of the Home screen and the program in general.</source>
+        <translation>Configurações relativas à aparência da tela inicial e do programa em geral.</translation>
+    </message>
+    <message>
+        <source>Settings relating to the appearance of pages in TV Libraries.</source>
+        <translation>Configurações relativas à aparência das páginas nas Bibliotecas de TV.</translation>
+    </message>
+    <message>
+        <source>Settings relating to the appearance of pages in Movie Libraries.</source>
+        <translation>Configurações relacionadas à aparência das páginas nas Bibliotecas de filmes.</translation>
+    </message>
+    <message>
+        <source>Presentation</source>
+        <translation>Apresentação</translation>
+        <extracomment>Title of an option - name of presentation view</extracomment>
+    </message>
+    <message>
+        <source>Grid</source>
+        <translation>Grade</translation>
+        <extracomment>Title of an option - name of grid view</extracomment>
+    </message>
+    <message>
+        <source>Choose your preferred audio codec when transcoding multichannel audio.</source>
+        <translation>Escolha seu codificador de áudio preferido ao transcodificar áudio multicanal.</translation>
+        <extracomment>Settings Menu - Description for option</extracomment>
+    </message>
+    <message>
+        <source>Force all transcodes to use DTS instead of the default EAC3. The device must support DTS for this setting to have an effect.</source>
+        <translation>Força todas as transcodificações a usar DTS em vez do EAC3 padrão. O dispositivo deve suportar DTS para que esta configuração tenha efeito.</translation>
+        <extracomment>Settings Menu - Description for option</extracomment>
+    </message>
+    <message>
+        <source>Maximum Resolution</source>
+        <translation>Resolução Máxima</translation>
+        <extracomment>User Setting - Title</extracomment>
+    </message>
+    <message>
+        <source>Set the maximum resolution when playing video files on this device.</source>
+        <translation>Defina a resolução máxima ao reproduzir arquivos de vídeo neste dispositivo.</translation>
+        <extracomment>User Setting - Description</extracomment>
+    </message>
+    <message>
+        <source>Off - Attempt to play all resolutions</source>
+        <translation>Desligado - Tenta reproduzir todas as resoluções</translation>
+        <extracomment>User Setting - Option title</extracomment>
+    </message>
+    <message>
+        <source>Auto - Use TV resolution</source>
+        <translation>Automático - Usar resolução da TV</translation>
+        <extracomment>User Setting - Option title</extracomment>
+    </message>
+    <message>
+        <source>Mode</source>
+        <translation>Modo</translation>
+        <extracomment>User Setting - Setting title</extracomment>
+    </message>
+    <message>
+        <source>Configure the maximum resolution when playing video files on this device.</source>
+        <translation>Configure a resolução máxima ao reproduzir arquivos de vídeo neste dispositivo.</translation>
+        <extracomment>User Setting - Description</extracomment>
+    </message>
+    <message>
+        <source>All files</source>
+        <translation>Todos arquivos</translation>
+        <extracomment>User Setting - Setting title</extracomment>
+    </message>
+    <message>
+        <source>Only transcoded files</source>
+        <translation>Só arquivos transcodificados</translation>
+        <extracomment>User Setting - Setting title</extracomment>
+    </message>
+    <message>
+        <source>Attempt to prevent playback failures.</source>
+        <translation>Tentar evitar falhas de reprodução.</translation>
+        <extracomment>User Setting - Setting description</extracomment>
+    </message>
+    <message>
+        <source>Disable HEVC</source>
+        <translation>Desativar HEVC</translation>
+        <extracomment>User Setting - Setting title</extracomment>
+    </message>
+    <message>
+        <source>Disable the HEVC codec on this device. This may improve playback for some devices (ultra).</source>
+        <translation>Desative o codec HEVC neste dispositivo. Isso pode melhorar a reprodução em alguns dispositivos (ultra).</translation>
+        <extracomment>User Setting - Setting description</extracomment>
+    </message>
+    <message>
+        <source>Global settings that affect everyone that uses this Roku device.</source>
+        <translation>Configurações globais que afetam todos os usuários deste dispositivo Roku.</translation>
+        <extracomment>User Setting - Setting description</extracomment>
+    </message>
+    <message>
+        <source>Remember the currently logged in user and try to log them in again next time you start the Jellyfin app.</source>
+        <translation>Manter o usuário conectado e tentar o login automático ao abrir o Jellyfin.</translation>
+        <extracomment>User Setting - Setting description</extracomment>
+    </message>
+    <message>
+        <source>Disabled</source>
+        <translation>Desabilitado</translation>
+    </message>
+    <message>
+        <source>User Interface</source>
+        <translation>Interface de usuário</translation>
+        <extracomment>Title for User Interface section in user setting screen.</extracomment>
+    </message>
+    <message>
+        <source>There was an error authenticating via Quick Connect.</source>
+        <translation>Ocorreu um erro ao autenticar via Conexão Rápida.</translation>
+    </message>
+    <message>
+        <source>Here is your Quick Connect code:</source>
+        <translation>Aqui está o seu código de conexão rápida:</translation>
+    </message>
+    <message>
+        <source>Return to Top</source>
+        <translation>Retornar ao topo</translation>
+        <extracomment>UI -&gt; Media Grid -&gt; Item Title in user setting screen.</extracomment>
+    </message>
+    <message>
+        <source>Cinema Mode</source>
+        <translation>Modo Cinema</translation>
+        <extracomment>Settings Menu - Title for option</extracomment>
+    </message>
+    <message>
+        <source>Hide Clock</source>
+        <translation>Ocultar relógio</translation>
+        <extracomment>Option Title in user setting screen</extracomment>
+    </message>
+    <message>
+        <source>Next episode</source>
+        <translation>Próximo episódio</translation>
+    </message>
+    <message>
+        <source>H.264</source>
+        <translation>H.264</translation>
+        <extracomment>Name of codec used in settings menu</extracomment>
+    </message>
+    <message>
+        <source>HEVC</source>
+        <translation>HEVC</translation>
+        <extracomment>Name of codec used in settings menu</extracomment>
+    </message>
+    <message>
+        <source>Total Bitrate</source>
+        <translation>Taxa de bits total</translation>
+    </message>
+    <message>
+        <source>Audio Channels</source>
+        <translation>Canais de áudio</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>Tamanho</translation>
+        <extracomment>Video size</extracomment>
+    </message>
+    <message>
+        <source>Aired</source>
+        <translation>Exibido</translation>
+        <extracomment>Aired date label</extracomment>
+    </message>
+    <message>
+        <source>Years</source>
+        <translation>Anos</translation>
+        <extracomment>Used in Filter menu</extracomment>
+    </message>
+    <message>
+        <source>Media Grid</source>
+        <translation>Grade de mídia</translation>
+        <extracomment>UI -&gt; Media Grid section in user setting screen.</extracomment>
+    </message>
+    <message>
+        <source>Item Count</source>
+        <translation>Contagem de itens</translation>
+        <extracomment>UI -&gt; Media Grid -&gt; Item Count in user setting screen.</extracomment>
+    </message>
+    <message>
+        <source>Set Favorite</source>
+        <translation>Definir favorito</translation>
+        <extracomment>Button Text - When pressed, sets item as Favorite</extracomment>
+    </message>
+    <message>
+        <source>Go to series</source>
+        <translation>Ir para a série</translation>
+        <extracomment>Continue Watching Popup Menu - Navigate to the Series Detail Page</extracomment>
+    </message>
+    <message>
+        <source>Go to episode</source>
+        <translation>Ir para o episódio</translation>
+        <extracomment>Continue Watching Popup Menu - Navigate to the Episode Detail Page</extracomment>
+    </message>
+    <message>
+        <source>Enabled</source>
+        <translation>Habilitado</translation>
+    </message>
+    <message>
+        <source>Direct playing</source>
+        <translation>Reproduzir Direto</translation>
+    </message>
+    <message>
+        <source>yesterday</source>
+        <translation>Ontem</translation>
+        <extracomment>Previous day</extracomment>
+    </message>
+    <message>
+        <source>More Like This</source>
+        <translation>Semelhantes a esse</translation>
+    </message>
+    <message>
+        <source>Extras</source>
+        <translation>Extras</translation>
+    </message>
+    <message>
+        <source>Wednesday</source>
+        <translation>Quarta-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Press &apos;OK&apos; to Close</source>
+        <translation>Aperte &apos;OK&apos; para fechar</translation>
+    </message>
+    <message>
+        <source>Friday</source>
+        <translation>Sexta-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Saturday</source>
+        <translation>Sábado</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Starts at</source>
+        <translation>Começa às</translation>
+        <extracomment>(Future Tense) For defining time when a program will start today (e.g. Starts at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Episodes</source>
+        <translation>Episódios</translation>
+    </message>
+    <message>
+        <source>Error loading Channel Data</source>
+        <translation>Erro ao carregar Dados do Canal</translation>
+    </message>
+    <message>
+        <source>Live</source>
+        <translation>Ao Vivo</translation>
+        <extracomment>If TV Show is being broadcast live (not pre-recorded)</extracomment>
+    </message>
+    <message>
+        <source>Started</source>
+        <translation>Começou</translation>
+        <extracomment>(Past Tense) For defining a day and time when a program started (e.g. Started Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Special Features</source>
+        <translation>Características especiais</translation>
+    </message>
+    <message>
+        <source>Additional Parts</source>
+        <translation>Partes Adicionais</translation>
+        <extracomment>Additional parts of a video</extracomment>
+    </message>
+    <message>
+        <source>Movies</source>
+        <translation>Filmes</translation>
+    </message>
+    <message>
+        <source>Thursday</source>
+        <translation>Quinta-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Ended at</source>
+        <translation>Terminou às</translation>
+        <extracomment>(Past Tense) For defining time when a program will ended (e.g. Ended at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Change Server</source>
+        <translation>Trocar de Servidor</translation>
+    </message>
+    <message>
+        <source>Sign Out</source>
+        <translation>Sair</translation>
+    </message>
+    <message>
+        <source>Save Credentials?</source>
+        <translation>Salvar as credenciais?</translation>
+    </message>
+    <message>
+        <source>Error Retrieving Content</source>
+        <translation>Erro ao receber conteúdo</translation>
+        <extracomment>Dialog title when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Error During Playback</source>
+        <translation>Erro durante a reprodução</translation>
+        <extracomment>Dialog title when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>There was an error retrieving the data for this item from the server.</source>
+        <translation>Houve um erro recebendo os dados desse item do servidor.</translation>
+        <extracomment>Dialog detail when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>An error was encountered while playing this item.</source>
+        <translation>Um erro foi encontrando reproduzindo esse item.</translation>
+        <extracomment>Dialog detail when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>Loading Channel Data</source>
+        <translation>Carregando Dados do Canal</translation>
+    </message>
+    <message>
+        <source>Unable to load Channel Data from the server</source>
+        <translation>Não foi possível carregar Dados do Canal deste servidor</translation>
+    </message>
+    <message>
+        <comment>Name or Title field of media item</comment>
+        <source>TITLE</source>
+        <translation>Nome</translation>
+    </message>
+    <message>
+        <source>tomorrow</source>
+        <translation>amanhã</translation>
+        <extracomment>Next day</extracomment>
+    </message>
+    <message>
+        <source>Monday</source>
+        <translation>Segunda-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Tuesday</source>
+        <translation>Terça-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Sunday</source>
+        <translation>Domingo</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Started at</source>
+        <translation>Começou às</translation>
+        <extracomment>(Past Tense) For defining time when a program started today (e.g. Started at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Starts</source>
+        <translation>Começa</translation>
+        <extracomment>(Future Tense) For defining a day and time when a program will start (e.g. Starts Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Delete Saved</source>
+        <translation>Deletar Salvos</translation>
+    </message>
+    <message>
+        <source>IMDB_RATING</source>
+        <translation>Avaliação IMDb</translation>
+    </message>
+    <message>
+        <source>DATE_ADDED</source>
+        <translation>Data de Adição</translation>
+    </message>
+    <message>
+        <source>RUNTIME</source>
+        <translation>Duração</translation>
+    </message>
+    <message>
+        <source>Preferred Audio Codec</source>
+        <translation>Codec de áudio preferido</translation>
+        <extracomment>Settings Menu - Title of option</extracomment>
+    </message>
+    <message>
+        <source>Use system settings</source>
+        <translation>Usar as configurações do sistema</translation>
+        <extracomment>User Setting - Option title</extracomment>
+    </message>
+    <message>
+        <source>PLAY_COUNT</source>
+        <translation>Número de Reproduções</translation>
+    </message>
+    <message>
+        <source>... (Press * to read more)</source>
+        <translation>... (Pressione * para ler mais)</translation>
+        <extracomment>Ellipsis Text for when text overflows its container</extracomment>
+    </message>
+    <message>
+        <source>On Now</source>
+        <translation>Em Exibição</translation>
+    </message>
+    <message>
+        <source>Community and Critical Ratings</source>
+        <translation>Avaliações da Crítica e da Comunidade</translation>
+        <extracomment>User Setting - Setting title</extracomment>
+    </message>
+    <message>
+        <source>Use the selected audio codec for transcodes. If the device or stream does not support it, a fallback codec will be used.</source>
+        <translation>Usar o codec de áudio selecionado para transcodificações. Se o dispositivo ou transmissão não o suportar, será utilizado um codec de recurso.</translation>
+        <extracomment>Settings Menu - Description for option</extracomment>
+    </message>
+    <message>
+        <comment>Message displayed in Item Grid when no item to display. %1 is container type (e.g. Boxset, Collection, Folder, etc)</comment>
+        <source>NO_ITEMS</source>
+        <translation>Esse %1 não possui itens</translation>
+    </message>
+    <message>
+        <source>Ratings for how good a movie is</source>
+        <translation>Avaliações da comunidade e de críticas do Rotten Tomatoes.</translation>
+        <extracomment>User Setting - Setting description</extracomment>
+    </message>
+    <message>
+        <comment>Title of Tab for options to sort library content</comment>
+        <source>TAB_SORT</source>
+        <translation>Ordenar</translation>
+    </message>
+    <message>
+        <comment>Title of Tab for options to filter library content</comment>
+        <source>TAB_FILTER</source>
+        <translation>Filtrar</translation>
+    </message>
+    <message>
+        <source>Died</source>
+        <translation>Falecimento</translation>
+    </message>
+    <message>
+        <source>CRITIC_RATING</source>
+        <translation>Avaliação da Crítica</translation>
+    </message>
+    <message>
+        <source>DATE_PLAYED</source>
+        <translation>Data de Reprodução</translation>
+    </message>
+    <message>
+        <source>OFFICIAL_RATING</source>
+        <translation>Classificação Etária</translation>
+    </message>
+    <message>
+        <source>RELEASE_DATE</source>
+        <translation>Data de Lançamento</translation>
+    </message>
+    <message>
+        <comment>Title of Tab for switching &quot;views&quot; when looking at a library</comment>
+        <source>TAB_VIEW</source>
+        <translation>Visualização</translation>
+    </message>
+    <message>
+        <source>Born</source>
+        <translation>Nascimento</translation>
+    </message>
+    <message>
+        <source>Age</source>
+        <translation>Idade</translation>
+    </message>
+    <message>
+        <source>TV Shows</source>
+        <translation>Séries de TV</translation>
+    </message>
+    <message>
+        <source>today</source>
+        <translation>hoje</translation>
+        <extracomment>Current day</extracomment>
+    </message>
+    <message>
+        <source>Movies (Presentation)</source>
+        <translation>Filmes (Apresentação)</translation>
+        <extracomment>Movie library view option</extracomment>
+    </message>
+    <message>
+        <source>Movies (Grid)</source>
+        <translation>Filmes (Grade)</translation>
+        <extracomment>Movie library view option</extracomment>
+    </message>
+    <message>
+        <source>Cast &amp; Crew</source>
+        <translation>Elenco &amp; Equipe</translation>
+    </message>
+    <message>
+        <source>Episode Images Next Up</source>
+        <translation>Imagens de episódio em Próximos</translation>
+        <extracomment>User Setting - Setting title</extracomment>
+    </message>
+    <message>
+        <source>Use Web Client Setting</source>
+        <translation>Usar configuração de cliente web</translation>
+        <extracomment>User Setting - Setting option title</extracomment>
+    </message>
+    <message>
+        <source>Welcome to version</source>
+        <translation>Bem-vindo à versão</translation>
+        <extracomment>WhatsNewDialog title - Welcome to version 2.0.0</extracomment>
+    </message>
+    <message>
+        <source>To view a complete list of changes visit</source>
+        <translation>Para uma lista completa das mudanças visite</translation>
+        <extracomment>WhatsNewDialog body text preceding the changelog URL</extracomment>
+    </message>
+    <message>
+        <source>View All Next Up</source>
+        <translation>Ver todos os próximos</translation>
+        <extracomment>Title for viewing all episodes available in the Next Up section</extracomment>
+    </message>
+    <message>
+        <source>Rewatching Next Up</source>
+        <translation>Reassistir próximos</translation>
+        <extracomment>User Setting - Setting title</extracomment>
+    </message>
+    <message>
+        <source>Show already watched episodes in &apos;Next Up&apos; sections.</source>
+        <translation>Exibir episódios já assistidos nas seções &apos;A Seguir&apos;.</translation>
+        <extracomment>User Setting - Setting description</extracomment>
+    </message>
+    <message>
+        <source>What type of images to use for Episodes shown in the &apos;Next Up&apos; and &apos;Continue Watching&apos; sections.</source>
+        <translation>Que tipo de imagens usar para os episódios exibidos nas seções &quot;Próximo&quot; e &quot;Continuar assistindo&quot;.</translation>
+        <extracomment>User Setting - Setting description</extracomment>
+    </message>
+    <message>
+        <source>Use Episode Image</source>
+        <translation>Usar imagem do episódio</translation>
+        <extracomment>User Setting - Setting option title</extracomment>
+    </message>
+    <message>
+        <source>Use Show Image</source>
+        <translation>Usar imagem da série</translation>
+        <extracomment>User Setting - Setting option title</extracomment>
+    </message>
+    <message>
+        <source>The selected Jellyfin server uses version</source>
+        <translation>O servidor Jellyfin selecionado utiliza a versão</translation>
+    </message>
+    <message>
+        <source>which is not supported by this app. Please update the server to</source>
+        <translation>que não é suportado por este aplicativo. Atualize o servidor para</translation>
+    </message>
+    <message>
+        <source>Return to server select screen</source>
+        <translation>Retorna a tela de seleção de servidor</translation>
+    </message>
+    <message>
+        <source>Autoplay Episode Limit</source>
+        <translation>Limite de Episódios de Reprodução Automática</translation>
+    </message>
+    <message>
+        <source>The number of episodes that will play automatically after the selected episode. Requires &apos;Play next episode automatically&apos; server setting to be enabled.</source>
+        <translation>O número de episódios que serão reproduzidos automaticamente após o episódio selecionado. Requer que a configuração do servidor “Reproduzir o próximo episódio automaticamente” esteja ativada.</translation>
+    </message>
+    <message>
+        <source>or newer to use this app or install and use the Jellyfin Legacy app from Roku&apos;s Streaming Store</source>
+        <translation>ou mais recente para usar este aplicativo ou instale e use o aplicativo Jellyfin Legacy na Streaming Store da Roku</translation>
+    </message>
+    <message>
+        <source>Recently Added in</source>
+        <translation>Adicionado recentemente em</translation>
+    </message>
+    <message>
+        <source>Community Rating</source>
+        <translation>Classificação da Comunidade</translation>
+    </message>
+    <message>
+        <source>Album Artist</source>
+        <translation>Álbum do Artista</translation>
+    </message>
+    <message>
+        <source>Use Fallback Font Across App</source>
+        <translation>Usar fonte reserva em todos o aplicativo</translation>
+    </message>
+    <message>
+        <source>Changes the font used in the app to the server&apos;s configured fallback font.</source>
+        <translation>Altera a fonte usada no aplicativo para a fonte reserva configurada no servidor.</translation>
+    </message>
+    <message>
+        <source>Highlighted Color</source>
+        <translation>Cor destacada</translation>
+    </message>
+    <message>
+        <source>CH</source>
+        <translation>CH</translation>
+    </message>
+    <message>
+        <source>Overview Content</source>
+        <translation>Resumo do conteúdo</translation>
+    </message>
+    <message>
+        <source>A quick overview of the item selected - typically a short plot outline.</source>
+        <translation>Um resumo rápido do que foi selecionado – geralmente uma sinopse curta.</translation>
+    </message>
+    <message>
+        <source>Forget applied library filters when Jellyfin is closed.</source>
+        <translation>Limpar filtros da biblioteca ao sair do Jellyfin.</translation>
+    </message>
+    <message>
+        <source>Settings relating to the appearance of Library pages.</source>
+        <translation>Ajustes de aparência das páginas da biblioteca.</translation>
+    </message>
+    <message>
+        <source>Date Show Added</source>
+        <translation>Série adicionada em</translation>
+    </message>
+    <message>
+        <source>Settings relating to the appearance of pages in all Libraries.</source>
+        <translation>Ajustes de aparência das páginas de todas as bibliotecas.</translation>
+    </message>
+    <message>
+        <source>Number of columns in library view when showing landscape (wide) images</source>
+        <translation>Número de colunas na biblioteca (modo paisagem)</translation>
+    </message>
+    <message>
+        <source>Number of columns in library view when showing portrait (tall) images</source>
+        <translation>Número de colunas na biblioteca (modo retrato)</translation>
+    </message>
+    <message>
+        <source>Number of columns in library view when showing square images</source>
+        <translation>Número de colunas ao mostrar imagens quadradas</translation>
+    </message>
+    <message>
+        <source>Date Episode Added</source>
+        <translation>Episódio adicionado em</translation>
+    </message>
+    <message>
+        <source>Settings</source>
+        <translation>Configurações</translation>
+    </message>
+    <message>
+        <source>Favorited</source>
+        <translation>Favoritado</translation>
+    </message>
+    <message>
+        <source>Resume playing at </source>
+        <translation>Retomar a reprodução em </translation>
+    </message>
+    <message>
+        <source>Start over from the beginning.</source>
+        <translation>Assistir do início.</translation>
+    </message>
+    <message>
+        <source>downloads</source>
+        <translation>downloads</translation>
+    </message>
+    <message>
+        <source>Seasons</source>
+        <translation>Temporadas</translation>
+    </message>
+    <message>
+        <source>All</source>
+        <translation>Todos</translation>
+    </message>
+    <message>
+        <source>Manage Hidden Users</source>
+        <translation>Gerenciar usuários ocultos</translation>
+    </message>
+    <message>
+        <source>Play Normally - disabled because force transcoding setting is enabled</source>
+        <translation>Reproduzir normalmente – desativado porque a opção de transcodificação forçada está ativada</translation>
+    </message>
+    <message>
+        <source>Force Transcoding setting is enabled</source>
+        <translation>A opção de transcodificação forçada está ativada</translation>
+    </message>
+    <message>
+        <source>Favorites</source>
+        <translation>Favoritos</translation>
+    </message>
+    <message>
+        <source>Delete Playlist</source>
+        <translation>Excluir playlist</translation>
+    </message>
+    <message>
+        <source>No items found. Try adjusting your selected filters.</source>
+        <translation>Nenhum item encontrado. Tente ajustar os filtros selecionados.</translation>
+    </message>
+    <message>
+        <source>Video Codec Support</source>
+        <translation>Suporte a codec de vídeo</translation>
+    </message>
+    <message>
+        <source>Enable or disable Direct Play support for certain codecs.</source>
+        <translation>Ative ou desative o suporte ao Direct Play para certos codecs.</translation>
+    </message>
+    <message>
+        <source>Attempt Direct Play of potentially unsupported profile levels</source>
+        <translation>Tentar Direct Play para níveis de perfil possivelmente não suportados</translation>
+    </message>
+    <message>
+        <source>Change User</source>
+        <translation>Trocar usuário</translation>
+    </message>
+    <message>
+        <source>Unable to get playback information</source>
+        <translation>Não foi possível obter as informações de reprodução</translation>
+    </message>
+    <message>
+        <source>Mark As Favorite</source>
+        <translation>Favoritar</translation>
+    </message>
+    <message>
+        <source>Playback Options</source>
+        <translation>Opções de reprodução</translation>
+    </message>
+    <message>
+        <source>Force Transcode option is enabled</source>
+        <translation>A opção forçar transcodificação está ativada</translation>
+    </message>
+    <message>
+        <source>Artists</source>
+        <translation>Artistas</translation>
+    </message>
+    <message>
+        <source>Collections</source>
+        <translation>Coleções</translation>
+    </message>
+    <message>
+        <source>(Favorites)</source>
+        <translation>(Favoritos)</translation>
+    </message>
+    <message>
+        <source>Playlists</source>
+        <translation>Listas de reprodução</translation>
+    </message>
+    <message>
+        <source>Video Profile Level Support</source>
+        <translation>Suporte ao nível de perfil de vídeo</translation>
+    </message>
+    <message>
+        <source>Forget Filters</source>
+        <translation>Limpar filtros</translation>
+    </message>
+    <message>
+        <source>Library Landscape Column Count</source>
+        <translation>Colunas (modo paisagem)</translation>
+    </message>
+    <message>
+        <source>Library Portrait Column Count</source>
+        <translation>Colunas (modo retrato)</translation>
+    </message>
+    <message>
+        <source>Library Square Column Count</source>
+        <translation>Quantidade de colunas quadradas da biblioteca</translation>
+    </message>
+    <message>
+        <source>Folders</source>
+        <translation>Pastas</translation>
+    </message>
+    <message>
+        <source>Manual Login</source>
+        <translation>Login manual</translation>
+    </message>
+    <message>
+        <source>Unhide Users</source>
+        <translation>Mostrar usuários ocultos</translation>
+    </message>
+    <message>
+        <source>as</source>
+        <translation>como</translation>
+    </message>
+    <message>
+        <source>Episode</source>
+        <translation>Episódio</translation>
+    </message>
+    <message>
+        <source>Season</source>
+        <translation>Temporada</translation>
+    </message>
+    <message>
+        <source>No, Cancel</source>
+        <translation>Não, cancelar</translation>
+    </message>
+    <message>
+        <source>Commercial Segments</source>
+        <translation>Segmentos comerciais</translation>
+    </message>
+    <message>
+        <source>Settings relating to the appearance of the item detail screen.</source>
+        <translation>Configurações relacionadas à aparência da tela de detalhes do item.</translation>
+    </message>
+    <message>
+        <source>Display custom trickplay images even if this Roku says it&apos;s displaying its own. This may cause the two images to overlay on top of each other.</source>
+        <translation>Exibir imagens de pré-visualização personalizadas mesmo que este Roku indique estar usando as suas próprias. Isso pode fazer com que as duas imagens se sobreponham.</translation>
+    </message>
+    <message>
+        <source>Force Transcoding</source>
+        <translation>Forçar transcodificação</translation>
+    </message>
+    <message>
+        <source>Yes</source>
+        <translation>Sim</translation>
+    </message>
+    <message>
+        <source>Select User</source>
+        <translation>Selecionar usuário</translation>
+    </message>
+    <message>
+        <source>Go To Artist</source>
+        <translation>Ir para o Artista</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to forget this user?</source>
+        <translation>Tem certeza de que deseja esquecer este usuário?</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to delete this subtitle?</source>
+        <translation>Tem certeza de que deseja excluir esta legenda?</translation>
+    </message>
+    <message>
+        <source>What action should Jellyfin take for preview segments?</source>
+        <translation>Que ação o Jellyfin deve executar para segmentos de prévia?</translation>
+    </message>
+    <message>
+        <source>What action should Jellyfin take for recap segments?</source>
+        <translation>Que ação o Jellyfin deve executar para segmentos de recapitulação?</translation>
+    </message>
+    <message>
+        <source>Custom Trickplay</source>
+        <translation>Pré-visualização personalizada</translation>
+    </message>
+    <message>
+        <source>Force all playable media to be transcoded.</source>
+        <translation>Forçar a transcodificação de toda mídia reproduzível.</translation>
+    </message>
+    <message>
+        <source>Media Segment Actions</source>
+        <translation>Ações de segmentos</translation>
+    </message>
+    <message>
+        <source>Settings relating to how Jellyfin should handle media segments.</source>
+        <translation>Configurações sobre como o Jellyfin deve lidar com segmentos de mídia.</translation>
+    </message>
+    <message>
+        <source>Intro Segments</source>
+        <translation>Segmentos de introdução</translation>
+    </message>
+    <message>
+        <source>What action should Jellyfin take for commercial segments?</source>
+        <translation>Que ação o Jellyfin deve executar para segmentos comerciais?</translation>
+    </message>
+    <message>
+        <source>What action should Jellyfin take for intro segments?</source>
+        <translation>Que ação o Jellyfin deve executar para segmentos de introdução?</translation>
+    </message>
+    <message>
+        <source>Outro Segments</source>
+        <translation>Segmentos de encerramento</translation>
+    </message>
+    <message>
+        <source>What action should Jellyfin take for outro segments?</source>
+        <translation>Que ação o Jellyfin deve executar para segmentos de encerramento?</translation>
+    </message>
+    <message>
+        <source>Preview Segments</source>
+        <translation>Segmentos de prévia</translation>
+    </message>
+    <message>
+        <source>Recap Segments</source>
+        <translation>Segmentos de recapitulação</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>Nenhum</translation>
+    </message>
+    <message>
+        <source>Ask To Skip</source>
+        <translation>Perguntar se deseja pular</translation>
+    </message>
+    <message>
+        <source>Item Detail Screen</source>
+        <translation>Tela de detalhes do item</translation>
+    </message>
+    <message>
+        <source>Play / Resume from</source>
+        <translation>Reproduzir / Retomar de</translation>
+    </message>
+    <message>
+        <source>Part</source>
+        <translation>Parte</translation>
+    </message>
+    <message>
+        <source>Series</source>
+        <translation>Série</translation>
+    </message>
+    <message>
+        <source>Format</source>
+        <translation>Formato</translation>
+    </message>
+    <message>
+        <source>Search is unavailable because the API does not support searching inside boxsets.</source>
+        <translation>A pesquisa está indisponível porque a API não permite buscas dentro de coleções.</translation>
+    </message>
+    <message>
+        <source>Sort by</source>
+        <translation>Ordenar por</translation>
+    </message>
+    <message>
+        <source>Search this library</source>
+        <translation>Pesquisar nesta biblioteca</translation>
+    </message>
+    <message>
+        <source>Search is unavailable because the API does not support searching inside My List.</source>
+        <translation>A pesquisa está indisponível porque a API não permite buscas dentro da Minha Lista.</translation>
+    </message>
+    <message>
+        <source>Library Settings</source>
+        <translation>Configurações da biblioteca</translation>
+    </message>
+    <message>
+        <source>Press OK to type</source>
+        <translation>Pressione OK para digitar</translation>
+    </message>
+    <message>
+        <source>Add To My List</source>
+        <translation>Adicionar à minha lista</translation>
+    </message>
+    <message>
+        <source>Remove From My List</source>
+        <translation>Remover da minha lista</translation>
+    </message>
+    <message>
+        <source>Add To Playlist</source>
+        <translation>Adicionar à playlist</translation>
+    </message>
+    <message>
+        <source>Mark As Played</source>
+        <translation>Marcar como assistido</translation>
+    </message>
+    <message>
+        <source>Mark As Unplayed</source>
+        <translation>Marcar como não assistido</translation>
+    </message>
+    <message>
+        <source>Select Subtitles</source>
+        <translation>Selecionar legenda</translation>
+    </message>
+    <message>
+        <source>Select Audio</source>
+        <translation>Selecionar áudio</translation>
+    </message>
+    <message>
+        <source>Playback Info</source>
+        <translation>Informações de reprodução</translation>
+    </message>
+    <message>
+        <source>Display Watched Checkmark</source>
+        <translation>Exibir marca de assistido</translation>
+    </message>
+    <message>
+        <source>Released</source>
+        <translation>Lançamento</translation>
+    </message>
+    <message>
+        <source>Tracks</source>
+        <translation>Faixas</translation>
+    </message>
+    <message>
+        <source>Select Language</source>
+        <translation>Selecionar idioma</translation>
+    </message>
+    <message>
+        <source>Public Profile</source>
+        <translation>Perfil público</translation>
+    </message>
+    <message>
+        <source>Saved Profile</source>
+        <translation>Perfil salvo</translation>
+    </message>
+    <message>
+        <source>AppearsOn</source>
+        <translation>Aparece em</translation>
+    </message>
+    <message>
+        <source>In My List</source>
+        <translation>Na Minha Lista</translation>
+    </message>
+    <message>
+        <source>Continue Listening</source>
+        <translation>Continuar ouvindo</translation>
+    </message>
+    <message>
+        <source>No Results Found</source>
+        <translation>Nenhum resultado encontrado</translation>
+    </message>
+    <message>
+        <source>What&apos;s New</source>
+        <translation>Novidades</translation>
+    </message>
+    <message>
+        <source>Play or Resume from</source>
+        <translation>Reproduzir ou Retomar de</translation>
+    </message>
+    <message>
+        <source>Skip</source>
+        <translation>Pular</translation>
+    </message>
+    <message>
+        <source>min</source>
+        <translation>min</translation>
+    </message>
+    <message>
+        <source>mins</source>
+        <translation>minutos</translation>
+    </message>
+    <message>
+        <source>Section 1</source>
+        <translation>Seção 1</translation>
+    </message>
+    <message>
+        <source>Section 3</source>
+        <translation>Seção 3</translation>
+    </message>
+    <message>
+        <source>Section 4</source>
+        <translation>Seção 4</translation>
+    </message>
+    <message>
+        <source>Section 5</source>
+        <translation>Seção 5</translation>
+    </message>
+    <message>
+        <source>Section 2</source>
+        <translation>Seção 2</translation>
+    </message>
+    <message>
+        <source>Section 6</source>
+        <translation>Seção 6</translation>
+    </message>
+    <message>
+        <source>Section 7</source>
+        <translation>Seção 7</translation>
+    </message>
+    <message>
+        <source>Section 8</source>
+        <translation>Seção 8</translation>
+    </message>
+    <message>
+        <source>My List</source>
+        <translation>Minha Lista</translation>
+    </message>
+    <message>
+        <source>Home Rows</source>
+        <translation>Seções da tela inicial</translation>
+    </message>
+    <message>
+        <source>All Screens</source>
+        <translation>Todas as telas</translation>
+    </message>
+    <message>
+        <source>Colors used across multiple screens.</source>
+        <translation>Cores usadas em várias telas.</translation>
+    </message>
+    <message>
+        <source>Background</source>
+        <translation>Plano de fundo</translation>
+    </message>
+    <message>
+        <source>Row Item Progress Background</source>
+        <translation>Fundo da barra de progresso do item</translation>
+    </message>
+    <message>
+        <source>The background color of the progress bar.</source>
+        <translation>Cor de fundo da barra de progresso.</translation>
+    </message>
+    <message>
+        <source>Row Item Title</source>
+        <translation>Título do item da linha</translation>
+    </message>
+    <message>
+        <source>Colors</source>
+        <translation>Cores</translation>
+    </message>
+    <message>
+        <source>Recently Added Media</source>
+        <translation>Adicionados recentemente</translation>
+    </message>
+    <message>
+        <source>Live TV</source>
+        <translation>TV ao vivo</translation>
+    </message>
+    <message>
+        <source>Customize the home screen sections</source>
+        <translation>Personalizar as seções da tela inicial</translation>
+    </message>
+    <message>
+        <source>Cursor</source>
+        <translation>Cursor</translation>
+    </message>
+    <message>
+        <source>Change the colors of elements in the app.</source>
+        <translation>Alterar as cores dos elementos do aplicativo.</translation>
+    </message>
+    <message>
+        <source>The text color of the second line displayed under items.</source>
+        <translation>A cor do texto da segunda linha exibida sob os itens.</translation>
+    </message>
+    <message>
+        <source>The color of the remote control&apos;s cursor.</source>
+        <translation>A cor do cursor do controle remoto.</translation>
+    </message>
+    <message>
+        <source>Shuffle Play Collection</source>
+        <translation>Reproduzir aleatoriamente</translation>
+    </message>
+    <message>
+        <source>The text color of the user&apos;s name in the header.</source>
+        <translation>A cor do texto do nome do usuário no cabeçalho.</translation>
+    </message>
+    <message>
+        <source>The background color of items. Only seen if no image loads on top of it.</source>
+        <translation>Cor de fundo dos itens (visível apenas se nenhuma imagem for carregada sobre eles).</translation>
+    </message>
+    <message>
+        <source>Username In Header</source>
+        <translation>Nome do Usuário no cabeçalho</translation>
+    </message>
+    <message>
+        <source>Row Item Subtitle</source>
+        <translation>Subtítulo do item da linha</translation>
+    </message>
+    <message>
+        <source>The text color of the first line displayed under items.</source>
+        <translation>A cor do texto da primeira linha exibida sob os itens.</translation>
+    </message>
+    <message>
+        <source>Row Item Progress</source>
+        <translation>Progresso do item</translation>
+    </message>
+    <message>
+        <source>The color of the watched portion of the progress bar.</source>
+        <translation>Cor da parte assistida da barra de progresso.</translation>
+    </message>
+    <message>
+        <source>Play Normally - disabled because of selected force transcoding setting</source>
+        <translation>Reproduzir normalmente — desativado devido à configuração de transcodificação forçada selecionada</translation>
+    </message>
+    <message>
+        <source>Add To Favorites</source>
+        <translation>Adicionar aos favoritos</translation>
+    </message>
+    <message>
+        <source>Force Transcode (Allow Remux)</source>
+        <translation>Forçar transcodificação (remux ativado)</translation>
+    </message>
+    <message>
+        <source>Play Normally</source>
+        <translation>Reproduzir normalmente</translation>
+    </message>
+    <message>
+        <source>Force Transcode (Remux Disabled)</source>
+        <translation>Forçar transcodificação (remux desativado)</translation>
+    </message>
+    <message>
+        <source>Select what to show in section 1. This setting has no effect if \&quot;Use Web Client&apos;s Home Section Arrangement\&quot; is enabled. Jellyfin will need to be closed and reopened for change to take effect.</source>
+        <translation>Selecione o que exibir na seção 1. Esta configuração não terá efeito se \“Usar a disposição de seções da tela inicial do cliente web\” estiver ativada. O Jellyfin precisará ser fechado e reaberto para que a alteração tenha efeito.</translation>
+    </message>
+    <message>
+        <source>Select what to show in section 2. This setting has no effect if \&quot;Use Web Client&apos;s Home Section Arrangement\&quot; is enabled. Jellyfin will need to be closed and reopened for change to take effect.</source>
+        <translation>Selecione o que exibir na seção 2. Esta configuração não terá efeito se \“Usar a disposição de seções da tela inicial do cliente web\” estiver ativada. O Jellyfin precisará ser fechado e reaberto para que a alteração tenha efeito.</translation>
+    </message>
+    <message>
+        <source>Select what to show in section 4. This setting has no effect if \&quot;Use Web Client&apos;s Home Section Arrangement\&quot; is enabled. Jellyfin will need to be closed and reopened for change to take effect.</source>
+        <translation>Selecione o que exibir na seção 4. Esta configuração não terá efeito se \“Usar a disposição de seções da tela inicial do cliente web\” estiver ativada. O Jellyfin precisará ser fechado e reaberto para que a alteração tenha efeito.</translation>
+    </message>
+    <message>
+        <source>Select what to show in section 5. This setting has no effect if \&quot;Use Web Client&apos;s Home Section Arrangement\&quot; is enabled. Jellyfin will need to be closed and reopened for change to take effect.</source>
+        <translation>Selecione o que exibir na seção 5. Esta configuração não terá efeito se \“Usar a disposição de seções da tela inicial do cliente web\” estiver ativada. O Jellyfin precisará ser fechado e reaberto para que a alteração tenha efeito.</translation>
+    </message>
+    <message>
+        <source>Select what to show in section 6. This setting has no effect if \&quot;Use Web Client&apos;s Home Section Arrangement\&quot; is enabled. Jellyfin will need to be closed and reopened for change to take effect.</source>
+        <translation>Selecione o que exibir na seção 6. Esta configuração não terá efeito se \“Usar a disposição de seções da tela inicial do cliente web\” estiver ativada. O Jellyfin precisará ser fechado e reaberto para que a alteração tenha efeito.</translation>
+    </message>
+    <message>
+        <source>Select what to show in section 7. This setting has no effect if \&quot;Use Web Client&apos;s Home Section Arrangement\&quot; is enabled. Jellyfin will need to be closed and reopened for change to take effect.</source>
+        <translation>Selecione o que exibir na seção 7. Esta configuração não terá efeito se \“Usar a disposição de seções da tela inicial do cliente web\” estiver ativada. O Jellyfin precisará ser fechado e reaberto para que a alteração tenha efeito.</translation>
+    </message>
+    <message>
+        <source>Select what to show in section 8. This setting has no effect if \&quot;Use Web Client&apos;s Home Section Arrangement\&quot; is enabled. Jellyfin will need to be closed and reopened for change to take effect.</source>
+        <translation>Selecione o que exibir na seção 8. Esta configuração não terá efeito se \“Usar a disposição de seções da tela inicial do cliente web\” estiver ativada. O Jellyfin precisará ser fechado e reaberto para que a alteração tenha efeito.</translation>
+    </message>
+    <message>
+        <source>Yes, continue</source>
+        <translation>Sim, continuar</translation>
+    </message>
+    <message>
+        <source>Start Episode List From First Unwatched Episode</source>
+        <translation>Iniciar lista de episódios a partir do primeiro não assistido</translation>
+    </message>
+    <message>
+        <source>No channels found matching your search criteria</source>
+        <translation>Não foram encontrados canais correspondentes aos seus critérios de pesquisa</translation>
+    </message>
+    <message>
+        <source>Force Transcode (Remux Disabled) - disabled because of selected force transcoding setting</source>
+        <translation>Forçar transcodificação (remux desativado) — desativado devido à configuração selecionada de transcodificação forçada</translation>
+    </message>
+    <message>
+        <source>Force Transcode (Allow Remux) - disabled because of selected force transcoding setting</source>
+        <translation>Forçar transcodificação (remux ativado) — desativado devido à configuração selecionada de transcodificação forçada</translation>
+    </message>
+    <message>
+        <source>Remove From Favorites</source>
+        <translation>Remover dos favoritos</translation>
+    </message>
+    <message>
+        <source>When opening a season&apos;s list of episodes, automatically scroll down and start the cursor on the first unwatched episode.</source>
+        <translation>Ao abrir a lista de episódios de uma temporada, rola automaticamente até o primeiro episódio não assistido e posiciona o cursor nele.</translation>
+    </message>
+    <message>
+        <source>How many minutes of inactivity before playback is stopped between items and a popup is shown to continue? Set to 0 to disable.</source>
+        <translation>Define o tempo de inatividade (em minutos) antes que a reprodução seja pausada entre os itens e uma mensagem, seja exibida perguntando se você continua assistindo. Defina como 0 para desativar esta verificação.</translation>
+    </message>
+    <message>
+        <source>Note: Force transcode option automatically enabled due to video rotation</source>
+        <translation>Observação: a opção de transcodificação forçada foi ativada automaticamente devido à rotação do vídeo</translation>
+    </message>
+    <message>
+        <source>Are You Still Watching?</source>
+        <translation>Você continua assistindo?</translation>
+    </message>
+    <message>
+        <source>Are You Still Watching Popup</source>
+        <translation>Pop-up “Você continua assistindo?”</translation>
+    </message>
+    <message>
+        <source>Playback will automatically stop in 1 minute if no buttons are pressed.</source>
+        <translation>A reprodução será interrompida automaticamente em 1 minuto se nenhum botão for pressionado.</translation>
+    </message>
+    <message>
+        <source>No, stop playback</source>
+        <translation>Não, parar reprodução</translation>
+    </message>
+    <message>
+        <source>Select what to show in section 3. This setting has no effect if \&quot;Use Web Client&apos;s Home Section Arrangement\&quot; is enabled. Jellyfin will need to be closed and reopened for change to take effect.</source>
+        <translation>Selecione o que exibir na seção 3. Esta configuração não terá efeito se \“Usar a disposição de seções da tela inicial do cliente web\” estiver ativada. O Jellyfin precisará ser fechado e reaberto para que a alteração tenha efeito.</translation>
+    </message>
+    <message>
+        <source>The base background color. Background images are layered on top of this color.</source>
+        <translation>A cor de fundo padrão. As imagens de fundo são sobrepostas a essa cor.</translation>
+    </message>
+    <message>
+        <source>Primary Text</source>
+        <translation>Texto principal</translation>
+    </message>
+    <message>
+        <source>The primary text color.</source>
+        <translation>A cor do texto principal.</translation>
+    </message>
+    <message>
+        <source>Secondary Text</source>
+        <translation>Texto secundário</translation>
+    </message>
+    <message>
+        <source>The secondary text color.</source>
+        <translation>A cor do texto secundário.</translation>
+    </message>
+    <message>
+        <source>Watched Check Mark &amp; Unplayed Count</source>
+        <translation>Marca de assistido e contagem de não reproduzidos</translation>
+    </message>
+    <message>
+        <source>Colors specific to the watched check mark &amp; unplayed count box.</source>
+        <translation>Cores específicas da marca de assistido e da caixa de contagem de não reproduzidos.</translation>
+    </message>
+    <message>
+        <source>Unplayed Count</source>
+        <translation>Quantidade de itens não reproduzidos</translation>
+    </message>
+    <message>
+        <source>The background color of the check mark &amp; unplayed count shown in the top right corner of items.</source>
+        <translation>A cor de fundo da marca de assistido e da contagem de não reproduzidos exibidas no canto superior direito dos itens.</translation>
+    </message>
+    <message>
+        <source>The color of the unplayed count number.</source>
+        <translation>A cor do número de itens não reproduzidos.</translation>
+    </message>
+    <message>
+        <source>Watched Check Mark</source>
+        <translation>Marca de assistido</translation>
+    </message>
+    <message>
+        <source>The color of the watched check mark.</source>
+        <translation>A cor do ícone de assistido.</translation>
+    </message>
+    <message>
+        <source>Dialog Popups</source>
+        <translation>Pop-ups</translation>
+    </message>
+    <message>
+        <source>Colors specific to dialog popups</source>
+        <translation>Cores específicas dos pop-ups</translation>
+    </message>
+    <message>
+        <source>The background color for all dialog popups.</source>
+        <translation>A cor de fundo de todos os pop-ups.</translation>
+    </message>
+    <message>
+        <source>Bold Text</source>
+        <translation>Texto em negrito</translation>
+    </message>
+    <message>
+        <source>The text color for bold text.</source>
+        <translation>A cor do texto em negrito.</translation>
+    </message>
+    <message>
+        <source>Horizontal Border line</source>
+        <translation>Linha de borda horizontal</translation>
+    </message>
+    <message>
+        <source>The color of the thin border line under the header text.</source>
+        <translation>A cor da linha fina exibida sob o texto do cabeçalho.</translation>
+    </message>
+    <message>
+        <source>Selected Text</source>
+        <translation>Texto selecionado</translation>
+    </message>
+    <message>
+        <source>The text color for the item the cursor is over.</source>
+        <translation>A cor do texto do item em que o cursor está posicionado.</translation>
+    </message>
+    <message>
+        <source>Text Color</source>
+        <translation>Cor do texto</translation>
+    </message>
+    <message>
+        <source>The text color for title and items the cursor is not over.</source>
+        <translation>A cor do texto dos títulos e dos itens que não estão sob o cursor.</translation>
+    </message>
+    <message>
+        <source>What&apos;s New Author</source>
+        <translation>Novidades do autor</translation>
+    </message>
+    <message>
+        <source>The text color for the author in the What&apos;s New popup.</source>
+        <translation>A cor do nome do autor exibido no pop-up “Novidades”.</translation>
+    </message>
+    <message>
+        <source>Home Screen</source>
+        <translation>Tela inicial</translation>
+    </message>
+    <message>
+        <source>Colors specific to the home screen</source>
+        <translation>Cores específicas da tela inicial</translation>
+    </message>
+    <message>
+        <source>My List Icon</source>
+        <translation>Ícone da &quot;Minha Lista&quot;</translation>
+    </message>
+    <message>
+        <source>The color of the star icon in the My List library item.</source>
+        <translation>A cor do ícone de estrela nos itens da biblioteca da Minha Lista.</translation>
+    </message>
+    <message>
+        <source>Row Headers</source>
+        <translation>Cabeçalhos das seções</translation>
+    </message>
+    <message>
+        <source>The text color of the headers of each row.</source>
+        <translation>A cor do texto dos cabeçalhos de cada seção.</translation>
+    </message>
+    <message>
+        <source>Row Item Background</source>
+        <translation>Fundo dos itens da linha</translation>
+    </message>
+    <message>
+        <source>Skip Outro</source>
+        <translation>Próximo</translation>
+    </message>
+    <message>
+        <source>Grid View Item Titles</source>
+        <translation>Títulos dos itens na visualização em grade</translation>
+    </message>
+    <message>
+        <source>Select when to show titles in grid view.</source>
+        <translation>Selecione quando os títulos devem ser exibidos na visualização em grade.</translation>
+    </message>
+    <message>
+        <source>Maximum Audio Channels</source>
+        <translation>Máximo de canais de áudio</translation>
+    </message>
+    <message>
+        <source>Configure the maximum audio channels when playing video files on this device.</source>
+        <translation>Configure o número máximo de canais de áudio ao reproduzir arquivos de vídeo neste dispositivo.</translation>
+    </message>
+    <message>
+        <source>Off - Attempt to play all channels</source>
+        <translation>Desativado — tentar reproduzir todos os canais</translation>
+    </message>
+    <message>
+        <source>Burn in subtitle when transcoding</source>
+        <translation>Incorporar legendas durante a transcodificação</translation>
+    </message>
+    <message>
+        <source>Burn in all subtitles when transcoding is triggered. This ensures subtitle synchronization after transcoding at the cost of reduced transcoding speed.</source>
+        <translation>Incorpora todas as legendas quando a transcodificação é acionada. Isso garante a sincronização das legendas após a transcodificação, mas pode reduzir a velocidade do processo.</translation>
+    </message>
+    <message>
+        <source>Library Image Orientation</source>
+        <translation>Orientação das imagens da biblioteca</translation>
+    </message>
+    <message>
+        <source>Select the poster image orientation for the library views.</source>
+        <translation>Selecione a orientação das imagens de pôster na visualização da biblioteca.</translation>
+    </message>
+    <message>
+        <source>Default (Varies By Media Type)</source>
+        <translation>Padrão (varia conforme o tipo de mídia)</translation>
+    </message>
+    <message>
+        <source>Landscape (Wide)</source>
+        <translation>Paisagem (horizontal)</translation>
+    </message>
+    <message>
+        <source>Portrait (Vertical)</source>
+        <translation>Retrato (vertical)</translation>
+    </message>
+    <message>
+        <source>Skip Unknown</source>
+        <translation>Pular segmento</translation>
+    </message>
+    <message>
+        <source>Skip Commercial</source>
+        <translation>Pular comercial</translation>
+    </message>
+    <message>
+        <source>Skip Preview</source>
+        <translation>Pular prévia</translation>
+    </message>
+    <message>
+        <source>Skip Recap</source>
+        <translation>Pular recapitulação</translation>
+    </message>
+    <message>
+        <source>Skip Intro</source>
+        <translation>Pular introdução</translation>
+    </message>
+    <message>
+        <source>Go To Genre</source>
+        <translation>Ir para o gênero</translation>
+    </message>
+    <message>
+        <source>Play Instant Mix</source>
+        <translation>Reproduzir mix instantâneo</translation>
+    </message>
+    <message>
+        <source>Show Next Episode Details After Finish</source>
+        <translation>Mostrar Detalhes do Próximo Episódio Após Terminar</translation>
+    </message>
+    <message>
+        <source>If auto play next episode is disabled, display the next episode&apos;s detail screen after an episode finishes playing. If no next up episode is found, return to the just-played episode&apos;s page.</source>
+        <translation>Se a reprodução automática do próximo episódio estiver desativada, exibir a tela de detalhes do próximo episódio após a conclusão da reprodução. Se nenhum próximo episódio for encontrado, retornar à página do episódio recém-reproduzido.</translation>
+    </message>
+    <message>
+        <source>Set the maximum amount of days a show should stay in the &apos;Next Up&apos; list without watching it. Maximum value is 1000 days.</source>
+        <translation>Defina o número máximo de dias que uma série deve permanecer na lista “Próximos episódios” sem ser assistida. O valor máximo é 1000 dias.</translation>
+    </message>
+    <message>
+        <source>Favorites Row</source>
+        <translation>Linha de favoritos</translation>
+    </message>
+    <message>
+        <source>Settings relating to the favorites row on the home screen.</source>
+        <translation>Configurações relacionadas à linha de favoritos na tela inicial.</translation>
+    </message>
+    <message>
+        <source>Sort By Field</source>
+        <translation>Ordenar por campo</translation>
+    </message>
+    <message>
+        <source>Field to sort the row by.</source>
+        <translation>Campo pelo qual a linha será ordenada.</translation>
+    </message>
+    <message>
+        <source>Date Created</source>
+        <translation>Data de criação</translation>
+    </message>
+    <message>
+        <source>Is Unplayed</source>
+        <translation>Não assistido</translation>
+    </message>
+    <message>
+        <source>Sort Order for the row - Ascending,Descending.</source>
+        <translation>Ordem de classificação da linha — Ascendente, Descendente.</translation>
+    </message>
+    <message>
+        <source>Current Offset</source>
+        <translation>Deslocamento atual</translation>
+    </message>
+    <message>
+        <source>Adjust Subtitle Timing</source>
+        <translation>Ajustar sincronização das legendas</translation>
+    </message>
+    <message>
+        <source>Display Episodes In Two Columns</source>
+        <translation>Exibir episódios em duas colunas</translation>
+    </message>
+    <message>
+        <source>Screen Settings</source>
+        <translation>Configurações de Tela</translation>
+    </message>
+    <message>
+        <source>Attempt Direct Play Anamorphic Video</source>
+        <translation>Tentar reprodução direta de vídeo anamórfico</translation>
+    </message>
+    <message>
+        <source>Newer devices may support direct play of anamorphic video.</source>
+        <translation>Dispositivos mais recentes podem oferecer suporte à reprodução direta de vídeos anamórficos.</translation>
+    </message>
+    <message>
+        <source>Play from beginning</source>
+        <translation>Reproduzir do início</translation>
+    </message>
+    <message>
+        <source>Videos</source>
+        <translation>Vídeos</translation>
+    </message>
+    <message>
+        <source>Subtitles</source>
+        <translation>Legendas</translation>
+    </message>
+    <message>
+        <source>tracks</source>
+        <translation>faixas</translation>
+    </message>
+    <message>
+        <source>No Default</source>
+        <translation>Sem padrão</translation>
+    </message>
+    <message>
+        <comment>Last played time of media item</comment>
+        <source>RECENTLY_WATCHED</source>
+        <translation>Assistido Recentemente</translation>
+    </message>
+    <message>
+        <source>No cast data available.</source>
+        <translation>Não há dados de elenco disponíveis.</translation>
+    </message>
+    <message>
+        <source>More with %1 in Your Library</source>
+        <translation>Mais com 1% na sua biblioteca</translation>
+    </message>
+    <message>
+        <source>No other titles found in your library.</source>
+        <translation>Nenhum outro título encontrado em sua biblioteca.</translation>
+    </message>
+    <message>
+        <source>Resume from</source>
+        <translation>Continuar a partir de</translation>
+    </message>
+    <message>
+        <source>Replace Roku&apos;s default subtitle functions with custom functions. If fallback fonts are configured and enabled on the server, those fonts will be used. A CJK fallback font is required for CJK rendering. To support bold and italics, you must have additional font files with the words &quot;bold&quot;, &quot;italic&quot;, and &quot;bolditalic&quot; in the filename.</source>
+        <translation>Substitua as funções de legenda padrão do Roku por funções personalizadas. Se fontes de reserva estiverem configuradas e habilitadas no servidor, elas serão utilizadas. É necessária uma fonte de reserva CJK para a renderização de caracteres CJK. Para oferecer suporte a negrito e itálico, você deve ter arquivos de fonte adicionais com as palavras &quot;bold&quot;, &quot;italic&quot; e &quot;bolditalic&quot; no nome do arquivo.</translation>
+    </message>
+    <message>
+        <source>Playback Controls Inactivity Timeout</source>
+        <translation>Tempo limite de inatividade dos controles de reprodução</translation>
+    </message>
+    <message>
+        <source>Set the length of time in seconds that the playback control overlay will remain visible when no buttons are pressed. Set to 0 to disable.</source>
+        <translation>Defina a duração, em segundos, pela qual a sobreposição de controles de reprodução permanecerá visível quando nenhum botão for pressionado. Defina como 0 para desativar.</translation>
+    </message>
+    <message>
+        <source>Force media to be transcoded.</source>
+        <translation>Forçar a transcodificação da mídia.</translation>
+    </message>
+    <message>
+        <source>All Playable Media</source>
+        <translation>Todas as mídias reproduzíveis</translation>
+    </message>
+    <message>
+        <source>Force live TV to be transcoded. If All Playable Media is already set to Force Transcode (Remux Disabled), this setting is ignored.</source>
+        <translation>Forçar a transcodificação da TV ao vivo. Se &quot;Todas as mídias reproduzíveis&quot; já estiver configurado para &quot;Forçar transcodificação (Remux desativado)&quot;, esta configuração será ignorada.</translation>
+    </message>
+    <message>
+        <source>Load Items Limit</source>
+        <translation>Limite de carregamento de itens</translation>
+    </message>
+    <message>
+        <source>Number of items to load together on library screens.</source>
+        <translation>Número de itens a serem carregados de uma só vez nas telas da biblioteca.</translation>
+    </message>
+    <message>
+        <source>Five trickplay images</source>
+        <translation>Conco imagens de controle de reprodução</translation>
+    </message>
+    <message>
+        <source>Single trickplay image that moves</source>
+        <translation>Imagem única de controle de reprodução que se move</translation>
+    </message>
+    <message>
+        <source>Settings relating to Live TV.</source>
+        <translation>Configurações relacionadas à TV ao vivo.</translation>
+    </message>
+    <message>
+        <source>Channel Title Info</source>
+        <translation>Informações do Título do Canal</translation>
+    </message>
+    <message>
+        <source>Select what information to use as a channel&apos;s title.</source>
+        <translation>Selecione qual informação usar como título do canal.</translation>
+    </message>
+    <message>
+        <source>Channel Number and Name</source>
+        <translation>Número e Nome do Canal</translation>
+    </message>
+    <message>
+        <source>Channel Number</source>
+        <translation>Número do Canal</translation>
+    </message>
+    <message>
+        <source>Channel Name</source>
+        <translation>Nome do Canal</translation>
+    </message>
+    <message>
+        <source>TV Guide Channel Display</source>
+        <translation>Exibição do Guia de Programação da TV</translation>
+    </message>
+    <message>
+        <source>Select how to display a channel in the Live TV guide.</source>
+        <translation>Selecione como exibir um canal no guia de TV ao vivo.</translation>
+    </message>
+    <message>
+        <source>Channel Logo and Title</source>
+        <translation>Logo e Título do Canal</translation>
+    </message>
+    <message>
+        <source>Channel Logo</source>
+        <translation>Logo do Canal</translation>
+    </message>
+    <message>
+        <source>Channel Title</source>
+        <translation>Título do Canal</translation>
+    </message>
+    <message>
+        <source>Playback Speed Controls (Experimental)</source>
+        <translation>Controles de Velocidade de Reprodução (Experimental)</translation>
+    </message>
+    <message>
+        <source>Use at your own risk. We make no guarantees this will work for you. \n 1. This feature may not work on this device, yet work on others \n 2. Some speed options may not work on this device, yet work on others \n 3. Roku may block this feature without warning; even if the Jellyfin client doesn&apos;t update</source>
+        <translation>Use por sua conta e risco. Não garantimos que isso funcionará para você.\n1. Este recurso pode não funcionar neste dispositivo, embora funcione em outros.\n2. Algumas opções de velocidade podem não funcionar neste dispositivo, embora funcionem em outros.\n3. A Roku pode bloquear este recurso sem aviso prévio, mesmo que o cliente Jellyfin não seja atualizado</translation>
+    </message>
+    <message>
+        <source>Search Unavailable</source>
+        <translation>Busca Indisponível</translation>
+    </message>
+    <message>
+        <source>Roku&apos;s video player got stuck buffering video</source>
+        <translation>O reprodutor de vídeo do Roku travou enquanto carregava o vídeo</translation>
+    </message>
+    <message>
+        <source>Roku&apos;s video player threw the following error</source>
+        <translation>O reprodutor de vídeo da Roku apresentou o seguinte erro</translation>
+    </message>
+    <message>
+        <source>Roku thought it could direct play this media, but playback never started.</source>
+        <translation>O Roku achou que poderia reproduzir essa mídia diretamente, mas a reprodução nunca começou.</translation>
+    </message>
+    <message>
+        <source>Always Attempt Direct Playing Video Media</source>
+        <translation>Sempre tentar reproduzir mídia de vídeo diretamente</translation>
+    </message>
+    <message>
+        <source>Forces Jellyfin to try direct playing video media, Live TV excluded. Enabling this ignores all other playback support settings and will always first attempt direct playback. It also changes how transcode reason is displayed.</source>
+        <translation>Força o Jellyfin a tentar a reprodução direta de mídia de vídeo (exceto TV ao vivo). Ativar essa opção ignora todas as outras configurações de suporte à reprodução e sempre tentará primeiro a reprodução direta. Também altera a forma como o motivo da transcodificação é exibido.</translation>
+    </message>
+    <message>
+        <source>Roku thought it could direct play this media, but the playback duration was incorrect.</source>
+        <translation>O Roku achou que poderia reproduzir essa mídia diretamente, mas a duração da reprodução estava incorreta.</translation>
+    </message>
+    <message>
+        <source>as %1</source>
+        <translation>como 1%</translation>
+    </message>
+    <message>
+        <source>Trickplay Display</source>
+        <translation>Exibição de controles de reprodução</translation>
+    </message>
+    <message>
+        <source>Select trickplay display format.</source>
+        <translation>Selcione o formato de exibição dos controles de reprodução.</translation>
+    </message>
+    <message>
+        <source>Default</source>
+        <translation>Padrão</translation>
+    </message>
+    <message>
+        <source>Unknown Artist</source>
+        <translation>Artista desconhecido</translation>
+    </message>
+    <message>
+        <source>Unknown Album</source>
+        <translation>Álbum desconhecido</translation>
+    </message>
+    <message>
+        <source>Press Stop again to close player</source>
+        <translation>Pressione Parar novamente para fechar o reprodutor</translation>
+    </message>
+    <message>
+        <source>More from</source>
+        <translation>Mais da</translation>
+    </message>
+    <message>
+        <source>Confirm Exit</source>
+        <translation>Confirmar saída</translation>
+    </message>
+    <message>
+        <source>Show a confirmation prompt before exiting Jellyfin from the home screen.</source>
+        <translation>Exibir uma confirmação antes de sair do Jellyfin pela tela inicial.</translation>
+    </message>
+    <message>
+        <source>Are you sure you want to exit Jellyfin?</source>
+        <translation>Tem certeza de que deseja sair do Jellyfin?</translation>
+    </message>
+    <message>
+        <source>Playback Mode</source>
+        <translation>Modo de reprodução</translation>
+    </message>
+    <message>
+        <source>Radio Stations</source>
+        <translation>Estações de rádio</translation>
+    </message>
+    <message>
+        <source>Most Played Tracks</source>
+        <translation>Faixas mais reproduzidas</translation>
+    </message>
+    <message>
+        <source>Least Played Tracks</source>
+        <translation>Faixas menos reproduzidas</translation>
+    </message>
+    <message>
+        <source>Shuffle play your most played tracks</source>
+        <translation>Reproduzir aleatoriamente suas faixas mais reproduzidas</translation>
+    </message>
+    <message>
+        <source>No media matched radio station criteria</source>
+        <translation>Nenhuma mídia correspondeu aos critérios da estação de rádio</translation>
+    </message>
+    <message>
+        <source>Shuffle play your least played tracks</source>
+        <translation>Reproduzir aleatoriamente suas faixas menos reproduzidas</translation>
+    </message>
+    <message>
+        <source>Press Play/Pause to jump to OK button</source>
+        <translation>Pressione Reproduzir/Pausar para ir até o botão OK</translation>
+    </message>
+    <message>
+        <source>Station Name</source>
+        <translation>Nome da estação</translation>
+    </message>
+    <message>
+        <source>Name to identify radio station</source>
+        <translation>Nome para identificar a estação de rádio</translation>
+    </message>
+    <message>
+        <source>List of years to include in station content</source>
+        <translation>Lista de anos a incluir no conteúdo da estação</translation>
+    </message>
+    <message>
+        <source>Field to sort media by before cutting off at limit</source>
+        <translation>Campo usado para ordenar as mídias antes de atingir o limite</translation>
+    </message>
+    <message>
+        <source>Item Limit</source>
+        <translation>Limite de itens</translation>
+    </message>
+    <message>
+        <source>Maximum number of items to load</source>
+        <translation>Número máximo de itens a carregar</translation>
+    </message>
+    <message>
+        <source>Create Station</source>
+        <translation>Criar estação</translation>
+    </message>
+    <message>
+        <source>Subtitle</source>
+        <translation>Subtítulo</translation>
+    </message>
+    <message>
+        <source>A short description of the radio station</source>
+        <translation>Uma breve descrição da estação de rádio</translation>
+    </message>
+    <message>
+        <source>List of genres to include in station content</source>
+        <translation>Lista de gêneros a incluir no conteúdo da estação</translation>
+    </message>
+    <message>
+        <source>Direction to sort media before cutting off at limit</source>
+        <translation>Direção da ordenação das mídias antes de atingir o limite</translation>
+    </message>
+    <message>
+        <source>Background Color</source>
+        <translation>Cor de fundo</translation>
+    </message>
+    <message>
+        <source>Background color to use on home screen block</source>
+        <translation>Cor de fundo a ser usada no bloco da tela inicial</translation>
+    </message>
+    <message>
+        <source>The server found no media matching the filter criteria for this radio station.</source>
+        <translation>O servidor não encontrou nenhuma mídia que corresponda aos critérios de filtro desta estação de rádio.</translation>
+    </message>
+    <message>
+        <source>Your search returned no tags.</source>
+        <translation>Sua pesquisa não encontrou nenhuma tag.</translation>
+    </message>
+    <message>
+        <source>Search Tags</source>
+        <translation>Pesquisar tags</translation>
+    </message>
+    <message>
+        <source>Your search returned more than 50 tags. Rework your search to reduce the number of matching tags.</source>
+        <translation>Sua pesquisa retornou mais de 50 tags. Refine a pesquisa para reduzir o número de tags encontradas.</translation>
+    </message>
+    <message>
+        <source>Search Term</source>
+        <translation>Termo de pesquisa</translation>
+    </message>
+    <message>
+        <source>Starts With</source>
+        <translation>Começa com</translation>
+    </message>
+    <message>
+        <source>This Roku will stop receiving Jellyfin for Roku updates on October 1, 2026 due to Roku&apos;s new OS 15.1 minimum requirement. You can continue using the installed app, but it will never update unless you update your Roku OS.</source>
+        <translation>Este Roku deixará de receber atualizações do Jellyfin em 1º de outubro de 2026 devido ao novo requisito mínimo do Roku OS 15.1. Você poderá continuar usando o aplicativo instalado, mas ele não receberá novas atualizações a menos que você atualize o Roku OS.</translation>
+    </message>
+    <message>
+        <source>All releases will be blocked unless we make this change. We&apos;re forced to do this, so if you&apos;re affected, contact Roku. Don&apos;t yell at us.</source>
+        <translation>Todos os novos lançamentos serão bloqueados se não fizermos essa alteração. Somos obrigados a fazer isso. Se você for afetado, entre em contato com a Roku. Não desconte a frustração em nós.</translation>
+    </message>
+    <message>
+        <source>You can hide this popup by disabling the &apos;User Interface / General / Show Roku OS Version Popup&apos; setting.</source>
+        <translation>Você pode ocultar esta janela desativando a configuração “Interface do usuário / Geral / Exibir aviso da versão do Roku OS”.</translation>
+    </message>
+    <message>
+        <source>Roku OS Version Warning</source>
+        <translation>Aviso sobre a versão do Roku OS</translation>
+    </message>
+    <message>
+        <source>Appears On</source>
+        <translation>Aparece em</translation>
+    </message>
+    <message>
+        <source>Albums (%1)</source>
+        <translation>Álbuns (%1)</translation>
+    </message>
+    <message>
+        <source>Appears On (%1)</source>
+        <translation>Aparece em (%1)</translation>
+    </message>
+    <message>
+        <source>%1 Song</source>
+        <translation>%1 música</translation>
+    </message>
+    <message>
+        <source>%1 Songs</source>
+        <translation>%1 músicas</translation>
+    </message>
+    <message>
+        <source>%1 Album</source>
+        <translation>%1 álbum</translation>
+    </message>
+    <message>
+        <source>%1 Albums</source>
+        <translation>%1 álbuns</translation>
+    </message>
+    <message>
+        <source>Credited for:</source>
+        <translation>Créditos por:</translation>
+    </message>
+    <message>
+        <source>%1 Appears On Album</source>
+        <translation>%1 aparece no álbum</translation>
+    </message>
+    <message>
+        <source>%1 Appears On Albums</source>
+        <translation>%1 aparece nos álbuns</translation>
+    </message>
+    <message>
+        <source>The server is still starting up. Please try again.</source>
+        <translation>O servidor ainda está iniciando. Tente novamente.</translation>
+    </message>
+    <message>
+        <source>The server is temporarily unavailable. Please try again.</source>
+        <translation>O servidor está temporariamente indisponível. Tente novamente.</translation>
+    </message>
+</context>
+<context>
+    <name></name>
+    <message>
+        <source>Sign Out</source>
+        <translation>Sair</translation>
+    </message>
+    <message>
+        <source>Change Server</source>
+        <translation>Mudar servidor</translation>
+    </message>
+    <message>
+        <source>Unable to load Channel Data from the server</source>
+        <translation>Não foi possível carregar dados do canal do servidor</translation>
+    </message>
+    <message>
+        <source>Error loading Channel Data</source>
+        <translation>Erro ao carregar dados do canal</translation>
+    </message>
+    <message>
+        <source>Loading Channel Data</source>
+        <translation>Carregando dados do canal</translation>
+    </message>
+    <message>
+        <source>Sign Out</source>
+        <translation>Sair</translation>
+    </message>
+    <message>
+        <source>Change Server</source>
+        <translation>Mudar servidor</translation>
+    </message>
+    <message>
+        <source>Unable to load Channel Data from the server</source>
+        <translation>Não foi possível carregar Dados do Canal do servidor</translation>
+    </message>
+    <message>
+        <source>Error loading Channel Data</source>
+        <translation>Erro ao carregar dados do canal</translation>
+    </message>
+    <message>
+        <source>Loading Channel Data</source>
+        <translation>Carregando dados do canal</translation>
+    </message>
+    <message>
+        <source>An error was encountered while playing this item.</source>
+        <translation>Um erro foi encontrado durante a reprodução deste item.</translation>
+        <extracomment>Dialog detail when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>There was an error retrieving the data for this item from the server.</source>
+        <translation>Ocorreu um erro ao recuperar os dados deste item do servidor.</translation>
+        <extracomment>Dialog detail when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Error During Playback</source>
+        <translation>Erro durante reprodução</translation>
+        <extracomment>Dialog title when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>Error Retrieving Content</source>
+        <translation>Erro ao recuperar conteúdo</translation>
+        <extracomment>Dialog title when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Sign Out</source>
+        <translation>Sair</translation>
+    </message>
+    <message>
+        <source>Change Server</source>
+        <translation>Mudar servidor</translation>
+    </message>
+    <message>
+        <source>Unable to load Channel Data from the server</source>
+        <translation>Não conseguiu carregar as informações no servidor</translation>
+    </message>
+    <message>
+        <source>Error During Playback</source>
+        <translation>Erro durante a reprodução</translation>
+        <extracomment>Dialog title when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>Error Retrieving Content</source>
+        <translation>Erro ao carregar conteúdo</translation>
+        <extracomment>Dialog title when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <comment>Message displayed in Item Grid when no item to display. %1 is container type (e.g. Boxset, Collection, Folder, etc)</comment>
+        <source>NO_ITEMS</source>
+        <translation>%1 não contém itens</translation>
+    </message>
+    <message>
+        <source>Error loading Channel Data</source>
+        <translation>Erro ao carregar informações do canal</translation>
+    </message>
+    <message>
+        <source>Loading Channel Data</source>
+        <translation>Carregando informações do canal</translation>
+    </message>
+    <message>
+        <source>There was an error retrieving the data for this item from the server.</source>
+        <translation>Ocorreu um erro ao buscar informações deste item no servidor.</translation>
+        <extracomment>Dialog detail when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>An error was encountered while playing this item.</source>
+        <translation>Ocorreu um erro durante a reprodução.</translation>
+        <extracomment>Dialog detail when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>Change Server</source>
+        <translation>Mudar de Servidor</translation>
+    </message>
+    <message>
+        <source>Sign Out</source>
+        <translation>Sair</translation>
+    </message>
+    <message>
+        <comment>Title of Tab for switching &quot;views&quot; when looking at a library</comment>
+        <source>TAB_VIEW</source>
+        <translation>Visualização</translation>
+    </message>
+    <message>
+        <source>PLAY_COUNT</source>
+        <translation>Número de Reproduções</translation>
+    </message>
+    <message>
+        <source>OFFICIAL_RATING</source>
+        <translation>Avaliação dos pais</translation>
+    </message>
+    <message>
+        <source>DATE_PLAYED</source>
+        <translation>Data da Ultima Reprodução</translation>
+    </message>
+    <message>
+        <source>DATE_ADDED</source>
+        <translation>Data de Adição</translation>
+    </message>
+    <message>
+        <source>CRITIC_RATING</source>
+        <translation>Avaliação da crítica</translation>
+    </message>
+    <message>
+        <source>IMDB_RATING</source>
+        <translation>Avaliação do IMDb</translation>
+    </message>
+    <message>
+        <source>Unable to load Channel Data from the server</source>
+        <translation>Não foi possível carregar Dados do Canal deste servidor</translation>
+    </message>
+    <message>
+        <source>Error loading Channel Data</source>
+        <translation>Erro ao Carregar Dados do Canal</translation>
+    </message>
+    <message>
+        <source>Loading Channel Data</source>
+        <translation>Carregando dados do Canal</translation>
+    </message>
+    <message>
+        <source>An error was encountered while playing this item.</source>
+        <translation>Foi encontrado um erro ao reproduzir este item.</translation>
+        <extracomment>Dialog detail when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>There was an error retrieving the data for this item from the server.</source>
+        <translation>Ocorreu um erro ao carregar os dados deste item do servidor.</translation>
+        <extracomment>Dialog detail when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Sign Out</source>
+        <translation>Encerrar Sessão</translation>
+    </message>
+    <message>
+        <comment>Title of Tab for options to filter library content</comment>
+        <source>TAB_FILTER</source>
+        <translation>Filtro</translation>
+    </message>
+    <message>
+        <comment>Title of Tab for options to sort library content</comment>
+        <source>TAB_SORT</source>
+        <translation>Ordenação</translation>
+    </message>
+    <message>
+        <source>RUNTIME</source>
+        <translation>Tempo de Execução</translation>
+    </message>
+    <message>
+        <source>RELEASE_DATE</source>
+        <translation>Data de Lançamento</translation>
+    </message>
+    <message>
+        <comment>Name or Title field of media item</comment>
+        <source>TITLE</source>
+        <translation>Nome</translation>
+    </message>
+    <message>
+        <comment>Message displayed in Item Grid when no item to display. %1 is container type (e.g. Boxset, Collection, Folder, etc)</comment>
+        <source>NO_ITEMS</source>
+        <translation>Esse(a) %1 não contém itens</translation>
+    </message>
+    <message>
+        <source>Error During Playback</source>
+        <translation>Erro Durante Reprodução</translation>
+        <extracomment>Dialog title when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>Error Retrieving Content</source>
+        <translation>Erro ao Carregar Conteúdo</translation>
+        <extracomment>Dialog title when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Change Server</source>
+        <translation>Mudar Servidor</translation>
+    </message>
+    <message>
+        <source>TV Guide</source>
+        <translation>Guia de TV</translation>
+        <extracomment>Menu option for showing Live TV Guide / Schedule</extracomment>
+    </message>
+    <message>
+        <source>Channels</source>
+        <translation>Canais</translation>
+        <extracomment>Menu option for showing Live TV Channel List</extracomment>
+    </message>
+    <message>
+        <source>Repeat</source>
+        <translation>Repetir</translation>
+        <extracomment>If TV Shows has previously been broadcasted</extracomment>
+    </message>
+    <message>
+        <source>Live</source>
+        <translation>Ao Vivo</translation>
+        <extracomment>If TV Show is being broadcast live (not pre-recorded)</extracomment>
+    </message>
+    <message>
+        <source>Ends at</source>
+        <translation>Termina</translation>
+        <extracomment>(Past Tense) For defining a day and time when a program ended (e.g. Ended Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Ended at</source>
+        <translation>Termina às</translation>
+        <extracomment>(Past Tense) For defining time when a program will ended (e.g. Ended at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Starts</source>
+        <translation>Começa</translation>
+        <extracomment>(Future Tense) For defining a day and time when a program will start (e.g. Starts Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Starts at</source>
+        <translation>Começa às</translation>
+        <extracomment>(Future Tense) For defining time when a program will start today (e.g. Starts at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Started</source>
+        <translation>Começou</translation>
+        <extracomment>(Past Tense) For defining a day and time when a program started (e.g. Started Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Started at</source>
+        <translation>Começou às</translation>
+        <extracomment>(Past Tense) For defining time when a program started today (e.g. Started at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Saturday</source>
+        <translation>Sábado</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Friday</source>
+        <translation>Sexta feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Thursday</source>
+        <translation>Quinta feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Wednesday</source>
+        <translation>Quarta feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Tuesday</source>
+        <translation>Terça feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Monday</source>
+        <translation>Segunda feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Sunday</source>
+        <translation>Domingo</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>tomorrow</source>
+        <translation>amanhã</translation>
+        <extracomment>Next day</extracomment>
+    </message>
+    <message>
+        <source>yesterday</source>
+        <translation>ontem</translation>
+        <extracomment>Previous day</extracomment>
+    </message>
+    <message>
+        <source>today</source>
+        <translation>hoje</translation>
+        <extracomment>Current day</extracomment>
+    </message>
+    <message>
+        <comment>Title of Tab for options to filter library content</comment>
+        <source>TAB_FILTER</source>
+        <translation>Filtro</translation>
+    </message>
+    <message>
+        <comment>Title of Tab for options to sort library content</comment>
+        <source>TAB_SORT</source>
+        <translation>Ordenar</translation>
+    </message>
+    <message>
+        <comment>Title of Tab for switching &quot;views&quot; when looking at a library</comment>
+        <source>TAB_VIEW</source>
+        <translation>Visualização</translation>
+    </message>
+    <message>
+        <source>RUNTIME</source>
+        <translation>Tempo de Execução</translation>
+    </message>
+    <message>
+        <source>RELEASE_DATE</source>
+        <translation>Data de Lançamento</translation>
+    </message>
+    <message>
+        <source>PLAY_COUNT</source>
+        <translation>Número de Execução</translation>
+    </message>
+    <message>
+        <source>OFFICIAL_RATING</source>
+        <translation>Avaliação Parental</translation>
+    </message>
+    <message>
+        <source>DATE_PLAYED</source>
+        <translation>Data da Execução</translation>
+    </message>
+    <message>
+        <source>DATE_ADDED</source>
+        <translation>Data da Adição</translation>
+    </message>
+    <message>
+        <source>CRITIC_RATING</source>
+        <translation>Avaliação da crítica</translation>
+    </message>
+    <message>
+        <source>IMDB_RATING</source>
+        <translation>Classificação IMDb</translation>
+    </message>
+    <message>
+        <comment>Name or Title field of media item</comment>
+        <source>TITLE</source>
+        <translation>Nome</translation>
+    </message>
+    <message>
+        <comment>Message displayed in Item Grid when no item to display. %1 is container type (e.g. Boxset, Collection, Folder, etc)</comment>
+        <source>NO_ITEMS</source>
+        <translation>Este %1 não contém itens</translation>
+    </message>
+    <message>
+        <source>Unable to load Channel Data from the server</source>
+        <translation>Incapaz de carregar os dados do canal do servidor</translation>
+    </message>
+    <message>
+        <source>Error loading Channel Data</source>
+        <translation>Erro ao carregar dados do canal</translation>
+    </message>
+    <message>
+        <source>Loading Channel Data</source>
+        <translation>Carregando dados do canal</translation>
+    </message>
+    <message>
+        <source>An error was encountered while playing this item.</source>
+        <translation>Foi encontrado um erro ao reproduzir este item.</translation>
+        <extracomment>Dialog detail when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>There was an error retrieving the data for this item from the server.</source>
+        <translation>Ocorreu um erro ao recuperar os dados para este item do servidor.</translation>
+        <extracomment>Dialog detail when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Error During Playback</source>
+        <translation>Erro durante a reprodução</translation>
+        <extracomment>Dialog title when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>Error Retrieving Content</source>
+        <translation>Erro ao recuperar conteúdo</translation>
+        <extracomment>Dialog title when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Sign Out</source>
+        <translation>Sair</translation>
+    </message>
+    <message>
+        <source>Change Server</source>
+        <translation>Mudar Servidor</translation>
+    </message>
+    <message>
+        <source>Connecting to Server</source>
+        <translation>Conectando no servidor</translation>
+        <extracomment>Message to display to user while client is attempting to connect to the server</extracomment>
+    </message>
+    <message>
+        <source>TV Guide</source>
+        <translation>Guia de TV</translation>
+        <extracomment>Menu option for showing Live TV Guide / Schedule</extracomment>
+    </message>
+    <message>
+        <source>Channels</source>
+        <translation>Canais</translation>
+        <extracomment>Menu option for showing Live TV Channel List</extracomment>
+    </message>
+    <message>
+        <source>Repeat</source>
+        <translation>Repetir</translation>
+        <extracomment>If TV Shows has previously been broadcasted</extracomment>
+    </message>
+    <message>
+        <source>Live</source>
+        <translation>Ao Vivo</translation>
+        <extracomment>If TV Show is being broadcast live (not pre-recorded)</extracomment>
+    </message>
+    <message>
+        <source>Ends at</source>
+        <translation>Termina</translation>
+        <extracomment>(Past Tense) For defining a day and time when a program ended (e.g. Ended Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Ended at</source>
+        <translation>Termina às</translation>
+        <extracomment>(Past Tense) For defining time when a program will ended (e.g. Ended at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Starts</source>
+        <translation>Começa</translation>
+        <extracomment>(Future Tense) For defining a day and time when a program will start (e.g. Starts Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Starts at</source>
+        <translation>Começa às</translation>
+        <extracomment>(Future Tense) For defining time when a program will start today (e.g. Starts at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Started</source>
+        <translation>Começou</translation>
+        <extracomment>(Past Tense) For defining a day and time when a program started (e.g. Started Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Started at</source>
+        <translation>Começou às</translation>
+        <extracomment>(Past Tense) For defining time when a program started today (e.g. Started at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Saturday</source>
+        <translation>Sábado</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Friday</source>
+        <translation>Sexta feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Thursday</source>
+        <translation>Quinta feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Wednesday</source>
+        <translation>Quarta feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Tuesday</source>
+        <translation>Terça feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Monday</source>
+        <translation>Segunda feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Sunday</source>
+        <translation>Domingo</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>tomorrow</source>
+        <translation>amanhã</translation>
+        <extracomment>Next day</extracomment>
+    </message>
+    <message>
+        <source>yesterday</source>
+        <translation>ontem</translation>
+        <extracomment>Previous day</extracomment>
+    </message>
+    <message>
+        <source>today</source>
+        <translation>hoje</translation>
+        <extracomment>Current day</extracomment>
+    </message>
+    <message>
+        <comment>Title of Tab for options to filter library content</comment>
+        <source>TAB_FILTER</source>
+        <translation>Filtro</translation>
+    </message>
+    <message>
+        <comment>Title of Tab for options to sort library content</comment>
+        <source>TAB_SORT</source>
+        <translation>Ordenar</translation>
+    </message>
+    <message>
+        <comment>Title of Tab for switching &quot;views&quot; when looking at a library</comment>
+        <source>TAB_VIEW</source>
+        <translation>Visualização</translation>
+    </message>
+    <message>
+        <source>RUNTIME</source>
+        <translation>Tempo de Execução</translation>
+    </message>
+    <message>
+        <source>RELEASE_DATE</source>
+        <translation>Data de Lançamento</translation>
+    </message>
+    <message>
+        <source>PLAY_COUNT</source>
+        <translation>Número de Execução</translation>
+    </message>
+    <message>
+        <source>OFFICIAL_RATING</source>
+        <translation>Avaliação Parental</translation>
+    </message>
+    <message>
+        <source>DATE_PLAYED</source>
+        <translation>Data da Execução</translation>
+    </message>
+    <message>
+        <source>DATE_ADDED</source>
+        <translation>Data de Adição</translation>
+    </message>
+    <message>
+        <source>CRITIC_RATING</source>
+        <translation>Avaliação da crítica</translation>
+    </message>
+    <message>
+        <source>IMDB_RATING</source>
+        <translation>Classificação IMDb</translation>
+    </message>
+    <message>
+        <comment>Name or Title field of media item</comment>
+        <source>TITLE</source>
+        <translation>Nome</translation>
+    </message>
+    <message>
+        <comment>Message displayed in Item Grid when no item to display. %1 is container type (e.g. Boxset, Collection, Folder, etc)</comment>
+        <source>NO_ITEMS</source>
+        <translation>Este %1
+                não contém itens</translation>
+    </message>
+    <message>
+        <source>Unable to load Channel Data from the server</source>
+        <translation>Incapaz de carregar os dados do canal do servidor</translation>
+    </message>
+    <message>
+        <source>Error loading Channel Data</source>
+        <translation>Erro ao carregar dados do canal</translation>
+    </message>
+    <message>
+        <source>Loading Channel Data</source>
+        <translation>Carregando dados do canal</translation>
+    </message>
+    <message>
+        <source>An error was encountered while playing this item.</source>
+        <translation>Foi encontrado um erro ao reproduzir este item.</translation>
+        <extracomment>Dialog detail when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>There was an error retrieving the data for this item from the server.</source>
+        <translation>Ocorreu um erro ao recuperar os dados para este item do servidor.</translation>
+        <extracomment>Dialog detail when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Error During Playback</source>
+        <translation>Erro durante a reprodução</translation>
+        <extracomment>Dialog title when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>Error Retrieving Content</source>
+        <translation>Erro ao recuperar conteúdo</translation>
+        <extracomment>Dialog title when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Sign Out</source>
+        <translation>Sair</translation>
+    </message>
+    <message>
+        <source>Change Server</source>
+        <translation>Trocar Servidor</translation>
+    </message>
+    <message>
+        <source>The requested content does not exist on the server</source>
+        <translation>O conteúdo requisitado não existe no servidor</translation>
+        <extracomment>Content of message box when the requested content is not found on the server</extracomment>
+    </message>
+    <message>
+        <source>Not found</source>
+        <translation>Não encontrado</translation>
+        <extracomment>Title of message box when the requested content is not found on the server</extracomment>
+    </message>
+    <message>
+        <source>Connecting to Server</source>
+        <translation>Conectando ao servidor</translation>
+        <extracomment>Message to display to user while client is attempting to connect to the server</extracomment>
+    </message>
+    <message>
+        <source>TV Guide</source>
+        <translation>Guia de TV</translation>
+        <extracomment>Menu option for showing Live TV Guide / Schedule</extracomment>
+    </message>
+    <message>
+        <source>Channels</source>
+        <translation>Canais</translation>
+        <extracomment>Menu option for showing Live TV Channel List</extracomment>
+    </message>
+    <message>
+        <source>Repeat</source>
+        <translation>Repetir</translation>
+        <extracomment>If TV Shows has previously been broadcasted</extracomment>
+    </message>
+    <message>
+        <source>Live</source>
+        <translation>Ao Vivo</translation>
+        <extracomment>If TV Show is being broadcast live (not pre-recorded)</extracomment>
+    </message>
+    <message>
+        <source>Ends at</source>
+        <translation>Termina às</translation>
+        <extracomment>(Past Tense) For defining a day and time when a program ended (e.g. Ended Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Ended at</source>
+        <translation>Terminou às</translation>
+        <extracomment>(Past Tense) For defining time when a program will ended (e.g. Ended at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Starts</source>
+        <translation>Começa</translation>
+        <extracomment>(Future Tense) For defining a day and time when a program will start (e.g. Starts Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Starts at</source>
+        <translation>Começa às</translation>
+        <extracomment>(Future Tense) For defining time when a program will start today (e.g. Starts at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Started</source>
+        <translation>Começou</translation>
+        <extracomment>(Past Tense) For defining a day and time when a program started (e.g. Started Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Started at</source>
+        <translation>Começou às</translation>
+        <extracomment>(Past Tense) For defining time when a program started today (e.g. Started at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Saturday</source>
+        <translation>Sábado</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Friday</source>
+        <translation>Sexta-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Thursday</source>
+        <translation>Quinta-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Wednesday</source>
+        <translation>Quarta-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Tuesday</source>
+        <translation>Terça-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Monday</source>
+        <translation>Segunda-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Sunday</source>
+        <translation>Domingo</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>tomorrow</source>
+        <translation>amanhã</translation>
+        <extracomment>Next day</extracomment>
+    </message>
+    <message>
+        <source>yesterday</source>
+        <translation>ontem</translation>
+        <extracomment>Previous day</extracomment>
+    </message>
+    <message>
+        <source>today</source>
+        <translation>hoje</translation>
+        <extracomment>Current day</extracomment>
+    </message>
+    <message>
+        <comment>Title of Tab for options to filter library content</comment>
+        <source>TAB_FILTER</source>
+        <translation>Filtro</translation>
+    </message>
+    <message>
+        <comment>Title of Tab for options to sort library content</comment>
+        <source>TAB_SORT</source>
+        <translation>Ordenar</translation>
+    </message>
+    <message>
+        <comment>Title of Tab for switching &quot;views&quot; when looking at a library</comment>
+        <source>TAB_VIEW</source>
+        <translation>Visualização</translation>
+    </message>
+    <message>
+        <source>RUNTIME</source>
+        <translation>Tempo de Execução</translation>
+    </message>
+    <message>
+        <source>RELEASE_DATE</source>
+        <translation>Data de Lançamento</translation>
+    </message>
+    <message>
+        <source>PLAY_COUNT</source>
+        <translation>Número de Execução</translation>
+    </message>
+    <message>
+        <source>OFFICIAL_RATING</source>
+        <translation>Avaliação Parental</translation>
+    </message>
+    <message>
+        <source>DATE_PLAYED</source>
+        <translation>Data da Execução</translation>
+    </message>
+    <message>
+        <source>DATE_ADDED</source>
+        <translation>Data de Adição</translation>
+    </message>
+    <message>
+        <source>CRITIC_RATING</source>
+        <translation>Avaliação da Crítica</translation>
+    </message>
+    <message>
+        <source>IMDB_RATING</source>
+        <translation>Classificação IMDb</translation>
+    </message>
+    <message>
+        <comment>Name or Title field of media item</comment>
+        <source>TITLE</source>
+        <translation>Nome</translation>
+    </message>
+    <message>
+        <comment>Message displayed in Item Grid when no item to display. %1 is container type (e.g. Boxset, Collection, Folder, etc)</comment>
+        <source>NO_ITEMS</source>
+        <translation>Este %1 não contém itens</translation>
+    </message>
+    <message>
+        <source>Unable to load Channel Data from the server</source>
+        <translation>Incapaz de carregar os Dados do Canal do servidor</translation>
+    </message>
+    <message>
+        <source>Error loading Channel Data</source>
+        <translation>Erro ao carregar Dados do Canal</translation>
+    </message>
+    <message>
+        <source>Loading Channel Data</source>
+        <translation>Carregando Dados do Canal</translation>
+    </message>
+    <message>
+        <source>An error was encountered while playing this item.</source>
+        <translation>Foi encontrado um erro ao reproduzir este item.</translation>
+        <extracomment>Dialog detail when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>There was an error retrieving the data for this item from the server.</source>
+        <translation>Ocorreu um erro ao recuperar os dados para este item do servidor.</translation>
+        <extracomment>Dialog detail when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Error During Playback</source>
+        <translation>Erro Durante a Reprodução</translation>
+        <extracomment>Dialog title when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>Error Retrieving Content</source>
+        <translation>Erro ao Recuperar Conteúdo</translation>
+        <extracomment>Dialog title when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Sign Out</source>
+        <translation>Sair</translation>
+    </message>
+    <message>
+        <source>Change Server</source>
+        <translation>Trocar Servidor</translation>
+    </message>
+    <message>
+        <source>Started at</source>
+        <translation>Começou às</translation>
+        <extracomment>(Past Tense) For defining time when a program started today (e.g. Started at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Saturday</source>
+        <translation>Sábado</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Friday</source>
+        <translation>Sexta-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Thursday</source>
+        <translation>Quinta-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Wednesday</source>
+        <translation>Quarta-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Tuesday</source>
+        <translation>Terça-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Monday</source>
+        <translation>Segunda-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Sunday</source>
+        <translation>Domingo</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>tomorrow</source>
+        <translation>amanhã</translation>
+        <extracomment>Next day</extracomment>
+    </message>
+    <message>
+        <source>yesterday</source>
+        <translation>ontem</translation>
+        <extracomment>Previous day</extracomment>
+    </message>
+    <message>
+        <source>today</source>
+        <translation>hoje</translation>
+        <extracomment>Current day</extracomment>
+    </message>
+    <message>
+        <comment>Title of Tab for options to filter library content</comment>
+        <source>TAB_FILTER</source>
+        <translation>Filtrar</translation>
+    </message>
+    <message>
+        <comment>Title of Tab for options to sort library content</comment>
+        <source>TAB_SORT</source>
+        <translation>Ordenar</translation>
+    </message>
+    <message>
+        <comment>Title of Tab for switching &quot;views&quot; when looking at a library</comment>
+        <source>TAB_VIEW</source>
+        <translation>Visualizar</translation>
+    </message>
+    <message>
+        <source>Pick a Jellyfin server from the local network</source>
+        <translation>Selecionar um servidor Jellyfin da rede local</translation>
+        <extracomment>Instructions on initial app launch when the user is asked to pick a server from a list</extracomment>
+    </message>
+    <message>
+        <source>Enter the server name or ip address</source>
+        <translation>Colocar o nome do servidor ou endereço ip</translation>
+        <extracomment>Title of KeyboardDialog when manually entering a server URL</extracomment>
+    </message>
+    <message>
+        <source>The requested content does not exist on the server</source>
+        <translation>O conteúdo requisitado não existe no servidor</translation>
+        <extracomment>Content of message box when the requested content is not found on the server</extracomment>
+    </message>
+    <message>
+        <source>Not found</source>
+        <translation>Não encontrado</translation>
+        <extracomment>Title of message box when the requested content is not found on the server</extracomment>
+    </message>
+    <message>
+        <source>Connecting to Server</source>
+        <translation>Conectando ao servidor</translation>
+        <extracomment>Message to display to user while client is attempting to connect to the server</extracomment>
+    </message>
+    <message>
+        <source>TV Guide</source>
+        <translation>Guia de TV</translation>
+        <extracomment>Menu option for showing Live TV Guide / Schedule</extracomment>
+    </message>
+    <message>
+        <source>Channels</source>
+        <translation>Canais</translation>
+        <extracomment>Menu option for showing Live TV Channel List</extracomment>
+    </message>
+    <message>
+        <source>Repeat</source>
+        <translation>Repetir</translation>
+        <extracomment>If TV Shows has previously been broadcasted</extracomment>
+    </message>
+    <message>
+        <source>Live</source>
+        <translation>Ao Vivo</translation>
+        <extracomment>If TV Show is being broadcast live (not pre-recorded)</extracomment>
+    </message>
+    <message>
+        <source>Ends at</source>
+        <translation>Termina às</translation>
+        <extracomment>(Past Tense) For defining a day and time when a program ended (e.g. Ended Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Ended at</source>
+        <translation>Terminou às</translation>
+        <extracomment>(Past Tense) For defining time when a program will ended (e.g. Ended at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Starts</source>
+        <translation>Começará</translation>
+        <extracomment>(Future Tense) For defining a day and time when a program will start (e.g. Starts Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Starts at</source>
+        <translation>Começa às</translation>
+        <extracomment>(Future Tense) For defining time when a program will start today (e.g. Starts at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Started</source>
+        <translation>Começou</translation>
+        <extracomment>(Past Tense) For defining a day and time when a program started (e.g. Started Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>...or enter server URL manually:</source>
+        <translation>...ou entre na URL do servidor manualmente:</translation>
+        <extracomment>Instructions on initial app launch when the user is asked to manually enter a server URL</extracomment>
+    </message>
+    <message>
+        <source>RUNTIME</source>
+        <translation>Tempo de Execução</translation>
+    </message>
+    <message>
+        <source>RELEASE_DATE</source>
+        <translation>Data de Lançamento</translation>
+    </message>
+    <message>
+        <source>PLAY_COUNT</source>
+        <translation>Número de Execução</translation>
+    </message>
+    <message>
+        <source>OFFICIAL_RATING</source>
+        <translation>Avaliação Parental</translation>
+    </message>
+    <message>
+        <source>DATE_PLAYED</source>
+        <translation>Data da Execução</translation>
+    </message>
+    <message>
+        <source>DATE_ADDED</source>
+        <translation>Data de Adição</translation>
+    </message>
+    <message>
+        <source>CRITIC_RATING</source>
+        <translation>Avaliação da Crítica</translation>
+    </message>
+    <message>
+        <source>IMDB_RATING</source>
+        <translation>Classificação IMDb</translation>
+    </message>
+    <message>
+        <comment>Name or Title field of media item</comment>
+        <source>TITLE</source>
+        <translation>Nome</translation>
+    </message>
+    <message>
+        <comment>Message displayed in Item Grid when no item to display. %1 is container type (e.g. Boxset, Collection, Folder, etc)</comment>
+        <source>NO_ITEMS</source>
+        <translation>Este %1 não contém itens</translation>
+    </message>
+    <message>
+        <source>Unable to load Channel Data from the server</source>
+        <translation>Incapaz de carregar os Dados do Canal do servidor</translation>
+    </message>
+    <message>
+        <source>Error loading Channel Data</source>
+        <translation>Erro ao carregar Dados do Canal</translation>
+    </message>
+    <message>
+        <source>Loading Channel Data</source>
+        <translation>Carregando Dados do Canal</translation>
+    </message>
+    <message>
+        <source>An error was encountered while playing this item.</source>
+        <translation>Foi encontrado um erro ao reproduzir este item.</translation>
+        <extracomment>Dialog detail when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>There was an error retrieving the data for this item from the server.</source>
+        <translation>Ocorreu um erro ao recuperar os dados para este item do servidor.</translation>
+        <extracomment>Dialog detail when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Error During Playback</source>
+        <translation>Erro Durante a Reprodução</translation>
+        <extracomment>Dialog title when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>Error Retrieving Content</source>
+        <translation>Erro ao Recuperar Conteúdo</translation>
+        <extracomment>Dialog title when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Sign Out</source>
+        <translation>Sair</translation>
+    </message>
+    <message>
+        <source>Change Server</source>
+        <translation>Trocar servidor</translation>
+    </message>
+    <message>
+        <source>Sign Out</source>
+        <translation>Sair</translation>
+    </message>
+    <message>
+        <source>Pick a Jellyfin server from the local network</source>
+        <translation>Selecionar um servidor Jellyfin da rede local</translation>
+        <extracomment>Instructions on initial app launch when the user is asked to pick a server from a list</extracomment>
+    </message>
+    <message>
+        <source>Enter the server name or ip address</source>
+        <translation>Colocar o nome do servidor ou endereço ip</translation>
+        <extracomment>Title of KeyboardDialog when manually entering a server URL</extracomment>
+    </message>
+    <message>
+        <source>The requested content does not exist on the server</source>
+        <translation>O conteúdo requisitado não existe no servidor</translation>
+        <extracomment>Content of message box when the requested content is not found on the server</extracomment>
+    </message>
+    <message>
+        <source>Not found</source>
+        <translation>Não encontrado</translation>
+        <extracomment>Title of message box when the requested content is not found on the server</extracomment>
+    </message>
+    <message>
+        <source>Connecting to Server</source>
+        <translation>Conectando ao servidor</translation>
+        <extracomment>Message to display to user while client is attempting to connect to the server</extracomment>
+    </message>
+    <message>
+        <source>TV Guide</source>
+        <translation>Guia de TV</translation>
+        <extracomment>Menu option for showing Live TV Guide / Schedule</extracomment>
+    </message>
+    <message>
+        <source>Channels</source>
+        <translation>Canais</translation>
+        <extracomment>Menu option for showing Live TV Channel List</extracomment>
+    </message>
+    <message>
+        <source>Repeat</source>
+        <translation>Repetir</translation>
+        <extracomment>If TV Shows has previously been broadcasted</extracomment>
+    </message>
+    <message>
+        <source>Live</source>
+        <translation>Ao Vivo</translation>
+        <extracomment>If TV Show is being broadcast live (not pre-recorded)</extracomment>
+    </message>
+    <message>
+        <source>Ends at</source>
+        <translation>Termina às</translation>
+        <extracomment>(Past Tense) For defining a day and time when a program ended (e.g. Ended Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Ended at</source>
+        <translation>Terminou às</translation>
+        <extracomment>(Past Tense) For defining time when a program will ended (e.g. Ended at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Starts</source>
+        <translation>Começará</translation>
+        <extracomment>(Future Tense) For defining a day and time when a program will start (e.g. Starts Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Starts at</source>
+        <translation>Começa às</translation>
+        <extracomment>(Future Tense) For defining time when a program will start today (e.g. Starts at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Started</source>
+        <translation>Começou</translation>
+        <extracomment>(Past Tense) For defining a day and time when a program started (e.g. Started Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Started at</source>
+        <translation>Começou às</translation>
+        <extracomment>(Past Tense) For defining time when a program started today (e.g. Started at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Saturday</source>
+        <translation>Sábado</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Friday</source>
+        <translation>Sexta-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Thursday</source>
+        <translation>Quinta-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Wednesday</source>
+        <translation>Quarta-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Tuesday</source>
+        <translation>Terça-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Monday</source>
+        <translation>Segunda-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Sunday</source>
+        <translation>Domingo</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>tomorrow</source>
+        <translation>amanhã</translation>
+        <extracomment>Next day</extracomment>
+    </message>
+    <message>
+        <source>yesterday</source>
+        <translation>ontem</translation>
+        <extracomment>Previous day</extracomment>
+    </message>
+    <message>
+        <source>today</source>
+        <translation>hoje</translation>
+        <extracomment>Current day</extracomment>
+    </message>
+    <message>
+        <comment>Title of Tab for options to filter library content</comment>
+        <source>TAB_FILTER</source>
+        <translation>Filtrar</translation>
+    </message>
+    <message>
+        <comment>Title of Tab for options to sort library content</comment>
+        <source>TAB_SORT</source>
+        <translation>Ordenar</translation>
+    </message>
+    <message>
+        <comment>Title of Tab for switching &quot;views&quot; when looking at a library</comment>
+        <source>TAB_VIEW</source>
+        <translation>Visualizar</translation>
+    </message>
+    <message>
+        <source>RUNTIME</source>
+        <translation>Tempo de Execução</translation>
+    </message>
+    <message>
+        <source>RELEASE_DATE</source>
+        <translation>Data de Lançamento</translation>
+    </message>
+    <message>
+        <source>PLAY_COUNT</source>
+        <translation>Número de Execução</translation>
+    </message>
+    <message>
+        <source>OFFICIAL_RATING</source>
+        <translation>Avaliação Parental</translation>
+    </message>
+    <message>
+        <source>DATE_PLAYED</source>
+        <translation>Data da Execução</translation>
+    </message>
+    <message>
+        <source>DATE_ADDED</source>
+        <translation>Data de Adição</translation>
+    </message>
+    <message>
+        <source>CRITIC_RATING</source>
+        <translation>Avaliação da Crítica</translation>
+    </message>
+    <message>
+        <source>IMDB_RATING</source>
+        <translation>Classificação IMDb</translation>
+    </message>
+    <message>
+        <comment>Name or Title field of media item</comment>
+        <source>TITLE</source>
+        <translation>Nome</translation>
+    </message>
+    <message>
+        <comment>Message displayed in Item Grid when no item to display. %1 is container type (e.g. Boxset, Collection, Folder, etc)</comment>
+        <source>NO_ITEMS</source>
+        <translation>Este %1 não contém itens</translation>
+    </message>
+    <message>
+        <source>Unable to load Channel Data from the server</source>
+        <translation>Incapaz de carregar os Dados do Canal do servidor</translation>
+    </message>
+    <message>
+        <source>Error loading Channel Data</source>
+        <translation>Erro ao carregar Dados do Canal</translation>
+    </message>
+    <message>
+        <source>Loading Channel Data</source>
+        <translation>Carregando Dados do Canal</translation>
+    </message>
+    <message>
+        <source>An error was encountered while playing this item.</source>
+        <translation>Foi encontrado um erro ao reproduzir este item.</translation>
+        <extracomment>Dialog detail when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>There was an error retrieving the data for this item from the server.</source>
+        <translation>Ocorreu um erro ao recuperar os dados para este item do servidor.</translation>
+        <extracomment>Dialog detail when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Error During Playback</source>
+        <translation>Erro Durante a Reprodução</translation>
+        <extracomment>Dialog title when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>Error Retrieving Content</source>
+        <translation>Erro ao Recuperar Conteúdo</translation>
+        <extracomment>Dialog title when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Change Server</source>
+        <translation>Mudar Servidor</translation>
+    </message>
+    <message>
+        <source>RUNTIME</source>
+        <translation>Tempo de Execução</translation>
+    </message>
+    <message>
+        <source>RELEASE_DATE</source>
+        <translation>Data de Lançamento</translation>
+    </message>
+    <message>
+        <source>PLAY_COUNT</source>
+        <translation>Número de Execução</translation>
+    </message>
+    <message>
+        <source>OFFICIAL_RATING</source>
+        <translation>Avaliação Parental</translation>
+    </message>
+    <message>
+        <source>DATE_PLAYED</source>
+        <translation>Data da Execução</translation>
+    </message>
+    <message>
+        <source>DATE_ADDED</source>
+        <translation>Data de Adição</translation>
+    </message>
+    <message>
+        <source>CRITIC_RATING</source>
+        <translation type="unfinished">Avaliação da Crítica</translation>
+    </message>
+    <message>
+        <source>Change Server</source>
+        <translation>Mudar Servidor</translation>
+    </message>
+    <message>
+        <source>Pick a Jellyfin server from the local network</source>
+        <translation>Selecionar um servidor Jellyfin da rede local</translation>
+        <extracomment>Instructions on initial app launch when the user is asked to pick a server from a list</extracomment>
+    </message>
+    <message>
+        <source>Enter the server name or ip address</source>
+        <translation>Colocar o nome do servidor ou endereço ip</translation>
+        <extracomment>Title of KeyboardDialog when manually entering a server URL</extracomment>
+    </message>
+    <message>
+        <source>The requested content does not exist on the server</source>
+        <translation>O conteúdo requisitado não existe no servidor</translation>
+        <extracomment>Content of message box when the requested content is not found on the server</extracomment>
+    </message>
+    <message>
+        <source>Not found</source>
+        <translation>Não encontrado</translation>
+        <extracomment>Title of message box when the requested content is not found on the server</extracomment>
+    </message>
+    <message>
+        <source>Connecting to Server</source>
+        <translation>Conectando ao servidor</translation>
+        <extracomment>Message to display to user while client is attempting to connect to the server</extracomment>
+    </message>
+    <message>
+        <source>TV Guide</source>
+        <translation>Guia de TV</translation>
+        <extracomment>Menu option for showing Live TV Guide / Schedule</extracomment>
+    </message>
+    <message>
+        <source>Channels</source>
+        <translation>Canais</translation>
+        <extracomment>Menu option for showing Live TV Channel List</extracomment>
+    </message>
+    <message>
+        <source>Repeat</source>
+        <translation>Repetir</translation>
+        <extracomment>If TV Shows has previously been broadcasted</extracomment>
+    </message>
+    <message>
+        <source>Live</source>
+        <translation>Ao Vivo</translation>
+        <extracomment>If TV Show is being broadcast live (not pre-recorded)</extracomment>
+    </message>
+    <message>
+        <source>Ends at</source>
+        <translation>Termina às</translation>
+        <extracomment>(Past Tense) For defining a day and time when a program ended (e.g. Ended Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Ended at</source>
+        <translation>Terminou às</translation>
+        <extracomment>(Past Tense) For defining time when a program will ended (e.g. Ended at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Starts</source>
+        <translation>Começará</translation>
+        <extracomment>(Future Tense) For defining a day and time when a program will start (e.g. Starts Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Starts at</source>
+        <translation>Começa às</translation>
+        <extracomment>(Future Tense) For defining time when a program will start today (e.g. Starts at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Started</source>
+        <translation>Começou</translation>
+        <extracomment>(Past Tense) For defining a day and time when a program started (e.g. Started Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Started at</source>
+        <translation>Começou às</translation>
+        <extracomment>(Past Tense) For defining time when a program started today (e.g. Started at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Saturday</source>
+        <translation>Sábado</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Friday</source>
+        <translation>Sexta-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Thursday</source>
+        <translation>Quinta-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Wednesday</source>
+        <translation>Quarta-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Tuesday</source>
+        <translation>Terça-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Monday</source>
+        <translation>Segunda-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Sunday</source>
+        <translation>Domingo</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>tomorrow</source>
+        <translation>amanhã</translation>
+        <extracomment>Next day</extracomment>
+    </message>
+    <message>
+        <source>yesterday</source>
+        <translation>ontem</translation>
+        <extracomment>Previous day</extracomment>
+    </message>
+    <message>
+        <source>today</source>
+        <translation>hoje</translation>
+        <extracomment>Current day</extracomment>
+    </message>
+    <message>
+        <comment>Title of Tab for options to filter library content</comment>
+        <source>TAB_FILTER</source>
+        <translation>Filtrar</translation>
+    </message>
+    <message>
+        <comment>Title of Tab for options to sort library content</comment>
+        <source>TAB_SORT</source>
+        <translation>Ordenar</translation>
+    </message>
+    <message>
+        <comment>Title of Tab for switching &quot;views&quot; when looking at a library</comment>
+        <source>TAB_VIEW</source>
+        <translation>Visualizar</translation>
+    </message>
+    <message>
+        <source>IMDB_RATING</source>
+        <translation>Classificação IMDb</translation>
+    </message>
+    <message>
+        <comment>Name or Title field of media item</comment>
+        <source>TITLE</source>
+        <translation>Nome</translation>
+    </message>
+    <message>
+        <comment>Message displayed in Item Grid when no item to display. %1 is container type (e.g. Boxset, Collection, Folder, etc)</comment>
+        <source>NO_ITEMS</source>
+        <translation>Este %1 não contém itens</translation>
+    </message>
+    <message>
+        <source>Unable to load Channel Data from the server</source>
+        <translation>Incapaz de carregar os Dados do Canal do servidor</translation>
+    </message>
+    <message>
+        <source>Error loading Channel Data</source>
+        <translation>Erro ao carregar Dados do Canal</translation>
+    </message>
+    <message>
+        <source>Loading Channel Data</source>
+        <translation>Carregando Dados do Canal</translation>
+    </message>
+    <message>
+        <source>An error was encountered while playing this item.</source>
+        <translation>Foi encontrado um erro ao reproduzir este item.</translation>
+        <extracomment>Dialog detail when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>There was an error retrieving the data for this item from the server.</source>
+        <translation>Ocorreu um erro ao recuperar os dados para este item do servidor.</translation>
+        <extracomment>Dialog detail when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Error During Playback</source>
+        <translation>Erro Durante a Reprodução</translation>
+        <extracomment>Dialog title when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>Error Retrieving Content</source>
+        <translation>Erro ao Recuperar Conteúdo</translation>
+        <extracomment>Dialog title when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Sign Out</source>
+        <translation>Sair</translation>
+    </message>
+    <message>
+        <source>CRITIC_RATING</source>
+        <translation>Avaliação da crítica</translation>
+    </message>
+    <message>
+        <source>DATE_ADDED</source>
+        <translation>Data de Adição</translation>
+    </message>
+    <message>
+        <source>CRITIC_RATING</source>
+        <translation>Avaliação da crítica</translation>
+    </message>
+    <message>
+        <source>IMDB_RATING</source>
+        <translation>Classificação IMDb</translation>
+    </message>
+    <message>
+        <source>Unable to load Channel Data from the server</source>
+        <translation>Incapaz de carregar os Dados do Canal do servidor</translation>
+    </message>
+    <message>
+        <source>Error loading Channel Data</source>
+        <translation>Erro ao carregar Dados do Canal</translation>
+    </message>
+    <message>
+        <source>Loading Channel Data</source>
+        <translation>Carregando Dados do Canal</translation>
+    </message>
+    <message>
+        <source>An error was encountered while playing this item.</source>
+        <translation>Foi encontrado um erro ao reproduzir este item.</translation>
+        <extracomment>Dialog detail when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>Change Server</source>
+        <translation>Mudar servidor</translation>
+    </message>
+    <message>
+        <source>Sign Out</source>
+        <translation>Sair</translation>
+    </message>
+    <message>
+        <source>Change Server</source>
+        <translation>Mudar Servidor</translation>
+    </message>
+    <message>
+        <source>Delete Saved</source>
+        <translation>Remover salvo</translation>
+    </message>
+    <message>
+        <source>Save Credentials?</source>
+        <translation>Salvar credenciais?</translation>
+    </message>
+    <message>
+        <source>Sign Out</source>
+        <translation>Sair</translation>
+    </message>
+    <message>
+        <source>Change Server</source>
+        <translation>Mudar servidor</translation>
+    </message>
+    <message>
+        <source>There was an error retrieving the data for this item from the server.</source>
+        <translation>Ocorreu um erro ao recuperar os dados para este item do servidor.</translation>
+        <extracomment>Dialog detail when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Error During Playback</source>
+        <translation>Erro Durante a Reprodução</translation>
+        <extracomment>Dialog title when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>Error Retrieving Content</source>
+        <translation>Erro ao Recuperar Conteúdo</translation>
+        <extracomment>Dialog title when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>On Now</source>
+        <translation>Ligado agora</translation>
+    </message>
+    <message>
+        <source>Delete Saved</source>
+        <translation>Remover salvo</translation>
+    </message>
+    <message>
+        <source>Save Credentials?</source>
+        <translation>Salvar credenciais?</translation>
+    </message>
+    <message>
+        <source>Sign Out</source>
+        <translation>Sair</translation>
+    </message>
+    <message>
+        <source>Change Server</source>
+        <translation>Mudar servidor</translation>
+    </message>
+    <message>
+        <source>Repeat</source>
+        <translation>Repetir</translation>
+        <extracomment>If TV Shows has previously been broadcasted</extracomment>
+    </message>
+    <message>
+        <source>Live</source>
+        <translation>Ao Vivo</translation>
+        <extracomment>If TV Show is being broadcast live (not pre-recorded)</extracomment>
+    </message>
+    <message>
+        <source>Ends at</source>
+        <translation>Termina às</translation>
+        <extracomment>(Past Tense) For defining a day and time when a program ended (e.g. Ended Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Ended at</source>
+        <translation>Terminou às</translation>
+        <extracomment>(Past Tense) For defining time when a program will ended (e.g. Ended at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Starts</source>
+        <translation>Começará</translation>
+        <extracomment>(Future Tense) For defining a day and time when a program will start (e.g. Starts Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Starts at</source>
+        <translation>Começa às</translation>
+        <extracomment>(Future Tense) For defining time when a program will start today (e.g. Starts at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Started</source>
+        <translation>Começou</translation>
+        <extracomment>(Past Tense) For defining a day and time when a program started (e.g. Started Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Started at</source>
+        <translation>Começou às</translation>
+        <extracomment>(Past Tense) For defining time when a program started today (e.g. Started at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Saturday</source>
+        <translation>Sábado</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Friday</source>
+        <translation>Sexta-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Thursday</source>
+        <translation>Quinta-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Wednesday</source>
+        <translation>Quarta-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Tuesday</source>
+        <translation>Terça-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Monday</source>
+        <translation>Segunda-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Sunday</source>
+        <translation>Domingo</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>tomorrow</source>
+        <translation>amanhã</translation>
+        <extracomment>Next day</extracomment>
+    </message>
+    <message>
+        <source>yesterday</source>
+        <translation>ontem</translation>
+        <extracomment>Previous day</extracomment>
+    </message>
+    <message>
+        <source>today</source>
+        <translation>hoje</translation>
+        <extracomment>Current day</extracomment>
+    </message>
+    <message>
+        <source>TV Shows</source>
+        <translation>Shows de TV</translation>
+    </message>
+    <message>
+        <source>Movies</source>
+        <translation>Filmes</translation>
+    </message>
+    <message>
+        <source>Press &apos;OK&apos; to Close</source>
+        <translation>Pressione &apos;OK&apos; para Fechar</translation>
+    </message>
+    <message>
+        <source>Special Features</source>
+        <translation>Recursos Especiais</translation>
+        <message>
+            <source>Press &apos;OK&apos; to Close</source>
+            <translation>Clique em &apos;OK&apos; para fechar</translation>
+        </message>
+    </message>
+    <message>
+        <source>More Like This</source>
+        <translation>Mais Como Este</translation>
+    </message>
+    <message>
+        <source>Cast &amp; Crew</source>
+        <translation>Elenco e equipe</translation>
+    </message>
+    <message>
+        <source>Age</source>
+        <translation>Idade</translation>
+    </message>
+    <message>
+        <source>Died</source>
+        <translation>Morte</translation>
+    </message>
+    <message>
+        <source>Born</source>
+        <translation>Nascimento</translation>
+    </message>
+    <message>
+        <comment>Title of Tab for options to filter library content</comment>
+        <source>TAB_FILTER</source>
+        <translation>Filtrar</translation>
+    </message>
+    <message>
+        <comment>Title of Tab for options to sort library content</comment>
+        <source>TAB_SORT</source>
+        <translation>Ordenar</translation>
+    </message>
+    <message>
+        <comment>Title of Tab for switching &quot;views&quot; when looking at a library</comment>
+        <source>TAB_VIEW</source>
+        <translation>Visualizar</translation>
+    </message>
+    <message>
+        <source>RUNTIME</source>
+        <translation>Tempo de Execução</translation>
+    </message>
+    <message>
+        <source>RELEASE_DATE</source>
+        <translation>Data de Lançamento</translation>
+    </message>
+    <message>
+        <source>PLAY_COUNT</source>
+        <translation>Número de Execução</translation>
+    </message>
+    <message>
+        <source>OFFICIAL_RATING</source>
+        <translation>Avaliação Parental</translation>
+    </message>
+    <message>
+        <source>DATE_PLAYED</source>
+        <translation>Data da Execução</translation>
+    </message>
+    <message>
+        <source>DATE_ADDED</source>
+        <translation>Data de Adição</translation>
+    </message>
+    <message>
+        <source>CRITIC_RATING</source>
+        <translation>Avaliação da crítica</translation>
+    </message>
+    <message>
+        <source>IMDB_RATING</source>
+        <translation>Classificação IMDb</translation>
+    </message>
+    <message>
+        <comment>Name or Title field of media item</comment>
+        <source>TITLE</source>
+        <translation>Nome</translation>
+    </message>
+    <message>
+        <comment>Message displayed in Item Grid when no item to display. %1 is container type (e.g. Boxset, Collection, Folder, etc)</comment>
+        <source>NO_ITEMS</source>
+        <translation>Este %1 não contém itens</translation>
+    </message>
+    <message>
+        <source>Unable to load Channel Data from the server</source>
+        <translation>Incapaz de carregar os Dados do Canal do servidor</translation>
+    </message>
+    <message>
+        <source>Error loading Channel Data</source>
+        <translation>Erro ao carregar Dados do Canal</translation>
+    </message>
+    <message>
+        <source>Loading Channel Data</source>
+        <translation>Carregando Dados do Canal</translation>
+    </message>
+    <message>
+        <source>An error was encountered while playing this item.</source>
+        <translation>Ocorreu um erro ao reproduzir este item.</translation>
+        <extracomment>Dialog detail when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>Playback</source>
+        <translation>Reprodução</translation>
+        <extracomment>Title for Playback section in user setting screen.</extracomment>
+    </message>
+    <message>
+        <source>Unable to load Channel Data from the server</source>
+        <translation>Não foi possível carregar do servidor os dados do canal</translation>
+    </message>
+    <message>
+        <source>Cancel Series Recording</source>
+        <translation>Cancelar Gravação da Série</translation>
+    </message>
+    <message>
+        <source>Died</source>
+        <translation>Morte</translation>
+    </message>
+    <message>
+        <source>Born</source>
+        <translation>Nascimento</translation>
+    </message>
+    <message>
+        <source>There was an error authenticating via Quick Connect.</source>
+        <translation>Houve um erro ao conectar usando o Quick Connect.</translation>
+    </message>
+    <message>
+        <source>(Dialog will close automatically)</source>
+        <translation>(Tela vai fechar automaticamente)</translation>
+    </message>
+    <message>
+        <source>Here is your Quick Connect code:</source>
+        <translation>Aqui está o seu código do Quick Connect:</translation>
+    </message>
+    <message>
+        <source>Quick Connect</source>
+        <translation>Quick Connect</translation>
+    </message>
+    <message>
+        <source>%1 of %2</source>
+        <translation>%1 de %2</translation>
+        <extracomment>Item position and count. %1 = current item. %2 = total number of items</extracomment>
+    </message>
+    <message>
+        <source>Go to episode</source>
+        <translation>Ir para o episódio</translation>
+        <extracomment>Continue Watching Popup Menu - Navigate to the Episode Detail Page</extracomment>
+    </message>
+    <message>
+        <source>Go to season</source>
+        <translation>Ir para a temporada</translation>
+        <extracomment>Continue Watching Popup Menu - Navigate to the Season Page</extracomment>
+    </message>
+    <message>
+        <source>Go to series</source>
+        <translation>Ir para a série</translation>
+        <extracomment>Continue Watching Popup Menu - Navigate to the Series Detail Page</extracomment>
+    </message>
+    <message>
+        <source>Set Watched</source>
+        <translation>Marcar como Assistido</translation>
+        <extracomment>Button Text - When pressed, marks item as Warched</extracomment>
+    </message>
+    <message>
+        <source>Set Favorite</source>
+        <translation>Salvar Favorito</translation>
+        <extracomment>Button Text - When pressed, sets item as Favorite</extracomment>
+    </message>
+    <message>
+        <source>Show item count in the library, and index of selected item.</source>
+        <translation>Exibir quantidade de itens na biblioteca, e o número do item selecionado.</translation>
+        <extracomment>Description for option in Setting Screen</extracomment>
+    </message>
+    <message>
+        <source>Item Count</source>
+        <translation>Quantidade de Itens</translation>
+        <extracomment>UI -&gt; Media Grid -&gt; Item Count in user setting screen.</extracomment>
+    </message>
+    <message>
+        <source>Always show the titles below the poster images. (If disabled, title will be shown under hilighted item only)</source>
+        <translation>Sempre exibir os títulos abaixo das imagens dos posters. (Se desabilitado, o título apenas será exibido no item destacado)</translation>
+        <extracomment>Description for option in Setting Screen</extracomment>
+    </message>
+    <message>
+        <source>Item Titles</source>
+        <translation>Títulos dos Itens</translation>
+        <extracomment>UI -&gt; Media Grid -&gt; Item Title in user setting screen.</extracomment>
+    </message>
+    <message>
+        <source>Media Grid Options</source>
+        <translation>Opções de Grade de Mídia</translation>
+    </message>
+    <message>
+        <source>Media Grid</source>
+        <translation>Grade de Mídia</translation>
+        <extracomment>UI -&gt; Media Grid section in user setting screen.</extracomment>
+    </message>
+    <message>
+        <source>User Interface</source>
+        <translation>Interface de Usuário</translation>
+        <extracomment>Title for User Interface section in user setting screen.</extracomment>
+    </message>
+    <message>
+        <source>Disabled</source>
+        <translation>Desabilitado</translation>
+    </message>
+    <message>
+        <source>Enabled</source>
+        <translation>Habilitado</translation>
+    </message>
+    <message>
+        <source>Support direct play of MPEG 2 content (e.g. Live TV). This will prevent transcoding of MPEG 2 content, but uses significantly more bandwidth</source>
+        <translation>Habilita a execução direta de conteúdo MPEG-2 (ex.: TV ao vivo). Essa opção não executará a transcodificação de conteúdo MPEG-2, mas usa uma quantidade maior de banda</translation>
+        <extracomment>Settings Menu - Description for option</extracomment>
+    </message>
+    <message>
+        <source>MPEG 2 Support</source>
+        <translation>Suporte ao MPEG-2</translation>
+        <extracomment>Settings Menu - Title for option</extracomment>
+    </message>
+    <message>
+        <source>Version</source>
+        <translation>Versão</translation>
+    </message>
+    <message>
+        <source>An error was encountered while playing this item. Server did not provide required transcoding data.</source>
+        <translation>Um erro foi encontrado ao exibir este item. O servidor não entregou os dados de transcodificação necessários.</translation>
+        <extracomment>Content of message box when trying to play an item which requires transcoding, and the server did not provide transcode url</extracomment>
+    </message>
+    <message>
+        <source>Error Getting Playback Information</source>
+        <translation>Erro ao obter informação do playback</translation>
+        <extracomment>Dialog Title: Received error from server when trying to get information about the selected item for playback</extracomment>
+    </message>
+    <message>
+        <source>...or enter server URL manually:</source>
+        <translation>...ou digite a URL do servidor manualmente:</translation>
+        <extracomment>Instructions on initial app launch when the user is asked to manually enter a server URL</extracomment>
+    </message>
+    <message>
+        <source>Pick a Jellyfin server from the local network</source>
+        <translation>Escolha um servidor Jellyfin na rede local</translation>
+        <extracomment>Instructions on initial app launch when the user is asked to pick a server from a list</extracomment>
+    </message>
+    <message>
+        <source>Enter the server name or ip address</source>
+        <translation>Digite o nome do servidor ou endereço IP</translation>
+        <extracomment>Title of KeyboardDialog when manually entering a server URL</extracomment>
+    </message>
+    <message>
+        <source>The requested content does not exist on the server</source>
+        <translation>O conteúdo solicitado não existe no servidor</translation>
+        <extracomment>Content of message box when the requested content is not found on the server</extracomment>
+    </message>
+    <message>
+        <source>Unknown</source>
+        <translation>Desconhecido</translation>
+        <extracomment>Title for a cast member for which we have no information for</extracomment>
+    </message>
+    <message>
+        <source>Not found</source>
+        <translation>Não encontrado</translation>
+        <extracomment>Title of message box when the requested content is not found on the server</extracomment>
+    </message>
+    <message>
+        <source>Connecting to Server</source>
+        <translation>Conectando ao Servidor</translation>
+        <extracomment>Message to display to user while client is attempting to connect to the server</extracomment>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Fechar</translation>
+    </message>
+    <message>
+        <source>Cancel Recording</source>
+        <translation>Cancelar Gravação</translation>
+    </message>
+    <message>
+        <source>Record Series</source>
+        <translation>Gravar Série</translation>
+    </message>
+    <message>
+        <source>Record</source>
+        <translation>Gravar</translation>
+    </message>
+    <message>
+        <source>View Channel</source>
+        <translation>Ver Canal</translation>
+    </message>
+    <message>
+        <source>TV Guide</source>
+        <translation>Guia da TV</translation>
+        <extracomment>Menu option for showing Live TV Guide / Schedule</extracomment>
+    </message>
+    <message>
+        <source>Channels</source>
+        <translation>Canais</translation>
+        <extracomment>Menu option for showing Live TV Channel List</extracomment>
+    </message>
+    <message>
+        <source>Repeat</source>
+        <translation>Repetir</translation>
+        <extracomment>If TV Shows has previously been broadcasted</extracomment>
+    </message>
+    <message>
+        <source>Live</source>
+        <translation>Ao vivo</translation>
+        <extracomment>If TV Show is being broadcast live (not pre-recorded)</extracomment>
+    </message>
+    <message>
+        <source>Ends at</source>
+        <translation>Termina as</translation>
+        <extracomment>(Past Tense) For defining a day and time when a program ended (e.g. Ended Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Ended at</source>
+        <translation>Terminou as</translation>
+        <extracomment>(Past Tense) For defining time when a program will ended (e.g. Ended at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Starts</source>
+        <translation>Começará</translation>
+        <extracomment>(Future Tense) For defining a day and time when a program will start (e.g. Starts Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Starts at</source>
+        <translation>Começa às</translation>
+        <extracomment>(Future Tense) For defining time when a program will start today (e.g. Starts at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Started</source>
+        <translation>Começou</translation>
+        <extracomment>(Past Tense) For defining a day and time when a program started (e.g. Started Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Started at</source>
+        <translation>Começou às</translation>
+        <extracomment>(Past Tense) For defining time when a program started today (e.g. Started at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Saturday</source>
+        <translation>Sábado</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Friday</source>
+        <translation>Sexta-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Thursday</source>
+        <translation>Quinta-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Wednesday</source>
+        <translation>Quarta-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Tuesday</source>
+        <translation>Terça-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Monday</source>
+        <translation>Segunda-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Sunday</source>
+        <translation>Domingo</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>tomorrow</source>
+        <translation>amanhã</translation>
+        <extracomment>Next day</extracomment>
+    </message>
+    <message>
+        <source>yesterday</source>
+        <translation>ontem</translation>
+        <extracomment>Previous day</extracomment>
+    </message>
+    <message>
+        <source>today</source>
+        <translation>hoje</translation>
+        <extracomment>Current day</extracomment>
+    </message>
+    <message>
+        <source>TV Shows</source>
+        <translation>Séries</translation>
+    </message>
+    <message>
+        <source>Movies</source>
+        <translation>Filmes</translation>
+    </message>
+    <message>
+        <source>Special Features</source>
+        <translation>Características especiais</translation>
+        <message>
+            <source>Press &apos;OK&apos; to Close</source>
+            <translation>Press &apos;OK&apos; to Close</translation>
+        </message>
+    </message>
+    <message>
+        <source>More Like This</source>
+        <translation>Mais Disso</translation>
+    </message>
+    <message>
+        <source>Cast &amp; Crew</source>
+        <translation>Elenco &amp; Equipe</translation>
+    </message>
+    <message>
+        <source>Age</source>
+        <translation>Idade</translation>
+    </message>
+    <message>
+        <comment>Title of Tab for options to filter library content</comment>
+        <source>TAB_FILTER</source>
+        <translation>Filtro</translation>
+    </message>
+    <message>
+        <comment>Title of Tab for options to sort library content</comment>
+        <source>TAB_SORT</source>
+        <translation>Ordenar</translation>
+    </message>
+    <message>
+        <comment>Title of Tab for switching &quot;views&quot; when looking at a library</comment>
+        <source>TAB_VIEW</source>
+        <translation>Visualizar</translation>
+    </message>
+    <message>
+        <source>RUNTIME</source>
+        <translation>Tempo de Execução</translation>
+    </message>
+    <message>
+        <source>RELEASE_DATE</source>
+        <translation>Data de Lançamento</translation>
+    </message>
+    <message>
+        <source>PLAY_COUNT</source>
+        <translation>Número de Reproduções</translation>
+    </message>
+    <message>
+        <source>OFFICIAL_RATING</source>
+        <translation>Classificação Etária</translation>
+    </message>
+    <message>
+        <source>DATE_PLAYED</source>
+        <translation>Data de Reprodução</translation>
+    </message>
+    <message>
+        <source>DATE_ADDED</source>
+        <translation>Data de Adição</translation>
+    </message>
+    <message>
+        <source>CRITIC_RATING</source>
+        <translation>Avaliação da Crítica</translation>
+    </message>
+    <message>
+        <source>IMDB_RATING</source>
+        <translation>Avaliação IMDb</translation>
+    </message>
+    <message>
+        <comment>Name or Title field of media item</comment>
+        <source>TITLE</source>
+        <translation>Nome</translation>
+    </message>
+    <message>
+        <comment>Message displayed in Item Grid when no item to display. %1 is container type (e.g. Boxset, Collection, Folder, etc)</comment>
+        <source>NO_ITEMS</source>
+        <translation>Este %1 não possui itens</translation>
+    </message>
+    <message>
+        <source>Error loading Channel Data</source>
+        <translation>Erro ao carregar os dados do canal</translation>
+    </message>
+    <message>
+        <source>Loading Channel Data</source>
+        <translation>Carregando dados do canal</translation>
+    </message>
+    <message>
+        <source>An error was encountered while playing this item.</source>
+        <translation>Um erro foi encontrado enquanto executávamos este item.</translation>
+        <extracomment>Dialog detail when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>There was an error retrieving the data for this item from the server.</source>
+        <translation>Houve um erro ao tentar obter os dados do servidor para este item.</translation>
+        <extracomment>Dialog detail when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Error During Playback</source>
+        <translation>Erro durante playback</translation>
+        <extracomment>Dialog title when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>Error Retrieving Content</source>
+        <translation>Erro ao obter conteúdo</translation>
+        <extracomment>Dialog title when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>On Now</source>
+        <translation>Em Exibição</translation>
+    </message>
+    <message>
+        <source>Delete Saved</source>
+        <translation>Deletar Salvos</translation>
+    </message>
+    <message>
+        <source>Save Credentials?</source>
+        <translation>Salvar dados de login?</translation>
+    </message>
+    <message>
+        <source>Sign Out</source>
+        <translation>Sair</translation>
+    </message>
+    <message>
+        <source>Change Server</source>
+        <translation>Alterar Servidor</translation>
+    </message>
+    <message>
+        <source>There was an error retrieving the data for this item from the server.</source>
+        <translation>Houve um erro ao coletar dados do servidor para este item</translation>
+        <extracomment>Dialog detail when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Error During Playback</source>
+        <translation>Erro na reprodução</translation>
+        <extracomment>Dialog title when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>Error Retrieving Content</source>
+        <translation>Erro ao buscar conteúdo</translation>
+        <extracomment>Dialog title when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Delete Saved</source>
+        <translation>Deletar Salvo(a)</translation>
+    </message>
+    <message>
+        <source>Save Credentials?</source>
+        <translation>Salvar Credenciais?</translation>
+    </message>
+    <message>
+        <source>Sign Out</source>
+        <translation>Sair</translation>
+    </message>
+    <message>
+        <source>Change Server</source>
+        <translation>Alterar Servidor</translation>
+    </message>
+    <message>
+        <source>RELEASE_DATE</source>
+        <translation>Data de Lançamento</translation>
+    </message>
+    <message>
+        <source>PLAY_COUNT</source>
+        <translation>Número de Reproduções</translation>
+    </message>
+    <message>
+        <source>OFFICIAL_RATING</source>
+        <translation>Classificação Etária</translation>
+    </message>
+    <message>
+        <source>DATE_PLAYED</source>
+        <translation>Data de Reprodução</translation>
+    </message>
+    <message>
+        <source>DATE_ADDED</source>
+        <translation>Data de Adição</translation>
+    </message>
+    <message>
+        <source>CRITIC_RATING</source>
+        <translation>Avaliação da Crítica</translation>
+    </message>
+    <message>
+        <source>IMDB_RATING</source>
+        <translation>Avaliação IMDb</translation>
+    </message>
+    <message>
+        <comment>Name or Title field of media item</comment>
+        <source>TITLE</source>
+        <translation>Nome</translation>
+    </message>
+    <message>
+        <comment>Message displayed in Item Grid when no item to display. %1 is container type (e.g. Boxset, Collection, Folder, etc)</comment>
+        <source>NO_ITEMS</source>
+        <translation>Este %1 não possui itens</translation>
+    </message>
+    <message>
+        <source>Unable to load Channel Data from the server</source>
+        <translation>Não foi possível carregar do servidor os dados do canal</translation>
+    </message>
+    <message>
+        <source>Error loading Channel Data</source>
+        <translation>Erro ao carregar os dados do canal</translation>
+    </message>
+    <message>
+        <source>Loading Channel Data</source>
+        <translation>Carregando dados do canal</translation>
+    </message>
+    <message>
+        <source>An error was encountered while playing this item.</source>
+        <translation>Um erro foi encontrado ao reproduzir este item.</translation>
+        <extracomment>Dialog detail when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>There was an error retrieving the data for this item from the server.</source>
+        <translation>Houve um erro ao coletar dados do servidor para este item</translation>
+        <extracomment>Dialog detail when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Error During Playback</source>
+        <translation>Erro na reprodução</translation>
+        <extracomment>Dialog title when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>Error Retrieving Content</source>
+        <translation>Erro ao buscar conteúdo</translation>
+        <extracomment>Dialog title when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>On Now</source>
+        <translation>Em Exibição</translation>
+    </message>
+    <message>
+        <source>Delete Saved</source>
+        <translation>Deletar Salvo(a)</translation>
+    </message>
+    <message>
+        <source>Save Credentials?</source>
+        <translation>Salvar Credenciais?</translation>
+    </message>
+    <message>
+        <source>Sign Out</source>
+        <translation>Sair</translation>
+    </message>
+    <message>
+        <source>Change Server</source>
+        <translation>Trocar Servidor</translation>
+    </message>
+    <message>
+        <source>There was an error retrieving the data for this item from the server.</source>
+        <translation>Houve um erro ao coletar dados do servidor para este item.</translation>
+        <extracomment>Dialog detail when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Error During Playback</source>
+        <translation>Erro durante a reprodução</translation>
+        <extracomment>Dialog title when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>Error Retrieving Content</source>
+        <translation>Erro ao recuperar conteúdo</translation>
+        <extracomment>Dialog title when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>On Now</source>
+        <translation>Ligado agora</translation>
+    </message>
+    <message>
+        <source>Delete Saved</source>
+        <translation>Excluir salvo</translation>
+    </message>
+    <message>
+        <source>Save Credentials?</source>
+        <translation>Salvar credenciais?</translation>
+    </message>
+    <message>
+        <source>Sign Out</source>
+        <translation>Sair</translation>
+    </message>
+    <message>
+        <source>Change Server</source>
+        <translation>Alterar servidor</translation>
+    </message>
+    <message>
+        <source>Change Server</source>
+        <translation>Mudar Servidor</translation>
+    </message>
+    <message>
+        <source>Sign Out</source>
+        <translation>Sair</translation>
+    </message>
+    <message>
+        <source>Save Credentials?</source>
+        <translation>Salvar Credenciais?</translation>
+    </message>
+    <message>
+        <source>Delete Saved</source>
+        <translation>Deletar Salvos</translation>
+    </message>
+    <message>
+        <source>On Now</source>
+        <translation>Passando Agora</translation>
+    </message>
+    <message>
+        <source>Error Retrieving Content</source>
+        <translation>Erro ao Carregar Conteúdo</translation>
+        <extracomment>Dialog title when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Error During Playback</source>
+        <translation>Erro Durante Reprodução</translation>
+        <extracomment>Dialog title when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>There was an error retrieving the data for this item from the server.</source>
+        <translation>Houve um erro ao coletar dados do servidor para este item.</translation>
+        <extracomment>Dialog detail when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Loading Channel Data</source>
+        <translation>Carregando dados do canal</translation>
+    </message>
+    <message>
+        <comment>Message displayed in Item Grid when no item to display. %1 is container type (e.g. Boxset, Collection, Folder, etc)</comment>
+        <source>NO_ITEMS</source>
+        <translation>Este %1 não possui itens</translation>
+    </message>
+    <message>
+        <comment>Name or Title field of media item</comment>
+        <source>TITLE</source>
+        <translation>Nome</translation>
+    </message>
+    <message>
+        <source>DATE_PLAYED</source>
+        <translation>Data de Reprodução</translation>
+    </message>
+    <message>
+        <source>IMDB_RATING</source>
+        <translation>Avaliação IMDb</translation>
+    </message>
+    <message>
+        <source>RELEASE_DATE</source>
+        <translation>Data de Lançamento</translation>
+    </message>
+    <message>
+        <source>An error was encountered while playing this item.</source>
+        <translation>Um erro foi encontrado enquanto reproduzindo este item.</translation>
+        <extracomment>Dialog detail when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>Error loading Channel Data</source>
+        <translation>Erro ao carregar os dados do canal</translation>
+    </message>
+    <message>
+        <source>Unable to load Channel Data from the server</source>
+        <translation>Não foi possível carregar do servidor os dados do canal</translation>
+    </message>
+    <message>
+        <source>CRITIC_RATING</source>
+        <translation>Avaliação de críticos</translation>
+    </message>
+    <message>
+        <source>DATE_ADDED</source>
+        <translation>Data de Adição</translation>
+    </message>
+    <message>
+        <source>PLAY_COUNT</source>
+        <translation>Número de Reproduções</translation>
+    </message>
+    <message>
+        <source>OFFICIAL_RATING</source>
+        <translation>Classificação Etária</translation>
+    </message>
+    <message>
+        <source>Sign Out</source>
+        <translation>Sair</translation>
+    </message>
+    <message>
+        <source>Save Credentials?</source>
+        <translation>Salvar Credenciais?</translation>
+    </message>
+    <message>
+        <source>Delete Saved</source>
+        <translation>Deletar Salvos</translation>
+    </message>
+    <message>
+        <source>Error During Playback</source>
+        <translation>Erro Durante a Reprodução</translation>
+        <extracomment>Dialog title when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>Change Server</source>
+        <translation>Mudar Servidor</translation>
+    </message>
+    <message>
+        <source>Error Retrieving Content</source>
+        <translation>Erro ao Carregar Conteúdo</translation>
+        <extracomment>Dialog title when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Loading Channel Data</source>
+        <translation>Carregando Dados do Canal</translation>
+    </message>
+    <message>
+        <source>An error was encountered while playing this item.</source>
+        <translation>Foi encontrado um erro na reprodução deste item.</translation>
+        <extracomment>Dialog detail when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>On Now</source>
+        <translation>Em Exibição</translation>
+    </message>
+    <message>
+        <source>There was an error retrieving the data for this item from the server.</source>
+        <translation>Houve um erro ao recuperar os dados deste item do servidor.</translation>
+        <extracomment>Dialog detail when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Error loading Channel Data</source>
+        <translation>Erro ao carregar os Dados do Canal</translation>
+    </message>
+    <message>
+        <source>Change Server</source>
+        <translation type="unfinished">Alterar Servidor</translation>
+    </message>
+    <message>
+        <source>Sign Out</source>
+        <translation type="unfinished">Sair</translation>
+    </message>
+    <message>
+        <source>Save Credentials?</source>
+        <translation type="unfinished">Salvar credenciais?</translation>
+    </message>
+    <message>
+        <source>Delete Saved</source>
+        <translation type="unfinished">Excluir salvo</translation>
+    </message>
+    <message>
+        <source>On Now</source>
+        <translation type="unfinished">Ativo agora</translation>
+    </message>
+    <message>
+        <source>Error Retrieving Content</source>
+        <translation type="unfinished">Erro ao recuperar conteúdo</translation>
+        <extracomment>Dialog title when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Change Server</source>
+        <translation>Alterar Servidor</translation>
+    </message>
+    <message>
+        <source>DATE_ADDED</source>
+        <translation>Data de Adição</translation>
+    </message>
+    <message>
+        <source>There was an error retrieving the data for this item from the server.</source>
+        <translation>Houve um erro ao recuperar os dados deste item do servidor.</translation>
+        <extracomment>Dialog detail when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Loading Channel Data</source>
+        <translation>Carregando Dados do Canal</translation>
+    </message>
+    <message>
+        <source>Unable to load Channel Data from the server</source>
+        <translation>Não foi possível carregar do servidor os dados do canal</translation>
+    </message>
+    <message>
+        <comment>Message displayed in Item Grid when no item to display. %1 is container type (e.g. Boxset, Collection, Folder, etc)</comment>
+        <source>NO_ITEMS</source>
+        <translation>ste %1 não possui itens</translation>
+    </message>
+    <message>
+        <comment>Name or Title field of media item</comment>
+        <source>TITLE</source>
+        <translation>Nome</translation>
+    </message>
+    <message>
+        <source>IMDB_RATING</source>
+        <translation>Avaliação IMDb</translation>
+    </message>
+    <message>
+        <source>CRITIC_RATING</source>
+        <translation>Avaliação de críticos</translation>
+    </message>
+    <message>
+        <source>Error During Playback</source>
+        <translation>Erro Durante a Reprodução</translation>
+        <extracomment>Dialog title when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>An error was encountered while playing this item.</source>
+        <translation>Foi encontrado um erro na reprodução deste item.</translation>
+        <extracomment>Dialog detail when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>Error loading Channel Data</source>
+        <translation>Erro ao carregar os Dados do Canal</translation>
+    </message>
+    <message>
+        <source>Sign Out</source>
+        <translation>Sair</translation>
+    </message>
+    <message>
+        <source>Save Credentials?</source>
+        <translation>Salvar crededenciais?</translation>
+    </message>
+    <message>
+        <source>Delete Saved</source>
+        <translation>Excluir Salvo</translation>
+    </message>
+    <message>
+        <source>On Now</source>
+        <translation>Ativo agora</translation>
+    </message>
+    <message>
+        <source>Error Retrieving Content</source>
+        <translation>Erro ao recuperar conteúdo</translation>
+        <extracomment>Dialog title when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Born</source>
+        <translation>Nascimento</translation>
+    </message>
+    <message>
+        <source>More Like This</source>
+        <translation>Conteúdo semelhante</translation>
+    </message>
+    <message>
+        <source>DATE_PLAYED</source>
+        <translation>Data de Exibição</translation>
+    </message>
+    <message>
+        <source>yesterday</source>
+        <translation>ontem</translation>
+        <extracomment>Previous day</extracomment>
+    </message>
+    <message>
+        <comment>Title of Tab for options to sort library content</comment>
+        <source>TAB_SORT</source>
+        <translation>Ordenar</translation>
+    </message>
+    <message>
+        <comment>Title of Tab for options to filter library content</comment>
+        <source>TAB_FILTER</source>
+        <translation>Filtrar</translation>
+    </message>
+    <message>
+        <source>Age</source>
+        <translation>Idade</translation>
+    </message>
+    <message>
+        <source>RELEASE_DATE</source>
+        <translation>Data de Lançamento</translation>
+    </message>
+    <message>
+        <comment>Message displayed in Item Grid when no item to display. %1 is container type (e.g. Boxset, Collection, Folder, etc)</comment>
+        <source>NO_ITEMS</source>
+        <translation>O %1 não possui nenhum item</translation>
+    </message>
+    <message>
+        <source>Change Server</source>
+        <translation>Mudar Servidor</translation>
+    </message>
+    <message>
+        <source>PLAY_COUNT</source>
+        <translation>Contagem de Exibições</translation>
+    </message>
+    <message>
+        <source>RUNTIME</source>
+        <translation>Tempo de Execução</translation>
+    </message>
+    <message>
+        <comment>Title of Tab for switching &quot;views&quot; when looking at a library</comment>
+        <source>TAB_VIEW</source>
+        <translation>Visualização</translation>
+    </message>
+    <message>
+        <source>Thursday</source>
+        <translation>Quinta-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Died</source>
+        <translation>Falecimento</translation>
+    </message>
+    <message>
+        <source>Cast &amp; Crew</source>
+        <translation>Elenco e Equipe</translation>
+    </message>
+    <message>
+        <source>Movies</source>
+        <translation>Filmes</translation>
+    </message>
+    <message>
+        <source>Ended at</source>
+        <translation>Encerrado às</translation>
+        <extracomment>(Past Tense) For defining time when a program will ended (e.g. Ended at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>TV Guide</source>
+        <translation>Guia da TV</translation>
+        <extracomment>Menu option for showing Live TV Guide / Schedule</extracomment>
+    </message>
+    <message>
+        <source>Record</source>
+        <translation>Gravar</translation>
+    </message>
+    <message>
+        <source>There was an error retrieving the data for this item from the server.</source>
+        <translation>Houve um erro ao recuperar dados deste item do servidor.</translation>
+        <extracomment>Dialog detail when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Loading Channel Data</source>
+        <translation>Carregando Dados de Canais</translation>
+    </message>
+    <message>
+        <source>DATE_ADDED</source>
+        <translation>Data de Inserção</translation>
+    </message>
+    <message>
+        <comment>Name or Title field of media item</comment>
+        <source>TITLE</source>
+        <translation>Nome</translation>
+    </message>
+    <message>
+        <source>CRITIC_RATING</source>
+        <translation>Avaliação dos Críticos</translation>
+    </message>
+    <message>
+        <source>Unable to load Channel Data from the server</source>
+        <translation>Incapaz de carregar Dados de Canais do servidor</translation>
+    </message>
+    <message>
+        <source>OFFICIAL_RATING</source>
+        <translation>Avaliação dos Pais</translation>
+    </message>
+    <message>
+        <source>Error During Playback</source>
+        <translation>Erro Durante Exibição</translation>
+        <extracomment>Dialog title when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>An error was encountered while playing this item.</source>
+        <translation>Um erro ocorreu durante a exibição deste item.</translation>
+        <extracomment>Dialog detail when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>Error loading Channel Data</source>
+        <translation>Erro ao carregar Dados de Canais</translation>
+    </message>
+    <message>
+        <source>Sign Out</source>
+        <translation>Sair</translation>
+    </message>
+    <message>
+        <source>Save Credentials?</source>
+        <translation>Salvar Dados?</translation>
+    </message>
+    <message>
+        <source>Delete Saved</source>
+        <translation>Salvamento Apagado</translation>
+    </message>
+    <message>
+        <source>On Now</source>
+        <translation>Ativo Agora</translation>
+    </message>
+    <message>
+        <source>Error Retrieving Content</source>
+        <translation>Erro ao Recuperar Conteúdo</translation>
+        <extracomment>Dialog title when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Press &apos;OK&apos; to Close</source>
+        <translation>Pressione &apos;OK&apos; para Fechar</translation>
+    </message>
+    <message>
+        <source>today</source>
+        <translation>hoje</translation>
+        <extracomment>Current day</extracomment>
+    </message>
+    <message>
+        <source>Monday</source>
+        <translation>Segunda-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Tuesday</source>
+        <translation>Terça-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Wednesday</source>
+        <translation>Quarta-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Friday</source>
+        <translation>Sexta-feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Starts</source>
+        <translation>Iniciará</translation>
+        <extracomment>(Future Tense) For defining a day and time when a program will start (e.g. Starts Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Live</source>
+        <translation>Ao vivo</translation>
+        <extracomment>If TV Show is being broadcast live (not pre-recorded)</extracomment>
+    </message>
+    <message>
+        <source>View Channel</source>
+        <translation>Ver Canal</translation>
+    </message>
+    <message>
+        <source>Movies (Presentation)</source>
+        <translation>Filmes (Apresentação)</translation>
+        <extracomment>Movie library view option</extracomment>
+    </message>
+    <message>
+        <source>Movies (Grid)</source>
+        <translation>Filmes (Grade)</translation>
+        <extracomment>Movie library view option</extracomment>
+    </message>
+    <message>
+        <source>TV Shows</source>
+        <translation>Programas de TV</translation>
+    </message>
+    <message>
+        <source>tomorrow</source>
+        <translation>amanhã</translation>
+        <extracomment>Next day</extracomment>
+    </message>
+    <message>
+        <source>Saturday</source>
+        <translation>Sábado</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Started at</source>
+        <translation>Iniciado às</translation>
+        <extracomment>(Past Tense) For defining time when a program started today (e.g. Started at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Started</source>
+        <translation>Iniciado</translation>
+        <extracomment>(Past Tense) For defining a day and time when a program started (e.g. Started Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Starts at</source>
+        <translation>Inicia às</translation>
+        <extracomment>(Future Tense) For defining time when a program will start today (e.g. Starts at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Ends at</source>
+        <translation>Terminar às</translation>
+        <extracomment>(Past Tense) For defining a day and time when a program ended (e.g. Ended Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Repeat</source>
+        <translation>Repetir</translation>
+        <extracomment>If TV Shows has previously been broadcasted</extracomment>
+    </message>
+    <message>
+        <source>Channels</source>
+        <translation>Canais</translation>
+        <extracomment>Menu option for showing Live TV Channel List</extracomment>
+    </message>
+    <message>
+        <source>Sunday</source>
+        <translation>Domingo</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>IMDB_RATING</source>
+        <translation>Avaliação IMDb</translation>
+    </message>
+    <message>
+        <comment>Title of Tab for options to sort library content</comment>
+        <source>TAB_SORT</source>
+        <translation>Ordenar</translation>
+    </message>
+    <message>
+        <source>Cancel Recording</source>
+        <translation>Cancelar Gravação</translation>
+    </message>
+    <message>
+        <source>PLAY_COUNT</source>
+        <translation>Número de Reproduções</translation>
+    </message>
+    <message>
+        <source>RUNTIME</source>
+        <translation>Duração</translation>
+    </message>
+    <message>
+        <comment>Title of Tab for options to filter library content</comment>
+        <source>TAB_FILTER</source>
+        <translation>Filtrar</translation>
+    </message>
+    <message>
+        <source>Died</source>
+        <translation>Morreu</translation>
+    </message>
+    <message>
+        <source>Quick Connect</source>
+        <translation>Quick Connect</translation>
+    </message>
+    <message>
+        <source>More Like This</source>
+        <translation>Mais iguais a este</translation>
+    </message>
+    <message>
+        <source>yesterday</source>
+        <translation>ontem</translation>
+        <extracomment>Previous day</extracomment>
+    </message>
+    <message>
+        <source>Thursday</source>
+        <translation>Quinta-Feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Cast &amp; Crew</source>
+        <translation>Elenco e Equipe</translation>
+    </message>
+    <message>
+        <source>Movies</source>
+        <translation>Filmes</translation>
+    </message>
+    <message>
+        <source>Ended at</source>
+        <translation>Encerrado às</translation>
+        <extracomment>(Past Tense) For defining time when a program will ended (e.g. Ended at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>View Channel</source>
+        <translation>Ver Canal</translation>
+    </message>
+    <message>
+        <source>DATE_ADDED</source>
+        <translation>Data de Adição</translation>
+    </message>
+    <message>
+        <source>Error loading Channel Data</source>
+        <translation>Erro ao Carregar Informações do Canal</translation>
+    </message>
+    <message>
+        <source>Press &apos;OK&apos; to Close</source>
+        <translation>Clique em &apos;OK&apos; para fechar</translation>
+    </message>
+    <message>
+        <source>Special Features</source>
+        <translation>Recursos Especiais</translation>
+    </message>
+    <message>
+        <source>Additional Parts</source>
+        <translation>Partes Adicionais</translation>
+        <extracomment>Additional parts of a video</extracomment>
+    </message>
+    <message>
+        <source>Wednesday</source>
+        <translation>Quarta-Feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Friday</source>
+        <translation>Sexta-Feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Live</source>
+        <translation>Ao Vivo</translation>
+        <extracomment>If TV Show is being broadcast live (not pre-recorded)</extracomment>
+    </message>
+    <message>
+        <source>Saturday</source>
+        <translation>Sábado</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Started</source>
+        <translation>Começou</translation>
+        <extracomment>(Past Tense) For defining a day and time when a program started (e.g. Started Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Starts at</source>
+        <translation>Começa às</translation>
+        <extracomment>(Future Tense) For defining time when a program will start today (e.g. Starts at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Repeat</source>
+        <translation>Repetir</translation>
+        <extracomment>If TV Shows has previously been broadcasted</extracomment>
+    </message>
+    <message>
+        <source>Channels</source>
+        <translation>Canais</translation>
+        <extracomment>Menu option for showing Live TV Channel List</extracomment>
+    </message>
+    <message>
+        <source>Connecting to Server</source>
+        <translation>Conectando ao Servidor</translation>
+        <extracomment>Message to display to user while client is attempting to connect to the server</extracomment>
+    </message>
+    <message>
+        <source>Not found</source>
+        <translation>Não encontrado</translation>
+        <extracomment>Title of message box when the requested content is not found on the server</extracomment>
+    </message>
+    <message>
+        <source>Media Grid options.</source>
+        <translation>Opções de Grade de Mídia.</translation>
+    </message>
+    <message>
+        <source>Show item count in the library and index of selected item.</source>
+        <translation>Exibir quantidade de itens na biblioteca, e o número do item selecionado.</translation>
+        <extracomment>Description for option in Setting Screen</extracomment>
+    </message>
+    <message>
+        <source>Set Watched</source>
+        <translation>Marcar como Assistido</translation>
+        <extracomment>Button Text - When pressed, marks item as Warched</extracomment>
+    </message>
+    <message>
+        <source>Go to season</source>
+        <translation>Ir para a temporada</translation>
+        <extracomment>Continue Watching Popup Menu - Navigate to the Season Page</extracomment>
+    </message>
+    <message>
+        <source>Go to episode</source>
+        <translation>Ir para o episódio</translation>
+        <extracomment>Continue Watching Popup Menu - Navigate to the Episode Detail Page</extracomment>
+    </message>
+    <message>
+        <source>Shows</source>
+        <translation>Séries</translation>
+    </message>
+    <message>
+        <source>Play Trailer</source>
+        <translation>Assistir Trailer</translation>
+    </message>
+    <message>
+        <source>Change Server</source>
+        <translation>Mudar Servidor</translation>
+    </message>
+    <message>
+        <source>Sign Out</source>
+        <translation>Sair</translation>
+    </message>
+    <message>
+        <source>Save Credentials?</source>
+        <translation>Salvar crededenciais?</translation>
+    </message>
+    <message>
+        <source>On Now</source>
+        <translation>Em Exibição</translation>
+    </message>
+    <message>
+        <source>Delete Saved</source>
+        <translation>Deletar Salvos</translation>
+    </message>
+    <message>
+        <source>Error Retrieving Content</source>
+        <translation>Erro ao Buscar Conteúdo</translation>
+        <extracomment>Dialog title when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Error During Playback</source>
+        <translation>Erro Durante Exibição</translation>
+        <extracomment>Dialog title when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>There was an error retrieving the data for this item from the server.</source>
+        <translation>Houve um erro ao buscar dados deste item do servidor.</translation>
+        <extracomment>Dialog detail when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>An error was encountered while playing this item.</source>
+        <translation>Um erro ocorreu durante a exibição deste item.</translation>
+        <extracomment>Dialog detail when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>Loading Channel Data</source>
+        <translation>Carregando Informações do Canal</translation>
+    </message>
+    <message>
+        <source>Unable to load Channel Data from the server</source>
+        <translation>Incapaz de carregar Dados dos Canais do servidor</translation>
+    </message>
+    <message>
+        <comment>Message displayed in Item Grid when no item to display. %1 is container type (e.g. Boxset, Collection, Folder, etc)</comment>
+        <source>NO_ITEMS</source>
+        <translation>O %1 não possui nenhum item</translation>
+    </message>
+    <message>
+        <comment>Name or Title field of media item</comment>
+        <source>TITLE</source>
+        <translation>Nome</translation>
+    </message>
+    <message>
+        <source>CRITIC_RATING</source>
+        <translation>Avaliação dos Críticos</translation>
+    </message>
+    <message>
+        <source>DATE_PLAYED</source>
+        <translation>Data de Reprodução</translation>
+    </message>
+    <message>
+        <source>OFFICIAL_RATING</source>
+        <translation>Classificação Etária</translation>
+    </message>
+    <message>
+        <source>RELEASE_DATE</source>
+        <translation>Data de Lançamento</translation>
+    </message>
+    <message>
+        <comment>Title of Tab for switching &quot;views&quot; when looking at a library</comment>
+        <source>TAB_VIEW</source>
+        <translation>Visualização</translation>
+    </message>
+    <message>
+        <source>Born</source>
+        <translation>Nasceu</translation>
+    </message>
+    <message>
+        <source>Age</source>
+        <translation>Idade</translation>
+    </message>
+    <message>
+        <source>TV Shows</source>
+        <translation>Séries de TV</translation>
+    </message>
+    <message>
+        <source>today</source>
+        <translation>hoje</translation>
+        <extracomment>Current day</extracomment>
+    </message>
+    <message>
+        <source>tomorrow</source>
+        <translation>amanhã</translation>
+        <extracomment>Next day</extracomment>
+    </message>
+    <message>
+        <source>Monday</source>
+        <translation>Segunda-Feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Tuesday</source>
+        <translation>Terça-Feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Record</source>
+        <translation>Gravar</translation>
+    </message>
+    <message>
+        <source>Record Series</source>
+        <translation>Gravar Séries</translation>
+    </message>
+    <message>
+        <source>Cancel Series Recording</source>
+        <translation>Cancelar Gravação da Série</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Fechar</translation>
+    </message>
+    <message>
+        <source>Unknown</source>
+        <translation>Desconhecido</translation>
+        <extracomment>Title for a cast member for which we have no information for</extracomment>
+    </message>
+    <message>
+        <source>Enter the server name or IP address</source>
+        <translation>Insira o nome do servidor ou seu endereço IPQ</translation>
+        <extracomment>Title of KeyboardDialog when manually entering a server URL</extracomment>
+    </message>
+    <message>
+        <source>Version</source>
+        <translation>Versão</translation>
+    </message>
+    <message>
+        <source>MPEG-2</source>
+        <translation>MPEG-2</translation>
+        <extracomment>Name of codec used in settings menu</extracomment>
+    </message>
+    <message>
+        <source>MPEG-4</source>
+        <translation>MPEG-4</translation>
+        <extracomment>Name of codec used in settings menu</extracomment>
+    </message>
+    <message>
+        <source>AV1</source>
+        <translation>AV1</translation>
+        <extracomment>Name of a setting - should we try to direct play experimental av1 codec</extracomment>
+    </message>
+    <message>
+        <source>Disabled</source>
+        <translation>Desativado</translation>
+    </message>
+    <message>
+        <source>User Interface</source>
+        <translation>Interface de Usuário</translation>
+        <extracomment>Title for User Interface section in user setting screen.</extracomment>
+    </message>
+    <message>
+        <source>There was an error authenticating via Quick Connect.</source>
+        <translation>Houve um erro ao autenticar via Quick Connect</translation>
+    </message>
+    <message>
+        <source>Here is your Quick Connect code:</source>
+        <translation>Aqui está o seu código Quick Connect:</translation>
+    </message>
+    <message>
+        <source>Return to Top</source>
+        <translation>Retornar ao Topo</translation>
+        <extracomment>UI -&gt; Media Grid -&gt; Item Title in user setting screen.</extracomment>
+    </message>
+    <message>
+        <source>Cinema Mode</source>
+        <translation>Modo Cinema</translation>
+        <extracomment>Settings Menu - Title for option</extracomment>
+    </message>
+    <message>
+        <source>Hide Clock</source>
+        <translation>Esconder Relógio</translation>
+        <extracomment>Option Title in user setting screen</extracomment>
+    </message>
+    <message>
+        <source>Next episode</source>
+        <translation>Próximo Episódio</translation>
+    </message>
+    <message>
+        <source>H.264</source>
+        <translation>H.264</translation>
+        <extracomment>Name of codec used in settings menu</extracomment>
+    </message>
+    <message>
+        <source>HEVC</source>
+        <translation>HEVC</translation>
+        <extracomment>Name of codec used in settings menu</extracomment>
+    </message>
+    <message>
+        <source>Total Bitrate</source>
+        <translation>Bitrate Total</translation>
+    </message>
+    <message>
+        <source>Audio Channels</source>
+        <translation>Canais de Áudio</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>Tamanho</translation>
+        <extracomment>Video size</extracomment>
+    </message>
+    <message>
+        <source>Aired</source>
+        <translation>Estreado</translation>
+        <extracomment>Aired date label</extracomment>
+    </message>
+    <message>
+        <source>Years</source>
+        <translation></translation>
+        <extracomment>Used in Filter menu</extracomment>
+    </message>
+    <message>
+        <source>Movies (Presentation)</source>
+        <translation>Filmes (Apresentação)</translation>
+        <extracomment>Movie library view option</extracomment>
+    </message>
+    <message>
+        <source>Movies (Grid)</source>
+        <translation>Filmes (Grade)</translation>
+        <extracomment>Movie library view option</extracomment>
+    </message>
+    <message>
+        <source>Sunday</source>
+        <translation>Domingo</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Started at</source>
+        <translation>Começou às</translation>
+        <extracomment>(Past Tense) For defining time when a program started today (e.g. Started at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Starts</source>
+        <translation>Começará</translation>
+        <extracomment>(Future Tense) For defining a day and time when a program will start (e.g. Starts Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Ends at</source>
+        <translation>Termina às</translation>
+        <extracomment>(Past Tense) For defining a day and time when a program ended (e.g. Ended Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>TV Guide</source>
+        <translation>Guia da TV</translation>
+        <extracomment>Menu option for showing Live TV Guide / Schedule</extracomment>
+    </message>
+    <message>
+        <source>The requested content does not exist on the server</source>
+        <translation>O conteúdo solicitado não existe no servidor</translation>
+        <extracomment>Content of message box when the requested content is not found on the server</extracomment>
+    </message>
+    <message>
+        <source>Pick a Jellyfin server from the local network</source>
+        <translation>Escolha um servidor Jellyfin da sua rede local:</translation>
+        <extracomment>Instructions on initial app launch when the user is asked to pick a server from a list</extracomment>
+    </message>
+    <message>
+        <source>...or enter server URL manually:</source>
+        <translation>Se nenhum servidor está listado acima, você também pode inserir a URL do servidor manualmente:</translation>
+        <extracomment>Instructions on initial app launch when the user is asked to manually enter a server URL</extracomment>
+    </message>
+    <message>
+        <source>Error Getting Playback Information</source>
+        <translation>Erro ao Obter Informação de Playback</translation>
+        <extracomment>Dialog Title: Received error from server when trying to get information about the selected item for playback</extracomment>
+    </message>
+    <message>
+        <source>An error was encountered while playing this item. Server did not provide required transcoding data.</source>
+        <translation>Um erro foi encontrado ao exibir este item. O servidor não entregou os dados de transcodificação necessários.</translation>
+        <extracomment>Content of message box when trying to play an item which requires transcoding, and the server did not provide transcode url</extracomment>
+    </message>
+    <message>
+        <source>Media Grid</source>
+        <translation>Grade de Mídia</translation>
+        <extracomment>UI -&gt; Media Grid section in user setting screen.</extracomment>
+    </message>
+    <message>
+        <source>Item Count</source>
+        <translation>Quantidade de Itens</translation>
+        <extracomment>UI -&gt; Media Grid -&gt; Item Count in user setting screen.</extracomment>
+    </message>
+    <message>
+        <source>Set Favorite</source>
+        <translation>Adicionar Favorito</translation>
+        <extracomment>Button Text - When pressed, sets item as Favorite</extracomment>
+    </message>
+    <message>
+        <source>Go to series</source>
+        <translation>Ir para a série</translation>
+        <extracomment>Continue Watching Popup Menu - Navigate to the Series Detail Page</extracomment>
+    </message>
+    <message>
+        <source>Enabled</source>
+        <translation>Ativado</translation>
+    </message>
+    <message>
+        <source>Playback</source>
+        <translation>Reprodução</translation>
+        <extracomment>Title for Playback section in user setting screen.</extracomment>
+    </message>
+    <message>
+        <source>IMDB_RATING</source>
+        <translation>Avaliação IMDb</translation>
+    </message>
+    <message>
+        <source>Hide all clocks in Jellyfin. Jellyfin will need to be closed and reopened for changes to take effect.</source>
+        <translation>Ocultar todos os relógios no Jellyfin. Jellyfin precisará ser fechado e reaberto para que as mudanças tenham efeito.</translation>
+        <extracomment>Settings Menu - Description for option</extracomment>
+    </message>
+    <message>
+        <source>(Dialog will close automatically)</source>
+        <translation>(Janela fechará automaticamente)</translation>
+    </message>
+    <message>
+        <source>Enable or disable Direct Play for optional codecs</source>
+        <translation>Habilitar ou desabilitar Reprodução Direta para codecs opcionais</translation>
+        <extracomment>Settings Menu - Title for settings group related to codec support</extracomment>
+    </message>
+    <message>
+        <source>There was an error authenticating via Quick Connect.</source>
+        <translation>Houve um erro ao autenticar via Quick Connect.</translation>
+    </message>
+    <message>
+        <source>%1 of %2</source>
+        <translation>%1 de %2</translation>
+        <extracomment>Item position and count. %1 = current item. %2 = total number of items</extracomment>
+    </message>
+    <message>
+        <source>Use the replay button to slowly animate to the first item in the folder. (If disabled, the folder will reset to the first item immediately).</source>
+        <translation type="unfinished">Use o botão de replay para animar devagar o primeiro item da pasta. (Se desabilitado, a pasta será redefinida para o primeiro item imediatamente).</translation>
+        <extracomment>Description for option in Setting Screen</extracomment>
+    </message>
+    <message>
+        <source>Libraries</source>
+        <translation>Coleções</translation>
+    </message>
+    <message>
+        <source>Settings relating to the appearance of Library pages</source>
+        <translation>Configurações relacionadas a aparência da página Coleções</translation>
+    </message>
+    <message>
+        <source>Networks</source>
+        <translation type="unfinished">Redes</translation>
+    </message>
+    <message>
+        <source>General</source>
+        <translation>Geral</translation>
+    </message>
+    <message>
+        <source>Search now</source>
+        <translation>Pesquisar</translation>
+        <extracomment>Help text in search Box</extracomment>
+    </message>
+    <message>
+        <source>You can search for Titles, People, Live TV Channels and more</source>
+        <translation>Pesquise por título, pessoas, canais ao vivo e mais</translation>
+        <extracomment>Help text in search results</extracomment>
+    </message>
+    <message>
+        <source>IMDB_RATING</source>
+        <translation>Avaliação IMDb</translation>
+    </message>
+    <message>
+        <source>PLAY_COUNT</source>
+        <translation>Número de Reproduções</translation>
+    </message>
+    <message>
+        <source>RUNTIME</source>
+        <translation>Duração</translation>
+    </message>
+    <message>
+        <source>More Like This</source>
+        <translation>Mais iguais a este</translation>
+    </message>
+    <message>
+        <source>DATE_ADDED</source>
+        <translation>Data de Adição</translation>
+    </message>
+    <message>
+        <source>Error loading Channel Data</source>
+        <translation>Erro ao Carregar Informações do Canal</translation>
+    </message>
+    <message>
+        <comment>Title of Tab for options to sort library content</comment>
+        <source>TAB_SORT</source>
+        <translation>Ordenar</translation>
+    </message>
+    <message>
+        <comment>Title of Tab for options to filter library content</comment>
+        <source>TAB_FILTER</source>
+        <translation>Filtrar</translation>
+    </message>
+    <message>
+        <source>Died</source>
+        <translation>Morreu</translation>
+    </message>
+    <message>
+        <source>Change Server</source>
+        <translation>Mudar Servidor</translation>
+    </message>
+    <message>
+        <source>Sign Out</source>
+        <translation>Sair</translation>
+    </message>
+    <message>
+        <source>Save Credentials?</source>
+        <translation>Salvar crededenciais?</translation>
+    </message>
+    <message>
+        <source>On Now</source>
+        <translation>Em Exibição</translation>
+    </message>
+    <message>
+        <source>Delete Saved</source>
+        <translation>Deletar Salvos</translation>
+    </message>
+    <message>
+        <source>Error Retrieving Content</source>
+        <translation>Erro ao Buscar Conteúdo</translation>
+        <extracomment>Dialog title when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Error During Playback</source>
+        <translation>Erro Durante Exibição</translation>
+        <extracomment>Dialog title when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>There was an error retrieving the data for this item from the server.</source>
+        <translation>Houve um erro ao buscar dados deste item do servidor.</translation>
+        <extracomment>Dialog detail when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>An error was encountered while playing this item.</source>
+        <translation>Um erro ocorreu durante a exibição deste item.</translation>
+        <extracomment>Dialog detail when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>Loading Channel Data</source>
+        <translation>Carregando Informações do Canal</translation>
+    </message>
+    <message>
+        <source>Unable to load Channel Data from the server</source>
+        <translation>Incapaz de carregar Dados dos Canais do servidor</translation>
+    </message>
+    <message>
+        <comment>Message displayed in Item Grid when no item to display. %1 is container type (e.g. Boxset, Collection, Folder, etc)</comment>
+        <source>NO_ITEMS</source>
+        <translation>Esse %1 não possui nenhum item</translation>
+    </message>
+    <message>
+        <comment>Name or Title field of media item</comment>
+        <source>TITLE</source>
+        <translation>Nome</translation>
+    </message>
+    <message>
+        <source>CRITIC_RATING</source>
+        <translation>Avaliação da Crítica</translation>
+    </message>
+    <message>
+        <source>DATE_PLAYED</source>
+        <translation>Data de Reprodução</translation>
+    </message>
+    <message>
+        <source>OFFICIAL_RATING</source>
+        <translation>Classificação Etária</translation>
+    </message>
+    <message>
+        <source>RELEASE_DATE</source>
+        <translation>Data de Lançamento</translation>
+    </message>
+    <message>
+        <source>Born</source>
+        <translation>Nasceu</translation>
+    </message>
+    <message>
+        <source>Age</source>
+        <translation>Idade</translation>
+    </message>
+    <message>
+        <source>Cast &amp; Crew</source>
+        <translation>Elenco e Equipe</translation>
+    </message>
+    <message>
+        <source>IMDB_RATING</source>
+        <translation>Avaliação IMDb</translation>
+    </message>
+    <message>
+        <source>RUNTIME</source>
+        <translation>Duração</translation>
+    </message>
+    <message>
+        <source>PLAY_COUNT</source>
+        <translation>Número de Reproduções</translation>
+    </message>
+    <message>
+        <source>More Like This</source>
+        <translation>Mais iguais a este</translation>
+    </message>
+    <message>
+        <source>yesterday</source>
+        <translation>ontem</translation>
+        <extracomment>Previous day</extracomment>
+    </message>
+    <message>
+        <source>Extras</source>
+        <translation>Extras</translation>
+    </message>
+    <message>
+        <source>Episodes</source>
+        <translation>Episódios</translation>
+    </message>
+    <message>
+        <source>DATE_ADDED</source>
+        <translation>Data de Adição</translation>
+    </message>
+    <message>
+        <source>Error loading Channel Data</source>
+        <translation>Erro ao Carregar Informações do Canal</translation>
+    </message>
+    <message>
+        <source>Wednesday</source>
+        <translation>Quarta-Feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Friday</source>
+        <translation>Sexta-Feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Saturday</source>
+        <translation>Sábado</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Started</source>
+        <translation>Começou</translation>
+        <extracomment>(Past Tense) For defining a day and time when a program started (e.g. Started Wednesday, 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Starts at</source>
+        <translation>Começa às</translation>
+        <extracomment>(Future Tense) For defining time when a program will start today (e.g. Starts at 08:00) </extracomment>
+    </message>
+    <message>
+        <comment>Title of Tab for options to sort library content</comment>
+        <source>TAB_SORT</source>
+        <translation>Ordenar</translation>
+    </message>
+    <message>
+        <comment>Title of Tab for options to filter library content</comment>
+        <source>TAB_FILTER</source>
+        <translation>Filtrar</translation>
+    </message>
+    <message>
+        <source>Press &apos;OK&apos; to Close</source>
+        <translation>Clique em &apos;OK&apos; para fechar</translation>
+    </message>
+    <message>
+        <source>Died</source>
+        <translation>Falecimento</translation>
+    </message>
+    <message>
+        <source>Special Features</source>
+        <translation>Recursos Especiais</translation>
+    </message>
+    <message>
+        <source>Additional Parts</source>
+        <translation>Partes Adicionais</translation>
+        <extracomment>Additional parts of a video</extracomment>
+    </message>
+    <message>
+        <source>Movies</source>
+        <translation>Filmes</translation>
+    </message>
+    <message>
+        <source>Thursday</source>
+        <translation>Quinta-Feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Change Server</source>
+        <translation>Mudar Servidor</translation>
+    </message>
+    <message>
+        <source>Sign Out</source>
+        <translation>Sair</translation>
+    </message>
+    <message>
+        <source>Save Credentials?</source>
+        <translation>Salvar crededenciais?</translation>
+    </message>
+    <message>
+        <source>On Now</source>
+        <translation>Em Exibição</translation>
+    </message>
+    <message>
+        <source>Delete Saved</source>
+        <translation>Deletar Salvos</translation>
+    </message>
+    <message>
+        <source>Error Retrieving Content</source>
+        <translation>Erro ao Buscar Conteúdo</translation>
+        <extracomment>Dialog title when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>Error During Playback</source>
+        <translation>Erro Durante Exibição</translation>
+        <extracomment>Dialog title when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>There was an error retrieving the data for this item from the server.</source>
+        <translation>Houve um erro ao buscar dados deste item do servidor.</translation>
+        <extracomment>Dialog detail when unable to load Content from Server</extracomment>
+    </message>
+    <message>
+        <source>An error was encountered while playing this item.</source>
+        <translation>Um erro ocorreu durante a exibição deste item.</translation>
+        <extracomment>Dialog detail when error occurs during playback</extracomment>
+    </message>
+    <message>
+        <source>Loading Channel Data</source>
+        <translation>Carregando Informações do Canal</translation>
+    </message>
+    <message>
+        <source>Unable to load Channel Data from the server</source>
+        <translation>Incapaz de carregar Dados dos Canais do servidor</translation>
+    </message>
+    <message>
+        <comment>Message displayed in Item Grid when no item to display. %1 is container type (e.g. Boxset, Collection, Folder, etc)</comment>
+        <source>NO_ITEMS</source>
+        <translation>Esse %1 não possui nenhum item</translation>
+    </message>
+    <message>
+        <comment>Name or Title field of media item</comment>
+        <source>TITLE</source>
+        <translation>Nome</translation>
+    </message>
+    <message>
+        <source>CRITIC_RATING</source>
+        <translation>Avaliação da Crítica</translation>
+    </message>
+    <message>
+        <source>DATE_PLAYED</source>
+        <translation>Data de Reprodução</translation>
+    </message>
+    <message>
+        <source>OFFICIAL_RATING</source>
+        <translation>Classificação Etária</translation>
+    </message>
+    <message>
+        <source>RELEASE_DATE</source>
+        <translation>Data de Lançamento</translation>
+    </message>
+    <message>
+        <comment>Title of Tab for switching &quot;views&quot; when looking at a library</comment>
+        <source>TAB_VIEW</source>
+        <translation>Visualização</translation>
+    </message>
+    <message>
+        <source>Born</source>
+        <translation>Nascimento</translation>
+    </message>
+    <message>
+        <source>Age</source>
+        <translation>Idade</translation>
+    </message>
+    <message>
+        <source>TV Shows</source>
+        <translation>Séries de TV</translation>
+    </message>
+    <message>
+        <source>today</source>
+        <translation>hoje</translation>
+        <extracomment>Current day</extracomment>
+    </message>
+    <message>
+        <source>tomorrow</source>
+        <translation>amanhã</translation>
+        <extracomment>Next day</extracomment>
+    </message>
+    <message>
+        <source>Monday</source>
+        <translation>Segunda-Feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Tuesday</source>
+        <translation>Terça-Feira</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Movies (Presentation)</source>
+        <translation>Filmes (Apresentação)</translation>
+        <extracomment>Movie library view option</extracomment>
+    </message>
+    <message>
+        <source>Movies (Grid)</source>
+        <translation>Filmes (Grade)</translation>
+        <extracomment>Movie library view option</extracomment>
+    </message>
+    <message>
+        <source>Sunday</source>
+        <translation>Domingo</translation>
+        <extracomment>Day of Week</extracomment>
+    </message>
+    <message>
+        <source>Started at</source>
+        <translation>Começou às</translation>
+        <extracomment>(Past Tense) For defining time when a program started today (e.g. Started at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Cast &amp; Crew</source>
+        <translation>Elenco &amp; Equipe</translation>
+    </message>
+    <message>
+        <source>Live</source>
+        <translation>Ao vivo</translation>
+        <extracomment>If TV Show is being broadcast live (not pre-recorded)</extracomment>
+    </message>
+    <message>
+        <source>Ended at</source>
+        <translation>Termina às</translation>
+        <extracomment>(Past Tense) For defining time when a program will ended (e.g. Ended at 08:00) </extracomment>
+    </message>
+    <message>
+        <source>Starts</source>
+        <translation>Começa</translation>
+        <extracomment>(Future Tense) For defining a day and time when a program will start (e.g. Starts Wednesday, 08:00) </extracomment>
+    </message>
+</context>
+</TS>

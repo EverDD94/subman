@@ -1,0 +1,508 @@
+import "pkg:/source/api/baserequest.bs"
+import "pkg:/source/api/Image.bs"
+import "pkg:/source/api/Items.bs"
+import "pkg:/source/enums/ItemType.bs"
+import "pkg:/source/enums/PlaybackMethod.bs"
+import "pkg:/source/enums/String.bs"
+import "pkg:/source/utils/config.bs"
+import "pkg:/source/utils/deviceCapabilities.bs"
+import "pkg:/source/utils/misc.bs"
+import "ViewCreator.bs"
+
+sub init()
+    m.getLastKnownItemID = ""
+    m.getLastKnownItemExtraType = ""
+    m.bypassNextPreferredAudioTrackIndexReset = false
+    m.forceTranscode = PlaybackMethod.PLAYNORMALLY
+    m.transcodeCodec = string.EMPTY
+    m.transcodeReason = string.EMPTY
+    m.hold = []
+    m.queue = []
+    m.originalQueue = []
+    m.queueTypes = []
+    m.isPlaying = false
+    ' Preroll videos only play if user has cinema mode setting enabled
+    m.isPrerollActive = m.global.session.user.settings["playback.cinemamode"]
+    m.position = 0
+    m.preferredAudioTrackIndex = -1
+    m.preferredAudioTrackName = string.EMPTY
+    m.episodeToShowAtFinish = string.EMPTY
+    m.preferredSubtitleTrack = {}
+    m.shuffleEnabled = false
+end sub
+
+' Clear all content from play queue
+sub clear()
+    m.episodeToShowAtFinish = string.EMPTY
+    m.isPlaying = false
+    m.queue = []
+    m.queueTypes = []
+    m.isPrerollActive = m.global.session.user.settings["playback.cinemamode"]
+
+    setPosition(0)
+    if not m.bypassNextPreferredAudioTrackIndexReset
+        setPreferredAudioTrackIndex(-1)
+        setPreferredAudioTrackName(string.EMPTY)
+    end if
+    m.bypassNextPreferredAudioTrackIndexReset = false
+end sub
+
+sub bypassNextPreferredAudioTrackIndexReset()
+    m.bypassNextPreferredAudioTrackIndexReset = true
+end sub
+
+' Clear all hold content
+sub clearHold()
+    m.hold = []
+end sub
+
+' Delete item from play queue at passed index
+sub deleteAtIndex(index)
+    m.queue.Delete(index)
+    m.queueTypes.Delete(index)
+end sub
+
+' Return the number of items in the play queue
+function getCount()
+    return m.queue.count()
+end function
+
+' Return the item currently in focus from the play queue
+function getCurrentItem()
+    return getItemByIndex(m.position)
+end function
+
+' Return the items in the hold
+function getHold()
+    return m.hold
+end function
+
+' Return whether or not shuffle is enabled
+function getIsShuffled()
+    return m.shuffleEnabled
+end function
+
+' Return the item in the passed index from the play queue
+function getItemByIndex(index)
+    return m.queue[index]
+end function
+
+' Returns current playback position within the queue
+function getPosition()
+    return m.position
+end function
+
+' Hold an item
+sub hold(newItem)
+    m.hold.push(newItem)
+end sub
+
+' Move queue position back one
+sub moveBack()
+    setForceTranscode(PlaybackMethod.PLAYNORMALLY)
+    m.position--
+end sub
+
+' Move queue position ahead one
+sub moveForward()
+    setForceTranscode(PlaybackMethod.PLAYNORMALLY)
+    m.position++
+end sub
+
+' getPreviousItemTitleAndIcon: Return the title and icon of the previous item in the queue
+'
+' @return {object} - an array with an icon url and title text
+function getPreviousItemTitleAndIcon() as object
+    if getPosition() = 0 then return []
+
+    previousItem = getItemByIndex(getPosition() - 1)
+    return getItemTitleAndIcon(previousItem)
+end function
+
+' getNextItemTitleAndIcon: Return the title and icon of the next item in the queue
+'
+' @return {object} - an array with an icon url and title text
+function getNextItemTitleAndIcon() as object
+    if getPosition() + 1 >= getCount() then return []
+
+    nextItem = getItemByIndex(getPosition() + 1)
+    return getItemTitleAndIcon(nextItem)
+end function
+
+' getItemTitle: Determine title text and icon for passed item
+'
+' @param {dynamic} item - the item to get the title of
+' @return {object} - an array with an icon url and title text
+function getItemTitleAndIcon(item as dynamic) as object
+    if not isValid(item) then return []
+    itemMediaType = getItemType(item)
+
+    itemData = item.json ?? item
+
+    if inArray(["audio", "audiobook"], itemMediaType)
+        return [`pkg:/images/icons/musicNote.png`, `${itemData.artists[0]} - ${itemData.name ?? itemData.title}`]
+    end if
+
+    if inArray(["movie", "video", "recording", "musicvideo"], itemMediaType)
+        ' Some tv episodes are identified as video, so we must check itemdata
+        if isAllValid([itemData.seriesname, itemData.SeasonName])
+            seasonName = ""
+            if isValidAndNotEmpty(itemData.SeasonName) and LCase(itemData.SeasonName) <> "season unknown"
+                seasonName = ` - ${itemData.SeasonName}`
+
+                if isValid(itemData.IndexNumber)
+                    seasonName += ` Episode ${itemData.IndexNumber}`
+                end if
+
+                return [`pkg:/images/media_type_icons/tv.png`, `${itemData.seriesname}${seasonName} - ${itemData.name ?? itemData.title}`]
+            end if
+        end if
+
+        return [`pkg:/images/media_type_icons/movie.png`, `${itemData.name ?? itemData.title}`]
+    end if
+
+    if itemMediaType = "episode"
+        seasonName = ""
+        if isValidAndNotEmpty(itemData.SeasonName) and LCase(itemData.SeasonName) <> "season unknown"
+            seasonName = ` - ${itemData.SeasonName}`
+        end if
+
+        if isValid(itemData.IndexNumber)
+            seasonName += ` Episode ${itemData.IndexNumber}`
+        end if
+
+        return [`pkg:/images/media_type_icons/tv.png`, `${itemData.seriesname}${seasonName} - ${itemData.name ?? itemData.title}`]
+    end if
+
+    return []
+end function
+
+' Return the current play queue
+function getQueue()
+    return m.queue
+end function
+
+' Return the types of items in current play queue
+function getQueueTypes()
+    return m.queueTypes
+end function
+
+' Return the unique types of items in current play queue
+function getQueueUniqueTypes()
+    itemTypes = []
+
+    for each item in getQueueTypes()
+        if not inArray(itemTypes, item)
+            itemTypes.push(item)
+        end if
+    end for
+
+    return itemTypes
+end function
+
+' Return item at end of play queue without removing
+function peek()
+    return m.queue.peek()
+end function
+
+' Play items in queue
+sub playQueue(showAudioPlayerView = false as boolean)
+    m.isPlaying = true
+    nextItem = getCurrentItem()
+    if not isValid(nextItem)
+        stopLoadingSpinner()
+        return
+    end if
+
+    nextItemMediaType = getItemType(nextItem)
+    if nextItemMediaType = ""
+        stopLoadingSpinner()
+        return
+    end if
+
+    if isChainValid(nextItem, "json.ExtraType")
+        m.getLastKnownItemExtraType = nextItem.json.ExtraType
+    else
+        m.getLastKnownItemExtraType = nextItem.ExtraType
+    end if
+
+    m.getLastKnownItemID = nextItem.id
+
+    if nextItemMediaType = "audio"
+        CreateAudioPlayerView(showAudioPlayerView)
+        return
+    end if
+
+    if nextItemMediaType = "audiobook"
+        CreateAudioPlayerView(showAudioPlayerView)
+        return
+    end if
+
+    if nextItemMediaType = "musicvideo"
+        CreateVideoPlayerView()
+        return
+    end if
+
+    if nextItemMediaType = "video"
+        CreateVideoPlayerView()
+        return
+    end if
+
+    if nextItemMediaType = "tvchannel"
+        CreateVideoPlayerView()
+        return
+    end if
+
+    if nextItemMediaType = "movie"
+        CreateVideoPlayerView()
+        return
+    end if
+
+    if nextItemMediaType = "episode"
+        CreateVideoPlayerView()
+        return
+    end if
+
+    if nextItemMediaType = "recording"
+        CreateVideoPlayerView()
+        return
+    end if
+
+    if nextItemMediaType = "trailer"
+        CreateVideoPlayerView()
+        return
+    end if
+
+    stopLoadingSpinner()
+end sub
+
+' Remove item at end of play queue
+sub pop()
+    m.queue.pop()
+    m.queueTypes.pop()
+end sub
+
+' Return isPrerollActive status
+function isPrerollActive() as boolean
+    return m.isPrerollActive
+end function
+
+' Gets the preferredSubtitleTrack property for the play queue
+function getPreferredSubtitleTrack() as object
+    return m.preferredSubtitleTrack
+end function
+
+' Sets the preferredSubtitleTrack property for the play queue
+sub setPreferredSubtitleTrack(subtitle as object)
+    m.preferredSubtitleTrack = subtitle ?? {}
+end sub
+
+' Gets the forceTranscode property
+function getForceTranscode() as string
+    return m.forceTranscode
+end function
+
+' Gets the forceTranscode property
+function getTranscodeCodec() as string
+    return m.transcodeCodec
+end function
+
+' Sets the forceTranscode property
+sub setForceTranscode(forceTranscode = PlaybackMethod.PLAYNORMALLY as string, videoCodec = string.EMPTY as string)
+    m.forceTranscode = forceTranscode
+
+    if isStringEqual(forceTranscode, PlaybackMethod.PLAYNORMALLY) then videoCodec = string.EMPTY
+    if isStringEqual(forceTranscode, PlaybackMethod.FORCETRANSCODEALLOWREMUX) then videoCodec = string.EMPTY
+    m.transcodeCodec = videoCodec
+
+    setTranscodeReason(string.EMPTY)
+
+    postTask = createObject("roSGNode", "PostTask")
+    postTask.arrayData = getDeviceCapabilities(videoCodec)
+    postTask.apiUrl = "/Sessions/Capabilities/Full"
+    postTask.control = "RUN"
+end sub
+
+' Gets the transcodeReason property
+function getTranscodeReason() as string
+    return m.transcodeReason
+end function
+
+' Sets the transcodeReason property
+sub setTranscodeReason(transcodeReason = string.EMPTY as string)
+    m.transcodeReason = transcodeReason
+end sub
+
+' Gets the getLastKnownItemID property for the play queue
+function getLastKnownItemID() as string
+    return m.getLastKnownItemID
+end function
+
+' Sets the getLastKnownItemID property for the play queue
+sub setLastKnownItemID(lastKnownItemID as string)
+    m.getLastKnownItemID = lastKnownItemID
+end sub
+
+' Gets the getLastKnownItemExtraType property for the play queue
+function getLastKnownItemExtraType() as string
+    return m.getLastKnownItemExtraType ?? ""
+end function
+
+' Sets the getLastKnownItemExtraType property for the play queue
+sub setLastKnownItemExtraType(lastKnownItemExtraType as string)
+    m.getLastKnownItemExtraType = lastKnownItemExtraType
+end sub
+
+' Gets the preferredAudioTrackIndex property for the play queue
+function getPreferredAudioTrackIndex() as integer
+    return m.preferredAudioTrackIndex
+end function
+
+' Sets the preferredAudioTrackIndex property for the play queue
+sub setPreferredAudioTrackIndex(audioData as integer)
+    m.preferredAudioTrackIndex = audioData ?? (-1)
+end sub
+
+' Gets the preferredAudioTrackName property for the play queue
+function getPreferredAudioTrackName() as string
+    return m.preferredAudioTrackName
+end function
+
+' Sets the preferredAudioTrackName property for the play queue
+sub setPreferredAudioTrackName(audioTrackName as string)
+    m.preferredAudioTrackName = audioTrackName ?? string.EMPTY
+end sub
+
+' Set prerollActive status
+sub setPrerollStatus(newStatus as boolean)
+    m.isPrerollActive = newStatus
+end sub
+
+' Push new items to the play queue
+sub push(newItem)
+    m.queue.push(newItem)
+    m.queueTypes.push(getItemType(newItem))
+end sub
+
+' Set the queue position
+sub setPosition(newPosition)
+    m.position = newPosition
+end sub
+
+' Set shuffle to passed state
+sub setShuffle(newValue as boolean)
+    m.shuffleEnabled = newValue
+    if m.shuffleEnabled
+        shuffleQueueItems()
+        return
+    end if
+end sub
+
+' Reset shuffle to off state
+sub resetShuffle()
+    m.shuffleEnabled = false
+end sub
+
+' Toggle shuffleEnabled state
+sub toggleShuffle()
+    m.shuffleEnabled = not m.shuffleEnabled
+
+    if m.shuffleEnabled
+        shuffleQueueItems()
+        return
+    end if
+
+    resetQueueItemOrder()
+end sub
+
+' Reset queue items back to original, unshuffled order
+sub resetQueueItemOrder()
+    set(m.originalQueue)
+end sub
+
+' Return original, unshuffled queue
+function getUnshuffledQueue()
+    return m.originalQueue
+end function
+
+' Save a copy of the original queue and randomize order of queue items
+sub shuffleQueueItems()
+    ' By calling getQueue 2 different ways, Roku avoids needing to do a deep copy
+    m.originalQueue = m.global.queueManager.callFunc("getQueue")
+    itemIDArray = getQueue()
+    temp = invalid
+
+    if m.isPlaying
+        ' Save the currently playing item
+        temp = getCurrentItem()
+        ' remove currently playing item from itemIDArray
+        itemIDArray.Delete(m.position)
+    end if
+
+    ' shuffle all items
+    itemIDArray = shuffleArray(itemIDArray)
+
+    if m.isPlaying
+        ' Put currently playing item in front of itemIDArray
+        itemIDArray.Unshift(temp)
+    end if
+
+    set(itemIDArray)
+end sub
+
+' Return the fitst item in the play queue
+function top()
+    return getItemByIndex(0)
+end function
+
+' Replace play queue with passed array
+sub set(items)
+    clear()
+    for each item in items
+        m.queue.push(item)
+        m.queueTypes.push(getItemType(item))
+    end for
+end sub
+
+' Get episode ID to show when current episode ends
+function getEpisodeToShowAtFinish()
+    return m.episodeToShowAtFinish
+end function
+
+' Set episode ID to show when current episode ends
+sub setEpisodeToShowAtFinish(episodeID)
+    m.episodeToShowAtFinish = episodeID
+end sub
+
+' Set starting point for top item in the queue
+sub setTopStartingPoint(positionTicks)
+    if getCount() = 0 then return
+    m.queue[0].startingPoint = positionTicks
+end sub
+
+' Set selectedAudioStreamIndex for current item
+sub setSelectedAudioStreamIndex(audioStreamIndex)
+    m.queue[m.position].selectedAudioStreamIndex = audioStreamIndex
+end sub
+
+' getItemType: Returns the media type of the passed item
+'
+' @param {dynamic} item - Item to evaluate
+' @return {string} indicating type of media item is
+function getItemType(item) as string
+    if not isValid(item) then return ""
+
+    if isValid(item.json) and isValid(item.json.mediatype) and item.json.mediatype <> ""
+        if isStringEqual(chainLookup(item, "type"), ItemType.EPISODE)
+            return ItemType.EPISODE
+        end if
+
+        return LCase(item.json.mediatype)
+    end if
+
+    if isValid(item.LookupCI("type")) and item.LookupCI("type") <> ""
+        return LCase(item.type)
+    end if
+
+    return ""
+end function

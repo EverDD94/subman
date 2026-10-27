@@ -1,0 +1,17 @@
+import "pkg:/source/api/baserequest.bs"
+import "pkg:/source/api/sdk.bs"
+import "pkg:/source/utils/config.bs"
+
+sub init()
+    m.top.functionName = "setFavoriteStatus"
+end sub
+
+sub setFavoriteStatus()
+    task = m.top.favTask
+
+    if isStringEqual(task, "favorite")
+        api.users.MarkFavorite(m.top.itemId, { userId: m.global.session.user.id })
+    else
+        api.users.UnmarkFavorite(m.top.itemId, { userId: m.global.session.user.id })
+    end if
+end sub

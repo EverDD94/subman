@@ -1,0 +1,2197 @@
+import "pkg:/components/manager/ViewCreator.bs"
+import "pkg:/source/enums/CollectionType.bs"
+import "pkg:/source/enums/FavoriteStatus.bs"
+import "pkg:/source/enums/ItemType.bs"
+import "pkg:/source/enums/KeyCode.bs"
+import "pkg:/source/enums/MediaPlaybackState.bs"
+import "pkg:/source/enums/PlaybackMethod.bs"
+import "pkg:/source/enums/ResumePopupAction.bs"
+import "pkg:/source/enums/String.bs"
+import "pkg:/source/enums/SubtitleSelection.bs"
+import "pkg:/source/utils/misc.bs"
+
+sub onQuickPlayEvent(msg)
+    m.global.queueManager.callFunc("setForceTranscode", PlaybackMethod.PLAYNORMALLY)
+
+    reportingNode = msg.getRoSGNode()
+    itemNode = invalid
+
+    ' Prevent double fire bug
+    if isChainValid(reportingNode, "quickPlayNode")
+        itemNode = reportingNode.quickPlayNode.clone(false)
+        reportingNode.quickPlayNode = invalid
+    end if
+
+    if not isValid(itemNode) then return
+    if not isValidAndNotEmpty(itemNode.id) then return
+
+    ' Get item type
+    selectedItemType = invalid
+    if isValidAndNotEmpty(itemNode.type)
+        selectedItemType = itemNode.type
+    else
+        ' Grab type from json
+        if isChainValid(itemNode, "json.type")
+            selectedItemType = itemNode.json.type
+        end if
+    end if
+
+    ' Can't play the item without knowing what type it is
+    if not isValidAndNotEmpty(selectedItemType) then return
+
+    startLoadingSpinner()
+    m.global.queueManager.callFunc("clear") ' empty queue/playlist
+    m.global.queueManager.callFunc("resetShuffle") ' turn shuffle off
+
+    if inArray([ItemType.EPISODE, ItemType.RECORDING, ItemType.MOVIE, ItemType.VIDEO], selectedItemType)
+        quickplay.video(itemNode)
+        ' Restore focus
+        group = m.global.sceneManager.callFunc("getActiveScene")
+        if isValid(group)
+            if isStringEqual(group.subtype(), "TVSeasonDetails")
+                if isValid(group.lastFocus)
+                    group.lastFocus.setFocus(true)
+                end if
+            end if
+        end if
+
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if isStringEqual(selectedItemType, ItemType.RADIOSTATION)
+        CreateRadioStation(itemNode)
+        return
+    end if
+
+    if isStringEqual(selectedItemType, ItemType.AUDIO)
+        quickplay.audio(itemNode)
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if isStringEqual(selectedItemType, ItemType.AUDIOBOOK)
+        quickplay.audioBook(itemNode)
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if isStringEqual(selectedItemType, ItemType.MUSICALBUM)
+        quickplay.album(itemNode)
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if isStringEqual(selectedItemType, ItemType.MUSICARTIST)
+        quickplay.artist(itemNode)
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if isStringEqual(selectedItemType, ItemType.SERIES)
+        quickplay.series(itemNode)
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if isStringEqual(selectedItemType, ItemType.SEASON)
+        quickplay.season(itemNode)
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if isStringEqual(selectedItemType, ItemType.BOXSET)
+        quickplay.boxset(itemNode)
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if isStringEqual(selectedItemType, ItemType.COLLECTIONFOLDER)
+        quickplay.collectionFolder(itemNode)
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if isStringEqual(selectedItemType, ItemType.PLAYLIST)
+        quickplay.playlist(itemNode)
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if isStringEqual(selectedItemType, ItemType.USERVIEW)
+        quickplay.userView(itemNode)
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if isStringEqual(selectedItemType, ItemType.FOLDER)
+        quickplay.folder(itemNode)
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if isStringEqual(selectedItemType, ItemType.MUSICVIDEO)
+        quickplay.musicVideo(itemNode)
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if isStringEqual(selectedItemType, ItemType.PERSON)
+        quickplay.person(itemNode)
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if isStringEqual(selectedItemType, ItemType.TVCHANNEL)
+        quickplay.tvChannel(itemNode)
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if isStringEqual(selectedItemType, ItemType.PROGRAM)
+        quickplay.program(itemNode)
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if isStringEqual(selectedItemType, ItemType.PHOTO)
+        quickplay.photo(itemNode)
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if isStringEqual(selectedItemType, ItemType.PHOTOALBUM)
+        quickplay.photoAlbum(itemNode)
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+end sub
+
+sub onCloseSidePanelEvent()
+    group = m.global.sceneManager.callFunc("getActiveScene")
+    if isValid(group.lastFocus)
+        group.lastFocus.setFocus(true)
+
+        if group.lastFocus.isSubType("JFOverhang")
+            group.lastFocus.callFunc("highlightUser")
+        end if
+
+        return
+    end if
+
+    group.setFocus(true)
+    group.lastFocus = group
+end sub
+
+sub onJumpToEvent(msg)
+    jumpToData = msg.getData()
+    if not isValid(jumpToData) then return
+
+    currentView = m.global.sceneManager.callFunc("getActiveScene")
+
+    ' If current view is audio player, remove it from the scene stack so users can't press back to return to it
+    if isStringEqual(currentView.subType(), "audioplayerview")
+        m.global.sceneManager.callFunc("clearPreviousScene")
+    end if
+
+    if isStringEqual(jumpToData.selectiontype, "playbackSelectedItem")
+        selectedItem = jumpToData.LookupCI("selectedItem")
+        if not isValid(selectedItem) then return
+
+        if isValid(currentView) and currentView.isSubType("VideoPlayerView")
+            m.pendingPlaybackSelectedItem = {
+                selectedItem: selectedItem,
+                videoNodeId: currentView.id
+            }
+            currentView.returnOnStop = true
+            currentView.observeField("state", m.port)
+            m.global.queueManager.callFunc("bypassNextPreferredAudioTrackIndexReset")
+            m.global.queueManager.callFunc("clear")
+            m.global.sceneManager.callFunc("clearPreviousScene")
+            currentView.control = VideoControl.STOP
+            return
+        end if
+
+        openPlaybackSelectedItem(selectedItem)
+
+        return
+    end if
+
+    if isStringEqual(jumpToData.selectiontype, "search")
+        startLoadingSpinner()
+
+        group = CreateSearchPage()
+        if not isValid(group)
+            stopLoadingSpinner()
+        end if
+
+        m.global.sceneManager.callFunc("pushScene", group)
+        group.findNode("SearchBox").findNode("search_Key").setFocus(true)
+        group = m.global.sceneManager.callFunc("getActiveScene")
+        group.lastFocus = group.findNode("SearchBox").findNode("search_Key")
+        group.findNode("SearchBox").findNode("search_Key").active = true
+        stopLoadingSpinner()
+    end if
+
+    if isStringEqual(jumpToData.selectiontype, "settings")
+        startLoadingSpinner()
+        m.global.sceneManager.callFunc("settings")
+        stopLoadingSpinner()
+    end if
+
+    if isStringEqual(jumpToData.selectiontype, "nowplaying")
+        JumpIntoAudioPlayerView()
+    end if
+
+    if isStringEqual(jumpToData.selectiontype, "artist")
+        startLoadingSpinner()
+        group = CreateArtistView(jumpToData)
+        if not isValid(group)
+            stopLoadingSpinner()
+            message_dialog(tr("Unable to find any albums or songs belonging to this artist"))
+        end if
+    end if
+
+    if isStringEqual(jumpToData.selectiontype, "album")
+        startLoadingSpinner()
+        group = CreateAlbumView(jumpToData)
+        if not isValid(group)
+            stopLoadingSpinner()
+        end if
+    end if
+
+    if isStringEqual(jumpToData.selectiontype, "genre")
+        ' Set filter settings so library loads with selected genre as selected filter
+        set_user_setting("display.jumpToFilter.landing", "albums")
+        set_user_setting("display.jumpToFilter.filter", "Genres")
+        set_user_setting("display.jumpToFilter.filterOptions", `{"Genres": "${jumpToData.LookupCI("Name")}"}`)
+
+        libraryContent = CreateObject("roSGNode", "JFContentItem")
+        libraryContent.type = "Music"
+        libraryContent.json = {
+            type: "collectionfolder",
+            jumpToFilter: true
+        }
+
+        group = CreateMusicLibraryView(libraryContent)
+        m.global.sceneManager.callFunc("pushScene", group)
+    end if
+
+    if isStringEqual(jumpToData.selectiontype, "releaseDate")
+        ' Set filter settings so library loads with selected releaseDate as selected filter
+        set_user_setting("display.jumpToFilter.landing", "albums")
+        set_user_setting("display.jumpToFilter.filter", "Years")
+        set_user_setting("display.jumpToFilter.filterOptions", `{"Years": "${jumpToData.LookupCI("Name")}"}`)
+
+        libraryContent = CreateObject("roSGNode", "JFContentItem")
+        libraryContent.type = "Music"
+        libraryContent.json = {
+            type: "collectionfolder",
+            jumpToFilter: true
+        }
+
+        group = CreateMusicLibraryView(libraryContent)
+        m.global.sceneManager.callFunc("pushScene", group)
+    end if
+end sub
+
+sub openPlaybackSelectedItem(selectedItem as object)
+    if not isValid(selectedItem) then return
+
+    selectedItemType = selectedItem.LookupCI("type")
+    if not isValidAndNotEmpty(selectedItemType) then return
+    selectedItemType = LCase(selectedItemType)
+
+    if inArray([ItemType.MOVIE, ItemType.EPISODE, ItemType.RECORDING], selectedItemType)
+        CreateMovieDetailsGroup(selectedItem)
+    else if isStringEqual(selectedItemType, ItemType.SERIES)
+        selectedItemId = chainLookup(selectedItem, "json.id")
+        if isValidAndNotEmpty(selectedItemId)
+            CreateSeriesDetailsGroup(selectedItemId)
+        end if
+    end if
+end sub
+
+sub onDeepLinkingEvent(args)
+    if not isValidAndNotEmpty(args) then return
+    if not isValidAndNotEmpty(args.mediaType) then return
+    if not isValidAndNotEmpty(args.contentId) then return
+
+    startLoadingSpinner()
+    m.global.queueManager.callFunc("clear") ' empty queue/playlist
+    m.global.queueManager.callFunc("resetShuffle") ' turn shuffle off
+
+    mediaType = LCase(args.mediaType)
+
+    if inArray([ItemType.EPISODE, ItemType.RECORDING, ItemType.MOVIE, ItemType.VIDEO], mediaType)
+        quickplay.video({
+            id: args.contentId,
+            type: mediaType,
+            json: {}
+        })
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if mediaType = ItemType.AUDIO
+        quickplay.audio({
+            id: args.contentId,
+            type: mediaType
+        })
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if mediaType = ItemType.AUDIOBOOK
+        quickplay.audioBook({
+            id: args.contentId,
+            type: mediaType,
+            json: {}
+        })
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if mediaType = ItemType.MUSICALBUM
+        quickplay.album({
+            id: args.contentId,
+            type: mediaType
+        })
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if mediaType = ItemType.MUSICARTIST
+        quickplay.artist({
+            id: args.contentId,
+            type: mediaType
+        })
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if mediaType = ItemType.SERIES
+        quickplay.series({
+            id: args.contentId,
+            type: mediaType
+        })
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if mediaType = ItemType.SEASON
+        if isValidAndNotEmpty(args.seriesID)
+            quickplay.season({
+                id: args.contentId,
+                type: mediaType,
+                json: {
+                    SeriesId: args.seriesID
+                }
+            })
+            m.global.queueManager.callFunc("playQueue")
+            return
+        else
+            stopLoadingSpinner()
+            dialog = createObject("roSGNode", "Dialog")
+            dialog.id = "OKDialog"
+            dialog.title = tr("Missing deep link argument")
+            dialog.buttons = [tr("OK")]
+            dialog.message = "To play a season you must provide the seriesID"
+            m.scene.dialog = dialog
+            m.scene.dialog.observeField("buttonSelected", m.port)
+        end if
+    end if
+
+    if mediaType = ItemType.BOXSET
+        quickplay.boxset({
+            id: args.contentId,
+            type: mediaType
+        })
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if mediaType = ItemType.COLLECTIONFOLDER
+        if isValidAndNotEmpty(args.collectionType)
+            quickplay.collectionFolder({
+                id: args.contentId,
+                type: mediaType,
+                collectionType: LCase(args.collectionType)
+            })
+            m.global.queueManager.callFunc("playQueue")
+            return
+        else
+            stopLoadingSpinner()
+            dialog = createObject("roSGNode", "Dialog")
+            dialog.id = "OKDialog"
+            dialog.title = tr("Missing deep link argument")
+            dialog.buttons = [tr("OK")]
+            dialog.message = "To play a collection folder you must provide the collectionType"
+            m.scene.dialog = dialog
+            m.scene.dialog.observeField("buttonSelected", m.port)
+        end if
+    end if
+
+    if mediaType = ItemType.PLAYLIST
+        quickplay.playlist({
+            id: args.contentId,
+            type: mediaType
+        })
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if mediaType = ItemType.USERVIEW
+        if isValidAndNotEmpty(args.collectionType)
+            quickplay.userView({
+                id: args.contentId,
+                type: mediaType,
+                collectionType: args.collectionType
+            })
+            m.global.queueManager.callFunc("playQueue")
+            return
+        else
+            stopLoadingSpinner()
+            dialog = createObject("roSGNode", "Dialog")
+            dialog.id = "OKDialog"
+            dialog.title = tr("Missing deep link argument")
+            dialog.buttons = [tr("OK")]
+            dialog.message = "To play a userview you must provide the collectionType"
+            m.scene.dialog = dialog
+            m.scene.dialog.observeField("buttonSelected", m.port)
+        end if
+    end if
+
+    if mediaType = ItemType.FOLDER
+        quickplay.folder({
+            id: args.contentId,
+            type: mediaType
+        })
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if mediaType = ItemType.MUSICVIDEO
+        quickplay.musicVideo({
+            id: args.contentId,
+            type: mediaType,
+            json: {}
+        })
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if mediaType = ItemType.PERSON
+        quickplay.person({
+            id: args.contentId,
+            type: mediaType
+        })
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if mediaType = ItemType.TVCHANNEL
+        quickplay.tvChannel({
+            id: args.contentId,
+            type: mediaType
+        })
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if mediaType = ItemType.PROGRAM
+        quickplay.program({
+            id: args.contentId,
+            type: mediaType,
+            json: {
+                ChannelId: ""
+            }
+        })
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if mediaType = ItemType.PHOTO
+        photoContent = CreateObject("roSGNode", "ContentNode")
+        photoContent.id = args.contentId
+        quickplay.photo(photoContent)
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if mediaType = ItemType.PHOTOALBUM
+        quickplay.photoAlbum({
+            id: args.contentId,
+            type: mediaType
+        })
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    stopLoadingSpinner()
+    dialog = createObject("roSGNode", "Dialog")
+    dialog.id = "OKDialog"
+    dialog.title = tr("Media Type not supported")
+    dialog.buttons = [tr("OK")]
+    dialog.message = "The passed media type is not supported"
+    m.scene.dialog = dialog
+    m.scene.dialog.observeField("buttonSelected", m.port)
+end sub
+
+sub onLibrarySelection(selectedItem)
+    if isStringEqual(selectedItem.collectionType, CollectionType.MOVIES)
+        group = CreateVisualLibraryScene(selectedItem, ItemType.MOVIE)
+        m.global.sceneManager.callFunc("pushScene", group)
+        return
+    end if
+
+    if isStringEqual(selectedItem.collectionType, CollectionType.TVSHOWS)
+        group = CreateVisualLibraryScene(selectedItem, ItemType.SERIES)
+        m.global.sceneManager.callFunc("pushScene", group)
+        return
+    end if
+
+    if isStringEqual(selectedItem.collectionType, CollectionType.MUSICVIDEOS)
+        group = CreateVisualLibraryScene(selectedItem, ItemType.MUSICVIDEO)
+        m.global.sceneManager.callFunc("pushScene", group)
+        return
+    end if
+
+    if isStringEqual(selectedItem.collectionType, CollectionType.HOMEVIDEOS)
+        group = CreateVisualLibraryScene(selectedItem, ItemType.PHOTO)
+        m.global.sceneManager.callFunc("pushScene", group)
+        return
+    end if
+
+    if isStringEqual(selectedItem.collectionType, CollectionType.BOXSETS)
+        group = CreateVisualLibraryScene(selectedItem, ItemType.BOXSET)
+        m.global.sceneManager.callFunc("pushScene", group)
+        return
+    end if
+
+    if isStringEqual(selectedItem.collectionType, CollectionType.MUSIC)
+        group = CreateMusicLibraryView(selectedItem)
+        m.global.sceneManager.callFunc("pushScene", group)
+        return
+    end if
+
+    if isStringEqual(selectedItem.collectionType, CollectionType.BOOKS)
+        group = CreateBookLibraryView(selectedItem)
+        m.global.sceneManager.callFunc("pushScene", group)
+        return
+    end if
+
+    if isStringEqual(selectedItem.collectionType, CollectionType.NEXTUP)
+        group = CreateOtherLibrary(selectedItem)
+        group.optionsAvailable = false
+        m.global.sceneManager.callFunc("pushScene", group)
+        return
+    end if
+
+    if isStringEqual(selectedItem.collectionType, CollectionType.MYLIST)
+        group = CreateVisualLibraryScene(selectedItem, ITEMTYPE.MYLIST)
+        m.global.sceneManager.callFunc("pushScene", group)
+        return
+    end if
+
+    group = CreateOtherLibrary(selectedItem)
+    m.global.sceneManager.callFunc("pushScene", group)
+end sub
+
+sub onRefreshPlaylistDataEvent()
+    startLoadingSpinner()
+    currentScene = m.global.sceneManager.callFunc("getActiveScene")
+    playlistID = chainLookup(currentScene, "pageContent.id")
+    currentScene.listData = PlaylistItemList(playlistID)
+end sub
+
+sub onRefreshSeasonDetailsDataEvent()
+    startLoadingSpinner()
+
+    currentScene = m.global.sceneManager.callFunc("getActiveScene")
+
+    ' Refresh data over poster on TV Series Detail screen
+    if currentScene.isSubType("TVSeriesDetails")
+        seriesID = chainLookup(currentScene, "itemContent.id")
+        if isValid(seriesID)
+            ' Determine if the resume button needs to be shown
+            displayResumeButton = hasResummableEpisode(seriesID)
+            if not displayResumeButton
+                displayResumeButton = hasNextUpEpisode(seriesID)
+            end if
+            currentScene.displayResumeButton = displayResumeButton
+
+            currentScene.itemContent = ItemMetaData(seriesID)
+        end if
+    else if currentScene.isSubType("TVSeasonDetails")
+        seriesID = chainLookupReturn(currentScene, "seasonData.json.SeriesId", invalid)
+        seasonID = chainLookupReturn(currentScene, "seasonData.id", invalid)
+        if isAllValid([seasonID, seriesID])
+            ' Determine if the resume button needs to be shown
+            displayResumeButton = hasResummableEpisode(seasonID)
+            if not displayResumeButton
+                displayResumeButton = hasUnplayedEpisode(seasonID)
+            end if
+            currentScene.displayResumeButton = displayResumeButton
+
+            episodeList = currentScene.findNode("picker")
+            focusedItem = 0
+            if isValid(episodeList)
+                focusedItem = chainLookupReturn(episodeList, "itemFocused", 0)
+            end if
+            currentScene.objects = TVEpisodes(seriesID, seasonID)
+            currentScene.episodeObjects = currentScene.objects
+            if isValid(episodeList)
+                episodeList.jumpToItem = focusedItem
+            end if
+        end if
+    end if
+
+    ' Update data over item user clicked on
+    if isValid(currentScene)
+        focusedItem = currentScene.callFunc("getFocusedItem")
+        if isValid(focusedItem)
+            focusedItem.json = api.items.GetByID(focusedItem.id, { userId: m.global.session.user.id })
+        end if
+    end if
+
+    ' Update screen data if user started playing an item
+    if isChainValid(currentScene, "objects") and isValid(currentScene.seasonData)
+        currentEpisode = m.global.queueManager.callFunc("getCurrentItem")
+        if isChainValid(currentScene, "objects.Items") and isChainValid(currentEpisode, "id")
+            ' Find the object in the scene's data and update its json data
+            for i = 0 to currentScene.objects.Items.count() - 1
+                if isStringEqual(currentScene.objects.Items[i].id, currentEpisode.id)
+                    currentScene.objects.Items[i].json = api.items.GetByID(currentEpisode.id, { userId: m.global.session.user.id })
+                    m.global.queueManager.callFunc("setTopStartingPoint", currentScene.objects.Items[i].json.UserData.PlaybackPositionTicks)
+                    exit for
+                end if
+            end for
+        end if
+
+        seasonMetaData = ItemMetaData(currentScene.seasonData.id)
+        if isValid(seasonMetaData) then currentScene.seasonData.json = seasonMetaData.json
+        currentScene.callFunc("updateObjects")
+        currentScene.callFunc("updateSeason")
+    end if
+
+    stopLoadingSpinner()
+end sub
+
+sub onRefreshMovieDetailsDataEvent()
+    startLoadingSpinner()
+    canContinue = true
+
+    currentScene = m.global.sceneManager.callFunc("getActiveScene")
+
+    if isChainValid(currentScene, "itemContent")
+        ' Check if the content ID has changed since we last rendered the movie detail view
+        contentIDChanged = false
+
+        lastKnownItemExtraType = m.global.queueManager.callFunc("getLastKnownItemExtraType")
+        if isValid(lastKnownItemExtraType)
+            canContinue = lastKnownItemExtraType = ""
+        end if
+
+        currentItem = m.global.queueManager.callFunc("getLastKnownItemID")
+        if canContinue
+            if isValid(currentItem)
+                canContinue = currentItem <> ""
+            end if
+        end if
+
+        if canContinue
+            if isChainValid(currentScene, "itemContent.id") and currentScene.itemContent.id <> currentItem
+                currentItemID = currentItem
+                contentIDChanged = true
+            else
+                currentItemID = currentScene.itemContent.id
+            end if
+
+            itemData = ItemMetaData(currentItemID)
+
+            ' Can't continue if invalid data was returned
+            if not isChainValid(itemData, "json.MediaSources") then return
+
+            if contentIDChanged
+                currentScene.selectedVideoStreamId = itemData.json.MediaSources[0].id
+
+                ' Refresh extras based on new content ID
+                extrasGrid = currentScene.findNode("extrasGrid")
+                if isValid(extrasGrid)
+                    reloadExtras = true
+
+                    ' If this is a multipart video, keep the original extras
+                    additionalPartItemCount = chainLookup(currentScene, "additionalParts.parts.TotalRecordCount")
+
+                    if isValid(additionalPartItemCount)
+                        if additionalPartItemCount <> 0
+                            reloadExtras = false
+                        end if
+                    end if
+
+                    if reloadExtras
+                        extrasGrid.callFunc("loadParts", itemData.json)
+                    end if
+                end if
+            end if
+
+            currentScene.itemContent = itemData
+
+            ' Set updated starting point for the queue item
+            m.global.queueManager.callFunc("setTopStartingPoint", itemData.json.UserData.PlaybackPositionTicks)
+        end if
+    end if
+
+    stopLoadingSpinner()
+end sub
+
+sub onSelectedItemEvent(msg)
+    ' If you select a library from ANYWHERE, follow this flow
+    selectedItem = msg.getData()
+    if isValid(selectedItem)
+        startLoadingSpinner()
+        selectedItemType = selectedItem.type
+
+        if isValid(selectedItemType)
+            ' If button selected is a string, lcase it
+            if isStringEqual(type(selectedItemType), "rostring") then selectedItemType = LCase(selectedItemType)
+        end if
+
+        if isStringEqual(selectedItemType, "collectionfolder")
+            onLibrarySelection(selectedItem)
+        else if isStringEqual(selectedItemType, "boxset")
+            group = CreateVisualLibraryScene(selectedItem, ItemType.BOXSET)
+            m.global.sceneManager.callFunc("pushScene", group)
+        else if isStringEqual(selectedItemType, "folder") and isStringEqual(selectedItem.json.type, "genre")
+            ' User clicked on a genre folder
+            if isStringEqual(selectedItem.itemType, ItemType.MOVIE)
+                group = CreateVisualLibraryScene(selectedItem, ItemType.MOVIE)
+            else if isStringEqual(selectedItem.itemType, ItemType.SERIES)
+                group = CreateVisualLibraryScene(selectedItem, ItemType.SERIES)
+            else if isStringEqual(selectedItem.itemType, ItemType.MUSICVIDEO)
+                group = CreateVisualLibraryScene(selectedItem, ItemType.MUSICVIDEO)
+            else if isStringEqual(selectedItem.itemType, `${ItemType.MUSICVIDEO},${ItemType.FOLDER}`)
+                group = CreateVisualLibraryScene(selectedItem, ItemType.MUSICVIDEO)
+            else
+                group = CreateOtherLibrary(selectedItem)
+            end if
+            m.global.sceneManager.callFunc("pushScene", group)
+        else if isStringEqual(selectedItemType, "folder") and isStringEqual(selectedItem.json.LookupCI("type"), ItemType.PHOTOALBUM)
+            group = CreateVisualLibraryScene(selectedItem, ItemType.PHOTOALBUM)
+            m.global.sceneManager.callFunc("pushScene", group)
+        else if isStringEqual(selectedItemType, "folder") and isStringEqual(chainLookup(selectedItem, "json.passedData.collectiontype"), ItemType.MUSICVIDEO)
+            group = CreateVisualLibraryScene(selectedItem, ItemType.MUSICVIDEO)
+            m.global.sceneManager.callFunc("pushScene", group)
+        else if selectedItemType = "folder" and LCase(type(selectedItem.json.type)) = "rostring" and isStringEqual(selectedItem.json.type, "musicgenre")
+            group = CreateMusicLibraryView(selectedItem)
+            m.global.sceneManager.callFunc("pushScene", group)
+        else if selectedItemType = "userview" and isStringEqual(selectedItem.json.collectiontype, "livetv")
+            group = CreateLiveTVLibraryView(selectedItem)
+            m.global.sceneManager.callFunc("pushScene", group)
+        else if selectedItemType = "userview" or selectedItemType = "folder" or selectedItemType = "channel"
+            group = CreateOtherLibrary(selectedItem)
+            m.global.sceneManager.callFunc("pushScene", group)
+        else if selectedItemType = "episode" or selectedItemType = "recording"
+            group = CreateMovieDetailsGroup(selectedItem)
+        else if selectedItemType = "series"
+            group = CreateSeriesDetailsGroup(selectedItem.json.id)
+        else if selectedItemType = "season"
+            if isValid(selectedItem.json) and isValid(selectedItem.json.SeriesId) and isValid(selectedItem.id)
+                group = CreateSeasonDetailsGroupByID(selectedItem.json.SeriesId, selectedItem.id)
+            else
+                stopLoadingSpinner()
+                message_dialog(tr("Error loading Season"))
+            end if
+        else if selectedItemType = "movie"
+            ' open movie detail page
+            group = CreateMovieDetailsGroup(selectedItem)
+        else if selectedItemType = "person"
+            CreatePersonView(selectedItem)
+        else if selectedItemType = "tvchannel" or selectedItemType = "video" or selectedItemType = "program"
+            ' User selected a Live TV channel / program
+            ' Show Channel Loading spinner
+            dialog = createObject("roSGNode", "ProgressDialog")
+            dialog.title = tr("Loading Channel Data")
+            m.scene.dialog = dialog
+
+            ' User selected a program. Play the channel the program is on
+            if selectedItemType = "program"
+                selectedItem.id = selectedItem.json.LookupCI("ChannelId")
+            end if
+
+            ' Display playback options dialog
+            showPlaybackOptionDialog = false
+
+            if isValid(selectedItem.json)
+                if isValid(selectedItem.json.userdata)
+                    if isValid(selectedItem.json.userdata.PlaybackPositionTicks)
+                        if selectedItem.json.userdata.PlaybackPositionTicks > 0
+                            showPlaybackOptionDialog = true
+                        end if
+                    end if
+                end if
+            end if
+
+            if showPlaybackOptionDialog
+                dialog.close = true
+                m.global.queueManager.callFunc("hold", selectedItem)
+                playbackOptionDialog(selectedItem.json.userdata.PlaybackPositionTicks, selectedItem.json)
+            else
+                m.global.queueManager.callFunc("clear")
+                m.global.queueManager.callFunc("push", selectedItem)
+                m.global.queueManager.callFunc("playQueue")
+                dialog.close = true
+            end if
+
+        else if selectedItemType = "photo"
+            sceneNode = msg.getRoSGNode()
+
+            if sceneNode.isSubType("VisualLibraryScene")
+                photoPlayer = CreateObject("roSgNode", "PhotoDetails")
+                photoPlayer.itemsNode = sceneNode.lastFocus
+                photoPlayer.itemIndex = sceneNode.lastFocus.itemFocused
+                m.global.sceneManager.callfunc("pushScene", photoPlayer)
+            end if
+
+            ' only handle selection if it's from the home screen
+            if selectedItem.isSubType("HomeData")
+                quickplay.photo(selectedItem)
+            end if
+        else if selectedItemType = "photoalbum"
+            ' grab all photos inside photo album
+            photoAlbumData = api.items.Get({
+                "userid": m.global.session.user.id,
+                "parentId": selectedItem.id,
+                "includeItemTypes": "Photo",
+                "Recursive": true
+            })
+
+            if isValid(photoAlbumData) and isValidAndNotEmpty(photoAlbumData.items)
+                photoPlayer = CreateObject("roSgNode", "PhotoDetails")
+                photoPlayer.itemsArray = photoAlbumData.items
+                photoPlayer.itemIndex = 0
+                m.global.sceneManager.callfunc("pushScene", photoPlayer)
+            end if
+        else if selectedItemType = "musicartist"
+            group = CreateArtistView(selectedItem.json)
+            if not isValid(group)
+                stopLoadingSpinner()
+                message_dialog(tr("Unable to find any albums or songs belonging to this artist"))
+            end if
+        else if selectedItemType = "musicalbum"
+            CreateAlbumView(selectedItem.json)
+        else if selectedItemType = "musicvideo"
+            CreateMovieDetailsGroup(selectedItem)
+        else if selectedItemType = "playlist"
+            CreatePlaylistView(selectedItem.json)
+        else if selectedItemType = "audio"
+            m.global.queueManager.callFunc("clear")
+            m.global.queueManager.callFunc("resetShuffle")
+            m.global.queueManager.callFunc("push", selectedItem.json)
+            m.global.queueManager.callFunc("playQueue")
+        else if isStringEqual(selectedItemType, "radiostation")
+            CreateRadioStation(selectedItem)
+        else if selectedItemType = "audiobook"
+            ' Display playback options dialog
+            showPlaybackOptionDialog = false
+
+            if isValid(selectedItem.json)
+                if isValid(selectedItem.json.userdata)
+                    if isValid(selectedItem.json.userdata.PlaybackPositionTicks)
+                        if selectedItem.json.userdata.PlaybackPositionTicks > 0
+                            showPlaybackOptionDialog = true
+                        end if
+                    end if
+                end if
+            end if
+
+            if showPlaybackOptionDialog
+                m.global.queueManager.callFunc("hold", selectedItem)
+                playbackOptionDialog(selectedItem.json.userdata.PlaybackPositionTicks, selectedItem.json)
+            else
+                m.global.queueManager.callFunc("clear")
+                m.global.queueManager.callFunc("push", selectedItem.json)
+                m.global.queueManager.callFunc("playQueue")
+            end if
+        else
+
+            ' TODO - switch on more node types
+            stopLoadingSpinner()
+            message_dialog("This type is not yet supported: " + selectedItemType)
+        end if
+    end if
+end sub
+
+sub onMovieSelectedEvent(msg)
+    startLoadingSpinner()
+    node = getMsgPicker(msg, "picker")
+    CreateMovieDetailsGroup(node)
+end sub
+
+sub onSeriesSelectedEvent(msg)
+    startLoadingSpinner()
+    node = getMsgPicker(msg, "picker")
+    CreateSeriesDetailsGroup(node.id)
+end sub
+
+sub onSeasonSelectedEvent(msg)
+    startLoadingSpinner()
+    ptr = msg.getData()
+    series = msg.getRoSGNode()
+
+    if not isValid(series.seasonData)
+        stopLoadingSpinner()
+        return
+    end if
+
+    if series.seasonData.getChildCount() = 0
+        stopLoadingSpinner()
+        return
+    end if
+
+    node = series.seasonData.getChild(ptr)
+    CreateSeasonDetailsGroup(series.itemContent, node)
+end sub
+
+' Find the 1st episode in the series and start playback
+sub onPlaySeriesFromStartEvent(msg)
+    series = msg.getRoSGNode()
+
+    if not isChainValid(series, "itemContent.id") then return
+
+    seasonData = api.shows.GetSeasons(series.itemContent.id, {
+        userId: m.global.session.user.id,
+        enableImages: false
+    })
+
+    if not isChainValid(seasonData, "items") then return
+    if not isValidAndNotEmpty(seasonData.items) then return
+
+    ' Fall back to playing specials if that's all that is available
+    firstSeasonIndex = 0
+
+    ' Loop through the season data and find the first season with a season number greater than 0
+    for i = 0 to seasonData.items.count() - 1
+        if chainLookupReturn(seasonData.items[i], "IndexNumber", 0) > 0
+            firstSeasonIndex = i
+            exit for
+        end if
+    end for
+
+    firstSeasonData = seasonData.items[firstSeasonIndex]
+
+    if not isValidAndNotEmpty(firstSeasonData.LookupCI("id")) then return
+
+    startLoadingSpinner()
+
+    firstEpisode = api.shows.GetEpisodes(series.itemContent.id, {
+        "seasonId": firstSeasonData.LookupCI("id"),
+        "userid": m.global.session.user.id,
+        "limit": 1,
+        "EnableTotalRecordCount": false,
+        "isMissing": false
+    })
+
+    if not isChainValid(firstEpisode, "items")
+        stopLoadingSpinner()
+        return
+    end if
+
+    m.global.queueManager.callFunc("clear")
+    m.global.queueManager.callFunc("push", firstEpisode.items[0])
+    m.global.queueManager.callFunc("playQueue")
+end sub
+
+' Find the 1st episode in the series and start playback
+sub onPlaySeasonFromStartEvent(msg)
+    season = msg.getRoSGNode()
+
+    seriesID = chainLookupReturn(season, "seasonData.json.SeriesId", invalid)
+    seasonID = chainLookupReturn(season, "seasonData.id", invalid)
+    shufflePlay = chainLookupReturn(season, "shufflePlay", false)
+
+    if not isAllValid([seriesID, seasonID]) then return
+
+    startLoadingSpinner()
+
+    listOfEpisodes = api.shows.GetEpisodes(seriesID, {
+        "seasonId": seasonID,
+        "userid": m.global.session.user.id,
+        "EnableTotalRecordCount": false,
+        "SortBy": shufflePlay ? "Random" : "SortName",
+        "isMissing": false
+    })
+
+    if not isChainValid(listOfEpisodes, "items")
+        stopLoadingSpinner()
+        return
+    end if
+
+    m.global.queueManager.callFunc("clear")
+    for each item in listOfEpisodes.items
+        item.startingPoint = 0
+    end for
+
+    m.global.queueManager.callFunc("set", listOfEpisodes.items)
+    m.global.queueManager.callFunc("playQueue")
+end sub
+
+sub onMusicAlbumSelectedEvent(msg)
+    startLoadingSpinner()
+    ptr = msg.getData()
+    albums = msg.getRoSGNode()
+    node = albums.musicArtistAlbumData.getChild(ptr)
+    group = CreateAlbumView(node)
+    if not isValid(group)
+        stopLoadingSpinner()
+    end if
+end sub
+
+sub onAppearsOnSelectedEvent(msg)
+    startLoadingSpinner()
+    ptr = msg.getData()
+    albums = msg.getRoSGNode()
+    node = albums.musicArtistAppearsOnData.getChild(ptr)
+    group = CreateAlbumView(node)
+    if not isValid(group)
+        stopLoadingSpinner()
+    end if
+end sub
+
+sub onSimilarArtistSelectedEvent(msg)
+    startLoadingSpinner()
+    ptr = msg.getData()
+
+    group = CreateArtistView(ptr.json)
+    if not isValid(group)
+        stopLoadingSpinner()
+    end if
+end sub
+
+sub onPlayAlbumEvent(msg)
+    startLoadingSpinner()
+    screenContent = msg.getRoSGNode()
+
+    m.global.queueManager.callFunc("resetShuffle")
+    m.global.queueManager.callFunc("set", screenContent.albumData.getChildren(-1, 0))
+    m.global.queueManager.callFunc("playQueue", true)
+end sub
+
+sub onShuffleAlbumEvent(msg)
+    startLoadingSpinner()
+    screenContent = msg.getRoSGNode()
+
+    m.global.queueManager.callFunc("set", screenContent.albumData.getChildren(-1, 0))
+    m.global.queueManager.callFunc("setShuffle", true)
+
+    m.global.queueManager.callFunc("playQueue", true)
+end sub
+
+sub onPlaySongEvent(msg)
+    ' User has selected audio they want us to play
+    selectedIndex = msg.getData()
+    screenContent = msg.getRoSGNode()
+
+    songList = screenContent.findNode("songList")
+    if isValid(songList) and isStringEqual(songList.selectionSource, KeyCode.PLAY)
+        songList.selectionSource = string.EMPTY
+        playAlbumSongInList(screenContent, selectedIndex)
+        return
+    end if
+
+    if isAudioMiniPlayerVisibleForListPlayback()
+        playAlbumSongInList(screenContent, selectedIndex, false)
+        return
+    end if
+
+    startLoadingSpinner()
+    m.global.queueManager.callFunc("resetShuffle")
+    m.global.queueManager.callFunc("set", screenContent.albumData.getChildren(-1, 0))
+    m.global.queueManager.callFunc("setPosition", selectedIndex)
+    m.global.queueManager.callFunc("playQueue", true)
+end sub
+
+sub playAlbumSongInList(screenContent as object, selectedIndex as integer, toggleCurrentPlayback = true as boolean)
+    if toggleCurrentPlayback
+        if toggleActiveAudioPlayback()
+            showAudioMiniPlayerForListPlayback()
+            return
+        end if
+    end if
+
+    selectedSong = screenContent.albumData.getChild(selectedIndex)
+    if not isValid(selectedSong) then return
+
+    m.global.queueManager.callFunc("resetShuffle")
+    m.global.queueManager.callFunc("set", screenContent.albumData.getChildren(-1, 0))
+    m.global.queueManager.callFunc("setPosition", selectedIndex)
+    showAudioMiniPlayerForListPlayback()
+    m.global.queueManager.callFunc("playQueue")
+end sub
+
+sub onSubtitleToDeleteEvent(msg)
+    subtitleData = msg.getData()
+    screenContent = msg.getRoSGNode()
+
+    mySubtitleList = screenContent.findNode("mySubtitleList")
+
+    if isAllValid([subtitleData, screenContent, mySubtitleList])
+        if isAllValid([screenContent.itemContent.id, subtitleData.index, mySubtitleList.content])
+            ' Ask the user for confirmation before deleting subtitle file
+            returnValue = show_dialog(tr("Are you sure you want to delete this subtitle?"), [tr("Yes"), tr("No, Cancel")], 1)
+
+            ' User chose Yes from confirmation dialog
+            if returnValue = 0
+                ' Call delete subtitle API
+                api.videos.DeleteSubtitle(screenContent.itemContent.id, subtitleData.index)
+
+                ' We now need to remove the deleted subtitle from the My Subtitles list
+                ' and subtract 1 from all indexs higher than the one we deleted
+                subtitleListContent = mySubtitleList.content.getChildren(-1, 0)
+
+                i = 0
+                for each subtitle in subtitleListContent
+                    ' Remove subtitle from My Subtitles list
+                    if subtitle.index = subtitleData.index
+                        mySubtitleList.content.removeChild(subtitle)
+                    end if
+
+                    ' Subtract 1 from indexes higher than deleted subtitle's index
+                    if subtitle.index > subtitleData.index
+                        subtitle.index--
+                        mySubtitleList.content.replaceChild(subtitle, i)
+                    end if
+
+                    i++
+                end for
+            end if
+
+            ' If there remain subtitles in My Subtitles list, set focus back to list
+            ' Otherwise, set focus back to Search button
+            if mySubtitleList.content.getChildCount() > 0
+                mySubtitleList.setFocus(true)
+                group = m.global.sceneManager.callFunc("getActiveScene")
+                group.lastFocus = mySubtitleList
+            else
+                searchButton = screenContent.findNode("searchButton")
+                if isValid(searchButton)
+                    searchButton.focus = true
+                    searchButton.setFocus(true)
+                    group = m.global.sceneManager.callFunc("getActiveScene")
+                    group.lastFocus = searchButton
+                end if
+            end if
+        end if
+    end if
+end sub
+
+sub onSubtitleSearchButtonSelectedEvent()
+    group = m.global.sceneManager.callFunc("getActiveScene")
+
+    if isValid(group)
+        if isAllValid([group.itemContent, group.selectedCulture])
+            if isAllValid([group.itemContent.id, group.selectedCulture.ThreeLetterISOLanguageName])
+
+                ' Get remote subtitles from API
+                remoteSubtitles = api.items.SearchRemoteSubtitles(group.itemContent.id, group.selectedCulture.ThreeLetterISOLanguageName)
+
+                if isValid(remoteSubtitles)
+                    remoteSubtitleData = {
+                        data: []
+                    }
+
+                    ' Populate data for remote subtitle dialog
+                    for each remoteSubtitle in remoteSubtitles
+                        remoteSubtitle.type = "remotesubtitleselect"
+                        remoteSubtitle.track = {}
+                        remoteSubtitle.track.description = remoteSubtitle.Name
+                        remoteSubtitleData.data.push(remoteSubtitle)
+                    end for
+
+                    m.global.sceneManager.callFunc("remoteSubtitleDialog", tr("Download Subtitle"), remoteSubtitleData)
+                    m.global.sceneManager.observeField("returnData", m.port)
+                end if
+            end if
+        end if
+    end if
+end sub
+
+sub onSubtitleLanguageButtonSelectedEvent()
+    languageData = {
+        data: []
+    }
+
+    ' Default to user's default subtitle language
+    selectedCulture = "eng"
+
+    group = m.global.sceneManager.callFunc("getActiveScene")
+    if isValid(group)
+        if isValid(group.selectedCulture)
+            if isValidAndNotEmpty(group.selectedCulture.ThreeLetterISOLanguageName)
+                selectedCulture = LCase(group.selectedCulture.ThreeLetterISOLanguageName)
+            end if
+        end if
+    end if
+
+    for each culture in group.cultures
+        culture.type = "cultureselect"
+        culture.Track = {}
+        culture.Track.description = culture.displayname
+
+        ' Put preferred subtitle language at the top of the language list
+        if isValidAndNotEmpty(culture.ThreeLetterISOLanguageName)
+            if LCase(culture.ThreeLetterISOLanguageName) = selectedCulture
+                culture.selected = true
+                languageData.data.unshift(culture)
+            else
+                languageData.data.push(culture)
+            end if
+        else
+            languageData.data.push(culture)
+        end if
+    end for
+
+    m.global.sceneManager.callFunc("radioDialog", tr("Select Language"), languageData)
+    m.global.sceneManager.observeField("returnData", m.port)
+end sub
+
+' User clicked on an item from a playlist
+sub onPlaylistItemSelectedEvent(msg)
+    selectedIndex = msg.getData()
+    screenContent = msg.getRoSGNode()
+
+    playlist = screenContent.findNode("playlist")
+    if isValid(playlist) and isStringEqual(playlist.selectionSource, KeyCode.PLAY)
+        playlist.selectionSource = string.EMPTY
+        playPlaylistItemInList(screenContent, selectedIndex)
+        return
+    end if
+
+    if isAudioMiniPlayerVisibleForListPlayback()
+        playPlaylistItemInList(screenContent, selectedIndex, false)
+        return
+    end if
+
+    startLoadingSpinner()
+    MainAction.playItem(screenContent.listData.getChildren(-1, 0), { method: "set", resetShuffle: true, showAudioPlayerView: true, position: selectedIndex })
+end sub
+
+sub playPlaylistItemInList(screenContent as object, selectedIndex as integer, toggleCurrentPlayback = true as boolean)
+    if toggleCurrentPlayback
+        if toggleActiveAudioPlayback()
+            showAudioMiniPlayerForListPlayback()
+            return
+        end if
+    end if
+
+    selectedItem = screenContent.listData.getChild(selectedIndex)
+    if not isValid(selectedItem) then return
+
+    m.global.queueManager.callFunc("resetShuffle")
+    m.global.queueManager.callFunc("set", screenContent.listData.getChildren(-1, 0))
+    m.global.queueManager.callFunc("setPosition", selectedIndex)
+    showAudioMiniPlayerForListPlayback()
+    m.global.queueManager.callFunc("playQueue")
+end sub
+
+function isAudioMiniPlayerVisibleForListPlayback() as boolean
+    scene = m.scene
+    if not isValid(scene) then return false
+
+    audioMiniPlayer = scene.findNode("audioMiniPlayer")
+    if not isValid(audioMiniPlayer) then return false
+
+    return audioMiniPlayer.callFunc("isVisible")
+end function
+
+sub showAudioMiniPlayerForListPlayback()
+    scene = m.scene
+    if not isValid(scene) then return
+
+    audioMiniPlayer = scene.findNode("audioMiniPlayer")
+    if not isValid(audioMiniPlayer) then return
+
+    audioMiniPlayer.callFunc("setVisible", true)
+end sub
+
+sub onPlayArtistSelectedEvent(msg)
+    ' User has selected playlist of of audio they want us to play
+    startLoadingSpinner()
+    screenContent = msg.getRoSGNode()
+
+    artistMixList = CreateArtistMix(chainLookup(screenContent, "pageContent.id"))
+
+    if isChainValid(artistMixList, "items")
+        MainAction.playItem(artistMixList.LookupCI("Items"), { method: "set", resetShuffle: true })
+    else
+        stopLoadingSpinner()
+    end if
+end sub
+
+' User has selected instant mix
+sub onInstantMixSelectedEvent(msg)
+    screenContent = msg.getRoSGNode()
+    startLoadingSpinner()
+
+    ' Create instant mix based on selected album
+    if isValid(screenContent.albumData)
+        if screenContent.albumData.getChildCount() > 0
+            instantMixList = CreateInstantMix(screenContent.albumData.getChild(0).id)
+            if isChainValid(instantMixList, "items")
+                MainAction.playItem(instantMixList.LookupCI("Items"), { method: "set", resetShuffle: true })
+            else
+                stopLoadingSpinner()
+            end if
+
+            return
+        end if
+    end if
+
+    ' Create instant mix based on selected artist
+    instantMixList = CreateInstantMix(chainLookup(screenContent, "pageContent.id"))
+    if isChainValid(instantMixList, "items")
+        MainAction.playItem(instantMixList.LookupCI("Items"), { method: "set", resetShuffle: true })
+    else
+        stopLoadingSpinner()
+    end if
+end sub
+
+sub onSearch_valueEvent(msg)
+    query = msg.getRoSGNode().search_value
+    group = m.global.sceneManager.callFunc("getActiveScene")
+    group.findNode("SearchBox").visible = false
+    options = group.findNode("searchRow")
+    options.visible = true
+    options.setFocus(true)
+
+    dialog = createObject("roSGNode", "ProgressDialog")
+    dialog.title = tr("Loading Search Data")
+    m.scene.dialog = dialog
+    results = SearchMedia(query)
+    dialog.close = true
+    options.itemData = results
+    options.query = query
+end sub
+
+' Search item selected
+sub onItemSelectedEvent(msg)
+    startLoadingSpinner()
+    node = getMsgPicker(msg)
+    if isStringEqual(node.type, ItemType.SERIES)
+        CreateSeriesDetailsGroup(node.id)
+    else if isStringEqual(node.type, ItemType.MOVIE)
+        CreateMovieDetailsGroup(node)
+    else if isStringEqual(node.type, ItemType.MUSICARTIST)
+        CreateArtistView(node.json)
+    else if isStringEqual(node.type, ItemType.MUSICALBUM)
+        CreateAlbumView(node.json)
+    else if isStringEqual(node.type, ItemType.PLAYLIST)
+        CreatePlaylistView(node.json)
+    else if isStringEqual(node.type, ItemType.MUSICVIDEO)
+        CreateMovieDetailsGroup(node)
+    else if isStringEqual(node.type, ItemType.AUDIO)
+        MainAction.playItem(node.json, { resetShuffle: true })
+    else if isStringEqual(node.type, ItemType.PERSON)
+        CreatePersonView(node)
+    else if isStringEqual(node.type, ItemType.TVCHANNEL) or isStringEqual(node.type, ItemType.PROGRAM)
+
+        thisItem = {
+            id: node.id,
+            type: "video"
+        }
+
+        MainAction.playItem(thisItem, { resetShuffle: true })
+    else if isStringEqual(node.type, ItemType.EPISODE)
+        CreateMovieDetailsGroup(node)
+    else if isStringEqual(node.type, ItemType.RECORDING)
+        thisItem = {
+            id: node.id,
+            type: "Episode"
+        }
+        MainAction.playItem(thisItem, { resetShuffle: true })
+    else if isStringEqual(node.type, ItemType.AUDIOBOOK)
+        MainAction.playItem(node.json, { resetShuffle: true })
+    else
+        stopLoadingSpinner()
+        message_dialog("This type is not yet supported: " + node.type + ".")
+    end if
+end sub
+
+sub onContentEvent(msg)
+    node = msg.getRoSGNode()
+    if not isValid(node) then return
+
+    m.playlistData = msg.getData()
+
+    popupData = []
+
+    if isValidAndNotEmpty(m.playlistData)
+        popupData.push(tr("Existing Playlist"))
+    end if
+
+    popupData.push(tr("New Playlist"))
+
+    stopLoadingSpinner()
+    m.global.sceneManager.callFunc("optionDialog", "playlist", tr("Add To Playlist"), [], popupData, { id: node.itemId })
+end sub
+
+sub onButtonSelectedEvent(msg)
+    ' If a button is selected, we have some determining to do
+    btn = msg.getData()
+    activeScene = m.global.sceneManager.callFunc("getActiveScene")
+
+    if not isValid(btn) or isStringEqual(type(btn), "roInt")
+        MainAction.closeOKDialog(msg)
+        return
+    end if
+
+    ' User chose Play button from movie detail view
+    if isStringEqual(btn, "play-button")
+        MainAction.onResumeButtonClicked(activeScene)
+        return
+    end if
+    if isStringEqual(btn, "play-from-beginning-button")
+        MainAction.onPlayButtonClicked(activeScene)
+        return
+    end if
+
+    if isStringEqual(btn, "part-button")
+        MainAction.onPartButtonClicked(activeScene)
+        return
+    end if
+
+    ' User chose to play a trailer from the movie detail view
+    if isStringEqual(btn, "trailer-button")
+        MainAction.onTrailerButtonClicked(activeScene)
+        return
+    end if
+
+    ' Toggle watched state
+    if isStringEqual(btn, "watched-button")
+        MainAction.onWatchedButtonClicked(activeScene)
+        return
+    end if
+
+    ' Toggle item in My List
+    if isStringEqual(btn, "mylist-button")
+        MainAction.onMyListButtonClicked(activeScene)
+        return
+    end if
+
+    ' Add to playlist button was clicked
+    if isStringEqual(btn, "playlist-button")
+        MainAction.onPlaylistButtonClicked(activeScene)
+        return
+    end if
+
+    ' Toggle favorite state
+    if isStringEqual(btn, "favorite-button")
+        MainAction.onFavoriteButtonClicked(activeScene)
+        return
+    end if
+
+    if isStringEqual(btn, "editsubtitlesbutton")
+        MainAction.onEditSubtitlesButtonClicked(activeScene)
+        return
+    end if
+
+    if isStringEqual(btn, "goToSeasonButton")
+        MainAction.onGoToSeasonButtonClicked(activeScene)
+        return
+    end if
+
+    if isStringEqual(btn, "goToSeriesButton")
+        MainAction.onGoToSeriesButtonClicked(activeScene)
+        return
+    end if
+
+    MainAction.closeOKDialog(msg)
+end sub
+
+sub onStateEvent(msg)
+    node = msg.getRoSGNode()
+    if not isChainValid(node, "state") then return
+
+    if handlePendingPlaybackSelectedItemState(node) then return
+
+    if isStringEqual(node.state, "finished")
+        if isStringEqual(node.selectedItemType, ItemType.TVCHANNEL)
+            thisItem = {
+                id: node.id,
+                type: ItemType.RECORDING
+            }
+
+            MainAction.playItem(thisItem, { resetShuffle: true })
+            return
+        end if
+
+        node.control = VideoControl.STOP
+
+        if not isValid(node.showID)
+            m.global.sceneManager.callFunc("popScene")
+        end if
+    end if
+end sub
+
+function handlePendingPlaybackSelectedItemState(node as object) as boolean
+    if not isValid(m.pendingPlaybackSelectedItem) then return false
+    if not node.isSubType("VideoPlayerView") then return false
+    if node.id <> m.pendingPlaybackSelectedItem.videoNodeId then return false
+
+    if not inArray(["finished", "stopped"], LCase(node.state)) then return true
+
+    node.unobserveField("state")
+
+    pendingPlaybackSelectedItem = m.pendingPlaybackSelectedItem
+    m.pendingPlaybackSelectedItem = invalid
+
+    currentView = m.global.sceneManager.callFunc("getActiveScene")
+    if isValid(currentView) and currentView.isSubType("VideoPlayerView")
+        m.global.sceneManager.callFunc("clearPreviousScene")
+    end if
+
+    openPlaybackSelectedItem(pendingPlaybackSelectedItem.selectedItem)
+
+    return true
+end function
+
+' https://developer.roku.com/en-ca/docs/references/brightscript/events/rodeviceinfoevent.md
+sub onRoDeviceInfoEvent(msg)
+    event = msg.GetInfo()
+
+    if event.exitedScreensaver = true
+        group = m.global.sceneManager.callFunc("getActiveScene")
+        if isValid(group)
+            ' refresh the current view
+            if group.isSubType("JFScreen")
+                group.callFunc("OnScreenShown")
+            end if
+        end if
+        return
+    end if
+
+    if isValid(event.audioGuideEnabled)
+        tmpGlobalDevice = m.global.device
+        tmpGlobalDevice.AddReplace("isaudioguideenabled", event.audioGuideEnabled)
+
+        ' update global device array
+        m.global.setFields({ device: tmpGlobalDevice })
+        return
+    end if
+
+    if isValid(event.generalMemoryLevel)
+        print "event.generalMemoryLevel = ", event.generalMemoryLevel
+        return
+    end if
+
+    if isValid(event.audioCodecCapabilityChanged)
+        print "event.audioCodecCapabilityChanged = ", event.audioCodecCapabilityChanged
+
+        postTask = createObject("roSGNode", "PostTask")
+        postTask.arrayData = getDeviceCapabilities()
+        postTask.apiUrl = "/Sessions/Capabilities/Full"
+        postTask.control = "RUN"
+        return
+    end if
+
+    if isValid(event.videoCodecCapabilityChanged)
+        print "event.videoCodecCapabilityChanged = ", event.videoCodecCapabilityChanged
+
+        postTask = createObject("roSGNode", "PostTask")
+        postTask.arrayData = getDeviceCapabilities()
+        postTask.apiUrl = "/Sessions/Capabilities/Full"
+        postTask.control = "RUN"
+        return
+    end if
+end sub
+
+sub onReturnDataEvent(msg)
+    ' User has chosen an option in a radio dialog
+    popupNode = msg.getData()
+    activeScene = m.global.sceneManager.callFunc("getActiveScene")
+
+    if not isValid(activeScene) then return
+    if not isChainValid(popupNode, "type") then return
+
+    if isStringEqual(popupNode.type, "partselect")
+        m.global.sceneManager.unobserveField("returnData")
+        activeScene.selectedPart = popupNode
+        m.global.sceneManager.callFunc("dismissDialog")
+        return
+    end if
+
+    if isStringEqual(popupNode.type, "cultureselect")
+        activeScene.selectedCulture = popupNode
+        m.global.sceneManager.callFunc("dismissDialog")
+        return
+    end if
+
+    if isStringEqual(popupNode.type, "remotesubtitleselect")
+        if not isValid(popupNode.id) then return
+
+        mySubtitleList = activeScene.findNode("mySubtitleList")
+
+        ' Add downloading message to My Subtitles so users know we're processing their input
+        if isValid(mySubtitleList)
+            subtitleListContent = mySubtitleList.LookupCI("content")
+
+            canAddSubtitle = true
+
+            ' Search list of subtitles to see if we already have a downloading message for this item
+            for each subtitle in subtitleListContent.getChildren(-1, 0)
+                if subtitle.LookupCI("index") = SubtitleSelection.NONE
+                    if isStringEqual(subtitle.LookupCI("displaytitle"), popupNode.LookupCI("name"))
+                        canAddSubtitle = false
+                    end if
+                end if
+            end for
+
+            ' Don't add multiple downloading message for the same subtitle name
+            if canAddSubtitle
+                mySubtitle = CreateObject("roSGNode", "SubtitleData")
+                mySubtitle.path = tr("Downloading - Refresh for updated status")
+                mySubtitle.index = SubtitleSelection.NONE
+                mySubtitle.displaytitle = popupNode.LookupCI("name")
+                mySubtitle.canDelete = false
+
+                subtitleListContent.insertChild(mySubtitle, 0)
+
+                mySubtitleList.content = subtitleListContent
+
+                api.items.DownloadRemoteSubtitles(chainLookup(activeScene, "itemContent.id"), popupNode.LookupCI("id"))
+            end if
+        end if
+
+        ' Prevent double fires
+        popupNode.id = invalid
+    end if
+end sub
+
+sub onDataReturnedEvent(msg)
+    popupNode = msg.getRoSGNode()
+    stopLoadingSpinner()
+
+    if not isChainValid(popupNode, "returnData") then return
+
+    selectedPopupID = chainLookup(popupNode, "returndata.id")
+    itemID = chainLookup(popupNode, "returndata.itemID")
+    params = chainLookup(popupNode, "returndata.params")
+    selectedPopupAction = chainLookup(popupNode, "returndata.indexselected")
+    selectedPopupButton = chainLookup(popupNode, "returndata.buttonselected")
+
+    if isStringEqual(selectedPopupID, "confirmexit")
+        if selectedPopupAction = 1
+            m.scene.exit = true
+        end if
+        return
+    end if
+
+    if isStringEqual(selectedPopupID, "newPlaylist")
+        newPlaylistName = chainLookup(popupNode, "returndata.text")
+
+        if not isValidAndNotEmpty(newPlaylistName) then return
+
+        api.playlists.Create({
+            name: newPlaylistName,
+            ids: itemID,
+            users: [
+                {
+                    userid: m.global.session.user.id,
+                    canedit: true
+                }
+            ],
+            userId: m.global.session.user.id,
+            IsPublic: false
+        })
+        return
+    end if
+
+    if isStringEqual(selectedPopupID, "existingPlaylist")
+        ' Check if user pressed back and didn't select anything
+        if isStringEqual(selectedPopupButton, string.EMPTY) then return
+
+        api.playlists.Add(selectedPopupButton.id, {
+            ids: itemID,
+            userId: m.global.session.user.id
+        })
+        return
+    end if
+
+    if isStringEqual(selectedPopupID, "playback")
+        selectedItem = m.global.queueManager.callFunc("getHold")
+        m.global.queueManager.callFunc("clearHold")
+
+        if not isValidAndNotEmpty(selectedItem) or not isValid(selectedItem[0]) then return
+
+        processPlaybackPopup(selectedPopupAction, selectedItem)
+        return
+    end if
+
+    if isStringEqual(selectedPopupID, "searchLibrary")
+        searchTerm = chainLookup(popupNode, "returndata.text")
+        if not isValid(searchTerm) then return
+
+        activeScene = m.global.sceneManager.callFunc("getActiveScene")
+        if not isValid(activeScene) then return
+
+        activeScene.searchTerm = searchTerm
+        return
+    end if
+
+    if isStringEqual(selectedPopupID, "nameButton")
+        radioStationName = chainLookup(popupNode, "returndata.text")
+        if not isValid(radioStationName) then return
+
+        activeScene = m.global.sceneManager.callFunc("getActiveScene")
+        if not isValid(activeScene) then return
+
+        activeScene.radioStationName = radioStationName
+        return
+    end if
+
+    if isStringEqual(selectedPopupID, "subtitleButton")
+        radioStationSubtitle = chainLookup(popupNode, "returndata.text")
+        if not isValid(radioStationSubtitle) then return
+
+        activeScene = m.global.sceneManager.callFunc("getActiveScene")
+        if not isValid(activeScene) then return
+
+        activeScene.radioStationSubtitle = radioStationSubtitle
+        return
+    end if
+
+    if isStringEqual(selectedPopupID, "libraryitem")
+        if not isValid(itemID) then return
+        if not isString(selectedPopupButton) then return
+        processLibraryItemPopup(selectedPopupButton, itemID, params)
+        return
+    end if
+
+    if isStringEqual(selectedPopupID, "stillwatching")
+        if not isString(selectedPopupButton) then return
+        processStillWatchingPopup(selectedPopupButton)
+        return
+    end if
+
+    if isStringEqual(selectedPopupID, "playlist")
+        if not isValid(itemID) then return
+        processPlaylistPopup(selectedPopupButton, itemID)
+        return
+    end if
+end sub
+
+sub processPlaybackPopup(selectedPopupAction as integer, selectedItem as object)
+    'Resume video from resume point
+    if selectedPopupAction = ResumePopupAction.RESUME
+        selectedItem[0].startingPoint = chainLookup(selectedItem[0], "json.UserData.PlaybackPositionTicks") ?? 0
+        MainAction.playItem(selectedItem[0], { method: "push", bypassNextPreferredAudioTrackIndexReset: true })
+        return
+    end if
+
+    'Start Over from beginning selected, set position to 0
+    if selectedPopupAction = ResumePopupAction.STARTOVER
+        selectedItem[0].startingPoint = 0
+        MainAction.playItem(selectedItem[0], { method: "push", bypassNextPreferredAudioTrackIndexReset: true })
+        return
+    end if
+
+    ' User chose Go to series
+    if selectedPopupAction = ResumePopupAction.GOTOSERIES
+        CreateSeriesDetailsGroup(chainLookup(selectedItem[0], "json.SeriesId"))
+        return
+    end if
+
+    ' User chose Go to season
+    if selectedPopupAction = ResumePopupAction.GOTOSEASON
+        seriesID = chainLookup(selectedItem[0], "json.SeriesId")
+        seasonID = chainLookup(selectedItem[0], "json.seasonID")
+
+        if isAllValid([seriesID, seasonID])
+            CreateSeasonDetailsGroupByID(seriesID, seasonID)
+        else
+            message_dialog(tr("Error loading Season"))
+        end if
+
+        return
+    end if
+
+    ' User chose Go to episode
+    if selectedPopupAction = ResumePopupAction.GOTOEPISODE
+        CreateMovieDetailsGroup(selectedItem[0])
+        return
+    end if
+end sub
+
+sub processStillWatchingPopup(selectedPopupButton as string)
+    if isStringEqual(selectedPopupButton, tr("Yes, continue"))
+        m.global.sceneManager.callFunc("clearPreviousScene")
+        m.global.queueManager.callFunc("moveForward")
+        m.global.queueManager.callFunc("playQueue")
+    end if
+    if isStringEqual(selectedPopupButton, tr("No, stop playback"))
+        m.global.queueManager.callFunc("bypassNextPreferredAudioTrackIndexReset")
+        m.global.queueManager.callFunc("clear")
+        m.global.sceneManager.callFunc("popScene")
+    end if
+end sub
+
+sub processPlaylistPopup(selectedPopupButton as string, itemID as string)
+    if isStringEqual(selectedPopupButton, tr("Existing Playlist"))
+        if not isValidAndNotEmpty(m.playlistData)
+            activeScene = m.global.sceneManager.callFunc("getActiveScene")
+            if not isValid(activeScene) then return
+
+            scenePlaylistData = activeScene.LookupCI("playlistData")
+            if not isValidAndNotEmpty(scenePlaylistData) then return
+
+            m.playlistData = activeScene.playlistData
+        end if
+
+        stopLoadingSpinner()
+        m.global.sceneManager.callFunc("optionDialog", "existingPlaylist", tr("Add To Playlist"), [], m.playlistData, { id: itemID })
+        return
+    end if
+
+    if isStringEqual(selectedPopupButton, tr("New Playlist"))
+        resumeData = [
+            tr("Create")
+        ]
+
+        stopLoadingSpinner()
+        m.global.sceneManager.callFunc("keyboardDialog", "newPlaylist", tr("Create New Playlist"), ["Input name of new playlist"], resumeData, string.EMPTY, itemID)
+        return
+    end if
+
+    ' Remove item from playlist
+    if isStringEqual(selectedPopupButton, tr("Remove From Playlist"))
+
+        ' Remove item from the item grid
+        activeScene = m.global.sceneManager.callFunc("getActiveScene")
+        if not isValid(activeScene) then return
+
+        itemGrid = activeScene.findNode("playlist")
+        if not isValid(itemGrid) then return
+
+        itemGrid.content.removeChildIndex(itemGrid.itemFocused)
+
+        mainAction.removeItemFromPlaylist(activeScene.pageContent.LookupCI("id"), itemID)
+
+        return
+    end if
+end sub
+
+sub updateAlbumTrackFavoriteState(itemID as string, isFavorite as boolean)
+    activeScene = m.global.sceneManager.callFunc("getActiveScene")
+    if not isValid(activeScene) or not isStringEqual(activeScene.subtype(), "AlbumView") then return
+
+    songList = activeScene.findNode("songList")
+    if not isValid(songList) or not isValid(songList.content) then return
+
+    for each song in songList.content.getChildren(-1, 0)
+        songID = chainLookupReturn(song, "id", String.EMPTY)
+        if isStringEqual(songID, itemID)
+            song.favorite = isFavorite
+            song.favoriteStatus = isFavorite ? FavoriteStatus.FAVORITE : FavoriteStatus.NOT_FAVORITE
+            return
+        end if
+    end for
+end sub
+
+sub processLibraryItemPopup(selectedPopupButton as string, itemID as string, params as object)
+    if isStringEqual(selectedPopupButton, tr("Play Track"))
+        quickplay.audio({
+            id: itemID,
+            type: ItemType.AUDIO
+        })
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if isStringEqual(selectedPopupButton, tr("Play Album"))
+        ' First try to play in audio mini player
+        scene = m.scene
+        if isValid(scene)
+            audioMiniPlayer = scene.findNode("audioMiniPlayer")
+            if isValid(audioMiniPlayer)
+                audioMiniPlayer.callFunc("setVisible", true)
+            end if
+        end if
+
+        quickplay.album({
+            id: itemID,
+            type: ItemType.MUSICALBUM
+        })
+
+        if m.global.queueManager.callFunc("getIsShuffled")
+            m.global.queueManager.callFunc("resetShuffle")
+        end if
+
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if isStringEqual(selectedPopupButton, tr("Shuffle Play Album"))
+        ' First try to play in audio mini player
+        scene = m.scene
+        if isValid(scene)
+            audioMiniPlayer = scene.findNode("audioMiniPlayer")
+            if isValid(audioMiniPlayer)
+                audioMiniPlayer.callFunc("setVisible", true)
+            end if
+        end if
+
+        quickplay.album({
+            id: itemID,
+            type: ItemType.MUSICALBUM
+        })
+
+        if not m.global.queueManager.callFunc("getIsShuffled")
+            m.global.queueManager.callFunc("toggleShuffle")
+        end if
+
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    if isStringEqual(selectedPopupButton, tr("Instant Mix Album"))
+        ' First try to play in audio mini player
+        scene = m.scene
+        if isValid(scene)
+            audioMiniPlayer = scene.findNode("audioMiniPlayer")
+            if isValid(audioMiniPlayer)
+                audioMiniPlayer.callFunc("setVisible", true)
+            end if
+        end if
+
+        quickplay.album({
+            id: itemID,
+            type: ItemType.MUSICALBUM
+        })
+
+        instantMixList = CreateInstantMix(itemID)
+        if isChainValid(instantMixList, "items")
+            MainAction.playItem(instantMixList.LookupCI("Items"), { method: "set", resetShuffle: true })
+        end if
+
+        return
+    end if
+
+    ' Add item to user's list
+    if isStringEqual(selectedPopupButton, tr("Add To My List"))
+        MainAction.addItemToMyList(itemID)
+        return
+    end if
+
+    if isStringEqual(selectedPopupButton, tr("Add To Favorites"))
+        MainAction.addItemToFavorites(itemID)
+        updateAlbumTrackFavoriteState(itemID, true)
+        return
+    end if
+
+    if isStringEqual(selectedPopupButton, tr("Remove From Favorites"))
+        MainAction.removeItemFromFavorites(itemID)
+        updateAlbumTrackFavoriteState(itemID, false)
+        return
+    end if
+
+    if isStringEqual(selectedPopupButton, tr("Go To Series"))
+        CreateSeriesDetailsGroup(params.seriesid)
+        return
+    end if
+
+    if isStringEqual(selectedPopupButton, tr("Go To Season"))
+        CreateSeasonDetailsGroupByID(params.LookupCI("seriesid"), params.LookupCI("seasonid"))
+        return
+    end if
+
+    if isStringEqual(selectedPopupButton, tr("Play Instant Mix"))
+        ' Create instant mix based on selected artist
+
+        startLoadingSpinner()
+
+        instantMixList = CreateInstantMix(params.LookupCI("AlbumId"))
+        if isChainValid(instantMixList, "items")
+            MainAction.playItem(instantMixList.LookupCI("Items"), { method: "set", resetShuffle: true })
+        else
+            stopLoadingSpinner()
+        end if
+
+        return
+    end if
+
+    if isStringEqual(selectedPopupButton, tr("Go To Artist"))
+        CreateArtistView({
+            name: params.LookupCI("artistname"),
+            id: params.LookupCI("artistid")
+        })
+        return
+    end if
+
+    if selectedPopupButton.Instr(tr("Go To Genre")) <> -1
+        ' Set filter settings so library loads with selected genre as selected filter
+        set_user_setting("display.jumpToFilter.landing", "albums")
+        set_user_setting("display.jumpToFilter.filter", "Genres")
+        set_user_setting("display.jumpToFilter.filterOptions", `{"Genres": "${params.LookupCI("GenreName")}"}`)
+
+        libraryContent = CreateObject("roSGNode", "JFContentItem")
+        libraryContent.id = params.LookupCI("LibraryId")
+        libraryContent.parentFolder = params.LookupCI("LibraryId")
+        libraryContent.type = "Music"
+        libraryContent.json = {
+            type: "collectionfolder",
+            jumpToFilter: params.LookupCI("GenreId")
+        }
+
+        group = CreateMusicLibraryView(libraryContent)
+        m.global.sceneManager.callFunc("pushScene", group)
+        return
+    end if
+
+    ' Mark item as played
+    if isStringEqual(selectedPopupButton, tr("Delete Radio Station"))
+        radioStationList = chainLookupReturn(m.global.session, "user.settings.radioStations", "[]")
+        radioStationList = ParseJSON(radioStationList)
+
+        updatedRadioStationList = []
+
+        for each radioStation in radioStationList
+            if not isStringEqual(radioStation.LookupCI("id"), params.LookupCI("id"))
+                radioStation.id = `radio${updatedRadioStationList.count()}`
+                updatedRadioStationList.push(radioStation)
+            end if
+        end for
+        set_user_setting(`radioStations`, FormatJson(updatedRadioStationList))
+
+        group = m.global.sceneManager.callFunc("getActiveScene")
+        if isValid(group)
+            if isStringEqual(group.subtype(), "home")
+                group.callFunc("refresh")
+                return
+            end if
+        end if
+
+        return
+    end if
+
+    ' Mark item as unplayed
+    if isStringEqual(selectedPopupButton, tr("Mark As Unplayed"))
+        MainAction.setPlayed(itemID, false)
+
+        group = m.global.sceneManager.callFunc("getActiveScene")
+        if isValid(group)
+            if isStringEqual(group.subtype(), "home")
+                group.callFunc("refresh")
+                return
+            end if
+
+            if isStringEqual(group.subtype(), "TVSeasonDetails")
+                group.refreshSeasonDetailsData = not group.refreshSeasonDetailsData
+                return
+            end if
+        end if
+
+        return
+    end if
+
+    ' Add item to playlist
+    if isStringEqual(selectedPopupButton, tr("Add To Playlist"))
+        activeScene = m.global.sceneManager.callFunc("getActiveScene")
+        MainAction.onPlaylistButtonClicked({
+            itemContent: {
+                id: itemID
+            }
+        })
+
+        return
+    end if
+
+    ' Add item to playlist
+    if isStringEqual(selectedPopupButton, tr("Add To Playlist"))
+        activeScene = m.global.sceneManager.callFunc("getActiveScene")
+        MainAction.onPlaylistButtonClicked({
+            itemContent: {
+                id: itemID
+            }
+        })
+
+        return
+    end if
+
+    if isStringEqual(selectedPopupButton, tr("Existing Playlist"))
+        if not isValidAndNotEmpty(m.playlistData)
+            activeScene = m.global.sceneManager.callFunc("getActiveScene")
+            if not isValid(activeScene) then return
+
+            scenePlaylistData = activeScene.LookupCI("playlistData")
+            if not isValidAndNotEmpty(scenePlaylistData) then return
+
+            m.playlistData = activeScene.playlistData
+        end if
+
+        stopLoadingSpinner()
+        m.global.sceneManager.callFunc("optionDialog", "existingPlaylist", tr("Add To Playlist"), [], m.playlistData, { id: itemID })
+        return
+    end if
+
+    if isStringEqual(selectedPopupButton, tr("Delete Playlist"))
+        api.items.Delete({
+            ids: itemID
+        })
+
+        activeScene = m.global.sceneManager.callFunc("getActiveScene")
+        if not isValid(activeScene) then return
+
+        itemGrid = activeScene.findNode("itemGrid")
+        if not isValid(itemGrid) then return
+
+        itemGrid.content.removeChildIndex(itemGrid.itemFocused)
+
+        return
+    end if
+
+    if isStringEqual(selectedPopupButton, tr("New Playlist"))
+        resumeData = [
+            tr("Create")
+        ]
+
+        stopLoadingSpinner()
+        m.global.sceneManager.callFunc("keyboardDialog", "newPlaylist", tr("Create New Playlist"), ["Input name of new playlist"], resumeData, string.EMPTY, itemID)
+        return
+    end if
+
+    if isStringEqual(selectedPopupButton, tr("Shuffle Play Collection"))
+        quickplay.boxset({
+            id: itemID
+        })
+
+        if not m.global.queueManager.callFunc("getIsShuffled")
+            m.global.queueManager.callFunc("toggleShuffle")
+        end if
+
+        m.global.queueManager.callFunc("getIsShuffled")
+
+        m.global.queueManager.callFunc("playQueue")
+        return
+    end if
+
+    ' Remove item from user's list
+    if isStringEqual(selectedPopupButton, tr("Remove From My List"))
+        MainAction.removeItemFromMyList(itemID)
+
+        ' If we're in My List, remove item from the item grid
+        activeScene = m.global.sceneManager.callFunc("getActiveScene")
+        if not isValid(activeScene) then return
+
+        if isChainValid(activeScene, "parentItem.collectionType")
+            if isStringEqual(activeScene.parentItem.collectionType, CollectionType.MYLIST)
+                itemGrid = activeScene.findNode("itemGrid")
+                if not isValid(itemGrid) then return
+
+                itemGrid.content.removeChildIndex(itemGrid.itemFocused)
+            end if
+        end if
+
+        return
+    end if
+end sub

@@ -1,0 +1,1126 @@
+import "pkg:/source/api/baserequest.bs"
+import "pkg:/source/api/Image.bs"
+import "pkg:/source/enums/ColorPalette.bs"
+import "pkg:/source/enums/ImageType.bs"
+import "pkg:/source/enums/KeyCode.bs"
+import "pkg:/source/enums/MediaPlaybackState.bs"
+import "pkg:/source/enums/String.bs"
+import "pkg:/source/enums/TaskControl.bs"
+import "pkg:/source/enums/VideoControl.bs"
+import "pkg:/source/enums/ViewLoadStatus.bs"
+
+import "pkg:/source/utils/config.bs"
+import "pkg:/source/utils/misc.bs"
+
+enum ButtonState
+    DEFAULT = "default"
+    SELECTED = "selected"
+end enum
+
+sub init()
+    overhang = m.top.getScene().findNode("overhang")
+    if isValid(overhang)
+        overhang.isVisible = false
+    end if
+
+    hideAudioMiniPlayer()
+
+    m.top.optionsAvailable = false
+    m.inScrubMode = false
+    m.lastRecordedPositionTimestamp = 0
+    m.scrubTimestamp = -1
+    m.hasLyrics = false
+    m.stopConfirmPending = false
+
+    m.playlistTypeCount = m.global.queueManager.callFunc("getQueueUniqueTypes").count()
+
+    setupAudioNode()
+    setupAnimationTasks()
+    setupButtons()
+    setupInfoNodes()
+    setupDataTasks()
+    setupScreenSaver()
+
+    m.buttonCount = m.buttons.getChildCount()
+    m.seekPosition.translation = [100 - (m.seekPosition.width / 2), m.seekPosition.translation[1]]
+
+    m.screenSaverTimeout = 300
+
+    m.LoadScreenSaverTimeoutTask.observeField("content", "onScreensaverTimeoutLoaded")
+    m.LoadScreenSaverTimeoutTask.control = TaskControl.RUN
+
+    m.di = CreateObject("roDeviceInfo")
+
+    loadButtons()
+    setShuffleIconState()
+    setLoopButtonImage()
+
+    m.song = m.top.findNode("song")
+    m.song.font.size = 60
+
+    m.artist = m.top.findNode("artist")
+    m.artist.font.size = 35
+
+    numberofsongs = m.top.findNode("numberofsongs")
+    numberofsongs.font.size = 25
+
+    m.seekBar.color = ColorPalette.BLACK77
+    m.bufferPosition.color = ColorPalette.MIDGREY
+    m.playPosition.color = ColorPalette.TRIADBLUE
+
+    m.buttons.setFocus(true)
+
+    if isValidAndNotEmpty(m.global.audioPlayer.audioData)
+        onAudioDataChanged()
+    end if
+end sub
+
+sub onScreensaverTimeoutLoaded()
+    data = m.LoadScreenSaverTimeoutTask.content
+    m.LoadScreenSaverTimeoutTask.unobserveField("content")
+    if isValid(data)
+        m.screenSaverTimeout = data
+    end if
+end sub
+
+sub setupScreenSaver()
+    m.screenSaverBackground = m.top.FindNode("screenSaverBackground")
+
+    ' Album Art Screensaver
+    m.screenSaverAlbumCover = m.top.FindNode("screenSaverAlbumCover")
+    m.screenSaverAlbumAnimation = m.top.findNode("screenSaverAlbumAnimation")
+    m.screenSaverAlbumCoverFadeIn = m.top.findNode("screenSaverAlbumCoverFadeIn")
+
+    ' Jellyfin Screensaver
+    m.PosterOne = m.top.findNode("PosterOne")
+    m.PosterOne.uri = "pkg:/images/channel-poster_sd.jpg"
+    m.BounceAnimation = m.top.findNode("BounceAnimation")
+    m.PosterOneFadeIn = m.top.findNode("PosterOneFadeIn")
+end sub
+
+sub setupAnimationTasks()
+    m.displayButtonsAnimation = m.top.FindNode("displayButtonsAnimation")
+    m.playPositionAnimation = m.top.FindNode("playPositionAnimation")
+    m.playPositionAnimationWidth = m.top.FindNode("playPositionAnimationWidth")
+
+    m.bufferPositionAnimation = m.top.FindNode("bufferPositionAnimation")
+    m.bufferPositionAnimationWidth = m.top.FindNode("bufferPositionAnimationWidth")
+
+    m.screenSaverStartAnimation = m.top.FindNode("screenSaverStartAnimation")
+end sub
+
+' Creates tasks to gather data needed to render Scene and play song
+sub setupDataTasks()
+    ' Load meta data
+    m.LoadMetaDataTask = CreateObject("roSGNode", "LoadItemsTask")
+    m.LoadMetaDataTask.itemsToLoad = "metaData"
+
+    ' Load background image
+    m.LoadBackdropImageTask = CreateObject("roSGNode", "LoadItemsTask")
+    m.LoadBackdropImageTask.itemsToLoad = "backdropImage"
+
+    ' Load audio stream
+    m.LoadAudioStreamTask = CreateObject("roSGNode", "LoadItemsTask")
+    m.LoadAudioStreamTask.itemsToLoad = "audioStream"
+
+    m.LoadScreenSaverTimeoutTask = CreateObject("roSGNode", "LoadScreenSaverTimeoutTask")
+end sub
+
+' Creates audio node used to play song(s)
+sub setupAudioNode()
+    m.global.audioPlayer.observeFieldScoped("position", "audioPositionChanged")
+    m.global.audioPlayer.observeFieldScoped("bufferingStatus", "bufferPositionChanged")
+    m.global.audioPlayer.observeFieldScoped("audioData", "onAudioDataChanged")
+    m.global.audioPlayer.observeFieldScoped("loopmode", "setLoopButtonImage")
+    m.global.audioPlayer.observeFieldScoped("state", "onAudioPlayerStateChanged")
+end sub
+
+' Creates audio node used to play song(s)
+sub unobserveAll()
+    m.global.audioPlayer.unobserveFieldScoped("position")
+    m.global.audioPlayer.unobserveFieldScoped("bufferingStatus")
+    m.global.audioPlayer.unobserveFieldScoped("audioData")
+    m.global.audioPlayer.unobserveFieldScoped("loopmode")
+    m.global.audioPlayer.unobserveFieldScoped("state")
+end sub
+
+' Setup playback buttons, default to Play button selected
+sub setupButtons()
+    m.buttons = m.top.findNode("buttons")
+    m.playButton = m.top.findNode("play")
+    m.top.observeField("selectedButtonIndex", "onButtonSelectedChange")
+
+    ' If we're playing a mixed playlist, remove the shuffle and loop buttons
+    if m.playlistTypeCount > 1
+        shuffleButton = m.top.findNode("shuffle")
+        m.buttons.removeChild(shuffleButton)
+
+        loopButton = m.top.findNode("loop")
+        m.buttons.removeChild(loopButton)
+
+        m.previouslySelectedButtonIndex = 0
+        m.top.selectedButtonIndex = 1
+        updatePlayButtonState()
+        return
+    end if
+
+    m.previouslySelectedButtonIndex = 1
+    m.top.selectedButtonIndex = 2
+    updatePlayButtonState()
+end sub
+
+' Event handler when user selected a different playback button
+sub onButtonSelectedChange()
+    ' Change previously selected button back to default image
+    selectedButton = m.buttons.getChild(m.previouslySelectedButtonIndex)
+    selectedButton.blendColor = ColorPalette.WHITE
+
+    ' Change selected button image to selected image
+    selectedButton = m.buttons.getChild(m.top.selectedButtonIndex)
+    selectedButton.blendColor = chainLookupReturn(m.global.session, "user.settings.colorCursor", ColorPalette.HIGHLIGHT)
+end sub
+
+sub setupInfoNodes()
+    m.albumCover = m.top.findNode("albumCover")
+    m.backDrop = m.top.findNode("backdrop")
+    m.background = m.top.findNode("background")
+    m.playPosition = m.top.findNode("playPosition")
+    m.bufferPosition = m.top.findNode("bufferPosition")
+    m.seekBar = m.top.findNode("seekBar")
+    m.thumb = m.top.findNode("thumb")
+    m.shuffleIndicator = m.top.findNode("shuffleIndicator")
+    m.loopIndicator = m.top.findNode("loopIndicator")
+    m.positionTimestamp = m.top.findNode("positionTimestamp")
+    m.seekPosition = m.top.findNode("seekPosition")
+    m.seekTimestamp = m.top.findNode("seekTimestamp")
+    m.stopConfirmMessage = m.top.findNode("stopConfirmMessage")
+    m.totalLengthTimestamp = m.top.findNode("totalLengthTimestamp")
+    m.nextItem = m.top.findNode("nextItem")
+    m.previousItem = m.top.findNode("previousItem")
+end sub
+
+sub bufferPositionChanged()
+    if m.inScrubMode then return
+
+    if not isValid(m.global.audioPlayer.bufferingStatus)
+        bufferPositionBarWidth = m.seekBar.width
+    else
+        bufferPositionBarWidth = m.seekBar.width * m.global.audioPlayer.bufferingStatus.percentage
+    end if
+
+    ' Ensure position bar is never wider than the seek bar
+    if bufferPositionBarWidth > m.seekBar.width
+        bufferPositionBarWidth = m.seekBar.width
+    end if
+
+    ' Use animation to make the display smooth
+    m.bufferPositionAnimationWidth.keyValue = [m.bufferPosition.width, bufferPositionBarWidth]
+    m.bufferPositionAnimation.control = "start"
+end sub
+
+sub audioPositionChanged()
+    stopLoadingSpinner()
+
+    if m.global.audioPlayer.position = 0
+        m.playPosition.width = 0
+    end if
+
+    if not isValid(m.global.audioPlayer.position)
+        playPositionBarWidth = 0
+    else if not isValid(m.songDuration)
+        playPositionBarWidth = 0
+    else
+        songPercentComplete = m.global.audioPlayer.position / m.songDuration
+        playPositionBarWidth = m.seekBar.width * songPercentComplete
+    end if
+
+    ' Ensure position bar is never wider than the seek bar
+    if playPositionBarWidth > m.seekBar.width
+        playPositionBarWidth = m.seekBar.width
+    end if
+
+    if not m.inScrubMode
+        moveSeekbarThumb(playPositionBarWidth)
+        ' Change the seek position timestamp
+        seekText = secondsToHuman(m.global.audioPlayer.position, false)
+        if m.hasLyrics
+            seekText += " • Seeking will likely cause lyrics to desync"
+        end if
+
+        m.seekTimestamp.text = seekText
+    end if
+
+    ' Use animation to make the display smooth
+    m.playPositionAnimationWidth.keyValue = [m.playPosition.width, playPositionBarWidth]
+    m.playPositionAnimation.control = "start"
+
+    ' Update displayed position timestamp
+    if isValid(m.global.audioPlayer.position)
+        m.lastRecordedPositionTimestamp = m.global.audioPlayer.position
+        m.positionTimestamp.text = secondsToHuman(m.global.audioPlayer.position, false)
+        if isValid(m.lyrics)
+            m.lyrics.positionTime = m.global.audioPlayer.position
+        end if
+    else
+        m.lastRecordedPositionTimestamp = 0
+        m.positionTimestamp.text = "0:00"
+        if isValid(m.lyrics)
+            m.lyrics.positionTime = 0
+        end if
+    end if
+
+    ' Only fall into screensaver logic if the user has screensaver enabled in Roku settings
+    if m.screenSaverTimeout > 0
+        if m.di.TimeSinceLastKeypress() >= m.screenSaverTimeout - 2
+            if not screenSaverActive()
+                startScreenSaver()
+            end if
+        end if
+    end if
+end sub
+
+function screenSaverActive() as boolean
+    return m.screenSaverBackground.visible or m.screenSaverAlbumCover.opacity > 0 or m.PosterOne.opacity > 0
+end function
+
+sub startScreenSaver()
+    m.screenSaverBackground.visible = true
+
+    if m.albumCover.uri = ""
+        ' Logo Screensaver
+        m.PosterOne.visible = true
+        m.PosterOneFadeIn.control = "start"
+        m.BounceAnimation.control = "start"
+    else
+        ' Album Art Screensaver
+        m.screenSaverAlbumCoverFadeIn.control = "start"
+        m.screenSaverAlbumAnimation.control = "start"
+    end if
+end sub
+
+sub endScreenSaver()
+    m.PosterOneFadeIn.control = "pause"
+    m.screenSaverAlbumCoverFadeIn.control = "pause"
+    m.screenSaverAlbumAnimation.control = "pause"
+    m.BounceAnimation.control = "pause"
+    m.screenSaverBackground.visible = false
+    m.screenSaverAlbumCover.opacity = 0
+    m.PosterOne.opacity = 0
+end sub
+
+sub displayMiniPlayer()
+    audioState = m.global.audioPlayer.state
+    ' Paused or buffering audio should still return to the mini-player instead of clearing playback.
+    isActiveAudioState = isStringEqual(audioState, MediaPlaybackState.PLAYING) or isStringEqual(audioState, MediaPlaybackState.PAUSED) or isStringEqual(audioState, MediaPlaybackState.BUFFERING)
+
+    if not isActiveAudioState
+        m.global.queueManager.callFunc("clear")
+        m.global.audioPlayer.control = "stop"
+        return
+    end if
+
+    if m.playlistTypeCount > 1 then return
+
+    scene = m.top.getScene()
+    if not isValid(scene) then return
+
+    audioMiniPlayer = scene.findNode("audioMiniPlayer")
+    if not isValid(audioMiniPlayer) then return
+
+    audioMiniPlayer.callFunc("setVisible", true)
+end sub
+
+function playAction() as boolean
+    if m.global.audioPlayer.state = "playing"
+        m.global.audioPlayer.control = "pause"
+    else if m.global.audioPlayer.state = "paused"
+        m.global.audioPlayer.control = "resume"
+    else if m.global.audioPlayer.state = "finished"
+        m.global.audioPlayer.control = "play"
+    end if
+
+    return true
+end function
+
+sub onAudioPlayerStateChanged()
+    updatePlayButtonState()
+end sub
+
+sub updatePlayButtonState()
+    if not isValid(m.playButton) then return
+
+    if isStringEqual(m.global.audioPlayer.state, MediaPlaybackState.PLAYING)
+        m.playButton.uri = "pkg:/images/icons/pauseCircle.png"
+    else
+        m.playButton.uri = "pkg:/images/icons/playCircle.png"
+    end if
+end sub
+
+sub clearStopConfirmation()
+    m.stopConfirmPending = false
+
+    if isValid(m.stopConfirmMessage)
+        m.stopConfirmMessage.visible = false
+    end if
+end sub
+
+function isStopButtonAction(key as string) as boolean
+    if not isStringEqual(key, KeyCode.OK) then return false
+    if not m.buttons.hasFocus() then return false
+
+    selectedButton = m.buttons.getChild(m.top.selectedButtonIndex)
+    if not isValid(selectedButton) then return false
+
+    return isStringEqual(selectedButton.id, "stop")
+end function
+
+function stopClicked() as boolean
+    if m.stopConfirmPending
+        clearStopConfirmation()
+        return closePlayerClicked()
+    end if
+
+    m.stopConfirmPending = true
+    if isValid(m.stopConfirmMessage)
+        m.stopConfirmMessage.text = tr("Press Stop again to close player")
+        m.stopConfirmMessage.visible = true
+    end if
+
+    audioState = m.global.audioPlayer.state
+    if inArray([MediaPlaybackState.PLAYING, MediaPlaybackState.BUFFERING], audioState)
+        m.global.audioPlayer.control = VideoControl.PAUSE
+    end if
+
+    return true
+end function
+
+function closePlayerClicked() as boolean
+    m.global.queueManager.callFunc("clear")
+    unobserveAll()
+    m.global.audioPlayer.control = "stop"
+    m.global.sceneManager.callFunc("popScene")
+    return true
+end function
+
+function previousClicked() as boolean
+    m.global.audioPlayer.callFunc("playPrevious")
+    return true
+end function
+
+function loopClicked() as boolean
+
+    if m.global.audioPlayer.loopMode = ""
+        m.global.audioPlayer.loopMode = "all"
+    else if m.global.audioPlayer.loopMode = "all"
+        m.global.audioPlayer.loopMode = "one"
+    else
+        m.global.audioPlayer.loopMode = ""
+    end if
+
+    return true
+end function
+
+sub setLoopButtonImage()
+    if m.global.audioPlayer.loopMode = "all"
+        m.loopIndicator.opacity = "1"
+        m.loopIndicator.uri = "pkg:/images/icons/loopIndicator-on.png"
+    else if m.global.audioPlayer.loopMode = "one"
+        m.loopIndicator.opacity = "1"
+        m.loopIndicator.uri = "pkg:/images/icons/loopIndicator1-on.png"
+    else
+        m.loopIndicator.opacity = "0"
+        m.loopIndicator.uri = "pkg:/images/icons/loopIndicator-off.png"
+    end if
+end sub
+
+function nextClicked() as boolean
+    m.global.audioPlayer.callFunc("playNext")
+    return true
+end function
+
+sub toggleShuffleEnabled()
+    m.global.queueManager.callFunc("toggleShuffle")
+end sub
+
+function findCurrentSongIndex(songList) as integer
+    if not isValidAndNotEmpty(songList) then return 0
+
+    for i = 0 to songList.count() - 1
+        if songList[i].id = m.global.queueManager.callFunc("getCurrentItem").id
+            return i
+        end if
+    end for
+
+    return 0
+end function
+
+function shuffleClicked() as boolean
+    currentSongIndex = findCurrentSongIndex(m.global.queueManager.callFunc("getUnshuffledQueue"))
+
+    toggleShuffleEnabled()
+
+    setSiblingData()
+
+    if not m.global.queueManager.callFunc("getIsShuffled")
+        m.shuffleIndicator.opacity = ".4"
+        m.shuffleIndicator.uri = m.shuffleIndicator.uri.Replace("-on", "-off")
+        m.global.queueManager.callFunc("setPosition", currentSongIndex)
+        setTrackNumberDisplay()
+        return true
+    end if
+
+    m.shuffleIndicator.opacity = "1"
+    m.shuffleIndicator.uri = m.shuffleIndicator.uri.Replace("-off", "-on")
+    setTrackNumberDisplay()
+
+    return true
+end function
+
+sub setShuffleIconState()
+    if m.global.queueManager.callFunc("getIsShuffled")
+        m.shuffleIndicator.opacity = "1"
+        m.shuffleIndicator.uri = m.shuffleIndicator.uri.Replace("-off", "-on")
+    end if
+end sub
+
+sub setTrackNumberDisplay()
+    setFieldTextValue("numberofsongs", "Track " + stri(m.global.queueManager.callFunc("getPosition") + 1).trim() + "/" + stri(m.global.queueManager.callFunc("getCount")).trim())
+end sub
+
+' setSiblingData: Set the icon and title text for the previous and next items
+'
+sub setSiblingData()
+    previousItemTitleText = m.global.queueManager.callFunc("getPreviousItemTitleAndIcon")
+    if isValidAndNotEmpty(previousItemTitleText)
+        m.previousItem.icon = previousItemTitleText[0]
+        m.previousItem.text = previousItemTitleText[1]
+    else
+        m.previousItem.icon = ""
+        m.previousItem.text = ""
+    end if
+
+    nextItemTitleText = m.global.queueManager.callFunc("getNextItemTitleAndIcon")
+    if isValidAndNotEmpty(nextItemTitleText)
+        m.nextItem.icon = nextItemTitleText[0]
+        m.nextItem.text = nextItemTitleText[1]
+    else
+        m.nextItem.icon = ""
+        m.nextItem.text = ""
+    end if
+
+    checkDisplaySiblingItem()
+end sub
+
+' If we have more and 1 song to play, fade in the next and previous controls
+sub loadButtons()
+    if m.global.queueManager.callFunc("getCount") > 1
+        m.shuffleIndicator.opacity = ".4"
+        m.loopIndicator.opacity = ".4"
+        m.displayButtonsAnimation.control = "start"
+    end if
+end sub
+
+sub onAudioDataChanged()
+    stopLoadingSpinner()
+    data = m.global.audioPlayer.audioData
+
+    if not isValidAndNotEmpty(data)
+        ' If the last item finished playing,
+        if m.global.queueManager.callFunc("getPosition") = m.global.queueManager.callFunc("getCount") - 1
+            if m.top.returnOnStop
+                unobserveAll()
+                m.global.sceneManager.callFunc("popScene")
+                return
+            end if
+        end if
+
+        m.top.state = "finished"
+        return
+    end if
+
+    data = data[0]
+    ' Reset buffer bar without animation
+    m.bufferPosition.width = 0
+    clearStopConfirmation()
+    m.hasLyrics = false
+
+    exitScrubMode(m.buttons)
+    m.lastRecordedPositionTimestamp = 0
+    m.positionTimestamp.text = "0:00"
+    m.playPosition.width = 0
+
+    useMetaTask = false
+    currentItem = m.global.queueManager.callFunc("getCurrentItem")
+
+    if not isValid(currentItem.RunTimeTicks)
+        useMetaTask = true
+    end if
+
+    if not isValid(currentItem.AlbumArtist)
+        useMetaTask = true
+    end if
+
+    if not isValid(currentItem.name)
+        useMetaTask = true
+    end if
+
+    if not isValid(currentItem.Artists)
+        useMetaTask = true
+    end if
+
+    if useMetaTask
+        m.LoadMetaDataTask.itemId = currentItem.id
+        m.LoadMetaDataTask.observeField("content", "onMetaDataLoaded")
+        m.LoadMetaDataTask.control = TaskControl.RUN
+    else
+        if isValid(currentItem.ParentBackdropItemId)
+            setBackdropImage(ImageURL(currentItem.ParentBackdropItemId, ImageType.BACKDROP, { "maxHeight": "720", "maxWidth": "1280" }))
+        else
+            m.background.visible = false
+        end if
+
+        setPosterImage(ImageURL(currentItem.id, ImageType.PRIMARY, { "maxHeight": 500, "maxWidth": 500 }))
+        setOnScreenTextValues(currentItem)
+        m.songDuration = currentItem.RunTimeTicks / 10000000.0
+
+        ' Update displayed total audio length
+        m.totalLengthTimestamp.text = ticksToHuman(currentItem.RunTimeTicks)
+    end if
+
+    ' Validate lyrics data and for now only support timed lyrics
+    if data.hasLyrics
+        if not isValid(data.lyricdata) then data.hasLyrics = false
+    end if
+
+    if data.hasLyrics
+        if not isValidAndNotEmpty(data.lyricdata.Lyrics) then data.hasLyrics = false
+    end if
+
+    if data.hasLyrics
+        if not isValidAndNotEmpty(data.lyricdata.Lyrics[0]) then data.hasLyrics = false
+    end if
+
+    if data.hasLyrics
+        if not isValid(data.lyricdata.Lyrics[0].start) then data.hasLyrics = false
+    end if
+
+    moveDisplayElements(data.hasLyrics)
+
+    if data.haslyrics
+        m.hasLyrics = true
+        m.seekTimestamp.text = m.seekTimestamp.text + " • Seeking will likely cause lyrics to desync"
+        if isValid(m.lyrics)
+            m.lyrics.lyricdata = data.lyricdata
+        end if
+    end if
+
+    setSiblingData()
+end sub
+
+sub moveDisplayElements(hasLyrics as boolean)
+    if hasLyrics
+        m.seekTimestamp.width = 620
+        m.seekPosition.width = 620
+        showLyrics()
+    else
+        m.seekTimestamp.width = 110
+        m.seekPosition.width = 110
+        hideLyrics()
+    end if
+end sub
+
+sub showLyrics()
+    ' make sure if we have old lyrics up and showing that we clear those first
+    if isValid(m.lyrics)
+        hideLyrics()
+    end if
+
+    m.lyrics = CreateObject("roSGNode", "Lyrics")
+    m.lyrics.translation = "[650, 300]"
+    m.lyrics.width = 1000
+    m.top.insertChild(m.lyrics, 1)
+end sub
+
+sub hideLyrics()
+    if not isValid(m.lyrics) then return
+
+    m.top.removeChild(m.lyrics)
+    m.lyrics = invalid
+end sub
+
+sub onBackdropImageLoaded()
+    data = m.LoadBackdropImageTask.content[0]
+    m.LoadBackdropImageTask.unobserveField("content")
+    setBackdropImage(data)
+end sub
+
+sub onMetaDataLoaded()
+    data = m.LoadMetaDataTask.content[0]
+    m.LoadMetaDataTask.unobserveField("content")
+    if isValidAndNotEmpty(data) and isValid(data.json)
+        ' Use metadata to load backdrop image
+        if isValid(data.json.ArtistItems) and isValid(data.json.ArtistItems[0]) and isValid(data.json.ArtistItems[0].id)
+            m.LoadBackdropImageTask.itemId = data.json.ArtistItems[0].id
+            m.LoadBackdropImageTask.observeField("content", "onBackdropImageLoaded")
+            m.LoadBackdropImageTask.control = TaskControl.RUN
+        end if
+
+        setPosterImage(data.posterURL)
+        setOnScreenTextValues(data.json)
+
+        if isValid(data.json.RunTimeTicks)
+            m.songDuration = data.json.RunTimeTicks / 10000000.0
+
+            ' Update displayed total audio length
+            m.totalLengthTimestamp.text = ticksToHuman(data.json.RunTimeTicks)
+        end if
+    end if
+end sub
+
+' Set poster image on screen
+sub setPosterImage(posterURL)
+    if isValid(posterURL)
+        if m.albumCover.uri <> posterURL
+            m.albumCover.uri = posterURL
+            m.screenSaverAlbumCover.uri = posterURL
+        end if
+    end if
+end sub
+
+' Populate on screen text variables
+sub setOnScreenTextValues(json)
+    if isValid(json)
+        if m.playlistTypeCount = 1
+            setTrackNumberDisplay()
+        end if
+
+        if isValidAndNotEmpty(json.Artists)
+            setFieldTextValue("artist", json.Artists[0].replace(chr(8208), "-"))
+        end if
+
+        if isValidAndNotEmpty(json.name)
+            setFieldTextValue("song", json.name.trim())
+        end if
+    end if
+end sub
+
+' Add backdrop image to screen
+sub setBackdropImage(data)
+    if not isValid(data)
+        m.background.visible = false
+        return
+    end if
+
+    if isStringEqual(data, string.EMPTY)
+        m.background.visible = false
+        return
+    end if
+
+    if m.backDrop.uri <> data
+        m.backDrop.uri = data
+        m.background.visible = true
+    end if
+end sub
+
+' setSelectedButtonState: Changes the icon state url for the currently selected button
+'
+' @param {string} newState - state to replace {oldState} with in icon url
+sub setSelectedButtonState(newState as string)
+    selectedButton = m.buttons.getChild(m.top.selectedButtonIndex)
+    selectedButton.blendColor = newState = ButtonState.SELECTED ? chainLookupReturn(m.global.session, "user.settings.colorCursor", ColorPalette.HIGHLIGHT) : ColorPalette.WHITE
+end sub
+
+' processScrubAction: Handles +/- seeking for the audio trickplay bar
+'
+' @param {integer} seekStep - seconds to move the trickplay position (negative values allowed)
+sub processScrubAction(seekStep as integer)
+    ' Prepare starting playStart property value
+    if m.scrubTimestamp = -1
+        m.scrubTimestamp = m.lastRecordedPositionTimestamp
+    end if
+
+    ' Don't let seek to go past the end of the song
+    if m.scrubTimestamp + seekStep > m.songDuration - 5
+        return
+    end if
+
+    if seekStep > 0
+        ' Move seek forward
+        m.scrubTimestamp += seekStep
+    else if m.scrubTimestamp >= Abs(seekStep)
+        ' If back seek won't go below 0, move seek back
+        m.scrubTimestamp += seekStep
+    else
+        ' Back seek would go below 0, set to 0 directly
+        m.scrubTimestamp = 0
+    end if
+
+    ' Move the seedbar thumb forward
+    songPercentComplete = m.scrubTimestamp / m.songDuration
+    playPositionBarWidth = m.seekBar.width * songPercentComplete
+
+    moveSeekbarThumb(playPositionBarWidth)
+
+    ' Change the displayed position timestamp
+    seekText = secondsToHuman(m.scrubTimestamp, false)
+    if m.hasLyrics
+        seekText += " • Seeking will likely cause lyrics to desync"
+    end if
+    m.seekTimestamp.text = seekText
+end sub
+
+' resetSeekbarThumb: Resets the thumb to the playing position
+'
+sub resetSeekbarThumb()
+    m.scrubTimestamp = -1
+    moveSeekbarThumb(m.playPosition.width)
+end sub
+
+' moveSeekbarThumb: Positions the thumb on the seekbar
+'
+' @param {float} playPositionBarWidth - width of the play position bar
+sub moveSeekbarThumb(playPositionBarWidth as float)
+    ' Center the thumb on the play position bar
+    thumbPostionLeft = playPositionBarWidth - 10
+
+    ' Don't let thumb go below 0
+    if thumbPostionLeft < 0 then thumbPostionLeft = 0
+
+    ' Don't let thumb go past end of seekbar
+    if thumbPostionLeft > m.seekBar.width - 25
+        thumbPostionLeft = m.seekBar.width - 25
+    end if
+
+    ' Move the thumb
+    m.thumb.translation = [thumbPostionLeft, m.thumb.translation[1]]
+
+    ' Move the seek position element so it follows the thumb
+    m.seekPosition.translation = [100 + thumbPostionLeft - (m.seekPosition.width / 2), m.seekPosition.translation[1]]
+end sub
+
+' exitScrubMode: Moves player out of scrub mode state,  resets back to standard play mode
+'
+sub exitScrubMode(nodeReceivingFocus = m.buttons as dynamic)
+    if not isValid(nodeReceivingFocus)
+        nodeReceivingFocus = m.buttons
+    end if
+
+    nodeReceivingFocus.setFocus(true)
+    m.thumb.setFocus(false)
+
+    if m.seekPosition.visible
+        m.seekPosition.visible = false
+    end if
+
+    resetSeekbarThumb()
+
+    m.inScrubMode = false
+    m.thumb.visible = false
+
+    if isValid(nodeReceivingFocus.id)
+        if LCase(nodeReceivingFocus.id) = "buttons"
+            setSelectedButtonState(ButtonState.SELECTED)
+        end if
+    end if
+end sub
+
+' checkDisplaySiblingItem: Determine visible state for both previous and next item popups
+'
+sub checkDisplaySiblingItem()
+    if not m.buttons.hasFocus()
+        m.previousItem.visible = false
+        m.nextItem.visible = false
+        return
+    end if
+
+    selectedButtonID = LCase(m.buttons.getChild(m.top.selectedButtonIndex).id)
+
+    showNextItem = false
+
+    if selectedButtonID = "next"
+        showNextItem = true
+    end if
+
+    if m.global.queueManager.callFunc("getPosition") = m.global.queueManager.callFunc("getCount") - 1
+        showNextItem = false
+    end if
+
+    if not isValidAndNotEmpty(m.nextItem.text)
+        showNextItem = false
+    end if
+
+    m.nextItem.visible = showNextItem
+
+    showPreviousItem = false
+
+    if selectedButtonID = "previous"
+        showPreviousItem = true
+    end if
+
+    if m.global.queueManager.callFunc("getPosition") = 0
+        showPreviousItem = false
+    end if
+
+    if not isValidAndNotEmpty(m.previousItem.text)
+        showPreviousItem = false
+    end if
+
+    m.previousItem.visible = showPreviousItem
+end sub
+
+sub setFocusOnThumb()
+    if not m.thumb.visible
+        m.thumb.visible = true
+        setSelectedButtonState(ButtonState.DEFAULT)
+    end if
+
+    if not m.seekPosition.visible
+        m.seekPosition.visible = true
+    end if
+
+    m.thumb.setFocus(true)
+end sub
+
+' Process key press events
+function onKeyEvent(key as string, press as boolean) as boolean
+
+    if press
+        ' If user presses key to turn off screensaver, don't do anything else with it
+        if screenSaverActive()
+            endScreenSaver()
+            return true
+        end if
+
+        if m.stopConfirmPending and not isStopButtonAction(key)
+            clearStopConfirmation()
+        end if
+
+        ' Key Event handler when m.song is in focus
+        if m.song.hasFocus()
+            if key = KeyCode.DOWN
+                m.song.setFocus(false)
+                m.song.color = ColorPalette.WHITE
+
+                m.artist.setFocus(true)
+                m.artist.color = chainLookupReturn(m.global.session, "user.settings.colorCursor", ColorPalette.HIGHLIGHT)
+                return true
+            end if
+
+            if isStringEqual(key, KeyCode.OK)
+                currentItem = m.global.queueManager.callFunc("getCurrentItem")
+
+                if isChainValid(currentItem, "AlbumId")
+                    if isValidAndNotEmpty(currentItem.AlbumId)
+                        if m.playlistTypeCount > 1
+                            m.global.queueManager.callFunc("clear")
+                            m.global.audioPlayer.control = "stop"
+                        else
+                            displayMiniPlayer()
+                        end if
+
+                        m.global.audioPlayer.loopMode = ""
+                        data = {
+                            selectionType: "album",
+                            id: currentItem.AlbumId
+                        }
+                        m.top.getScene().jumpTo = data
+                        return true
+                    end if
+                end if
+
+                if not isValidAndNotEmpty(m.top.getScene().jumpTo)
+                    if isChainValid(currentItem, "json.AlbumId")
+                        if isValidAndNotEmpty(currentItem.json.AlbumId)
+                            if m.playlistTypeCount > 1
+                                m.global.queueManager.callFunc("clear")
+                                m.global.audioPlayer.control = "stop"
+                                m.global.audioPlayer.loopMode = ""
+                            else
+                                displayMiniPlayer()
+                            end if
+                            data = {
+                                selectionType: "album",
+                                id: currentItem.json.AlbumId
+                            }
+                            m.top.getScene().jumpTo = data
+                        end if
+                    end if
+                end if
+            end if
+        end if
+
+        ' Key Event handler when m.artist is in focus
+        if m.artist.hasFocus()
+            if key = KeyCode.DOWN
+                m.artist.setFocus(false)
+                m.artist.color = ColorPalette.WHITE
+                setFocusOnThumb()
+                return true
+            end if
+
+            if key = KeyCode.UP
+                m.artist.setFocus(false)
+                m.artist.color = ColorPalette.WHITE
+
+                m.song.setFocus(true)
+                m.song.color = chainLookupReturn(m.global.session, "user.settings.colorCursor", ColorPalette.HIGHLIGHT)
+                return true
+            end if
+
+            if isStringEqual(key, KeyCode.OK)
+                currentItem = m.global.queueManager.callFunc("getCurrentItem")
+
+                if isChainValid(currentItem, "ArtistItems")
+                    if isValidAndNotEmpty(currentItem.ArtistItems)
+                        if m.playlistTypeCount > 1
+                            m.global.queueManager.callFunc("clear")
+                            m.global.audioPlayer.control = "stop"
+                            m.global.audioPlayer.loopMode = ""
+                        else
+                            displayMiniPlayer()
+                        end if
+                        data = currentItem.ArtistItems[0]
+                        data.selectionType = "artist"
+                        m.top.getScene().jumpTo = data
+                    end if
+                end if
+
+                if not isValidAndNotEmpty(m.top.getScene().jumpTo)
+                    if isChainValid(currentItem, "json.ArtistItems")
+                        if isValidAndNotEmpty(currentItem.json.ArtistItems)
+                            if m.playlistTypeCount > 1
+                                m.global.queueManager.callFunc("clear")
+                                m.global.audioPlayer.control = "stop"
+                                m.global.audioPlayer.loopMode = ""
+                            else
+                                displayMiniPlayer()
+                            end if
+                            data = currentItem.json.ArtistItems[0]
+                            data.selectionType = "artist"
+                            m.top.getScene().jumpTo = data
+                        end if
+                    end if
+                end if
+
+                return true
+            end if
+        end if
+
+        ' Key Event handler when m.thumb is in focus
+        if m.thumb.hasFocus()
+            if key = KeyCode.RIGHT
+                m.inScrubMode = true
+                processScrubAction(10)
+                return true
+            end if
+
+            if key = KeyCode.LEFT
+                m.inScrubMode = true
+                processScrubAction(-10)
+                return true
+            end if
+
+            if key = KeyCode.UP
+                m.artist.color = chainLookupReturn(m.global.session, "user.settings.colorCursor", ColorPalette.HIGHLIGHT)
+                if m.thumb.visible
+                    exitScrubMode(m.artist)
+                end if
+                return true
+            end if
+
+            if key = KeyCode.OK or key = KeyCode.PLAY
+                if m.inScrubMode
+                    startLoadingSpinner()
+                    m.inScrubMode = false
+                    m.global.audioPlayer.seek = m.scrubTimestamp
+                    if isValid(m.lyrics)
+                        m.lyrics.callFunc("findPosition", m.scrubTimestamp)
+                    end if
+                    return true
+                end if
+
+                return playAction()
+            end if
+        end if
+
+        if key = KeyCode.PLAY
+            return playAction()
+        end if
+
+        if m.buttons.hasFocus()
+            if key = KeyCode.UP
+                setFocusOnThumb()
+                m.buttons.setFocus(false)
+                checkDisplaySiblingItem()
+                return true
+            end if
+
+            if key = KeyCode.OK
+                selectedButtonID = m.buttons.getChild(m.top.selectedButtonIndex).id
+                if selectedButtonID = "play"
+                    return playAction()
+                else if selectedButtonID = "previous"
+                    return previousClicked()
+                else if selectedButtonID = "next"
+                    return nextClicked()
+                else if selectedButtonID = "shuffle"
+                    return shuffleClicked()
+                else if selectedButtonID = "loop"
+                    return loopClicked()
+                else if selectedButtonID = "stop"
+                    return stopClicked()
+                end if
+            end if
+
+            if key = KeyCode.RIGHT
+                if m.global.queueManager.callFunc("getCount") = 1
+                    if m.top.selectedButtonIndex = 3 then return false
+                end if
+
+                m.previouslySelectedButtonIndex = m.top.selectedButtonIndex
+                if m.top.selectedButtonIndex < m.buttonCount - 1 then m.top.selectedButtonIndex = m.top.selectedButtonIndex + 1
+                checkDisplaySiblingItem()
+                return true
+            end if
+
+            if key = KeyCode.LEFT
+                if m.global.queueManager.callFunc("getCount") = 1
+                    if m.top.selectedButtonIndex = 2 then return false
+                end if
+
+                if m.top.selectedButtonIndex > 0
+                    m.previouslySelectedButtonIndex = m.top.selectedButtonIndex
+                    m.top.selectedButtonIndex = m.top.selectedButtonIndex - 1
+                    checkDisplaySiblingItem()
+                end if
+                return true
+            end if
+        end if
+
+        if key = KeyCode.DOWN
+            if m.thumb.visible
+                exitScrubMode(m.buttons)
+            end if
+            checkDisplaySiblingItem()
+            return true
+        end if
+
+        if key = KeyCode.BACK
+            if m.playlistTypeCount > 1
+                return closePlayerClicked()
+            else
+                displayMiniPlayer()
+            end if
+
+            unobserveAll()
+            ' We do not return true here so the keypress event can be passed along to the scene manager
+        else if key = KeyCode.REWIND
+            return previousClicked()
+        else if key = KeyCode.FASTFORWRD
+            return nextClicked()
+        end if
+    end if
+
+    return false
+end function
+

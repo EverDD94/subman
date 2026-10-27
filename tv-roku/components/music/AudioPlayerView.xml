@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component name="AudioPlayerView" extends="JFScreen">
+  <children>
+    <Rectangle id="background" width="1920" height="1080" color="#000000" visible="false" />
+    <Poster id="backdrop" opacity=".3" loadDisplayMode="scaleToZoom" width="1920" height="1200" />
+
+    <LayoutGroup translation="[100, 780]" layoutDirection="horiz" horizAlignment="left" itemSpacings="[10]">
+      <Poster id="shuffleIndicator" width="50" height="50" uri="pkg:/images/icons/shuffleIndicator-off.png" opacity="0" />
+      <Poster id="loopIndicator" width="50" height="50" uri="pkg:/images/icons/loopIndicator-off.png" opacity="0" />
+    </LayoutGroup>
+
+    <Text id="positionTimestamp" width="100" height="25" font="font:SmallestSystemFont" translation="[100,868]" color="#999999" text="0:00" />
+    <Text id="totalLengthTimestamp" width="100" height="25" horizAlign="right" font="font:SmallestSystemFont" translation="[1720,868]" color="#999999" />
+
+    <Rectangle id="seekBar" translation="[100,845]" width="1720" height="10">
+      <Rectangle id="bufferPosition" height="10" />
+      <Rectangle id="playPosition" height="10" />
+      <Poster id="thumb" width="25" height="25" uri="pkg:/images/icons/circle.png" visible="false" translation="[0, -10]" />
+    </Rectangle>
+
+    <LayoutGroup translation="[0, 900]" layoutDirection="horiz" horizAlignment="center" itemSpacings="[0]">
+      <Rectangle height="1" width="1920" color="0x00000000" />
+      <LayoutGroup id="buttons" layoutDirection="horiz" horizAlignment="center" itemSpacings="[45]">
+        <Poster id="loop" width="64" height="64" uri="pkg:/images/icons/loop.png" opacity="0" />
+        <Poster id="previous" width="64" height="64" uri="pkg:/images/icons/previous.png" opacity="0" />
+        <Poster id="play" width="64" height="64" uri="pkg:/images/icons/playCircle.png" />
+        <Poster id="stop" width="64" height="64" uri="pkg:/images/icons/stop.png" />
+        <Poster id="next" width="64" height="64" uri="pkg:/images/icons/next.png" opacity="0" />
+        <Poster id="shuffle" width="64" height="64" uri="pkg:/images/icons/shuffle.png" opacity="0" />
+      </LayoutGroup>
+    </LayoutGroup>
+    <Text id="stopConfirmMessage" visible="false" width="1720" height="30" horizAlign="center" font="font:SmallestSystemFont" translation="[100,985]" color="#ffffff" />
+
+    <LayoutGroup translation="[100,100]" layoutDirection="vert" horizAlignment="left" itemSpacings="[15]">
+      <ScrollingText id="song" font="font:MediumBoldSystemFont" maxWidth="1800" height="50" />
+      <ScrollingText id="artist" maxWidth="1800" height="25" />
+      <Text id="numberofsongs" width="500" height="25" font="font:SmallestSystemFont" color="#999999" />
+    </LayoutGroup>
+
+    <Poster id="albumCover" width="500" height="500" translation="[100,275]" />
+
+    <Rectangle id="seekPosition" visible="false" color="0x00000090" height="40" width="110" translation="[100, 790]">
+      <Text text="0:00" id="seekTimestamp" width="110" height="40" horizAlign="center" vertAlign="center" font="font:SmallestSystemFont" />
+    </Rectangle>
+
+    <ExpandingLabel
+      translation="[820, 825]"
+      id="previousItem"
+      visible="false"
+      icon=""
+      iconHeight="32"
+      iconWidth="32"
+      iconAlign="left"
+      text=""
+      backgroundColor="0x00000095"
+      maxWidth="500"
+      horizAlign="left"
+      horizOffset="64"
+      alignmentSide="right"
+      fontSize="27"
+      padding="[20, 10]"
+    />
+
+    <ExpandingLabel
+      translation="[1035, 825]"
+      id="nextItem"
+      visible="false"
+      icon=""
+      iconHeight="32"
+      iconWidth="32"
+      iconAlign="left"
+      text=""
+      backgroundColor="0x00000095"
+      maxWidth="500"
+      horizAlign="left"
+      fontSize="27"
+      padding="[20, 10]"
+    />
+
+    <Rectangle id="screenSaverBackground" width="1920" height="1080" color="#000018" visible="false" />
+    <Poster id="screenSaverAlbumCover" width="500" height="500" translation="[960,575]" opacity="0" />
+    <Poster id="PosterOne" width="290" height="218" translation="[960,540]" opacity="0" />
+
+    <Animation id="bufferPositionAnimation" duration="1" repeat="false" easeFunction="linear">
+      <FloatFieldInterpolator id="bufferPositionAnimationWidth" key="[0.0, 1.0]" fieldToInterp="bufferPosition.width" />
+    </Animation>
+    <Animation id="playPositionAnimation" duration="1" repeat="false" easeFunction="linear">
+      <FloatFieldInterpolator id="playPositionAnimationWidth" key="[0.0, 1.0]" fieldToInterp="playPosition.width" />
+    </Animation>
+    <Animation id="displayButtonsAnimation" duration="1" repeat="false" easeFunction="linear">
+      <FloatFieldInterpolator key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="previous.opacity" />
+      <FloatFieldInterpolator key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="next.opacity" />
+      <FloatFieldInterpolator key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="shuffle.opacity" />
+      <FloatFieldInterpolator key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="loop.opacity" />
+    </Animation>
+
+    <Animation id="screenSaverAlbumCoverFadeIn" duration="4" repeat="false" easeFunction="linear">
+      <FloatFieldInterpolator key="[0.0, 0.75, 1.0]" keyValue="[0.0, 0.0, 1.0]" fieldToInterp="screenSaverAlbumCover.opacity" />
+    </Animation>
+
+    <Animation id="PosterOneFadeIn" duration="4" repeat="false" easeFunction="linear">
+      <FloatFieldInterpolator key="[0.0, 0.75, 1.0]" keyValue="[0.0, 0.0, 1.0]" fieldToInterp="PosterOne.opacity" />
+    </Animation>
+
+    <!-- AlbumArt ScreenSaver -->
+    <SequentialAnimation id="screenSaverAlbumAnimation" repeat="true">
+      <Animation id="AnimOne" repeat="false" easeFunction="linear" duration="7.2">
+        <Vector2DFieldInterpolator id="OneInterp" key="[0.0,1.0]" keyValue="[[960,575],[1400,250]]" fieldToInterp="screenSaverAlbumCover.translation" />
+      </Animation>
+      <Animation id="AnimTwo" repeat="false" easeFunction="linear" duration="4.5">
+        <Vector2DFieldInterpolator id="OneInterp" key="[0.0,1.0]" keyValue="[[1400,250],[1250,30]]" fieldToInterp="screenSaverAlbumCover.translation" />
+      </Animation>
+      <Animation id="AnimThree" repeat="false" easeFunction="linear" duration="16">
+        <Vector2DFieldInterpolator id="OneInterp" key="[0.0,1.0]" keyValue="[[1250,30],[300,575]]" fieldToInterp="screenSaverAlbumCover.translation" />
+      </Animation>
+      <Animation id="AnimFour" repeat="false" easeFunction="linear" duration="4">
+        <Vector2DFieldInterpolator id="OneInterp" key="[0.0,1.0]" keyValue="[[300,575],[30,400]]" fieldToInterp="screenSaverAlbumCover.translation" />
+      </Animation>
+      <Animation id="AnimFive" repeat="false" easeFunction="linear" duration="13.3">
+        <Vector2DFieldInterpolator id="OneInterp" key="[0.0,1.0]" keyValue="[[30,400],[1100,30]]" fieldToInterp="screenSaverAlbumCover.translation" />
+      </Animation>
+      <Animation id="AnimSix" repeat="false" easeFunction="linear" duration="4">
+        <Vector2DFieldInterpolator id="OneInterp" key="[0.0,1.0]" keyValue="[[1100,30],[1400,100]]" fieldToInterp="screenSaverAlbumCover.translation" />
+      </Animation>
+      <Animation id="AnimSeven" repeat="false" easeFunction="linear" duration="15">
+        <Vector2DFieldInterpolator id="OneInterp" key="[0.0,1.0]" keyValue="[[1400,100],[30,575]]" fieldToInterp="screenSaverAlbumCover.translation" />
+      </Animation>
+      <Animation id="AnimEight" repeat="false" easeFunction="linear" duration="7">
+        <Vector2DFieldInterpolator id="OneInterp" key="[0.0,1.0]" keyValue="[[30,575],[450,30]]" fieldToInterp="screenSaverAlbumCover.translation" />
+      </Animation>
+      <Animation id="AnimNine" repeat="false" easeFunction="linear" duration="7">
+        <Vector2DFieldInterpolator id="OneInterp" key="[0.0,1.0]" keyValue="[[450,30],[960,575]]" fieldToInterp="screenSaverAlbumCover.translation" />
+      </Animation>
+    </SequentialAnimation>
+
+    <!-- Logo ScreenSaver -->
+    <SequentialAnimation id="BounceAnimation" repeat="true">
+      <Animation id="AnimOne" repeat="false" easeFunction="linear" duration="7.2">
+        <Vector2DFieldInterpolator id="OneInterp" key="[0.0,1.0]" keyValue="[[960,540],[1600,250]]" fieldToInterp="PosterOne.translation" />
+      </Animation>
+      <Animation id="AnimTwo" repeat="false" easeFunction="linear" duration="4.5">
+        <Vector2DFieldInterpolator id="OneInterp" key="[0.0,1.0]" keyValue="[[1600,250],[1350,30]]" fieldToInterp="PosterOne.translation" />
+      </Animation>
+      <Animation id="AnimThree" repeat="false" easeFunction="linear" duration="16">
+        <Vector2DFieldInterpolator id="OneInterp" key="[0.0,1.0]" keyValue="[[1350,30],[200,830]]" fieldToInterp="PosterOne.translation" />
+      </Animation>
+      <Animation id="AnimFour" repeat="false" easeFunction="linear" duration="3.2">
+        <Vector2DFieldInterpolator id="OneInterp" key="[0.0,1.0]" keyValue="[[200,830],[30,750]]" fieldToInterp="PosterOne.translation" />
+      </Animation>
+      <Animation id="AnimFive" repeat="false" easeFunction="linear" duration="13.3">
+        <Vector2DFieldInterpolator id="OneInterp" key="[0.0,1.0]" keyValue="[[30,750],[1200,30]]" fieldToInterp="PosterOne.translation" />
+      </Animation>
+      <Animation id="AnimSix" repeat="false" easeFunction="linear" duration="6.7">
+        <Vector2DFieldInterpolator id="OneInterp" key="[0.0,1.0]" keyValue="[[1200,30],[1600,300]]" fieldToInterp="PosterOne.translation" />
+      </Animation>
+      <Animation id="AnimSeven" repeat="false" easeFunction="linear" duration="15">
+        <Vector2DFieldInterpolator id="OneInterp" key="[0.0,1.0]" keyValue="[[1600,300],[150,830]]" fieldToInterp="PosterOne.translation" />
+      </Animation>
+      <Animation id="AnimEight" repeat="false" easeFunction="linear" duration="2">
+        <Vector2DFieldInterpolator id="OneInterp" key="[0.0,1.0]" keyValue="[[150,830],[10,750]]" fieldToInterp="PosterOne.translation" />
+      </Animation>
+      <Animation id="AnimNine" repeat="false" easeFunction="linear" duration="11">
+        <Vector2DFieldInterpolator id="OneInterp" key="[0.0,1.0]" keyValue="[[10,750],[960,540]]" fieldToInterp="PosterOne.translation" />
+      </Animation>
+    </SequentialAnimation>
+
+    <!-- Preload selected icons to prevent flicker -->
+    <Poster width="0" height="0" uri="pkg:/images/icons/shuffleIndicator-on.png" visible="false" />
+    <Poster width="0" height="0" uri="pkg:/images/icons/loopIndicator-on.png" visible="false" />
+    <Poster width="0" height="0" uri="pkg:/images/icons/loopIndicator1-on.png" visible="false" />
+  </children>
+  <interface>
+    <field id="state" type="string" />
+    <field id="returnOnStop" type="boolean" />
+    <field id="selectedButtonIndex" type="integer" />
+  </interface>
+</component>

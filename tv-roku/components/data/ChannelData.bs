@@ -1,0 +1,53 @@
+import "pkg:/source/api/baserequest.bs"
+import "pkg:/source/api/Image.bs"
+import "pkg:/source/enums/LiveTVChannelTitle.bs"
+import "pkg:/source/utils/config.bs"
+
+sub setFields()
+    ' Callers building many rows at once can pass the title setting in to avoid each
+    ' row re-reading it from m.global (which allocates a regex per call).
+    if not isStringEqual(m.top.titleFormat, string.EMPTY)
+        channelTitleContent = m.top.titleFormat
+    else
+        channelTitleContent = chainLookupReturn(m.global.session, "user.settings.tvChannelTitleInfo", LiveTVChannelTitle.NUMBERANDNAME)
+    end if
+
+    json = m.top.json
+    m.top.id = json.id
+    m.top.favoriteChannelId = json.ChannelId ?? json.id
+    if not isStringEqual(channelTitleContent, LiveTVChannelTitle.NAME) and isValid(json.number)
+        if isStringEqual(channelTitleContent, LiveTVChannelTitle.NUMBERANDNAME)
+            m.top.title = `${tr("CH")} ${json.number} ${json.name}`
+        else if isStringEqual(channelTitleContent, LiveTVChannelTitle.NUMBER)
+            m.top.title = `${tr("CH")} ${json.number}`
+        end if
+    else
+        m.top.title = json.name
+    end if
+    m.top.live = true
+    m.top.Type = "TvChannel"
+
+    ' Logo URLs each build a regex; skip them here when the caller will populate
+    ' them later off the critical path via populatePoster().
+    if not m.top.deferPoster
+        setPoster()
+    end if
+end sub
+
+' Build the channel logo URLs on demand. Used by the TV guide to defer logo work
+' until after first paint (see deferPoster).
+sub populatePoster()
+    setPoster()
+end sub
+
+sub setPoster()
+    if m.top.image <> invalid
+        m.top.posterURL = m.top.image.url
+    else if m.top.json.ImageTags <> invalid and m.top.json.ImageTags.Primary <> invalid
+        imgParams = { "maxHeight": 60, "Tag": m.top.json.ImageTags.Primary }
+        m.top.hdsmalliconurl = ImageURL(m.top.json.id, "Primary", imgParams)
+
+        imgParams = { "maxHeight": 440, "maxWidth": 295, "Tag": m.top.json.ImageTags.Primary }
+        m.top.posterURL = ImageURL(m.top.json.id, "Primary", imgParams)
+    end if
+end sub

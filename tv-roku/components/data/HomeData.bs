@@ -1,0 +1,96 @@
+import "pkg:/source/api/baserequest.bs"
+import "pkg:/source/api/Image.bs"
+import "pkg:/source/api/sdk.bs"
+import "pkg:/source/enums/ImageType.bs"
+import "pkg:/source/enums/ItemType.bs"
+import "pkg:/source/utils/config.bs"
+
+sub setData()
+    ' We keep json around just as a reference,
+    ' but ideally everything should be going through one of the interfaces
+    datum = m.top.json
+
+    m.top.id = datum.LookupCI("Id")
+    m.top.name = datum.LookupCI("name")
+    m.top.type = datum.LookupCI("type")
+
+    if datum.CollectionType = invalid
+        m.top.CollectionType = datum.type
+    else
+        m.top.CollectionType = datum.CollectionType
+    end if
+
+    ' Set appropriate Images for Wide and Tall based on type
+
+    if LCase(datum.type) = "collectionfolder" or LCase(datum.type) = "userview"
+        m.top.thumbnailURL = ItemImageURL(datum, ImageType.PRIMARY, imageSizes.HOME_TILE, false)
+        m.top.widePosterUrl = m.top.thumbnailURL
+
+        ' Add Icon URLs for display if there is no Poster
+        if LCase(m.top.CollectionType) = "livetv"
+            m.top.iconUrl = "pkg:/images/media_type_icons/live_tv_white.png"
+        else if LCase(m.top.CollectionType) = "folders" or LCase(m.top.CollectionType) = "nextup"
+            m.top.iconUrl = "pkg:/images/media_type_icons/folder_white.png"
+        else if isStringEqual(m.top.CollectionType, ItemType.MYLIST)
+            m.top.iconUrl = "pkg:/images/icons/star.png"
+        end if
+
+    else if datum.type = "Episode" or LCase(datum.type) = "recording" or datum.type = "MusicVideo"
+        m.top.isWatched = datum.UserData.Played
+
+        ' Episodes without their own image use the series image
+        m.top.thumbnailURL = ItemImageURL(datum, ImageType.PRIMARY, imageSizes.HOME_TILE)
+
+        ' Add Wide Poster (Series Thumb or Backdrop), falling back to the thumbnail
+        m.top.widePosterUrl = InheritedItemImageURL(datum, ImageType.THUMB, imageSizes.HOME_TILE)
+        if not isValidAndNotEmpty(m.top.widePosterUrl) then m.top.widePosterUrl = InheritedItemImageURL(datum, ImageType.BACKDROP, imageSizes.HOME_TILE)
+        if not isValidAndNotEmpty(m.top.widePosterUrl) then m.top.widePosterUrl = m.top.thumbnailURL
+
+    else if datum.type = "Series"
+        m.top.isWatched = datum.UserData.Played
+
+        m.top.posterURL = ItemImageURL(datum, ImageType.PRIMARY, imageSizes.HOME_TILE)
+
+        ' Add Wide Poster (Series Thumb or Backdrop), falling back to the poster
+        m.top.widePosterUrl = FirstItemImageURL(datum, [ImageType.THUMB, ImageType.BACKDROP], imageSizes.HOME_TILE, false)
+        if not isValidAndNotEmpty(m.top.widePosterUrl) then m.top.widePosterUrl = m.top.posterURL
+
+    else if datum.type = "Movie"
+        m.top.isWatched = datum.UserData.Played
+
+        m.top.posterURL = ItemImageURL(datum, ImageType.PRIMARY, imageSizes.HOME_TILE)
+
+        ' For wide image, use thumb or backdrop
+        m.top.thumbnailUrl = FirstItemImageURL(datum, [ImageType.THUMB, ImageType.BACKDROP], imageSizes.HOME_TILE, false)
+    else if datum.type = "Video"
+        m.top.isWatched = datum.UserData.Played
+
+        m.top.posterURL = ItemImageURL(datum, ImageType.PRIMARY, imageSizes.HOME_TILE)
+        m.top.thumbnailUrl = m.top.posterURL
+    else if datum.type = "MusicAlbum"
+        ' Albums without a cover use the artist's backdrop
+        m.top.thumbnailURL = FirstItemImageURL(datum, [ImageType.PRIMARY, ImageType.BACKDROP], imageSizes.HOME_TILE)
+        m.top.widePosterUrl = m.top.thumbnailURL
+        m.top.posterUrl = m.top.thumbnailURL
+    else if isStringEqual(datum.type, ItemType.AUDIO)
+        params = { "height": 261, "width": 261, "maxHeight": 261, "maxWidth": 261 }
+
+        m.top.posterURL = ItemImageURL(datum, ImageType.PRIMARY, params, false)
+        m.top.thumbnailURL = InheritedItemImageURL(datum, ImageType.PRIMARY, params)
+
+        if not isValidAndNotEmpty(m.top.posterURL) then m.top.posterURL = m.top.thumbnailURL
+        if not isValidAndNotEmpty(m.top.posterURL) then m.top.posterURL = "pkg:/images/icons/album.png"
+    else if isStringEqual(datum.type, ItemType.PERSON)
+        m.top.posterURL = ItemImageURL(datum, ImageType.PRIMARY, imageSizes.HOME_TILE)
+        m.top.thumbnailURL = m.top.posterURL
+        m.top.widePosterUrl = m.top.posterURL
+    else if datum.type = "TvChannel" or datum.type = "Channel"
+        m.top.thumbnailURL = ItemImageURL(datum, ImageType.PRIMARY, imageSizes.HOME_TILE, false)
+        m.top.widePosterUrl = m.top.thumbnailURL
+        m.top.iconUrl = "pkg:/images/media_type_icons/live_tv_white.png"
+    else if datum.type = "Photo" or datum.type = "PhotoAlbum"
+        m.top.thumbnailURL = ItemImageURL(datum, ImageType.PRIMARY, imageSizes.HOME_TILE)
+        m.top.widePosterUrl = m.top.thumbnailURL
+        m.top.posterUrl = m.top.thumbnailURL
+    end if
+end sub

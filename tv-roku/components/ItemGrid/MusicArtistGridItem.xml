@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component name="MusicArtistGridItem" extends="Group">
+  <children>
+    <Rectangle id="placeholderBackground" opacity=".85" translation="[0,15]" width="270" height="270" visible="false" />
+    <Poster id="backdrop" blendColor="#FFFFFF" opacity=".85" translation="[0,15]" width="270" height="270" loadDisplayMode="scaleToZoom" uri="pkg:/images/white.9.png" />
+    <Poster id="itemPoster" translation="[0,15]" width="270" height="270" loadDisplayMode="scaleToZoom" />
+    <Rectangle id="postTextBackground" height="50" width="260" color="0x000000DD" translation="[5, 230]">
+      <ScrollingText id="posterText" color="#FFFFFF" maxWidth="260" height="50" horizAlign="center" vertAlign="center" />
+    </Rectangle>
+  </children>
+  <interface>
+    <field id="height" type="float" onChange="onHeightChanged" />
+    <field id="width" type="float" onChange="onWidthChanged" />
+    <field id="itemContent" type="node" onChange="itemContentChanged" />
+    <field id="itemHasFocus" type="boolean" onChange="focusChanged" />
+  </interface>
+</component>

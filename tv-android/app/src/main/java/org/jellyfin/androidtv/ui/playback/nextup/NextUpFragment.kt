@@ -8,7 +8,9 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -96,8 +98,24 @@ fun NextUpScreen(
 
 	val focusRequester = remember { FocusRequester() }
 
-	Box {
-		AppBackground()
+	Box(androidx.compose.ui.Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color(0xFF0B0D12))) {
+		// Everflix: the coming episode fills the screen behind the countdown
+		item?.thumbnail?.let { thumb ->
+			AsyncImage(
+				modifier = androidx.compose.ui.Modifier.fillMaxSize(),
+				url = thumb.getUrl(api),
+				blurHash = thumb.blurHash,
+				scaleType = android.widget.ImageView.ScaleType.CENTER_CROP,
+			)
+		}
+		Box(
+			androidx.compose.ui.Modifier.fillMaxSize().background(
+				androidx.compose.ui.graphics.Brush.verticalGradient(
+					0.3f to androidx.compose.ui.graphics.Color.Transparent,
+					1f to androidx.compose.ui.graphics.Color(0xEE0B0D12),
+				)
+			)
+		)
 
 		// Logo
 		item?.logo?.let { logo ->

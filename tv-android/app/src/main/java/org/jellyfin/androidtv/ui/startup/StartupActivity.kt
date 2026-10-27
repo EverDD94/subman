@@ -92,7 +92,7 @@ class StartupActivity : FragmentActivity() {
 		super.onCreate(savedInstanceState)
 
 		binding = ActivityStartupBinding.inflate(layoutInflater)
-		binding.background.setContent { AppBackground() }
+		binding.background.setContent { org.jellyfin.androidtv.ui.everflix.StartupBackground() }
 		binding.screensaver.isVisible = false
 		setContentView(binding.root)
 

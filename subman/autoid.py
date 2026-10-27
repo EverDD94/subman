@@ -587,10 +587,37 @@ def enrich(lib: Library, cfg: dict, review: dict, progress=lambda msg: None) -> 
 _TMDB_DIR = re.compile(r"\[tmdbid-(\d+)\]", re.I)
 
 
-def verify(lib: Library, cfg: dict, progress=lambda msg: None, skip: set = frozenset(), stop=lambda: False) -> list[dict]:
+def doubt(before: str, minutes: float | None, c: dict, strict: bool = False) -> str:
+    """Por qué una película ya ordenada como «c» no cuadra con su archivo («before»: nombre original), o "".
+    strict («Rechequear»): duración más ajustada y además el nombre original y el año."""
+    rt = c.get("runtime")
+    lo, hi = (0.8, 10) if strict else (0.7, 12)
+    if rt and minutes and not lo * rt <= minutes <= rt + hi:
+        return f"ya estaba como «{c['name']}» pero el archivo dura {round(minutes)} min y esa película {rt}"
+    if not strict:
+        return ""
+    names = [c.get("name") or "", c.get("original") or "", *(c.get("alt") or [])]
+    if re.fullmatch(r"(19|20)\d{2}", normalize(c.get("name") or "")) and c["name"].strip() not in before:
+        return f"ya estaba como «{c['name']}» (un año como título) y el archivo se llamaba «{before}»"
+    p = parse_path(Path(before))
+    words = normalize(p["title"] or "")
+    if not words or words.replace(" ", "").isdigit() or len(words) < 3:
+        return ""  # el nombre original no dice nada (números de Telegram...): manda la duración
+    sim = max((similarity(p["title"], n) for n in names if n), default=0)
+    year_off = p["year"] and c.get("year") and abs(p["year"] - c["year"]) > 1
+    if sim < 0.5 and (year_off or not p["year"] or not rt or not minutes):
+        return f"ya estaba como «{c['name']}» ({c.get('year') or '?'}) pero el archivo se llamaba «{before}»"
+    if year_off and sim < 0.8:
+        return f"ya estaba como «{c['name']}» ({c['year']}) pero el archivo decía {p['year']}"
+    return ""
+
+
+def verify(lib: Library, cfg: dict, progress=lambda msg: None, skip: set = frozenset(), stop=lambda: False,
+           fresh: bool = False) -> list[dict]:
     """Vuelve a comprobar las películas ya ordenadas (carpeta con [tmdbid-N]) que no ordenaste tú a mano:
     si el archivo dura claramente otra cosa que esa película, vuelve a «Por identificar» para que se
-    identifique de nuevo con todo lo que hay ahora. Cada archivo se comprueba una vez (o si cambia)."""
+    identifique de nuevo con todo lo que hay ahora. Cada archivo se comprueba una vez (o si cambia).
+    fresh («Rechequear»): todas otra vez, sin fiarse de lo ya comprobado y mirando también nombre y año."""
     key = cfg.get("tmdb", {}).get("api_key")
     if not key:
         return []
@@ -610,7 +637,7 @@ def verify(lib: Library, cfg: dict, progress=lambda msg: None, skip: set = froze
             mtime = os.path.getmtime(m.path)
         except OSError:
             continue
-        if m.path in done and done[m.path][0] == mtime and done[m.path][1]:
+        if not fresh and m.path in done and done[m.path][0] == mtime and done[m.path][1]:
             continue
         progress(f"comprobando lo ya ordenado: {n + 1} de {len(movies)}")
         minutes = _info(m.path)["minutes"]
@@ -619,15 +646,16 @@ def verify(lib: Library, cfg: dict, progress=lambda msg: None, skip: set = froze
         except Exception as e:
             log.warning("TheMovieDB: no se pudo comprobar %s: %s", m.path, e)
             continue
-        rt = c.get("runtime")
-        ok = not rt or not minutes or 0.7 * rt <= minutes <= rt + 12
-        lib.db.execute("INSERT OR REPLACE INTO verified (path, mtime, ok) VALUES (?,?,?)", (m.path, mtime, int(ok)))
-        if ok:
-            continue
         before = Path(origin.get(m.path) or m.path).name
+        why = doubt(before, minutes, c, strict=fresh)
+        lib.db.execute("INSERT OR REPLACE INTO verified (path, mtime, ok) VALUES (?,?,?)", (m.path, mtime, int(not why)))
+        if not why:
+            continue
+        # sin prejuicios: se identifica por el nombre original, no por el que le pusimos
+        p = parse_path(Path(before))
         out.append({"id": m.id, "path": m.path, "name": before, "folder": Path(m.path).parent.name, "alone": True,
-                    "title": m.title, "year": m.year, "jellyfin": None, "recheck": True,
-                    "why": f"ya estaba como «{c['name']}» pero el archivo dura {round(minutes)} min y esa película {rt}"})
+                    "title": p["title"] if fresh and p["title"] else m.title, "year": p["year"] if fresh else m.year,
+                    "jellyfin": None, "recheck": True, "why": why})
     lib.db.commit()
     return out
 

@@ -976,17 +976,18 @@ class App:
         threading.Thread(target=work, name="nombres", daemon=True).start()
         return {"ok": True}
 
-    def names_auto(self) -> dict:
+    def names_auto(self, fresh: bool = False) -> dict:
+        """fresh («Rechequear»): también vuelve a comprobar todo lo ya ordenado, desde cero."""
         if self.names["running"]:
             return {"ok": True}
         cfg = self.cfg()
         if not cfg.get("tmdb", {}).get("api_key"):
             return {"ok": False, "error": "pon la clave de TheMovieDB en Ajustes"}
         self.names.update(running=True, message="empezando", error=None, stop=False, counts=None)
-        threading.Thread(target=self._identify_all, name="identificar", daemon=True).start()
+        threading.Thread(target=self._identify_all, kwargs={"fresh": fresh}, name="identificar", daemon=True).start()
         return {"ok": True}
 
-    def _identify_all(self, only: set | None = None, skip: set = frozenset()) -> dict | None:
+    def _identify_all(self, only: set | None = None, skip: set = frozenset(), fresh: bool = False) -> dict | None:
         """«Identificar todo» (con self.names["running"] ya puesto). only: sólo esos videos (los recién llegados);
         skip: rutas que no se tocan solas (las deshiciste a mano)."""
         try:
@@ -998,7 +999,7 @@ class App:
             rev = identify.review(lib, cfg, lambda msg: self.names.update(message=msg), search=False)
             if only is None:  # lo ya ordenado que no cuadra vuelve a identificarse
                 rev["todo"] += autoid.verify(lib, cfg, lambda msg: self.names.update(message=msg), skip,
-                                             stop=lambda: self.names["stop"])
+                                             stop=lambda: self.names["stop"], fresh=fresh)
             held = []
             if only is not None or skip:
                 held = [e for k in ("todo", "loose") for e in rev.get(k, []) if e["path"] in skip
@@ -1256,6 +1257,32 @@ class App:
             self.series["result"]["series"] = [x for x in self.series["result"]["series"] if x is not g]
         self._jellyfin_refresh(cfg)
         return {"ok": True, **r}
+
+    def dupes_recheck(self) -> dict:
+        """Mira lo apartado como duplicado y devuelve a la biblioteca lo que no lo era."""
+        if self.dupes["running"]:
+            return {"ok": True}
+        self.dupes.update(running=True, message="rechequeando las apartadas", error=None)
+
+        def work():
+            try:
+                cfg = self.cfg()
+                lib = self.library(cfg)
+                back = duplicates.recheck(lib, cfg, lambda msg: self.dupes.update(message=msg))
+                for b in back:
+                    self._auto_keep("dupes_keep", b["src"])
+                self.dupes.update(recheck={"back": back, "at": time.time()}, message="")
+                if back:
+                    self.wake.set()
+                    self._jellyfin_refresh(cfg)
+            except Exception as e:
+                log.exception("rechequear duplicados")
+                self.dupes.update(message="", error=str(e))
+            finally:
+                self.dupes.update(running=False)
+
+        threading.Thread(target=work, name="rechequear-duplicados", daemon=True).start()
+        return {"ok": True}
 
     def dupes_restore(self, row_id: int) -> dict:
         cfg = self.cfg()
@@ -1998,7 +2025,8 @@ def make_handler(app: App):
         "/api/names/organize": lambda b: app.names_organize([int(x) for x in b["ids"]]),
         "/api/names/search": lambda b: app.names_search(int(b["id"]), b["query"]),
         "/api/names/undo": lambda b: app.names_undo(int(b["id"])),
-        "/api/names/auto": lambda b: app.names_auto(),
+        "/api/names/auto": lambda b: app.names_auto(bool(b.get("fresh"))),
+        "/api/dupes/recheck": lambda b: app.dupes_recheck(),
         "/api/series/scan": lambda b: app.series_scan(),
         "/api/series/search": lambda b: app.series_search(b["key"], b["query"]),
         "/api/series/pick": lambda b: app.series_pick(b["key"], str(b["tmdb"])),

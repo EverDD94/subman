@@ -25,7 +25,7 @@ import unicodedata
 from pathlib import Path
 
 from . import audio, jellyfin
-from .library import VIDEO_EXT, Library, Media, sidecars
+from .library import VIDEO_EXT, Library, Media, parse_path, sidecars
 
 log = logging.getLogger(__name__)
 
@@ -319,3 +319,60 @@ def restore(lib: Library, row_id: int, table: str = "moved") -> str:
     lib.db.commit()
     log.info("%s: %s -> %s", "duplicado devuelto" if table == "moved" else "devuelto de la papelera de videos", dest, src)
     return str(src)
+
+
+_TAG = re.compile(r"\[tmdbid-(\d+)\]", re.I)
+
+
+def _video_in(dest: Path) -> Path | None:
+    if dest.is_file():
+        return dest if dest.suffix.lower() in VIDEO_EXT else None
+    vids = [p for p in dest.rglob("*") if p.is_file() and p.suffix.lower() in VIDEO_EXT] if dest.is_dir() else []
+    return max(vids, key=lambda p: p.stat().st_size, default=None)
+
+
+def recheck(lib: Library, cfg: dict, progress=lambda msg: None) -> list[dict]:
+    """Vuelve a mirar lo apartado como duplicado, sin fiarse de lo que se decidió entonces: sólo es
+    duplicado si en la biblioteca sigue habiendo otra copia de la misma película (misma etiqueta
+    [tmdbid], o mismo título y año) que dura lo mismo. Lo que no, vuelve a su sitio (con sus subtítulos)."""
+    from .identify import similarity  # (identify usa este módulo)
+    rows = [r for r in moved_list(lib) if r["exists"]]
+    heads = [r for r in rows if _video_in(Path(r["dest"]))]
+    groups: dict[int, list[dict]] = {r["id"]: [r] for r in heads}
+    for r in rows:  # los subtítulos y demás que se apartaron con un video van con él
+        src = Path(r["src"])
+        owner = next((h for h in heads if r["id"] not in groups and Path(h["src"]).parent == src.parent
+                      and (src.name.startswith(Path(h["src"]).stem + ".") or src.name.startswith(Path(h["src"]).stem + "-"))),
+                     None)
+        if owner:
+            groups[owner["id"]].append(r)
+    movies = [m for m in lib.media("kind='movie'") if os.path.exists(m.path)]
+    back = []
+    for n, rs in enumerate(groups.values()):
+        progress(f"rechequeando las apartadas: {n + 1} de {len(groups)}")
+        main = rs[0]
+        video = _video_in(Path(main["dest"]))
+        src_video = Path(main["src"]) / video.relative_to(main["dest"]) if Path(main["dest"]).is_dir() else Path(main["src"])
+        p = parse_path(src_video)
+        tag = _TAG.search(src_video.parent.name)
+        norm = normalize(p["title"] or "")
+        twins = [m for m in movies if (tag and (t := _TAG.search(Path(m.path).parent.name)) and t.group(1) == tag.group(1))
+                 or (norm and m.year == p["year"] and (normalize(m.title) == norm or similarity(m.title, p["title"]) >= 0.75))]
+        dur = _probe(str(video)).get("duration") or 0
+        why = ""
+        if not twins:
+            why = "no queda otra copia de esa película en la biblioteca"
+        elif dur and not any((d := _probe(m.path).get("duration") or 0) and _same(d, dur) for m in twins):
+            why = "la otra copia no dura lo mismo: es otra película u otro montaje"
+        if not why:
+            continue
+        done = []
+        for r in rs:
+            try:
+                done.append(restore(lib, r["id"]))
+            except (ValueError, OSError) as e:
+                log.warning("rechequear duplicados: %s: %s", r["dest"], e)
+        if done:
+            log.info("rechequear duplicados: %s vuelve a la biblioteca (%s)", src_video, why)
+            back.append({"src": str(src_video), "title": main["title"], "why": why})
+    return back

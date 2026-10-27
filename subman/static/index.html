@@ -1588,6 +1588,12 @@ $("#testOS").onclick = async () => {
     : `<span class="pill falla">no conecta</span> ${esc(r.error)}`;
 };
 
+$("#testSDX").onclick = async () => {
+  $("#sdxResult").textContent = "Probando...";
+  const r = await api("/api/test-subdivx", formValues().providers.subdivx);
+  $("#sdxResult").innerHTML = r.ok ? `<span class="pill ok">conectado</span>` : `<span class="pill falla">no conecta</span> ${esc(r.error)}`;
+};
+
 $("#testJF").onclick = async () => {
   $("#jfResult").textContent = "Probando...";
   const r = await api("/api/test-jellyfin", formValues().jellyfin);

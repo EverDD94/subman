@@ -1977,6 +1977,7 @@ def make_handler(app: App):
     routes_post = {
         "/api/config": lambda b: app.save_config(b),
         "/api/test-opensubtitles": lambda b: app.test_opensubtitles(b),
+        "/api/test-subdivx": lambda b: app.test_subdivx(b),
         "/api/test-jellyfin": lambda b: app.test_jellyfin(b),
         "/api/run": lambda b: (app.wake.set(), {"ok": True})[1],
         "/api/retry": lambda b: app.retry(int(b["id"])),

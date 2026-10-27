@@ -44,8 +44,8 @@
 
         <!-- Rounding Values -->
         <item name="cardRounding">4dp</item>
-        <item name="buttonRounding">3dp</item>
-        <item name="inputRounding">3dp</item>
+        <item name="buttonRounding">22dp</item>
+        <item name="inputRounding">12dp</item>
         <item name="popupMenuRounding">3dp</item>
 
         <!-- Dim level of non-focus grid items -->

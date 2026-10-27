@@ -40,6 +40,9 @@ _JUNK = re.compile(r"\b(1080p|720p|480p|2160p|4k|x264|x265|h\.?264|h\.?265|hevc|
                    r"dual|latino|castellano|spanish|english|sub(?:s|titulado)?|mkv|mp4|aac|ddp?5\.?1|10bit)\b", re.I)
 
 
+_TEMP = re.compile(r"\b(?:temp(?:orada)?|t)\s*(\d{1,2})\W{0,3}\s*(cap(?:itulo|ítulo)?|ep(?:isodio)?|debate|gala)\.?\s*(\d{1,3})\b", re.I)
+
+
 def norm_link(text: str) -> str:
     """«@nombre», «t.me/nombre» o «https://t.me/+abc» → «t.me/nombre» / «t.me/+abc». Error si no lo es."""
     t = (text or "").strip()
@@ -59,13 +62,17 @@ def words(text: str) -> list[str]:
 
 def describe(name: str, text: str = "") -> dict:
     """Lo que se puede sacar de un mensaje: año, temporada/capítulo y las palabras del título."""
-    out = {"year": None, "season": None, "episode": None}
-    ep = episode_numbers(Path(name)) if name else None
+    out = {"year": None, "season": None, "episode": None, "label": None}
+    hay = f"{Path(name).stem if name else ''} {text or ''}"
+    m = _TEMP.search(hay)  # «Temp 11 Cap 15», «Temp 11 Debate 6» (realitys)
+    if m:
+        part = "Debate" if m.group(2).lower().startswith("deb") else "Gala" if m.group(2).lower() == "gala" else "Capitulo"
+        out.update(season=int(m.group(1)), episode=int(m.group(3)), part=part, label=f"{part} {int(m.group(3))}")
+    ep = None if m else episode_numbers(Path(name)) if name else None
     if ep is None and text:
         ep = episode_numbers(Path(text.splitlines()[0] + ".mkv"))
     if ep:
         out["season"], out["episode"] = ep[0], ep[1]
-    hay = f"{Path(name).stem if name else ''} {text or ''}"
     y = re.findall(r"(?<!\d)(19[3-9]\d|20[0-4]\d)(?!\d)", hay)
     out["year"] = int(y[0]) if y else None
     out["words"] = set(words(_JUNK.sub(" ", hay)))
@@ -111,7 +118,7 @@ def pick(msgs: list[dict], titles: list[str], year: int | None, kind: str, seaso
     by_ep: dict[int, dict] = {}
     for _, m in hits:
         x = describe(m.get("name") or "", m.get("text") or "")
-        e = (x["season"], x["episode"])
+        e = (x["season"], x.get("part"), x["episode"])
         if e not in by_ep or quality(m) > quality(by_ep[e]):
             by_ep[e] = m
     return [by_ep[e] for e in sorted(by_ep)]

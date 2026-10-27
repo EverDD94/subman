@@ -239,7 +239,7 @@ class Telegram:
                     continue
                 path = await self._download(m, Path(dest), progress, stop)
                 got.append(path)
-                await asyncio.get_running_loop().run_in_executor(None, on_file, path, {})
+                await asyncio.get_running_loop().run_in_executor(None, on_file, path, {"id": mid})
             return got
         return self._run(go(), timeout=None)
 

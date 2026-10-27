@@ -10,14 +10,12 @@ import org.koin.android.ext.android.inject
 import timber.log.Timber
 
 /**
- * Getter to get the style resource for a given theme.
+ * Getter to get the style resource for a given theme. Everflix has a single look, so an older
+ * theme choice left in the preferences still gets it.
  */
+@Suppress("UnusedReceiverParameter")
 private val AppTheme.style
-	get() = when (this) {
-		AppTheme.DARK -> R.style.Theme_Jellyfin
-		AppTheme.EMERALD -> R.style.Theme_Jellyfin_Emerald
-		AppTheme.MUTED_PURPLE -> R.style.Theme_Jellyfin_MutedPurple
-	}
+	get() = R.style.Theme_Jellyfin
 
 /**
  * Private view model for the [applyTheme] extension to store the currently set theme.

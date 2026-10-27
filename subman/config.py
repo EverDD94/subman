@@ -23,7 +23,8 @@ DEFAULTS: dict = {
     "duplicates_dir": "/media/Duplicados",  # adonde van las películas duplicadas que se apartan
     "discard_dir": "/media/Papelera de videos",  # las que no se sabe qué son y mandas a eliminar (hasta «Vaciar»)
     "providers": {"opensubtitles": {"api_key": "", "username": "", "password": ""},
-                  "gestdown": {"enabled": True}},  # Addic7ed (series), sin cuenta
+                  "gestdown": {"enabled": True},  # Addic7ed (series), sin cuenta
+                  "subdivx": {"api_key": ""}},  # Subdivx vía SubX (subx-api.duckdns.org)  # Addic7ed (series), sin cuenta
     "translate_fallback": True,  # último recurso: traducir con Gemini un subtítulo inglés que cuadre
     "jellyfin": {"url": "", "api_key": ""},
     "tmdb": {"api_key": "", "language": "es-MX"},  # para identificar películas (duración y sagas)

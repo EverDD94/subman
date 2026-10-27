@@ -3,7 +3,14 @@ package org.jellyfin.androidtv.ui.startup
 import android.Manifest
 import android.app.SearchManager
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.view.Gravity
+import android.view.KeyEvent
+import android.view.View
+import android.view.ViewGroup
+import android.widget.FrameLayout
+import android.widget.VideoView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.isVisible
@@ -17,6 +24,7 @@ import androidx.lifecycle.flowWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.work.WorkManager
 import androidx.work.await
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
@@ -58,6 +66,9 @@ class StartupActivity : FragmentActivity() {
 		const val EXTRA_ITEM_ID = "ItemId"
 		const val EXTRA_ITEM_IS_USER_VIEW = "ItemIsUserView"
 		const val EXTRA_HIDE_SPLASH = "HideSplash"
+
+		// The intro plays once per app launch, not when coming back here to switch user
+		private var introPlayed = false
 	}
 
 	private val startupViewModel: StartupViewModel by viewModel()
@@ -71,6 +82,8 @@ class StartupActivity : FragmentActivity() {
 	private val socketListener: SocketHandler by inject()
 
 	private lateinit var binding: ActivityStartupBinding
+	private var intro: View? = null
+	private val introDone = CompletableDeferred<Unit>()
 
 	private val networkPermissionsRequester = registerForActivityResult(
 		ActivityResultContracts.RequestMultiplePermissions()
@@ -97,6 +110,8 @@ class StartupActivity : FragmentActivity() {
 		setContentView(binding.root)
 
 		if (!intent.getBooleanExtra(EXTRA_HIDE_SPLASH, false)) showSplash()
+		if (!intent.getBooleanExtra(EXTRA_HIDE_SPLASH, false) && !introPlayed) playIntro()
+		else introDone.complete(Unit)
 
 		// Ensure basic permissions
 		networkPermissionsRequester.launch(arrayOf(Manifest.permission.INTERNET, Manifest.permission.ACCESS_NETWORK_STATE))
@@ -106,6 +121,47 @@ class StartupActivity : FragmentActivity() {
 		super.onResume()
 
 		applyTheme()
+	}
+
+	override fun onPause() {
+		super.onPause()
+
+		endIntro()
+	}
+
+	override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+		// Any button skips the intro
+		if (intro == null) return super.dispatchKeyEvent(event)
+		if (event.action == KeyEvent.ACTION_UP) endIntro()
+		return true
+	}
+
+	/** Everflix intro: the satin ribbon folding into the E, over everything while startup loads. */
+	private fun playIntro() {
+		introPlayed = true
+		val video = VideoView(this)
+		val frame = FrameLayout(this).apply {
+			setBackgroundColor(0xFF0B0D12.toInt())
+			addView(video, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT, Gravity.CENTER))
+		}
+		addContentView(frame, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+		intro = frame
+		video.setVideoURI(Uri.parse("android.resource://$packageName/${R.raw.everflix_intro}"))
+		video.setOnCompletionListener { endIntro() }
+		video.setOnErrorListener { _, what, extra ->
+			Timber.w("Intro video failed ($what, $extra)")
+			endIntro()
+			true
+		}
+		video.start()
+	}
+
+	private fun endIntro() {
+		val view = intro ?: return
+		intro = null
+		// the video ends on the E exactly where the splash draws it, so this fade is invisible
+		view.animate().alpha(0f).setDuration(250).withEndAction { (view.parent as? ViewGroup)?.removeView(view) }.start()
+		introDone.complete(Unit)
 	}
 
 	private fun onPermissionsGranted() = sessionRepository.state
@@ -179,6 +235,7 @@ class StartupActivity : FragmentActivity() {
 			else -> null
 		}
 
+		introDone.await()
 		navigationRepository.reset(destination, true)
 
 		val intent = Intent(this, MainActivity::class.java)

@@ -17,18 +17,24 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.aspectRatio
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.ui.base.JellyfinTheme
 import org.jellyfin.androidtv.ui.base.Text
 import org.jellyfin.androidtv.ui.composable.modifier.overscan
 import org.jellyfin.androidtv.ui.composable.rememberCurrentTime
 
+/** Width / height of the Everflix wordmark bitmap (E + verflix). */
+const val LOGO_RATIO = 791f / 240f
+
 @Composable
 fun Logo(modifier: Modifier = Modifier) {
 	Image(
 		painter = painterResource(R.drawable.app_logo),
 		contentDescription = stringResource(R.string.app_name),
-		modifier = modifier,
+		modifier = modifier
+			.height(32.dp)
+			.aspectRatio(LOGO_RATIO),
 	)
 }
 

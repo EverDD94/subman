@@ -3,6 +3,9 @@ package org.jellyfin.androidtv.ui.shared.toolbar
 import android.widget.ImageView
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.rememberScrollState
@@ -105,12 +108,13 @@ fun MainRail(
 			.verticalScroll(rememberScrollState())
 			.padding(horizontal = 12.dp, vertical = 28.dp),
 	) {
-		Text(
-			text = if (open) "Everflix" else "E",
-			color = RailAccent,
-			fontSize = 26.sp,
-			fontWeight = FontWeight.W800,
-			modifier = Modifier.padding(start = 12.dp, bottom = 18.dp),
+		Image(
+			painter = painterResource(if (open) R.drawable.app_logo else R.drawable.everflix_e),
+			contentDescription = "Everflix",
+			modifier = Modifier
+				.padding(start = 10.dp, bottom = 18.dp)
+				.height(30.dp)
+				.aspectRatio(if (open) LOGO_RATIO else 858f / 1124f),
 		)
 
 		val focusTarget = if (activeLibrary != null) null else if (activeButton == MainToolbarActiveButton.None) MainToolbarActiveButton.Home else activeButton

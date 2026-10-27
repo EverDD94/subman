@@ -50,6 +50,8 @@ object Destinations {
 		putString(Extras.Folder, Json.encodeToString(item))
 	}
 
+	val everflixRequests = fragmentDestination<org.jellyfin.androidtv.ui.everflix.RequestsFragment>()
+
 	fun everflixAll(series: Boolean) = fragmentDestination<org.jellyfin.androidtv.ui.everflix.LibraryFragment> {
 		putString(org.jellyfin.androidtv.ui.everflix.EXTRA_ALL, if (series) org.jellyfin.androidtv.ui.everflix.ALL_SERIES else org.jellyfin.androidtv.ui.everflix.ALL_MOVIES)
 	}

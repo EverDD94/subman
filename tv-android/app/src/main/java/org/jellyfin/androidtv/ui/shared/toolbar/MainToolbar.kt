@@ -51,6 +51,7 @@ enum class MainToolbarActiveButton {
 	Search,
 	Series,
 	Movies,
+	Requests,
 
 	None,
 }

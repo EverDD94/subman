@@ -5,10 +5,12 @@ Para añadir uno nuevo: crear una clase que herede de ``Provider`` y registrarla
 from .base import Candidate, Provider, QuotaExceeded
 from .gestdown import Gestdown
 from .opensubtitles import OpenSubtitles
+from .subdivx import Subdivx
 
 REGISTRY: dict[str, type[Provider]] = {
     OpenSubtitles.name: OpenSubtitles,
     Gestdown.name: Gestdown,
+    Subdivx.name: Subdivx,
 }
 
 

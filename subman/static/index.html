@@ -793,6 +793,16 @@ dialog.sheet .foot{display:none}
   </div>
 
   <div class="card">
+    <h2>Subdivx <span class="muted" style="font-weight:400">(opcional)</span></h2>
+    <div class="two">
+      <div><label class="f">API key de SubX</label><input type="password" id="sdx_api_key" autocomplete="off">
+        <div class="hint">Subdivx no tiene API propia; se usa SubX (subx-api.duckdns.org). Pide allí tu clave y pégala aquí.</div></div>
+      <div></div>
+    </div>
+    <div class="row" style="margin-top:12px"><button class="btn sec" id="testSDX">Probar conexión</button><span id="sdxResult"></span></div>
+  </div>
+
+  <div class="card">
     <h2>Jellyfin <span class="muted" style="font-weight:400">(opcional)</span></h2>
     <p class="muted" style="margin-top:0">Al terminar cada pasada, avisa a Jellyfin para que vea enseguida los subtítulos nuevos.</p>
     <div class="two">
@@ -1513,6 +1523,7 @@ async function loadConfig() {
   const r = await api("/api/config");
   cfg = r.config; chosen = [...cfg.library];
   const os = cfg.providers.opensubtitles || {};
+  $("#sdx_api_key").value = (cfg.providers.subdivx || {}).api_key || "";
   $("#os_api_key").value = os.api_key || ""; $("#os_username").value = os.username || ""; $("#os_password").value = os.password || "";
   const jf = cfg.jellyfin || {}; $("#jf_url").value = jf.url || ""; $("#jf_api_key").value = jf.api_key || "";
   $("#tmdb_api_key").value = (cfg.tmdb || {}).api_key || ""; $("#gemini_api_key").value = (cfg.gemini || {}).api_key || "";
@@ -1554,7 +1565,8 @@ function formValues() {
     sync_existing: $("#sync_existing").checked, keep_review: $("#keep_review").checked, dry_run: $("#dry_run").checked, enabled: $("#enabled").checked,
     jellyfin: {url: $("#jf_url").value, api_key: $("#jf_api_key").value},
     tmdb: {api_key: $("#tmdb_api_key").value}, gemini: {api_key: $("#gemini_api_key").value},
-    providers: {opensubtitles: {api_key: $("#os_api_key").value, username: $("#os_username").value, password: $("#os_password").value}},
+    providers: {opensubtitles: {api_key: $("#os_api_key").value, username: $("#os_username").value, password: $("#os_password").value},
+                subdivx: {api_key: $("#sdx_api_key").value}},
     access: {user: $("#acc_user").value.trim(), password: $("#acc_password").value},
   };
 }

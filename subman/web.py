@@ -202,6 +202,17 @@ class App:
         self.wake.set()
         return self.api_config()
 
+    def test_subdivx(self, values: dict) -> dict:
+        key = values.get("api_key", "")
+        if key == MASK:
+            key = self.cfg()["providers"].get("subdivx", {}).get("api_key", "")
+        if not key:
+            return {"ok": False, "error": "falta la API key"}
+        try:
+            return {"ok": True, **providers.Subdivx(key).test()}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
     def test_opensubtitles(self, values: dict) -> dict:
         stored = self.cfg()["providers"].get("opensubtitles", {})
         creds = {k: (stored.get(k, "") if values.get(k) == MASK else values.get(k, "")) for k in

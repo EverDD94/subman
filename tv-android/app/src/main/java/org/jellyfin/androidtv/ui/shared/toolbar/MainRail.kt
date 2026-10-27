@@ -1,6 +1,6 @@
 package org.jellyfin.androidtv.ui.shared.toolbar
 
-import androidx.activity.compose.LocalActivity
+import android.widget.ImageView
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -46,16 +46,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.flow.filterNotNull
 import org.jellyfin.androidtv.R
-import org.jellyfin.androidtv.auth.repository.SessionRepository
 import org.jellyfin.androidtv.auth.repository.UserRepository
 import org.jellyfin.androidtv.data.repository.UserViewsRepository
 import org.jellyfin.androidtv.ui.base.Icon
 import org.jellyfin.androidtv.ui.base.Text
-import org.jellyfin.androidtv.ui.navigation.ActivityDestinations
+import org.jellyfin.androidtv.ui.composable.AsyncImage
 import org.jellyfin.androidtv.ui.navigation.Destinations
 import org.jellyfin.androidtv.ui.navigation.NavigationRepository
-import org.jellyfin.androidtv.ui.playback.MediaManager
 import org.jellyfin.androidtv.ui.settings.compat.SettingsViewModel
+import org.jellyfin.androidtv.util.apiclient.getUrl
+import org.jellyfin.androidtv.util.apiclient.primaryImage
+import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.model.api.CollectionType
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinActivityViewModel
@@ -76,11 +77,9 @@ fun MainRail(
 	activeLibrary: UUID? = null,
 ) {
 	val navigationRepository = koinInject<NavigationRepository>()
-	val mediaManager = koinInject<MediaManager>()
-	val sessionRepository = koinInject<SessionRepository>()
 	val userRepository = koinInject<UserRepository>()
+	val api = koinInject<ApiClient>()
 	val settingsViewModel = koinActivityViewModel<SettingsViewModel>()
-	val activity = LocalActivity.current
 	val currentUser by remember { userRepository.currentUser.filterNotNull() }.collectAsState(null)
 	val userViewsRepository = koinInject<UserViewsRepository>()
 	val views by remember { userViewsRepository.views }.collectAsState(emptyList())
@@ -114,7 +113,7 @@ fun MainRail(
 			modifier = Modifier.padding(start = 12.dp, bottom = 18.dp),
 		)
 
-		val focusTarget = if (activeLibrary != null) null else if (activeButton == MainToolbarActiveButton.None || activeButton == MainToolbarActiveButton.User) MainToolbarActiveButton.Home else activeButton
+		val focusTarget = if (activeLibrary != null) null else if (activeButton == MainToolbarActiveButton.None) MainToolbarActiveButton.Home else activeButton
 		fun target(button: MainToolbarActiveButton) = if (button == focusTarget) Modifier.focusRequester(activeRequester) else Modifier
 
 		RailItem(
@@ -195,12 +194,11 @@ fun MainRail(
 			icon = R.drawable.ic_user,
 			label = currentUser?.name ?: stringResource(R.string.lbl_switch_user),
 			open = open,
-			active = false,
+			active = activeButton == MainToolbarActiveButton.User,
+			modifier = target(MainToolbarActiveButton.User),
+			photo = currentUser?.primaryImage?.getUrl(api, maxHeight = 96),
 		) {
-			mediaManager.clearAudioQueue()
-			sessionRepository.destroyCurrentSession()
-			activity?.startActivity(ActivityDestinations.startup(activity))
-			activity?.finishAfterTransition()
+			if (activeButton != MainToolbarActiveButton.User) navigationRepository.navigate(Destinations.everflixProfile)
 		}
 	}
 }
@@ -212,6 +210,7 @@ private fun RailItem(
 	open: Boolean,
 	active: Boolean,
 	modifier: Modifier = Modifier,
+	photo: String? = null,
 	onClick: () -> Unit,
 ) {
 	val interaction = remember { MutableInteractionSource() }
@@ -233,12 +232,20 @@ private fun RailItem(
 			.clickable(interactionSource = interaction, indication = null, onClick = onClick)
 			.padding(horizontal = 12.dp),
 	) {
-		Icon(
-			imageVector = ImageVector.vectorResource(icon),
-			contentDescription = label,
-			tint = content,
-			modifier = Modifier.size(22.dp),
-		)
+		if (photo != null) {
+			AsyncImage(
+				url = photo,
+				scaleType = ImageView.ScaleType.CENTER_CROP,
+				modifier = Modifier.size(26.dp).clip(CircleShape),
+			)
+		} else {
+			Icon(
+				imageVector = ImageVector.vectorResource(icon),
+				contentDescription = label,
+				tint = content,
+				modifier = Modifier.size(22.dp),
+			)
+		}
 		if (open) {
 			Text(text = label, color = content, fontSize = 16.sp, fontWeight = FontWeight.W600, maxLines = 1)
 			Spacer(Modifier.weight(1f))

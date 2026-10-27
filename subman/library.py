@@ -249,6 +249,9 @@ class Library:
         if "extra" not in cols:
             self.db.execute("ALTER TABLE renamed ADD COLUMN extra TEXT")
             self.db.commit()
+        if "attempts" not in {r[1] for r in self.db.execute("PRAGMA table_info(subtitle)")}:
+            self.db.execute("ALTER TABLE subtitle ADD COLUMN attempts INTEGER DEFAULT 0")
+            self.db.commit()
 
     def scan(self, roots: list[str | Path], hash_files: bool = True, progress=None, exclude=()) -> dict:
         now = time.time()
@@ -307,10 +310,12 @@ class Library:
 
     def set_subtitle(self, media_id: int, lang: str, path: str | None, source: str, status: str, detail: str = ""):
         self.db.execute(
-            """INSERT INTO subtitle (media_id, lang, path, source, status, detail, updated) VALUES (?,?,?,?,?,?,?)
+            """INSERT INTO subtitle (media_id, lang, path, source, status, detail, updated, attempts)
+               VALUES (?,?,?,?,?,?,?,?)
                ON CONFLICT(media_id, lang) DO UPDATE SET path=excluded.path, source=excluded.source,
-                 status=excluded.status, detail=excluded.detail, updated=excluded.updated""",
-            (media_id, lang, path, source, status, detail, time.time()))
+                 status=excluded.status, detail=excluded.detail, updated=excluded.updated,
+                 attempts=CASE WHEN excluded.status='ok' THEN 0 ELSE COALESCE(subtitle.attempts, 0) + 1 END""",
+            (media_id, lang, path, source, status, detail, time.time(), 0 if status == "ok" else 1))
         self.db.commit()
 
     def statuses(self) -> dict[int, dict[str, sqlite3.Row]]:

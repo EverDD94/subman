@@ -3,10 +3,12 @@
 Para añadir uno nuevo: crear una clase que herede de ``Provider`` y registrarla en ``REGISTRY``.
 """
 from .base import Candidate, Provider, QuotaExceeded
+from .gestdown import Gestdown
 from .opensubtitles import OpenSubtitles
 
 REGISTRY: dict[str, type[Provider]] = {
     OpenSubtitles.name: OpenSubtitles,
+    Gestdown.name: Gestdown,
 }
 
 

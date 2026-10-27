@@ -19,8 +19,10 @@ API = "https://api.opensubtitles.com/api/v1"
 class OpenSubtitles(Provider):
     name = "opensubtitles"
 
-    def __init__(self, api_key: str, username: str = "", password: str = "", timeout: float = 30):
+    def __init__(self, api_key: str, username: str = "", password: str = "", timeout: float = 30,
+                 tmdb_key: str = ""):
         self.base = API
+        self.tmdb_key = tmdb_key  # para buscar por ID de TheMovieDB cuando por nombre no sale nada
         self.timeout = timeout
         self.username, self.password = username, password
         self.token: str | None = None
@@ -64,17 +66,50 @@ class OpenSubtitles(Provider):
                 "remaining_downloads": info.get("remaining_downloads")}
 
     def search(self, media: Media, languages: list[str]) -> list[Candidate]:
+        """Por hash + nombre; si no sale nada, sin hash ni año; y si tampoco, por ID de TheMovieDB."""
         self.login()
-        params = {"languages": ",".join(sorted(l.lower() for l in languages))}
-        if media.oshash:
-            params["moviehash"] = media.oshash
+        langs = {l.lower() for l in languages}
+        if "es" in langs:
+            langs.add("ea")  # OpenSubtitles guarda el español latino aparte
+        base = {"languages": ",".join(sorted(langs))}
         if media.kind == "episode":
-            params.update(query=media.title, season_number=media.season, episode_number=media.episode,
-                          type="episode")
+            base.update(season_number=media.season, episode_number=media.episode, type="episode")
         else:
-            params.update(query=media.title, type="movie")
-            if media.year:
-                params["year"] = media.year
+            base["type"] = "movie"
+        tries = []
+        first = {**base, "query": media.title}
+        if media.oshash:
+            first["moviehash"] = media.oshash
+        if media.kind != "episode" and media.year:
+            first["year"] = media.year
+        tries.append(first)
+        tries.append({**base, "query": media.title})
+        out: list[Candidate] = []
+        for params in tries:
+            out = self._search(params)
+            if out:
+                return out
+        tid = self._tmdb_id(media)
+        if tid:
+            key = "parent_tmdb_id" if media.kind == "episode" else "tmdb_id"
+            out = self._search({**base, key: tid})
+            if out:
+                log.info("OpenSubtitles: %s encontrado por ID de TheMovieDB (%s)", media.label, tid)
+        return out
+
+    def _tmdb_id(self, media: Media) -> int | None:
+        if not self.tmdb_key:
+            return None
+        from ..tmdb import TMDb
+        try:
+            t = TMDb(self.tmdb_key)
+            ids = (t.search_tv(media.title) if media.kind == "episode" else t.search(media.title, media.year))
+            return ids[0] if ids else None
+        except Exception as e:
+            log.warning("TheMovieDB: no se pudo buscar %s: %s", media.label, e)
+            return None
+
+    def _search(self, params: dict) -> list[Candidate]:
         data = self._request("GET", "/subtitles", params=dict(sorted(params.items())))
         out = []
         for item in data.get("data", []):

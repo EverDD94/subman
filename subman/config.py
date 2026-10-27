@@ -22,7 +22,9 @@ DEFAULTS: dict = {
     "web_port": 8787,
     "duplicates_dir": "/media/Duplicados",  # adonde van las películas duplicadas que se apartan
     "discard_dir": "/media/Papelera de videos",  # las que no se sabe qué son y mandas a eliminar (hasta «Vaciar»)
-    "providers": {"opensubtitles": {"api_key": "", "username": "", "password": ""}},
+    "providers": {"opensubtitles": {"api_key": "", "username": "", "password": ""},
+                  "gestdown": {"enabled": True}},  # Addic7ed (series), sin cuenta
+    "translate_fallback": True,  # último recurso: traducir con Gemini un subtítulo inglés que cuadre
     "jellyfin": {"url": "", "api_key": ""},
     "tmdb": {"api_key": "", "language": "es-MX"},  # para identificar películas (duración y sagas)
     "gemini": {"api_key": ""},
@@ -138,9 +140,27 @@ def settings(cfg: dict, config_path: str | Path, dry_run: bool = False) -> manag
         archive_languages=cfg["archive_languages"],
         trash_dir=cfg.get("trash_dir", str(base / "papelera")),
         archive_dir=cfg.get("archive_dir", str(base / "archivo")),
-        roots=list(cfg["library"]), dry_run=dry_run or cfg["dry_run"])
+        roots=list(cfg["library"]), dry_run=dry_run or cfg["dry_run"],
+        translator=_translator(cfg))
+
+
+def _translator(cfg: dict):
+    key = cfg.get("gemini", {}).get("api_key")
+    if not (cfg.get("translate_fallback") and key):
+        return None
+    from .gemini import Gemini
+    g = Gemini(key, timeout=120)
+    return g.translate
 
 
 def active_providers(cfg: dict) -> dict:
-    """Sólo los proveedores con credenciales puestas."""
-    return {"providers": {k: v for k, v in cfg.get("providers", {}).items() if v.get("api_key")}}
+    """Sólo los proveedores con credenciales puestas (o que no las necesitan)."""
+    from .providers import REGISTRY
+    tmdb_key = cfg.get("tmdb", {}).get("api_key", "")
+    out = {}
+    for k, v in cfg.get("providers", {}).items():
+        if v.get("api_key"):
+            out[k] = {**v, "tmdb_key": tmdb_key} if k == "opensubtitles" else v
+        elif getattr(REGISTRY.get(k), "keyless", False):
+            out[k] = v
+    return {"providers": out}

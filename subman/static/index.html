@@ -1229,11 +1229,13 @@ function show(name) {
 document.querySelectorAll("#tabs button[data-tab]").forEach(b => b.onclick = () => show(b.dataset.tab));
 
 // ---------- Inicio ----------
+// Sólo reescribe si cambió: si no, cada 4 s se reiniciarían las animaciones y la página «parpadea».
+function setHTML(sel, html) { const el = $(sel); if (el && el._html !== html) { el.innerHTML = html; el._html = html; } }
 async function loadStatus() {
   const s = await api("/api/status");
   const st = s.state;
   $("#problems").hidden = !s.problems.length;
-  $("#problemList").innerHTML = s.problems.map(p => `<li>${esc(p)}</li>`).join("");
+  setHTML("#problemList", s.problems.map(p => `<li>${esc(p)}</li>`).join(""));
   $("#enabledHome").checked = s.enabled;
   $("#enabledText").textContent = s.enabled ? "Encendido: revisa la biblioteca sola." : "Apagado: no toca ningún archivo.";
   let html;
@@ -1247,7 +1249,7 @@ async function loadStatus() {
     if (st.last_end) html += `<p>Última pasada: ${when(st.last_end)}</p>`;
     if (st.next_run) html += `<p>Próxima: ${when(st.next_run)}</p>`;
   }
-  $("#stateBox").innerHTML = html;
+  setHTML("#stateBox", html);
   let fold = "";
   if (st.scan) {
     const pc = Object.entries(st.scan.por_carpeta), mx = Math.max(1, ...pc.map(([, v]) => v));
@@ -1255,16 +1257,16 @@ async function loadStatus() {
     const ig = Object.entries(st.scan.ignorados || {});
     if (ig.length) fold += `<p class="hint">No se procesan (formato no compatible): ${ig.map(([k, v]) => v + " " + esc(k)).join(", ")}</p>`;
   }
-  $("#folderBox").innerHTML = fold || `<p class="muted">Aún no ha mirado las carpetas.</p>`;
+  setHTML("#folderBox", fold || `<p class="muted">Aún no ha mirado las carpetas.</p>`);
   const au = s.auto || {}, aus = au.settings || {};
   $("#autoHomeCard").hidden = !(aus.names || aus.dupes || aus.empty_dirs);
-  $("#autoHome").innerHTML = autoSummary(au);
+  setHTML("#autoHome", autoSummary(au));
   const c = s.counts, bad = (c.falla || 0) + (c.error || 0);
-  $("#subHead").innerHTML = `${c.ok || 0} de ${s.media}<br>con subtítulo`;
+  setHTML("#subHead", `${c.ok || 0} de ${s.media}<br>con subtítulo`);
   $("#subSub").textContent = s.media ? `El ${Math.round(100 * (c.ok || 0) / s.media)} % de tus videos ya tiene un subtítulo en español que encaja.` : "";
   $("#countsNote").textContent = `${s.media} videos`;
   const seg = (n, label, cls, f, d) => n ? `<a href="#" class="mg-seg ${cls}" style="flex:${n};animation-delay:${d}s" onclick="filter='${f}';reasonF='';show('biblioteca');return false"><b>${n}</b><span>${label}</span></a>` : "";
-  $("#counts").innerHTML = seg(c.ok || 0, "Bien", "s1", "ok", 0) + seg(c.revisar || 0, "Revisar", "s2", "revisar", .1) + seg(bad, "Fallan", "sn", "falla", .2) + seg(c.pendiente || 0, "Pendientes", "s0", "pendiente", .3);
+  setHTML("#counts", seg(c.ok || 0, "Bien", "s1", "ok", 0) + seg(c.revisar || 0, "Revisar", "s2", "revisar", .1) + seg(bad, "Fallan", "sn", "falla", .2) + seg(c.pendiente || 0, "Pendientes", "s0", "pendiente", .3));
   $("#runNow").disabled = st.running || !s.enabled;
   const miss = s.missing || [];
   const total = miss.reduce((a, g) => a + g.count, 0);

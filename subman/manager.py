@@ -11,6 +11,7 @@
 """
 from __future__ import annotations
 
+import dataclasses
 import json
 import logging
 import shutil
@@ -40,6 +41,17 @@ class Settings:
     archive_dir: str = "/config/archivo"
     roots: list[str] = field(default_factory=list)  # carpetas de la biblioteca (para rutas relativas)
     dry_run: bool = False        # sólo contar lo que haría, sin tocar nada
+    translator: object = None    # último recurso: función(textos, idioma) -> textos traducidos (Gemini)
+
+
+# Reintentos escalonados: tras cada intento fallido se espera retry_hours por este factor.
+BACKOFF = (1, 3, 7, 30)
+GIVE_UP = len(BACKOFF)  # a partir de aquí se muestra «sin solución por ahora»
+
+
+def retry_wait(cfg: Settings, attempts: int) -> float:
+    """Segundos que hay que esperar antes de volver a intentarlo tras ``attempts`` fallos."""
+    return cfg.retry_hours * 3600 * BACKOFF[min(max(attempts, 1), len(BACKOFF)) - 1]
 
 
 def _quality(rep: verify.Report) -> tuple:
@@ -118,6 +130,42 @@ def _native(media: Media, lang: str) -> str | None:
     return None
 
 
+def _translated(media: Media, lang: str, providers: list[Provider], cfg: Settings, reference, rejected):
+    """Busca un subtítulo en inglés que cuadre con el audio y lo traduce. Sólo si sale ``ok``."""
+    for prov in providers:
+        if getattr(prov, "exhausted", False):
+            continue
+        try:
+            cands = prov.search(media, ["en"])
+        except Exception as e:
+            log.warning("%s: fallo buscando inglés en %s: %s", media.label, prov.name, e)
+            continue
+        for cand in [c for c in cands if f"traducido:{prov.name}:{c.release}" not in rejected][:2]:
+            try:
+                cues = subtitles.parse(subtitles.decode(prov.download(cand)))
+            except QuotaExceeded:
+                prov.exhausted = True
+                break
+            except Exception as e:
+                log.warning("%s: fallo descargando %s: %s", media.label, cand.id, e)
+                continue
+            if not cues:
+                continue
+            synced, rep = sync.sync(cues, reference())
+            if rep.verdict != verify.OK:
+                continue
+            try:
+                texts = cfg.translator([c.text for c in synced], lang)
+            except Exception as e:
+                log.warning("%s: no se pudo traducir: %s", media.label, e)
+                return None
+            synced = [dataclasses.replace(c, text=t) for c, t in zip(synced, texts)]
+            log.info("%s [%s] traducido de %s:%s", media.label, lang, prov.name, cand.release)
+            return ((_RANK[verify.REVIEW], rep.identity, rep.on_time_after),
+                    f"traducido:{prov.name}:{cand.release}", synced, rep)
+    return None
+
+
 def process(media: Media, lib: Library, providers: list[Provider], cfg: Settings) -> dict[str, str]:
     results = {}
     cache = {}
@@ -154,7 +202,8 @@ def process(media: Media, lib: Library, providers: list[Provider], cfg: Settings
         # Lo que ya se intentó (dudoso, falla, sin candidatos) se reintenta cada retry_hours, salvo
         # que haya aparecido un subtítulo nuevo junto al video (el propio .es.srt guardado no cuenta).
         new_locals = [l for l in locals_ if not (row and row["path"] and l[0] == Path(row["path"]))]
-        if row and row["status"] != verify.OK and not new_locals and time.time() - row["updated"] < cfg.retry_hours * 3600:
+        if (row and row["status"] != verify.OK and not new_locals
+                and time.time() - row["updated"] < retry_wait(cfg, row["attempts"] or 1)):
             continue
 
         tried: list[tuple[tuple, str, list, verify.Report]] = []
@@ -210,6 +259,11 @@ def process(media: Media, lib: Library, providers: list[Provider], cfg: Settings
                         break
                 if best() and best()[3].verdict == verify.OK:
                     break
+
+        if (not best() or best()[3].verdict != verify.OK) and cfg.translator and not quota_hit and not cfg.dry_run:
+            got = _translated(media, lang, providers, cfg, reference, rejected)
+            if got:
+                tried.append(got)
 
         if not tried:
             if quota_hit:  # no marcarlo: que lo intente en cuanto haya descargas

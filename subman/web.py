@@ -2014,7 +2014,7 @@ class App:
             else:
                 self._telegram(cfg).fetch(link[1], tmp, bot=link[0], progress=progress,
                                           stop=lambda: self.dl["stop"] == rid, on_manual=manual,
-                                          skip=lambda name, size: name in got_names, on_file=put, on_seen=seen_file,
+                                          skip=lambda name, size: name in got_names, on_file=put, on_seen=seen_file, one=row["kind"] == "movie",
                                           remind=label if d.get("remind", True) and not by_bot else "")
             if self.dl["stop"] == rid:
                 shutil.rmtree(tmp, ignore_errors=True)

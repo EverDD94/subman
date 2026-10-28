@@ -246,7 +246,8 @@ class Telegram:
     # --- pedir al bot -------------------------------------------------------------------
     def fetch(self, code: str, dest: Path, bot: str = BOT, progress=lambda what, done, total: None,
               stop=lambda: False, on_manual=lambda bot: None, skip=lambda name, size: False,
-              on_file=lambda path, info: None, remind: str = "", on_seen=lambda bot, mid: None) -> list[tuple[Path, dict]]:
+              on_file=lambda path, info: None, remind: str = "", on_seen=lambda bot, mid: None,
+              one: bool = False) -> list[tuple[Path, dict]]:
         """Pide ``code`` al bot y descarga lo que mande en ``dest`` (una película o los capítulos de
         una temporada). Devuelve [(ruta, info)].
 
@@ -255,8 +256,9 @@ class Telegram:
         ``remind``: si se pasa, cuando toca pulsar el anuncio te llega un recordatorio a «Mensajes guardados»
         con ese nombre.
         ``on_seen(bot, id)``: en cuanto llega cada archivo, antes de bajarlo, para poder retomarlo tras un
-        reinicio sin volver a pedirlo (ni pulsar otra vez el anuncio)."""
-        return self._run(self._fetch(bot, code, Path(dest), progress, stop, on_manual, skip, on_file, remind, on_seen),
+        reinicio sin volver a pedirlo (ni pulsar otra vez el anuncio).
+        ``one``: película; con el primer archivo basta, sin esperar por si manda más."""
+        return self._run(self._fetch(bot, code, Path(dest), progress, stop, on_manual, skip, on_file, remind, on_seen, one),
                          timeout=None)
 
     async def _remind(self, bot: str, what: str) -> None:
@@ -274,7 +276,7 @@ class Telegram:
                 log.warning("Telegram: no se pudo mandar el aviso: %s", e2)
 
     async def _fetch(self, name, code, dest, progress, stop, on_manual, skip=lambda n, s: False,
-                     on_file=lambda p, i: None, remind="", on_seen=lambda b, i: None):
+                     on_file=lambda p, i: None, remind="", on_seen=lambda b, i: None, one=False):
         bot = await self.client.get_entity(name)
         last = await self.client.get_messages(bot, limit=1)
         last_id = last[0].id if last else 0
@@ -324,7 +326,7 @@ class Telegram:
                 elif m.message:
                     log.info("Telegram: el bot dice: %s", m.message[:200].replace("\n", " "))
             now = time.time()
-            if seen_file and now - last_file > QUIET:
+            if seen_file and (one or now - last_file > QUIET):
                 break
             if not seen_file and not asked and now - start > ASK_AFTER:
                 asked = True

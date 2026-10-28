@@ -157,9 +157,10 @@ fun MainRail(
 			if (activeButton != MainToolbarActiveButton.Series) navigationRepository.navigate(Destinations.everflixAll(series = true))
 		}
 
-		Box(Modifier.padding(horizontal = 12.dp, vertical = 8.dp).fillMaxWidth().height(1.dp).background(RailInk.copy(alpha = 0.15f)))
+		if (open) Box(Modifier.padding(horizontal = 12.dp, vertical = 8.dp).fillMaxWidth().height(1.dp).background(RailInk.copy(alpha = 0.15f)))
 
-		views.forEach { view ->
+		// Closed, the libraries would only repeat the movie and series icons above
+		if (open) views.forEach { view ->
 			val isActive = view.id == activeLibrary
 			RailItem(
 				icon = when (view.collectionType) {

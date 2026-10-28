@@ -185,8 +185,8 @@ sub onResults()
 end sub
 
 function suggestionItem(s as object) as object
-    note = "Pedir"
-    if s.LookupCI("asked") <> invalid then note = "Ya lo pediste"
+    note = ef.isAdmin() ? "Descargar" : "Pedir"
+    if s.LookupCI("asked") <> invalid then note = ef.isAdmin() ? "En Descargas" : "Ya lo pediste"
     year = s.LookupCI("year")
     if isValid(year) then note = year.toStr() + " · " + note
     return { Id: "tmdb-" + s.tmdb.toStr(), Name: s.title, Type: "Suggestion", efPoster: s.poster, efNote: note, Overview: s.overview }
@@ -203,7 +203,7 @@ sub onResult()
     else
         s = m.found.suggestions[f[1]]
         if s.LookupCI("asked") <> invalid
-            showToast("Ya lo pediste: " + s.title)
+            showToast((ef.isAdmin() ? "Ya está en Descargas: " : "Ya lo pediste: ") + s.title)
             return
         end if
         item = { kind: s.kind, tmdb: s.tmdb, title: s.title, poster: s.poster, overview: s.overview }
@@ -218,7 +218,11 @@ end sub
 sub onAsked()
     r = m.askTask.result
     if isValid(r) and r.ok and isValid(r.data) and r.data.LookupCI("ok") = true
-        showToast("Pedido enviado: " + m.asking.title + ". Se descargará cuando se apruebe.")
+        if r.data.LookupCI("downloading") = true
+            showToast("A descargar: " + m.asking.title + ". Aparecerá sola en tu biblioteca.")
+        else
+            showToast("Pedido enviado: " + m.asking.title + ". Se descargará cuando se apruebe.")
+        end if
         m.asking.asked = "ok"
         runSearch()
     else

@@ -14,10 +14,33 @@ sub init()
     m.rail.observeField("leave", "onRailLeave")
     m.task = CreateObject("roSGNode", "EfTask")
     m.task.observeField("result", "onLoaded")
+    m.admin = ef.isAdmin()
+    m.decideTask = CreateObject("roSGNode", "EfTask")
+    m.decideTask.observeField("result", "onDecided")
+    m.grid.observeField("itemSelected", "onItemSelected")
+    if m.admin
+        m.top.findNode("heading").text = "DESCARGAS"
+        m.top.findNode("sub").text = "Primero lo que han pedido los demás (pulsa OK para aprobar o rechazar) y luego lo que se está bajando."
+    end if
+    load()
+end sub
+
+sub load()
     m.task.job = "vt"
-    m.task.args = { path: "/api/pedir/mine" }
+    m.task.args = { path: m.admin ? "/api/pedir/admin" : "/api/pedir/mine" }
+    m.task.control = "STOP"
     m.task.control = "RUN"
 end sub
+
+function downloadStatus(state as string) as object
+    if state = "listo" then return { label: "Ya está para ver", color: "0x2E9E5BFF" }
+    if state = "descargando" then return { label: "Descargando", color: "0x3D63E0FF" }
+    if state = "buscando" or state = "pidiendo" then return { label: "Buscándola", color: "0x3D63E0FF" }
+    if state = "manual" then return { label: "Pulsa en Telegram", color: "0x8A6A1EFF" }
+    if state = "no-esta" then return { label: "No la encuentro aún", color: "0x8A6A1EFF" }
+    if state = "error" then return { label: "Error", color: "0x8A3A3AFF" }
+    return { label: "En cola", color: "0x4A4F5CFF" }
+end function
 
 function statusOf(status as string) as object
     if status = "ya-esta" then return { label: "Ya está para ver", color: "0x2E9E5BFF" }
@@ -32,6 +55,10 @@ sub onLoaded()
     r = m.task.result
     items = []
     if isValid(r) and isValid(r.data) and isValid(r.data.LookupCI("items")) then items = r.data.items
+    if m.admin and isValid(r) and r.ok and isValid(r.data)
+        showAdmin(r.data)
+        return
+    end if
     if not isValid(r) or not r.ok
         m.empty.text = "No puedo hablar con Videotecario ahora mismo."
         return
@@ -51,6 +78,71 @@ sub onLoaded()
     end for
     m.grid.content = content
     if not m.rail.hasFocus() then m.grid.setFocus(true)
+end sub
+
+sub showAdmin(data as object)
+    m.entries = []
+    content = CreateObject("roSGNode", "ContentNode")
+    for each it in (data.LookupCI("requests") ?? [])
+        if it.LookupCI("status") = "pendiente"
+            who = ""
+            if isValid(it.LookupCI("who")) then who = it.who.join(", ")
+            addTile(content, it, "Pide " + who, "0xB8862BFF", { request: it })
+        end if
+    end for
+    for each it in (data.LookupCI("downloads") ?? [])
+        st = downloadStatus(it.LookupCI("state") ?? "")
+        title = it.LookupCI("title") ?? ""
+        if isValid(it.LookupCI("season")) then it.title = title + " · T" + it.season.toStr()
+        addTile(content, it, st.label, st.color, {})
+    end for
+    if content.getChildCount() = 0
+        m.empty.visible = true
+        m.empty.text = "No hay nada pendiente ni bajándose. Busca algo en Buscar y pulsa «Descargar»."
+        m.grid.content = invalid
+        return
+    end if
+    m.empty.visible = false
+    m.grid.content = content
+    if not m.rail.hasFocus() then m.grid.setFocus(true)
+end sub
+
+sub addTile(content as object, it as object, status as string, color as string, extra as object)
+    title = it.LookupCI("title") ?? ""
+    if isValid(it.LookupCI("year")) then title = title + ` (${it.year})`
+    node = content.createChild("HomeData")
+    node.json = { Id: "", Name: title, Type: "Request", image: it.LookupCI("poster") ?? "", title: title, status: status, statusColor: color, note: "" }
+    m.entries.push(extra)
+end sub
+
+sub onItemSelected()
+    if not m.admin or not isValid(m.entries) then return
+    e = m.entries[m.grid.itemSelected]
+    if not isValid(e) or not isValid(e.LookupCI("request")) then return
+    m.choosing = e.request
+    dialog = CreateObject("roSGNode", "StandardMessageDialog")
+    dialog.title = m.choosing.title
+    dialog.message = ["¿La descargo?"]
+    dialog.buttons = ["Aprobar", "Rechazar", "Ahora no"]
+    palette = CreateObject("roSGNode", "RSGPalette")
+    palette.colors = { DialogBackgroundColor: "0x161A22FF", DialogTextColor: "0xF4F2EEFF", DialogItemColor: "0xF4F2EEFF", DialogFocusColor: "0xFFFFFFFF", DialogFocusItemColor: "0x000000FF", DialogFootprintColor: "0x3D63E0FF" }
+    dialog.palette = palette
+    dialog.observeField("buttonSelected", "onChoice")
+    m.dialog = dialog
+    m.top.getScene().dialog = dialog
+end sub
+
+sub onChoice()
+    choice = m.dialog.buttonSelected
+    m.dialog.close = true
+    if choice > 1 then return
+    m.decideTask.job = "vt"
+    m.decideTask.args = { path: "/api/pedir/decide", body: { kind: m.choosing.kind, tmdb: m.choosing.tmdb, accept: choice = 0 } }
+    m.decideTask.control = "RUN"
+end sub
+
+sub onDecided()
+    load()
 end sub
 
 sub onRailSelected()

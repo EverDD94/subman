@@ -73,6 +73,12 @@ namespace ef
     end function
 
     ' Videotecario runs on the same NAS: 8787 at home, 8921 through the https proxy.
+    function isAdmin() as boolean
+        user = m.global.session.user
+        if not isValid(user) or not isValid(user.LookupCI("Policy")) then return false
+        return user.Policy.LookupCI("IsAdministrator") = true
+    end function
+
     function videotecarioBase() as string
         server = m.global.session.server.url
         if not isValidAndNotEmpty(server) then return ""

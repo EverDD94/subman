@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,6 +55,7 @@ import org.koin.compose.koinInject
 fun DownloadSuggestions(query: String, modifier: Modifier = Modifier) {
 	val api = koinInject<ApiClient>()
 	val client = remember(api.baseUrl, api.accessToken) { Videotecario(api.baseUrl, api.accessToken) }
+	val admin = rememberIsAdmin()
 	val context = LocalContext.current
 	val scope = rememberCoroutineScope()
 	var titles by remember { mutableStateOf<List<DiscoverTitle>>(emptyList()) }
@@ -74,7 +76,7 @@ fun DownloadSuggestions(query: String, modifier: Modifier = Modifier) {
 
 	Column(modifier.fillMaxWidth()) {
 		Text(
-			text = "NO LO TIENES · PÍDELO",
+			text = if (admin) "NO LO TIENES · DESCÁRGALO" else "NO LO TIENES · PÍDELO",
 			color = Color.White.copy(alpha = 0.8f),
 			fontSize = 13.sp,
 			fontWeight = FontWeight.W800,
@@ -86,11 +88,12 @@ fun DownloadSuggestions(query: String, modifier: Modifier = Modifier) {
 			contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp),
 		) {
 			items(titles, key = { "${it.kind}${it.tmdb}" }) { title ->
-				SuggestionCard(title, asked = title.tmdb in asked) {
+				SuggestionCard(title, asked = title.tmdb in asked, admin = admin) {
 					scope.launch {
 						val error = client.ask(title)
 						if (error == null) asked = asked + title.tmdb
-						Toast.makeText(context, error ?: "Pedido enviado: ${title.title}. Se descargará cuando se apruebe.", Toast.LENGTH_SHORT).show()
+						val done = if (admin) "A descargar: ${title.title}. Aparecerá sola en tu biblioteca." else "Pedido enviado: ${title.title}. Se descargará cuando se apruebe."
+						Toast.makeText(context, error ?: done, Toast.LENGTH_SHORT).show()
 					}
 				}
 			}
@@ -99,7 +102,7 @@ fun DownloadSuggestions(query: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun SuggestionCard(title: DiscoverTitle, asked: Boolean, onClick: () -> Unit) {
+private fun SuggestionCard(title: DiscoverTitle, asked: Boolean, admin: Boolean, onClick: () -> Unit) {
 	val interaction = remember { MutableInteractionSource() }
 	val focused by interaction.collectIsFocusedAsState()
 	val scale by animateFloatAsState(if (focused) 1.08f else 1f, label = "suggestionScale")
@@ -131,11 +134,23 @@ private fun SuggestionCard(title: DiscoverTitle, asked: Boolean, onClick: () -> 
 				overflow = TextOverflow.Ellipsis,
 			)
 			Text(
-				text = if (asked) "✓ Pedido" else if (focused) "＋ Pedir" else (title.year?.toString() ?: ""),
+				text = when {
+					asked -> if (admin) "✓ En Descargas" else "✓ Pedido"
+					focused -> if (admin) "＋ Descargar" else "＋ Pedir"
+					else -> title.year?.toString() ?: ""
+				},
 				color = if (asked || focused) Color(0xFF9DB4FF) else Color.White.copy(alpha = 0.7f),
 				fontSize = 11.sp,
 				fontWeight = FontWeight.W800,
 			)
 		}
 	}
+}
+
+/** Whether the signed-in Jellyfin user is the owner (administrator): they download directly instead of asking. */
+@Composable
+fun rememberIsAdmin(): Boolean {
+	val userRepository = koinInject<org.jellyfin.androidtv.auth.repository.UserRepository>()
+	val user by userRepository.currentUser.collectAsState()
+	return user?.policy?.isAdministrator == true
 }

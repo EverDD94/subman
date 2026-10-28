@@ -192,8 +192,29 @@ end function
 
 ' Talks to Videotecario with the user's own Jellyfin token (no other password needed)
 function videotecario(path as string, body as dynamic) as object
+    ' Try the address derived from the Jellyfin server first, then Jellyfin's own LAN address
+    ' (from inside the house the public port may not answer)
+    bases = []
     base = ef.videotecarioBase()
-    if base = "" then return { ok: false, error: "No encuentro Videotecario" }
+    if base <> "" then bases.push(base)
+    info = ef.getJellyfin("System/Info")
+    if isValid(info) and isValidAndNotEmpty(info.LookupCI("LocalAddress"))
+        r = CreateObject("roRegex", "^https?://([^/:]+)", "i")
+        parts = r.match(info.LocalAddress)
+        if parts.count() > 1
+            lan = "http://" + parts[1] + ":8787"
+            if lan <> base then bases.push(lan)
+        end if
+    end if
+    if bases.count() = 0 then return { ok: false, error: "No encuentro Videotecario" }
+    for each b in bases
+        res = videotecarioAt(b, path, body)
+        if isValid(res.LookupCI("code")) then return res
+    end for
+    return { ok: false, error: "Videotecario no responde" }
+end function
+
+function videotecarioAt(base as string, path as string, body as dynamic) as object
     req = CreateObject("roUrlTransfer")
     req.SetUrl(base + path)
     req.AddHeader("X-Emby-Token", m.global.session.user.authToken)
@@ -208,11 +229,12 @@ function videotecario(path as string, body as dynamic) as object
         started = req.AsyncGetToString()
     end if
     if not started then return { ok: false, error: "Videotecario no responde" }
-    msg = wait(10000, port)
+    msg = wait(6000, port)
     if type(msg) <> "roUrlEvent"
         req.AsyncCancel()
         return { ok: false, error: "Videotecario no responde" }
     end if
+    if msg.GetResponseCode() <= 0 then return { ok: false, error: "Videotecario no responde" }
     data = ParseJson(msg.GetString())
     return { ok: msg.GetResponseCode() = 200, code: msg.GetResponseCode(), data: data }
 end function

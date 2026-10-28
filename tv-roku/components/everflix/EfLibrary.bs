@@ -21,6 +21,7 @@ sub init()
     m.heroTimer.observeField("fire", "showFocused")
     m.rail.observeField("selected", "onRailSelected")
     m.rail.observeField("leave", "onRailLeave")
+    m.rail.observeField("open", "onRailOpen")
 
     m.task = CreateObject("roSGNode", "EfTask")
     m.task.observeField("result", "onPage")
@@ -258,3 +259,12 @@ function onKeyEvent(key as string, press as boolean) as boolean
     end if
     return false
 end function
+
+' With the menu open, the page moves right so the menu never covers titles or cards
+sub onRailOpen()
+    x = 170
+    if m.rail.open then x = 400
+    for each node in [m.hero, m.row, m.top.findNode("empty")]
+        if node <> invalid then node.translation = [x, node.translation[1]]
+    end for
+end sub

@@ -2094,6 +2094,12 @@ class App:
         return friends.Friends(self._discover(mine=True))  # las peticiones viven en tu base
 
     def friends_ask(self, user: dict, b: dict) -> dict:
+        if user.get("admin"):  # tú no pides: lo de la tele va directo a Descargas
+            it = b["item"]
+            r = self.downloads_add({"kind": it["kind"], "tmdb": it["tmdb"], "title": it.get("title"), "year": it.get("year")})
+            if not r.get("ok") and "ya está" not in r.get("error", ""):
+                return r
+            return {"ok": True, "downloading": True}
         f = self._friends()
         new = f"{b['item']['kind']}{b['item']['tmdb']}" not in f.asked(user)
         f.ask(user, b["item"])
@@ -2141,6 +2147,17 @@ class App:
         title, _, body = text.partition("\n")
         phones = n.send(users, "📣 " + title.strip(), body.strip())
         return {"ok": True, "people": len(users), "phones": phones}
+
+    def tv_admin(self, user: dict) -> dict:
+        """Para la tele cuando entras tú: lo que se está bajando y lo que han pedido los demás."""
+        if not user.get("admin"):
+            return {"ok": False, "error": "sólo para el administrador"}
+        cfg = self.cfg()
+        keep = ("id", "kind", "tmdb", "title", "year", "season", "state", "poster", "backdrop", "created")
+        rows = [{k: r.get(k) for k in keep} for r in downloads.Downloads(self.library(cfg), cfg).rows()
+                if r.get("state") != "cancelado"][:40]
+        reqs = self._dsc(lambda d: {"items": friends.Friends(d).all()})
+        return {"ok": True, "downloads": rows, "requests": reqs.get("items", [])}
 
     def friends_decide(self, b: dict) -> dict:
         item = self._friends().decide(b["kind"], int(b["tmdb"]), bool(b.get("accept")))
@@ -2249,6 +2266,7 @@ def make_handler(app: App):
         "/api/pedir/browse": lambda u, q: app._dsc(lambda d: {"items": app._friends().browse(
             u, q.get("section", ["novedades"])[0], int(q.get("page", ["1"])[0]), q.get("q", [""])[0].strip())}),
         "/api/pedir/mine": lambda u, q: app._dsc(lambda d: {"items": app._friends().mine(u)}),
+        "/api/pedir/admin": lambda u, q: app.tv_admin(u),
     }
     friend_post = {
         "/api/pedir/notices/read": lambda u, b: (app._notices().read_all(u["id"]), {"ok": True})[1],
@@ -2256,6 +2274,7 @@ def make_handler(app: App):
         "/api/pedir/push/off": lambda u, b: (app._notices().unsubscribe(u["id"], b.get("endpoint", "")), {"ok": True})[1],
         "/api/pedir/follow": lambda u, b: (app._notices().follow(u["id"], b["item"], bool(b.get("on", True))), {"ok": True})[1],
         "/api/pedir/ask": lambda u, b: app.friends_ask(u, b),
+        "/api/pedir/decide": lambda u, b: app.friends_decide(b) if u.get("admin") else {"ok": False, "error": "sólo para el administrador"},
         "/api/pedir/cancel": lambda u, b: app._dsc(lambda d: (app._friends().cancel(u, b["kind"], int(b["tmdb"])), {})[1]),
     }
 
@@ -2340,7 +2359,7 @@ def make_handler(app: App):
                 return self._static("pedir.html", "text/html; charset=utf-8")
             if u.path == "/api/pedir/me":
                 user = self._friend()
-                return self._send(200, json.dumps({"ok": bool(user), "user": user and user["name"]},
+                return self._send(200, json.dumps({"ok": bool(user), "user": user and user["name"], "admin": bool(user and user.get("admin"))},
                                                   ensure_ascii=False).encode(), "application/json")
             if u.path in friend_get:
                 user = self._friend()

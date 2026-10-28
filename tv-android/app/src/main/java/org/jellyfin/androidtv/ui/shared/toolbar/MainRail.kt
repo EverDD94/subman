@@ -180,7 +180,7 @@ fun MainRail(
 
 		RailItem(
 			icon = R.drawable.ic_add,
-			label = "Mis peticiones",
+			label = if (currentUser?.policy?.isAdministrator == true) "Descargas" else "Mis peticiones",
 			open = open,
 			active = activeButton == MainToolbarActiveButton.Requests,
 			modifier = target(MainToolbarActiveButton.Requests),

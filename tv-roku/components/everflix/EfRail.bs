@@ -42,7 +42,7 @@ sub build(views as object)
         entries.push({ key: "lib:" + view.Id, label: view.Name, icon: icon, view: view })
     end for
     entries.push({ divider: true })
-    entries.push({ key: "requests", label: "Mis peticiones", icon: "plus" })
+    entries.push({ key: "requests", label: ef.isAdmin() ? "Descargas" : "Mis peticiones", icon: "plus" })
     entries.push({ key: "settings", label: "Ajustes", icon: "gear" })
     user = m.global.session.user
     photo = ""

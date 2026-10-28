@@ -5,6 +5,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
@@ -28,6 +29,28 @@ data class DiscoverTitle(
 	val have: Boolean,
 	val asked: Boolean,
 )
+
+/** Something the others asked for, as the admin sees it. */
+data class OthersRequest(
+	val kind: String,
+	val tmdb: Int,
+	val title: String,
+	val year: Int?,
+	val poster: String,
+	val status: String,
+	val who: List<String>,
+)
+
+/** A row of the download queue. */
+data class DownloadRow(
+	val title: String,
+	val year: Int?,
+	val season: Int?,
+	val poster: String,
+	val state: String,
+)
+
+data class AdminView(val requests: List<OthersRequest>, val downloads: List<DownloadRow>)
 
 data class MyRequest(
 	val title: String,
@@ -91,7 +114,53 @@ class Videotecario(jellyfinUrl: String?, private val token: String?) {
 		}.onFailure { Timber.w(it, "Videotecario requests failed") }.getOrDefault(emptyList())
 	}
 
-	/** Sends the request for approval. Returns null when it worked, or the message to show. */
+	/** For the admin: what the others asked for and what is downloading. Null if Videotecario is unreachable. */
+	suspend fun admin(): AdminView? = withContext(Dispatchers.IO) {
+		val base = base ?: return@withContext null
+		runCatching {
+			val body = request(URL("$base/api/pedir/admin"), null) ?: return@runCatching null
+			val root = Json.parseToJsonElement(body).jsonObject
+			val requests = root["requests"]?.jsonArray.orEmpty().map { it.jsonObject }.mapNotNull { o ->
+				OthersRequest(
+					kind = o["kind"]?.jsonPrimitive?.content ?: return@mapNotNull null,
+					tmdb = o["tmdb"]?.jsonPrimitive?.intOrNull ?: return@mapNotNull null,
+					title = o["title"]?.jsonPrimitive?.content.orEmpty(),
+					year = o["year"]?.jsonPrimitive?.intOrNull,
+					poster = o["poster"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+					status = o["status"]?.jsonPrimitive?.content.orEmpty(),
+					who = o["who"]?.jsonArray.orEmpty().map { it.jsonPrimitive.content },
+				)
+			}
+			val downloads = root["downloads"]?.jsonArray.orEmpty().map { it.jsonObject }.map { o ->
+				DownloadRow(
+					title = o["title"]?.jsonPrimitive?.content.orEmpty(),
+					year = o["year"]?.jsonPrimitive?.intOrNull,
+					season = o["season"]?.jsonPrimitive?.intOrNull,
+					poster = o["poster"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+					state = o["state"]?.jsonPrimitive?.content.orEmpty(),
+				)
+			}
+			AdminView(requests, downloads)
+		}.onFailure { Timber.w(it, "Videotecario admin view failed") }.getOrNull()
+	}
+
+	/** The admin approves or rejects what the others asked for. Returns null when it worked. */
+	suspend fun decide(request: OthersRequest, accept: Boolean): String? = withContext(Dispatchers.IO) {
+		val base = base ?: return@withContext "No encuentro Videotecario"
+		runCatching {
+			val payload = buildJsonObject {
+				put("kind", request.kind)
+				put("tmdb", request.tmdb)
+				put("accept", accept)
+			}
+			val body = request(URL("$base/api/pedir/decide"), payload) ?: return@runCatching "Videotecario no responde"
+			val root = Json.parseToJsonElement(body).jsonObject
+			if (root["ok"]?.jsonPrimitive?.booleanOrNull == true) null
+			else root["error"]?.jsonPrimitive?.content ?: "No se pudo"
+		}.getOrElse { "Videotecario no responde" }
+	}
+
+	/** Sends the request for approval (or, for the admin, straight to downloads). Returns null when it worked, or the message to show. */
 	suspend fun ask(title: DiscoverTitle): String? = withContext(Dispatchers.IO) {
 		val base = base ?: return@withContext "No encuentro Videotecario"
 		runCatching {

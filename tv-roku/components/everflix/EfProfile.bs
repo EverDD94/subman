@@ -1,0 +1,188 @@
+import "pkg:/components/everflix/EfCommon.bs"
+import "pkg:/source/api/Image.bs"
+import "pkg:/source/utils/misc.bs"
+import "pkg:/source/utils/session.bs"
+
+sub init()
+    m.top.overhangVisible = false
+    m.top.optionsAvailable = false
+    m.photo = m.top.findNode("photo")
+    m.initial = m.top.findNode("initial")
+    m.name = m.top.findNode("name")
+    m.actions = m.top.findNode("actions")
+    m.message = m.top.findNode("message")
+    m.empty = m.top.findNode("empty")
+    m.grid = m.top.findNode("grid")
+    m.rail = m.top.findNode("rail")
+    m.name.font = ef.font(ef.FONT_BOLD, 64)
+    m.initial.font = ef.font(ef.FONT_BOLD, 90)
+    m.top.findNode("heading").font = ef.font(ef.FONT_BOLD, 36)
+    m.message.font = ef.font(ef.FONT_REGULAR, 26)
+    m.empty.font = ef.font(ef.FONT_REGULAR, 28)
+
+    m.actions.observeField("pressed", "onAction")
+    m.grid.observeField("itemSelected", "onFace")
+    m.rail.observeField("selected", "onRailSelected")
+    m.rail.observeField("leave", "onRailLeave")
+
+    m.faceTask = CreateObject("roSGNode", "EfTask")
+    m.faceTask.observeField("result", "onFaces")
+    m.faceTask.job = "faces"
+    m.faceTask.control = "RUN"
+    m.photoTask = CreateObject("roSGNode", "EfTask")
+    m.photoTask.observeField("result", "onPhotoDone")
+    m.busy = false
+    m.inGrid = false
+
+    showUser(invalid)
+end sub
+
+' Shows the signed-in user; `me` is a fresh copy from the server after a change
+sub showUser(me as dynamic)
+    user = m.global.session.user
+    name = user.name ?? ""
+    tag = user.PrimaryImageTag
+    if isValid(me)
+        name = me.LookupCI("Name") ?? name
+        tag = me.LookupCI("PrimaryImageTag")
+    end if
+    m.name.text = name
+    m.initial.text = UCase(Left(name, 1))
+    m.hasPhoto = isValidAndNotEmpty(tag)
+    if m.hasPhoto
+        m.photo.uri = UserImageURL(user.id, { tag: tag, maxWidth: 300, maxHeight: 300 })
+    else
+        m.photo.uri = ""
+    end if
+    list = [{ key: "switch", text: "Cambiar de usuario" }]
+    if m.hasPhoto then list.push({ key: "remove", text: "Quitar foto" })
+    m.actions.items = list
+end sub
+
+sub onFaces()
+    m.faces = m.faceTask.result.faces
+    if not isValid(m.faces) or m.faces.count() = 0
+        m.empty.text = "No encontré caras en tu biblioteca."
+        return
+    end if
+    m.empty.visible = false
+    content = CreateObject("roSGNode", "ContentNode")
+    for each face in m.faces
+        title = face.name
+        note = ""
+        if isValidAndNotEmpty(face.role)
+            title = face.role
+            note = face.name
+        end if
+        node = content.createChild("HomeData")
+        node.json = { Id: "", Name: title, Type: "Face", round: true, image: face.url, title: title, note: note }
+    end for
+    m.grid.content = content
+end sub
+
+sub onAction()
+    if m.busy then return
+    if m.actions.pressed = "switch"
+        ef.go({ target: "changeUser" })
+    else if m.actions.pressed = "remove"
+        m.busy = true
+        m.message.text = "Quitando la foto…"
+        m.photoTask.job = "removePhoto"
+        m.photoTask.control = "RUN"
+    end if
+end sub
+
+sub onFace()
+    if m.busy or not isValid(m.faces) then return
+    face = m.faces[m.grid.itemSelected]
+    if not isValid(face) then return
+    m.busy = true
+    m.chosen = face
+    m.message.text = "Poniendo tu foto…"
+    m.message.color = ef.INK
+    m.photoTask.job = "photo"
+    m.photoTask.args = { url: face.url }
+    m.photoTask.control = "RUN"
+end sub
+
+sub onPhotoDone()
+    m.busy = false
+    r = m.photoTask.result
+    ok = isValid(r) and r.ok = true
+    if m.photoTask.job = "photo"
+        if ok
+            who = m.chosen.name
+            if isValidAndNotEmpty(m.chosen.role) then who = m.chosen.role
+            m.message.text = `¡Listo! Ahora eres ${who}.`
+        else
+            m.message.text = "No se pudo cambiar la foto. Prueba otra vez."
+        end if
+    else
+        m.message.text = ok ? "Foto quitada." : "No se pudo quitar la foto."
+    end if
+    m.message.color = ef.INK
+    if ok and isValid(r.me)
+        ' Keep the session in step so the menu shows the new photo
+        session.user.Update("PrimaryImageTag", r.me.LookupCI("PrimaryImageTag") ?? "")
+        showUser(r.me)
+    end if
+end sub
+
+sub onRailSelected()
+    if m.rail.selected = "profile"
+        onRailLeave()
+        return
+    end if
+    ef.go({ target: m.rail.selected })
+end sub
+
+sub onRailLeave()
+    m.inGrid = false
+    m.actions.active = true
+    m.top.setFocus(true)
+end sub
+
+sub OnScreenShown()
+    scene = m.top.getScene()
+    overhang = scene.findNode("overhang")
+    if isValid(overhang) then overhang.visible = false
+    onRailLeave()
+end sub
+
+function onKeyEvent(key as string, press as boolean) as boolean
+    if not press then return false
+    if m.inGrid
+        if key = "up"
+            m.inGrid = false
+            m.actions.active = true
+            m.top.setFocus(true)
+            return true
+        else if key = "left"
+            m.rail.callFunc("focusIn")
+            m.actions.active = false
+            return true
+        end if
+        return false
+    end if
+    if key = "left"
+        if not m.actions.callFunc("move", -1)
+            m.actions.active = false
+            m.rail.callFunc("focusIn")
+        end if
+        return true
+    else if key = "right"
+        m.actions.callFunc("move", 1)
+        return true
+    else if key = "OK"
+        m.actions.callFunc("press")
+        return true
+    else if key = "down"
+        if isValid(m.grid.content) and m.grid.content.getChildCount() > 0
+            m.inGrid = true
+            m.actions.active = false
+            m.grid.setFocus(true)
+        end if
+        return true
+    end if
+    return false
+end function

@@ -1,0 +1,289 @@
+import "pkg:/components/everflix/EfCommon.bs"
+import "pkg:/source/utils/misc.bs"
+
+sub init()
+    m.top.functionName = "doJob"
+end sub
+
+sub doJob()
+    job = m.top.job
+    a = m.top.args
+    if not isValid(a) then a = {}
+    r = {}
+    if job = "home"
+        r = loadHome()
+    else if job = "views"
+        r = { items: listOf(ef.getJellyfin(`Users/${efUid()}/Views`)) }
+    else if job = "items"
+        params = a.params
+        if not isValid(params) then params = {}
+        params.Fields = ef.fields()
+        params.ImageTypeLimit = 1
+        params.EnableTotalRecordCount = true
+        data = ef.getJellyfin(`Users/${efUid()}/Items`, params)
+        total = 0
+        if isValid(data) and isValid(data.TotalRecordCount) then total = data.TotalRecordCount
+        r = { items: decorateAll(listOf(data)), total: total, startIndex: params.StartIndex }
+    else if job = "details"
+        r = loadDetails(a.id)
+    else if job = "episodes"
+        data = ef.getJellyfin(`Shows/${a.seriesId}/Episodes`, { UserId: efUid(), SeasonId: a.seasonId, Fields: ef.fields() })
+        r = { items: decorateAll(listOf(data)), seasonId: a.seasonId }
+    else if job = "search"
+        r = search(a.query)
+    else if job = "favorite"
+        r = setUserData(`Users/${efUid()}/FavoriteItems/${a.id}`, a.value)
+    else if job = "played"
+        r = setUserData(`Users/${efUid()}/PlayedItems/${a.id}`, a.value)
+    else if job = "vt"
+        r = videotecario(a.path, a.body)
+    else if job = "faces"
+        r = loadFaces()
+    else if job = "photo"
+        r = setPhoto(a.url)
+    else if job = "removePhoto"
+        r = removePhoto()
+    else if job = "item"
+        r = { item: ef.decorate(ef.getJellyfin(`Users/${efUid()}/Items/${a.id}`)) }
+    else if job = "me"
+        r = { user: ef.getJellyfin(`Users/${efUid()}`) }
+    end if
+    m.top.result = r
+end sub
+
+function efUid() as string
+    return m.global.session.user.id
+end function
+
+function listOf(data as dynamic) as object
+    if isValid(data)
+        if type(data) = "roArray" then return data
+        if isValid(data.Items) then return data.Items
+    end if
+    return []
+end function
+
+function decorateAll(items as object) as object
+    for each item in items
+        ef.decorate(item)
+    end for
+    return items
+end function
+
+' Same rows as "Para ti" on Google TV
+function loadHome() as object
+    rows = []
+    common = { Fields: ef.fields(), ImageTypeLimit: 1, EnableTotalRecordCount: false }
+
+    p = { MediaTypes: "Video", Limit: 30 }
+    p.Append(common)
+    addRow(rows, "Continuar viendo", ef.getJellyfin(`Users/${efUid()}/Items/Resume`, p))
+
+    p = { UserId: efUid(), Limit: 30, EnableResumable: true, EnableRewatching: false }
+    p.Append(common)
+    addRow(rows, "Siguiente", ef.getJellyfin("Shows/NextUp", p))
+
+    forYou = { Recursive: true, IncludeItemTypes: "Series,Movie", SortOrder: "Descending", Limit: 30 }
+    forYou.Append(common)
+
+    p = {}
+    p.Append(forYou)
+    p.SortBy = "DateCreated"
+    addRow(rows, "Novedades", ef.getJellyfin(`Users/${efUid()}/Items`, p))
+
+    p = {}
+    p.Append(forYou)
+    p.SortBy = "DateCreated"
+    p.IsFavorite = true
+    addRow(rows, "Mi lista", ef.getJellyfin(`Users/${efUid()}/Items`, p))
+
+    ' Same picks all day long: a slice of what you haven't seen that moves on each day
+    date = CreateObject("roDateTime")
+    date.ToLocalTime()
+    dayOfYear = dayOfYearOf(date)
+    p = {}
+    p.Append(forYou)
+    p.SortBy = "PremiereDate"
+    p.IsPlayed = false
+    p.StartIndex = (dayOfYear * 7) mod 120
+    addRow(rows, "Recomendado para ti", ef.getJellyfin(`Users/${efUid()}/Items`, p))
+
+    p = {}
+    p.Append(forYou)
+    p.SortBy = "CommunityRating"
+    p.IsPlayed = false
+    addRow(rows, "Lo más valorado que no has visto", ef.getJellyfin(`Users/${efUid()}/Items`, p))
+
+    return { rows: rows }
+end function
+
+function dayOfYearOf(date as object) as integer
+    start = CreateObject("roDateTime")
+    start.FromISO8601String(`${date.GetYear()}-01-01T00:00:00`)
+    return Int((date.AsSeconds() - start.AsSeconds()) / 86400) + 1
+end function
+
+sub addRow(rows as object, title as string, data as dynamic)
+    items = decorateAll(listOf(data))
+    if items.count() = 0 then return
+    rows.push({ title: title, items: items })
+end sub
+
+function loadDetails(id as string) as object
+    item = ef.getJellyfin(`Users/${efUid()}/Items/${id}`)
+    if not isValid(item) then return { error: true }
+    ef.decorate(item)
+    r = { item: item, seasons: [], similar: [] }
+    kind = item.LookupCI("Type")
+
+    seriesId = invalid
+    if kind = "Episode" then seriesId = item.LookupCI("SeriesId")
+    if kind = "Series" then seriesId = item.LookupCI("Id")
+
+    if isValid(seriesId)
+        if kind = "Series"
+            r.series = item
+            nextList = listOf(ef.getJellyfin("Shows/NextUp", { UserId: efUid(), SeriesId: seriesId, EnableResumable: true, Fields: ef.fields(), Limit: 1 }))
+            if nextList.count() > 0 then r.nextUp = ef.decorate(nextList[0])
+        else
+            r.series = ef.decorate(ef.getJellyfin(`Users/${efUid()}/Items/${seriesId}`))
+        end if
+        r.seasons = listOf(ef.getJellyfin(`Shows/${seriesId}/Seasons`, { UserId: efUid() }))
+        seasonId = item.LookupCI("SeasonId")
+        if not isValid(seasonId) and isValid(r.nextUp) then seasonId = r.nextUp.LookupCI("SeasonId")
+        if not isValid(seasonId) and r.seasons.count() > 0 then seasonId = r.seasons[0].Id
+        r.seasonId = seasonId
+    else if kind = "BoxSet" or kind = "Person"
+        p = { Recursive: true, IncludeItemTypes: "Movie,Series", SortBy: "PremiereDate", Fields: ef.fields(), ImageTypeLimit: 1 }
+        if kind = "BoxSet" then p.ParentId = id else p.PersonIds = id
+        r.similar = decorateAll(listOf(ef.getJellyfin(`Users/${efUid()}/Items`, p)))
+    else
+        r.similar = decorateAll(listOf(ef.getJellyfin(`Items/${id}/Similar`, { UserId: efUid(), Limit: 20, Fields: ef.fields() })))
+    end if
+    return r
+end function
+
+function search(query as string) as object
+    r = { query: query, items: [], people: [], suggestions: [] }
+    if Len(query) < 2 then return r
+    p = { SearchTerm: query, Recursive: true, IncludeItemTypes: "Movie,Series,BoxSet", Limit: 40, Fields: ef.fields(), ImageTypeLimit: 1 }
+    r.items = decorateAll(listOf(ef.getJellyfin(`Users/${efUid()}/Items`, p)))
+    r.people = decorateAll(listOf(ef.getJellyfin("Persons", { SearchTerm: query, UserId: efUid(), Limit: 15 })))
+    vt = videotecario("/api/pedir/browse?q=" + CreateObject("roUrlTransfer").Escape(query), invalid)
+    if isValid(vt.data) and isValid(vt.data.items)
+        for each title in vt.data.items
+            if not title.LookupCI("have") then r.suggestions.push(title)
+        end for
+    end if
+    return r
+end function
+
+function setUserData(path as string, value as boolean) as object
+    req = APIRequest(path)
+    if not isValid(req) then return { ok: false }
+    if value
+        ok = postVoid(req)
+    else
+        req.SetRequest("DELETE")
+        ok = getVoid(req)
+    end if
+    return { ok: ok, value: value }
+end function
+
+' Talks to Videotecario with the user's own Jellyfin token (no other password needed)
+function videotecario(path as string, body as dynamic) as object
+    base = ef.videotecarioBase()
+    if base = "" then return { ok: false, error: "No encuentro Videotecario" }
+    req = CreateObject("roUrlTransfer")
+    req.SetUrl(base + path)
+    req.AddHeader("X-Emby-Token", m.global.session.user.authToken)
+    if base.left(5) = "https" then req.SetCertificatesFile("common:/certs/ca-bundle.crt")
+    req.RetainBodyOnError(true)
+    port = CreateObject("roMessagePort")
+    req.SetMessagePort(port)
+    if isValid(body)
+        req.AddHeader("Content-Type", "application/json")
+        started = req.AsyncPostFromString(FormatJson(body))
+    else
+        started = req.AsyncGetToString()
+    end if
+    if not started then return { ok: false, error: "Videotecario no responde" }
+    msg = wait(10000, port)
+    if type(msg) <> "roUrlEvent"
+        req.AsyncCancel()
+        return { ok: false, error: "Videotecario no responde" }
+    end if
+    data = ParseJson(msg.GetString())
+    return { ok: msg.GetResponseCode() = 200, code: msg.GetResponseCode(), data: data }
+end function
+
+' Faces of the cast of what you watch, to pick a profile photo from
+function loadFaces() as object
+    faces = []
+    seen = {}
+    recent = listOf(ef.getJellyfin(`Users/${efUid()}/Items`, { Recursive: true, IncludeItemTypes: "Movie,Series", SortBy: "DatePlayed,DateCreated", SortOrder: "Descending", Limit: 20, Fields: "People" }))
+    for each item in recent
+        people = item.LookupCI("People")
+        if isValid(people)
+            count = 0
+            for each person in people
+                tag = person.LookupCI("PrimaryImageTag")
+                if isValid(tag) and not seen.DoesExist(person.Id) and count < 4
+                    seen[person.Id] = true
+                    count++
+                    faces.push({
+                        id: person.Id,
+                        name: person.Name,
+                        role: person.LookupCI("Role"),
+                        url: ImageURL(person.Id, "Primary", { maxWidth: 400, maxHeight: 400, Tag: tag })
+                    })
+                end if
+            end for
+        end if
+        if faces.count() >= 40 then exit for
+    end for
+    return { faces: faces }
+end function
+
+' Jellyfin takes the photo as base64 text in the body
+function setPhoto(url as string) as object
+    tmp = "tmp:/ef-face.jpg"
+    dl = CreateObject("roUrlTransfer")
+    dl.SetUrl(url)
+    dl = authRequest(dl)
+    if url.left(5) = "https" then dl.SetCertificatesFile("common:/certs/ca-bundle.crt")
+    if dl.GetToFile(tmp) <> 200 then return { ok: false }
+    bytes = CreateObject("roByteArray")
+    bytes.ReadFile(tmp)
+    req = APIRequest(`Users/${efUid()}/Images/Primary`)
+    if not isValid(req) then return { ok: false }
+    req.AddHeader("Content-Type", "image/jpeg")
+    port = CreateObject("roMessagePort")
+    req.SetMessagePort(port)
+    req.AsyncPostFromString(bytes.ToBase64String())
+    msg = wait(20000, port)
+    ok = type(msg) = "roUrlEvent" and msg.GetResponseCode() >= 200 and msg.GetResponseCode() < 300
+    if not ok
+        ' Newer servers moved it here
+        req = APIRequest("UserImage", { userId: efUid() })
+        req.AddHeader("Content-Type", "image/jpeg")
+        req.SetMessagePort(port)
+        req.AsyncPostFromString(bytes.ToBase64String())
+        msg = wait(20000, port)
+        ok = type(msg) = "roUrlEvent" and msg.GetResponseCode() >= 200 and msg.GetResponseCode() < 300
+    end if
+    DeleteFile(tmp)
+    return { ok: ok, me: ef.getJellyfin(`Users/${efUid()}`) }
+end function
+
+function removePhoto() as object
+    req = APIRequest(`Users/${efUid()}/Images/Primary`)
+    if not isValid(req) then return { ok: false }
+    req.SetRequest("DELETE")
+    port = CreateObject("roMessagePort")
+    req.SetMessagePort(port)
+    req.AsyncGetToString()
+    msg = wait(10000, port)
+    ok = type(msg) = "roUrlEvent" and msg.GetResponseCode() < 300
+    return { ok: ok, me: ef.getJellyfin(`Users/${efUid()}`) }
+end function

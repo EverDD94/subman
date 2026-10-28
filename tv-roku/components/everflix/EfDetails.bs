@@ -1,0 +1,431 @@
+import "pkg:/components/everflix/EfCommon.bs"
+import "pkg:/source/utils/misc.bs"
+
+sub init()
+    m.top.overhangVisible = false
+    m.top.optionsAvailable = false
+    m.backdrop = m.top.findNode("backdrop")
+    m.hero = m.top.findNode("hero")
+    m.buttons = m.top.findNode("buttons")
+    m.langs = m.top.findNode("langs")
+    m.seasons = m.top.findNode("seasons")
+    m.section = m.top.findNode("section")
+    m.episodes = m.top.findNode("episodes")
+    m.similar = m.top.findNode("similar")
+    m.loading = m.top.findNode("loading")
+    m.section.font = ef.font(ef.FONT_BOLD, 26)
+    m.loading.font = ef.font(ef.FONT_REGULAR, 28)
+
+    m.buttons.observeField("pressed", "onButton")
+    m.langs.observeField("pressed", "onLang")
+    m.seasons.observeField("pressed", "onSeason")
+    m.episodes.observeField("rowItemSelected", "onEpisodeSelected")
+    m.similar.observeField("rowItemSelected", "onSimilarSelected")
+
+    m.task = CreateObject("roSGNode", "EfTask")
+    m.task.observeField("result", "onLoaded")
+    m.episodeTask = CreateObject("roSGNode", "EfTask")
+    m.episodeTask.observeField("result", "onEpisodes")
+    m.userDataTask = CreateObject("roSGNode", "EfTask")
+    m.userDataTask.observeField("result", "onUserData")
+
+    m.data = invalid
+    m.zones = []
+    m.zone = 0
+    m.audioLang = invalid
+    m.subLang = invalid
+    m.isFirstShow = true
+end sub
+
+sub load()
+    m.task.job = "details"
+    m.task.args = { id: m.top.itemId }
+    m.task.control = "STOP"
+    m.task.control = "RUN"
+end sub
+
+sub onLoaded()
+    r = m.task.result
+    if not isValid(r) or r.LookupCI("error") = true or not isValid(r.item)
+        m.loading.text = "No se pudo cargar."
+        return
+    end if
+    m.loading.visible = false
+    m.data = r
+    item = r.item
+    kind = item.Type
+
+    heroItem = item
+    if kind = "Series" and isValid(r.nextUp) then heroItem = r.nextUp
+    m.hero.item = heroItem
+    if isValid(r.series) then m.backdrop.item = r.series else m.backdrop.item = item
+
+    m.subLang = invalid
+    m.audioLang = invalid
+    buildButtons()
+    buildLangs()
+
+    ' Seasons and episodes for series, otherwise a row of related titles
+    if r.seasons.count() > 0
+        seasonItems = []
+        for each s in r.seasons
+            seasonItems.push({ key: s.Id, text: s.Name, selected: s.Id = r.seasonId })
+        end for
+        m.seasons.items = seasonItems
+        for i = 0 to r.seasons.count() - 1
+            if r.seasons[i].Id = r.seasonId then m.seasons.index = i
+        end for
+        m.seasons.visible = true
+        m.section.visible = false
+        m.similar.visible = false
+        loadEpisodes(r.seasonId)
+    else
+        m.seasons.visible = false
+        m.episodes.visible = false
+        if r.similar.count() > 0
+            title = "MÁS COMO ESTA"
+            if kind = "BoxSet" then title = `EN ESTA COLECCIÓN · ${r.similar.count()}`
+            if kind = "Person" then title = `APARECE EN · ${r.similar.count()}`
+            m.section.text = title
+            m.section.visible = true
+            content = CreateObject("roSGNode", "ContentNode")
+            row = content.createChild("ContentNode")
+            for each other in r.similar
+                row.appendChild(ef.itemNode(other))
+            end for
+            m.similar.content = content
+            m.similar.visible = true
+        else
+            m.section.visible = false
+            m.similar.visible = false
+        end if
+    end if
+    layout()
+    if m.isFirstShow
+        m.isFirstShow = false
+        m.zone = 0
+    end if
+    applyFocus()
+end sub
+
+' What the big button plays: the next (or half-watched) episode of a series, otherwise the item itself
+function playTarget() as dynamic
+    if not isValid(m.data) then return invalid
+    item = m.data.item
+    if item.Type = "Series"
+        if isValid(m.data.nextUp) then return m.data.nextUp
+        if isValid(m.episodeList) and m.episodeList.count() > 0 then return m.episodeList[0]
+        return invalid
+    end if
+    return item
+end function
+
+function resumeTicks(item as dynamic) as longinteger
+    if not isValid(item) or not isValid(item.UserData) then return 0
+    return item.UserData.LookupCI("PlaybackPositionTicks") ?? 0
+end function
+
+sub buildButtons()
+    item = m.data.item
+    if item.Type = "Person"
+        m.buttons.items = []
+        m.buttons.visible = false
+        return
+    end if
+    m.buttons.visible = true
+    target = playTarget()
+    canResume = resumeTicks(target) > 0
+    label = "Reproducir"
+    if canResume
+        label = "Continuar"
+    else if item.Type = "Series" and isValid(m.data.nextUp)
+        label = `Ver T${m.data.nextUp.ParentIndexNumber ?? 1} · E${m.data.nextUp.IndexNumber ?? 1}`
+    end if
+    played = false
+    favorite = false
+    if isValid(item.UserData)
+        played = item.UserData.Played = true
+        favorite = item.UserData.IsFavorite = true
+    end if
+    list = [{ key: "play", text: "▶  " + label, primary: true }]
+    if canResume then list.push({ key: "restart", text: "↺  Desde el principio" })
+    list.push({ key: "played", text: played ? "✓  Visto" : "Marcar como visto" })
+    list.push({ key: "favorite", text: favorite ? "♥  En mi lista" : "♡  Mi lista" })
+    index = m.buttons.index
+    m.buttons.items = list
+    if index < list.count() then m.buttons.index = index
+end sub
+
+function streamsOf(item as dynamic) as object
+    if not isValid(item) then return []
+    sources = item.LookupCI("MediaSources")
+    if isValid(sources) and sources.count() > 0 and isValid(sources[0].MediaStreams) then return sources[0].MediaStreams
+    streams = item.LookupCI("MediaStreams")
+    if isValid(streams) then return streams
+    return []
+end function
+
+function languages(streams as object, kind as string) as object
+    seen = {}
+    list = []
+    for each s in streams
+        if s.Type = kind and isValidAndNotEmpty(s.Language) and not seen.DoesExist(LCase(s.Language))
+            seen[LCase(s.Language)] = true
+            list.push(s.Language)
+        end if
+    end for
+    return list
+end function
+
+sub buildLangs()
+    streams = streamsOf(playTarget())
+    m.audios = languages(streams, "Audio")
+    m.subs = languages(streams, "Subtitle")
+    ' Spanish subtitles by default, the usual case at home
+    if not isValid(m.subLang)
+        m.subLang = ""
+        for each code in m.subs
+            if ef.isSpanish(code)
+                m.subLang = code
+                exit for
+            end if
+        end for
+        if m.subLang = "" and m.subs.count() > 0 then m.subLang = m.subs[0]
+    end if
+    if not isValid(m.audioLang) and m.audios.count() > 0 then m.audioLang = m.audios[0]
+
+    list = []
+    if m.audios.count() > 1 then list.push({ key: "audio", text: "Audio: " + ef.langName(m.audioLang) + "  ⇄" })
+    if m.subs.count() > 0
+        subText = "No"
+        if m.subLang <> "" then subText = ef.langName(m.subLang)
+        list.push({ key: "subs", text: "Subtítulos: " + subText + "  ⇄" })
+    end if
+    index = m.langs.index
+    m.langs.items = list
+    if index < list.count() then m.langs.index = index
+    m.langs.visible = list.count() > 0
+end sub
+
+' Stacks the rows under the buttons so nothing leaves a gap
+sub layout()
+    heroBottom = m.hero.translation[1] + m.hero.boundingRect().height
+    y = heroBottom + 30
+    if y < 420 then y = 420
+    m.buttons.translation = [120, y]
+    if m.buttons.visible then y += 84
+    m.langs.translation = [120, y]
+    if m.langs.visible then y += 68
+    m.seasons.translation = [120, y]
+    m.section.translation = [120, y]
+    if m.seasons.visible
+        m.episodes.translation = [120, y + 70]
+    end if
+    m.similar.translation = [120, y + 44]
+
+    m.zones = []
+    if m.buttons.visible then m.zones.push(m.buttons)
+    if m.langs.visible then m.zones.push(m.langs)
+    if m.seasons.visible then m.zones.push(m.seasons)
+    if m.episodes.visible then m.zones.push(m.episodes)
+    if m.similar.visible then m.zones.push(m.similar)
+    if m.zone >= m.zones.count() then m.zone = 0
+end sub
+
+sub applyFocus()
+    for each z in [m.buttons, m.langs, m.seasons]
+        z.active = false
+    end for
+    if m.zones.count() = 0
+        m.top.setFocus(true)
+        return
+    end if
+    z = m.zones[m.zone]
+    if z.subtype() = "EfPillRow"
+        z.active = true
+        m.top.setFocus(true)
+    else
+        z.setFocus(true)
+    end if
+end sub
+
+sub loadEpisodes(seasonId as dynamic)
+    if not isValid(seasonId) or not isValid(m.data.series) then return
+    m.episodeTask.job = "episodes"
+    m.episodeTask.args = { seriesId: m.data.series.Id, seasonId: seasonId }
+    m.episodeTask.control = "STOP"
+    m.episodeTask.control = "RUN"
+end sub
+
+sub onEpisodes()
+    r = m.episodeTask.result
+    if not isValid(r) or not isValid(r.items) then return
+    m.episodeList = r.items
+    content = CreateObject("roSGNode", "ContentNode")
+    row = content.createChild("ContentNode")
+    focusIndex = 0
+    targetId = invalid
+    if isValid(m.data.item) and m.data.item.Type = "Episode" then targetId = m.data.item.Id
+    if isValid(m.data.nextUp) then targetId = m.data.nextUp.Id
+    for i = 0 to r.items.count() - 1
+        row.appendChild(ef.itemNode(r.items[i]))
+        if r.items[i].Id = targetId then focusIndex = i
+    end for
+    m.episodes.content = content
+    m.episodes.visible = r.items.count() > 0
+    if r.items.count() > 0 then m.episodes.jumpToRowItem = [0, focusIndex]
+    ' A series without next-up plays its first episode
+    if m.data.item.Type = "Series" and not isValid(m.data.nextUp)
+        buildButtons()
+        buildLangs()
+    end if
+    hadFocus = m.zones.count() > m.zone and m.zones[m.zone].isSameNode(m.episodes)
+    layout()
+    if hadFocus then applyFocus()
+end sub
+
+function langChoice() as object
+    target = playTarget()
+    return chooseStreams(target)
+end function
+
+' Stream indexes in this file for the languages picked on the chips
+function chooseStreams(item as dynamic) as object
+    choice = { audioIndex: 0, subIndex: -1 }
+    streams = streamsOf(item)
+    for each s in streams
+        if s.Type = "Audio" and isValid(m.audioLang) and isValid(s.Language) and LCase(s.Language) = LCase(m.audioLang) and choice.audioIndex = 0
+            choice.audioIndex = s.Index
+        end if
+    end for
+    if isValid(m.subLang) and m.subLang <> ""
+        for each s in streams
+            if s.Type = "Subtitle" and isValid(s.Language) and LCase(s.Language) = LCase(m.subLang)
+                choice.subIndex = s.Index
+                exit for
+            end if
+        end for
+    end if
+    return choice
+end function
+
+sub play(item as dynamic, fromStart = false as boolean)
+    if not isValid(item) then return
+    choice = chooseStreams(item)
+    ef.go({ target: "play", item: item, fromStart: fromStart, audioIndex: choice.audioIndex, subIndex: choice.subIndex })
+end sub
+
+sub onButton()
+    key = m.buttons.pressed
+    item = m.data.item
+    if key = "play"
+        play(playTarget())
+    else if key = "restart"
+        play(playTarget(), true)
+    else if key = "played" or key = "favorite"
+        current = false
+        if isValid(item.UserData)
+            if key = "played" then current = item.UserData.Played = true else current = item.UserData.IsFavorite = true
+        end if
+        m.userDataTask.job = key = "played" ? "played" : "favorite"
+        m.userDataTask.args = { id: item.Id, value: not current }
+        m.userDataTask.control = "RUN"
+    end if
+end sub
+
+sub onUserData()
+    r = m.userDataTask.result
+    if not isValid(r) or not r.ok then return
+    item = m.data.item
+    userData = {}
+    if isValid(item.UserData) then userData.Append(item.UserData)
+    if m.userDataTask.job = "played" then userData.Played = r.value else userData.IsFavorite = r.value
+    item.UserData = userData
+    data = m.data
+    data.item = item
+    m.data = data
+    buildButtons()
+end sub
+
+sub onLang()
+    if m.langs.pressed = "audio" and m.audios.count() > 1
+        i = 0
+        for j = 0 to m.audios.count() - 1
+            if m.audios[j] = m.audioLang then i = j
+        end for
+        m.audioLang = m.audios[(i + 1) mod m.audios.count()]
+    else if m.langs.pressed = "subs"
+        options = []
+        options.Append(m.subs)
+        options.push("")
+        i = options.count() - 1
+        for j = 0 to options.count() - 1
+            if options[j] = m.subLang then i = j
+        end for
+        m.subLang = options[(i + 1) mod options.count()]
+    end if
+    buildLangs()
+end sub
+
+sub onSeason()
+    seasonId = m.seasons.pressed
+    list = []
+    for each s in m.data.seasons
+        list.push({ key: s.Id, text: s.Name, selected: s.Id = seasonId })
+    end for
+    index = m.seasons.index
+    m.seasons.items = list
+    m.seasons.index = index
+    loadEpisodes(seasonId)
+end sub
+
+sub onEpisodeSelected()
+    f = m.episodes.rowItemFocused
+    if not isValid(m.episodeList) or not isValid(f) then return
+    play(m.episodeList[f[1]])
+end sub
+
+sub onSimilarSelected()
+    f = m.similar.rowItemFocused
+    if not isValid(f) then return
+    other = m.data.similar[f[1]]
+    if isValid(other) then ef.go({ target: "details", id: other.Id })
+end sub
+
+sub OnScreenShown()
+    scene = m.top.getScene()
+    overhang = scene.findNode("overhang")
+    if isValid(overhang) then overhang.visible = false
+    applyFocus()
+    ' Coming back from the player: refresh progress and the next episode
+    if isValid(m.data) then load()
+end sub
+
+function onKeyEvent(key as string, press as boolean) as boolean
+    if not press or m.zones.count() = 0 then return false
+    z = m.zones[m.zone]
+    isPills = z.subtype() = "EfPillRow"
+    if key = "up"
+        if m.zone > 0
+            m.zone--
+            applyFocus()
+        end if
+        return true
+    else if key = "down"
+        if m.zone < m.zones.count() - 1
+            m.zone++
+            applyFocus()
+        end if
+        return true
+    else if isPills and (key = "left" or key = "right")
+        z.callFunc("move", key = "left" ? -1 : 1)
+        return true
+    else if isPills and key = "OK"
+        z.callFunc("press")
+        return true
+    else if key = "play"
+        play(playTarget())
+        return true
+    end if
+    return false
+end function

@@ -1,0 +1,30 @@
+import "pkg:/components/everflix/EfCommon.bs"
+import "pkg:/source/utils/misc.bs"
+
+sub init()
+    m.image = m.top.findNode("image")
+    m.name = m.top.findNode("name")
+    m.ring = m.top.findNode("ring")
+    m.progress = m.top.findNode("progress")
+    m.name.font = ef.font(ef.FONT_BOLD, 24)
+    m.top.scaleRotateCenter = [220, 124]
+end sub
+
+sub onContent()
+    node = m.top.itemContent
+    if not isValid(node) or not isValid(node.json) then return
+    item = node.json
+    m.image.uri = item.LookupCI("efThumb") ?? ""
+    m.name.text = UCase(item.LookupCI("Name") ?? "")
+    percent = 0
+    data = item.LookupCI("UserData")
+    if isValid(data) then percent = data.LookupCI("PlayedPercentage") ?? 0
+    m.progress.width = 400 * percent / 100
+end sub
+
+sub onFocus()
+    f = m.top.focusPercent * m.top.rowFocusPercent
+    s = 1 + 0.08 * f
+    m.top.scale = [s, s]
+    m.ring.visible = f > 0.5
+end sub

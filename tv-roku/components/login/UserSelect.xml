@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <component name="UserSelect" extends="JFScreen">
   <children>
+    <Poster uri="pkg:/images/everflix/logo-full.png" width="264" height="80" translation="[828, 40]" />
     <Rectangle id="unhideUsers" translation="[-600, 0]" width="600" height="1080">
       <Text
         id="unhideUserHeader"
@@ -27,7 +28,7 @@
         font="font:LargeSystemFont"
         height="100"
         width="1920"
-        translation="[0, 150]" />
+        translation="[0, 170]" />
 
       <UserRow id="userRow" rowFocusAnimationStyle="fixedFocusWrap" translation="[130, 310]" />
 

@@ -1,52 +1,46 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Everflix home ("Para ti"): the focused title big over its backdrop, rows below, side menu on the left. -->
 <component name="Home" extends="JFScreen">
   <children>
-    <Poster id="backdrop" loadDisplayMode="scaleToZoom" width="1920" height="1200" />
+    <Rectangle id="bgColor" width="1920" height="1080" color="0x0B0D12FF" />
+    <Poster id="backdropA" width="1920" height="1080" loadDisplayMode="scaleToZoom" loadWidth="1920" loadHeight="1080" opacity="0" />
+    <Poster id="backdropB" width="1920" height="1080" loadDisplayMode="scaleToZoom" loadWidth="1920" loadHeight="1080" opacity="0" />
+    <Poster uri="pkg:/images/everflix/shade-left.png" width="1300" height="1080" />
+    <Poster uri="pkg:/images/everflix/shade-bottom.png" width="1920" height="700" translation="[0, 380]" />
 
-    <LayoutGroup id="buttons" translation="[100, 100]" layoutDirection="horiz" horizAlignment="left" itemSpacings="[25]">
-      <TextButton
-        id="searchButton"
-        iconSide="left"
-        fontSize="25"
-        padding="20"
-        icon="pkg:/images/icons/search-light.png"
-        focusIcon="pkg:/images/icons/search-light.png"
-        text="Search"
-        height="50"
-        width="200" />
-      <TextButton
-        id="settingsButton"
-        iconSide="left"
-        fontSize="25"
-        padding="20"
-        icon="pkg:/images/icons/settings.png"
-        focusIcon="pkg:/images/icons/settings.png"
-        text="Settings"
-        height="50"
-        width="200" />
-    </LayoutGroup>
+    <EfHero id="hero" translation="[170, 90]" visible="false" />
 
-    <HomeRows
-      id="homeRows"
-      showRowLabel="true"
-      vertFocusAnimationStyle="fixedFocus"
-      rowFocusAnimationStyle="fixedFocusWrap"
-      itemComponentName="HomeItem"
+    <RowList
+      id="rows"
+      translation="[170, 560]"
+      itemComponentName="EfCard"
+      itemSize="[1750, 360]"
       numRows="2"
-      rowLabelOffset="[[0,20]]" />
-    <OptionsSlider id="options" />
+      rowItemSize="[[400, 225]]"
+      rowItemSpacing="[[28, 0]]"
+      itemSpacing="[0, 10]"
+      showRowLabel="[true]"
+      rowLabelOffset="[[0, 14]]"
+      rowLabelColor="0xF4F2EEFF"
+      rowFocusAnimationStyle="floatingFocus"
+      vertFocusAnimationStyle="fixedFocus"
+      drawFocusFeedback="false" />
 
-    <Animation id="toggleButtonsAnimation" duration=".7" repeat="false" easeFunction="linear">
-      <FloatFieldInterpolator id="buttonsFade" key="[0.0, .6]" keyValue="[1.00, 0.00]" fieldToInterp="buttons.opacity" />
-      <Vector2DFieldInterpolator id="buttonsMove" key="[0.1, .9]" keyValue="[[100, 100], [100, 0]]" fieldToInterp="buttons.translation" />
+    <Label id="empty" translation="[170, 640]" width="1500" color="0x9AA0ADFF" text="Cargando…" />
+
+    <EfRail id="rail" active="home" />
+    <OptionsSlider id="options" visible="false" />
+
+    <Timer id="heroTimer" duration="0.3" repeat="false" />
+    <Animation id="fade" duration="0.5" repeat="false" easeFunction="linear">
+      <FloatFieldInterpolator id="fadeIn" key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="backdropA.opacity" />
+      <FloatFieldInterpolator id="fadeOut" key="[0.0, 1.0]" keyValue="[1.0, 0.0]" fieldToInterp="backdropB.opacity" />
     </Animation>
-
   </children>
   <interface>
     <field id="playlistData" type="array" />
-    <field id="selectedItem" alias="homeRows.selectedItem" />
-    <field id="rowFocused" alias="homeRows.itemFocused" onchange="onRowFocusedChange" />
-    <field id="quickPlayNode" alias="homeRows.quickPlayNode" />
+    <field id="selectedItem" type="node" alwaysNotify="true" />
+    <field id="quickPlayNode" type="node" alwaysNotify="true" />
     <function name="refresh" />
     <function name="loadLibraries" />
   </interface>

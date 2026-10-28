@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Everflix: "Mis peticiones", what this person asked for and whether it's approved yet. -->
+<component name="EfRequests" extends="JFScreen">
+  <children>
+    <Rectangle width="1920" height="1080" color="0x0B0D12FF" />
+    <Label id="heading" translation="[170, 70]" text="MIS PETICIONES" color="0xF4F2EEFF" />
+    <Label id="sub" translation="[170, 136]" width="1600" color="0x9AA0ADFF" text="Lo que has pedido. Se descarga cuando se aprueba y aparece solo en tu biblioteca." />
+    <Label id="empty" translation="[170, 220]" width="1600" color="0x9AA0ADFF" text="Cargando…" />
+    <MarkupGrid
+      id="grid"
+      translation="[170, 220]"
+      itemComponentName="EfTile"
+      numColumns="6"
+      numRows="2"
+      itemSize="[220, 460]"
+      itemSpacing="[56, 20]"
+      vertFocusAnimationStyle="floatingFocus"
+      drawFocusFeedback="false" />
+    <EfRail id="rail" active="requests" />
+  </children>
+</component>

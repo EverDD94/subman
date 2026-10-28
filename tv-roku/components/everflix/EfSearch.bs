@@ -1,0 +1,322 @@
+import "pkg:/components/everflix/EfCommon.bs"
+import "pkg:/source/utils/misc.bs"
+
+const COLUMNS = 7
+const KEY_SIZE = 66
+
+sub init()
+    m.top.overhangVisible = false
+    m.top.optionsAvailable = false
+    m.query = m.top.findNode("query")
+    m.keysGroup = m.top.findNode("keys")
+    m.results = m.top.findNode("results")
+    m.hint = m.top.findNode("hint")
+    m.rail = m.top.findNode("rail")
+    m.toast = m.top.findNode("toast")
+    m.toastText = m.top.findNode("toastText")
+    m.toastBg = m.top.findNode("toastBg")
+    m.debounce = m.top.findNode("debounce")
+    m.toastTimer = m.top.findNode("toastTimer")
+
+    m.top.findNode("heading").font = ef.font(ef.FONT_BOLD, 44)
+    m.query.font = ef.font(ef.FONT_SEMI, 32)
+    m.hint.font = ef.font(ef.FONT_REGULAR, 28)
+    m.toastText.font = ef.font(ef.FONT_SEMI, 25)
+    m.results.rowLabelFont = ef.font(ef.FONT_BOLD, 26)
+
+    m.debounce.observeField("fire", "runSearch")
+    m.toastTimer.observeField("fire", "hideToast")
+    m.results.observeField("rowItemSelected", "onResult")
+    m.rail.observeField("selected", "onRailSelected")
+    m.rail.observeField("leave", "onRailLeave")
+
+    m.task = CreateObject("roSGNode", "EfTask")
+    m.task.observeField("result", "onResults")
+    m.askTask = CreateObject("roSGNode", "EfTask")
+    m.askTask.observeField("result", "onAsked")
+
+    m.text = ""
+    m.keyIndex = 0
+    m.inKeys = true
+    buildKeys()
+    showQuery()
+end sub
+
+sub buildKeys()
+    letters = "abcdefghijklmnñopqrstuvwxyz1234567890"
+    m.keyList = []
+    for i = 0 to Len(letters) - 1
+        m.keyList.push({ key: Mid(letters, i + 1, 1), label: UCase(Mid(letters, i + 1, 1)), width: 1 })
+    end for
+    m.keyList.push({ key: "space", label: "Espacio", width: 3 })
+    m.keyList.push({ key: "delete", label: "Borrar", width: 2 })
+    m.keyList.push({ key: "clear", label: "Limpiar", width: 2 })
+
+    m.keyNodes = []
+    col = 0
+    row = 0
+    for each k in m.keyList
+        if col + k.width > COLUMNS
+            col = 0
+            row++
+        end if
+        g = m.keysGroup.createChild("Group")
+        g.translation = [col * KEY_SIZE, row * KEY_SIZE]
+        bg = g.createChild("Poster")
+        bg.uri = "pkg:/images/everflix/round8.9.png"
+        bg.width = k.width * KEY_SIZE - 8
+        bg.height = KEY_SIZE - 8
+        label = g.createChild("Label")
+        label.text = k.label
+        label.width = bg.width
+        label.height = bg.height
+        label.horizAlign = "center"
+        label.vertAlign = "center"
+        label.font = ef.font(ef.FONT_SEMI, k.width = 1 ? 28 : 22)
+        k.col = col
+        k.row = row
+        k.bg = bg
+        k.label = label
+        m.keyNodes.push(k)
+        col += k.width
+    end for
+    paintKeys()
+end sub
+
+sub paintKeys()
+    for i = 0 to m.keyNodes.count() - 1
+        k = m.keyNodes[i]
+        focused = m.inKeys and i = m.keyIndex and m.top.isInFocusChain() and not m.rail.hasFocus()
+        if focused
+            k.bg.blendColor = "0xFFFFFFFF"
+            k.label.color = "0x000000FF"
+        else
+            k.bg.blendColor = "0x161A22FF"
+            k.label.color = ef.INK
+        end if
+    end for
+end sub
+
+' Finds the key closest to a column on another row
+function keyAt(row as integer, col as integer) as integer
+    best = -1
+    for i = 0 to m.keyNodes.count() - 1
+        k = m.keyNodes[i]
+        if k.row = row and col >= k.col and col < k.col + k.width then return i
+        if k.row = row then best = i
+    end for
+    return best
+end function
+
+sub showQuery()
+    if m.text = ""
+        m.query.text = "Buscar…"
+        m.query.color = ef.MUTED
+    else
+        m.query.text = m.text + "_"
+        m.query.color = ef.INK
+    end if
+end sub
+
+sub typeKey(key as string)
+    if key = "space"
+        m.text += " "
+    else if key = "delete"
+        if Len(m.text) > 0 then m.text = Left(m.text, Len(m.text) - 1)
+    else if key = "clear"
+        m.text = ""
+    else
+        m.text += key
+    end if
+    showQuery()
+    m.debounce.control = "stop"
+    m.debounce.control = "start"
+end sub
+
+sub runSearch()
+    q = m.text.Trim()
+    if Len(q) < 2
+        m.results.visible = false
+        m.hint.visible = true
+        m.hint.text = "Escribe el nombre de una película, serie o persona."
+        return
+    end if
+    m.hint.text = "Buscando…"
+    m.task.job = "search"
+    m.task.args = { query: q }
+    m.task.control = "STOP"
+    m.task.control = "RUN"
+end sub
+
+sub onResults()
+    r = m.task.result
+    if not isValid(r) or r.query <> m.text.Trim() then return
+    m.found = r
+    content = CreateObject("roSGNode", "ContentNode")
+    m.rowKinds = []
+    if r.items.count() > 0
+        row = content.createChild("ContentNode")
+        row.title = "EN EVERFLIX"
+        for each item in r.items
+            row.appendChild(ef.itemNode(item))
+        end for
+        m.rowKinds.push("items")
+    end if
+    if r.people.count() > 0
+        row = content.createChild("ContentNode")
+        row.title = "PERSONAS"
+        for each item in r.people
+            row.appendChild(ef.itemNode(item))
+        end for
+        m.rowKinds.push("people")
+    end if
+    if r.suggestions.count() > 0
+        row = content.createChild("ContentNode")
+        row.title = "NO LO TIENES · PÍDELO"
+        for each s in r.suggestions
+            row.appendChild(ef.itemNode(suggestionItem(s)))
+        end for
+        m.rowKinds.push("suggestions")
+    end if
+    m.results.content = content
+    m.results.visible = content.getChildCount() > 0
+    m.hint.visible = not m.results.visible
+    m.hint.text = "No encontré nada con ese nombre."
+end sub
+
+function suggestionItem(s as object) as object
+    note = "Pedir"
+    if s.LookupCI("asked") <> invalid then note = "Ya lo pediste"
+    year = s.LookupCI("year")
+    if isValid(year) then note = year.toStr() + " · " + note
+    return { Id: "tmdb-" + s.tmdb.toStr(), Name: s.title, Type: "Suggestion", efPoster: s.poster, efNote: note, Overview: s.overview }
+end function
+
+sub onResult()
+    f = m.results.rowItemFocused
+    if not isValid(f) or not isValid(m.found) then return
+    kind = m.rowKinds[f[0]]
+    if kind = "items"
+        ef.go({ target: "details", id: m.found.items[f[1]].Id })
+    else if kind = "people"
+        ef.go({ target: "details", id: m.found.people[f[1]].Id })
+    else
+        s = m.found.suggestions[f[1]]
+        if s.LookupCI("asked") <> invalid
+            showToast("Ya lo pediste: " + s.title)
+            return
+        end if
+        item = { kind: s.kind, tmdb: s.tmdb, title: s.title, poster: s.poster, overview: s.overview }
+        if isValid(s.year) then item.year = s.year
+        m.asking = s
+        m.askTask.job = "vt"
+        m.askTask.args = { path: "/api/pedir/ask", body: { item: item } }
+        m.askTask.control = "RUN"
+    end if
+end sub
+
+sub onAsked()
+    r = m.askTask.result
+    if isValid(r) and r.ok and isValid(r.data) and r.data.LookupCI("ok") = true
+        showToast("Pedido enviado: " + m.asking.title + ". Se descargará cuando se apruebe.")
+        m.asking.asked = "ok"
+        runSearch()
+    else
+        message = "No se pudo pedir"
+        if isValid(r) and isValid(r.LookupCI("error")) then message = r.error
+        if isValid(r) and isValid(r.data) and isValid(r.data.LookupCI("error")) then message = r.data.error
+        showToast(message)
+    end if
+end sub
+
+sub showToast(text as string)
+    m.toastText.text = text
+    m.toastBg.width = m.toastText.boundingRect().width + 56
+    m.toast.visible = true
+    m.toastTimer.control = "stop"
+    m.toastTimer.control = "start"
+end sub
+
+sub hideToast()
+    m.toast.visible = false
+end sub
+
+sub onRailSelected()
+    if m.rail.selected = "search"
+        onRailLeave()
+        return
+    end if
+    ef.go({ target: m.rail.selected })
+end sub
+
+sub onRailLeave()
+    m.inKeys = true
+    m.top.setFocus(true)
+    paintKeys()
+end sub
+
+sub OnScreenShown()
+    scene = m.top.getScene()
+    overhang = scene.findNode("overhang")
+    if isValid(overhang) then overhang.visible = false
+    if m.inKeys
+        m.top.setFocus(true)
+    else
+        m.results.setFocus(true)
+    end if
+    paintKeys()
+end sub
+
+function onKeyEvent(key as string, press as boolean) as boolean
+    if not press then return false
+
+    if m.results.isInFocusChain()
+        if key = "left"
+            m.inKeys = true
+            m.top.setFocus(true)
+            paintKeys()
+            return true
+        end if
+        return false
+    end if
+
+    if not m.inKeys then return false
+    k = m.keyNodes[m.keyIndex]
+    if key = "OK"
+        typeKey(k.key)
+        return true
+    else if key = "left"
+        if k.col = 0
+            m.rail.callFunc("focusIn")
+            paintKeys()
+        else
+            m.keyIndex--
+            paintKeys()
+        end if
+        return true
+    else if key = "right"
+        last = m.keyIndex = m.keyNodes.count() - 1
+        if not last and m.keyNodes[m.keyIndex + 1].row = k.row
+            m.keyIndex++
+        else if m.results.visible
+            m.inKeys = false
+            m.results.setFocus(true)
+        end if
+        paintKeys()
+        return true
+    else if key = "up"
+        i = keyAt(k.row - 1, k.col)
+        if i >= 0 then m.keyIndex = i
+        paintKeys()
+        return true
+    else if key = "down"
+        i = keyAt(k.row + 1, k.col)
+        if i >= 0 then m.keyIndex = i
+        paintKeys()
+        return true
+    else if key = "replay" or key = "rewind"
+        typeKey("delete")
+        return true
+    end if
+    return false
+end function

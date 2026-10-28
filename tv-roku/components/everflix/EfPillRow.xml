@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Everflix: a horizontal row of pills that the screen moves through with left and right. -->
+<component name="EfPillRow" extends="Group">
+  <children>
+    <Group id="strip" />
+  </children>
+  <interface>
+    <!-- [{ key, text, primary, selected }] -->
+    <field id="items" type="array" onChange="build" />
+    <field id="small" type="boolean" value="false" />
+    <field id="index" type="integer" value="0" onChange="paint" />
+    <field id="active" type="boolean" value="false" onChange="paint" />
+    <field id="spacing" type="integer" value="18" />
+    <field id="maxWidth" type="integer" value="1700" />
+    <!-- set to the key of the pill pressed with OK -->
+    <field id="pressed" type="string" alwaysNotify="true" />
+    <function name="press" />
+    <function name="move" />
+    <function name="count" />
+  </interface>
+</component>

@@ -193,9 +193,9 @@ sub init()
     m.getNextEpisodeTask = createObject("roSGNode", "GetNextEpisodeTask")
     m.getNextEpisodeTask.observeField("nextEpisodeData", "onNextEpisodeDataLoaded")
 
-    m.top.retrievingBar.filledBarBlendColor = ColorPalette.TRIADBLUE
-    m.top.bufferingBar.filledBarBlendColor = ColorPalette.TRIADBLUE
-    m.top.trickPlayBar.filledBarBlendColor = ColorPalette.TRIADBLUE
+    m.top.retrievingBar.filledBarBlendColor = ColorPalette.HIGHLIGHT
+    m.top.bufferingBar.filledBarBlendColor = ColorPalette.HIGHLIGHT
+    m.top.trickPlayBar.filledBarBlendColor = ColorPalette.HIGHLIGHT
 
     m.previewPos = 0 ' Track the seeking position in the video when the user starts seeking
     m.seekSpeedIndex = 0 ' Index to track the current seek speed level

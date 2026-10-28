@@ -1,0 +1,71 @@
+import "pkg:/source/api/Image.bs"
+import "pkg:/source/utils/misc.bs"
+
+sub init()
+    m.posters = [m.top.findNode("a"), m.top.findNode("b")]
+    m.front = 0
+    m.fade = m.top.findNode("fade")
+    m.fadeIn = m.top.findNode("fadeIn")
+    m.fadeOut = m.top.findNode("fadeOut")
+    m.zoom = m.top.findNode("zoom")
+    m.zoomer = m.top.findNode("zoomer")
+    m.cycle = m.top.findNode("cycle")
+    m.cycle.observeField("fire", "onCycle")
+    m.urls = []
+    m.index = 0
+end sub
+
+sub onFadeTop()
+    bottom = m.top.findNode("bottom")
+    floor = m.top.findNode("floor")
+    bottom.translation = [0, m.top.fadeTop]
+    floor.translation = [0, m.top.fadeTop + 700]
+    floor.height = 1080 - (m.top.fadeTop + 700)
+    if floor.height < 0 then floor.height = 0
+end sub
+
+sub onItem()
+    item = m.top.item
+    m.cycle.control = "stop"
+    m.urls = []
+    m.index = 0
+    if not isValid(item) or item.count() = 0 then return
+    id = item.LookupCI("Id")
+    tags = item.LookupCI("BackdropImageTags")
+    if isValid(tags) and tags.count() > 0
+        for i = 0 to tags.count() - 1
+            m.urls.push(ImageURL(id, `Backdrop/${i}`, { maxWidth: 1920, maxHeight: 1080, Tag: tags[i] }))
+        end for
+    else if isValidAndNotEmpty(item.LookupCI("efBackdrop"))
+        m.urls.push(item.efBackdrop)
+    end if
+    if m.urls.count() = 0 then return
+    show(m.urls[0])
+    if m.top.cycleImages and m.urls.count() > 1 then m.cycle.control = "start"
+end sub
+
+sub onCycle()
+    if m.urls.count() < 2 then return
+    m.index = (m.index + 1) mod m.urls.count()
+    show(m.urls[m.index])
+end sub
+
+sub show(uri as string)
+    if m.posters[m.front].uri = uri then return
+    m.front = 1 - m.front
+    incoming = m.posters[m.front]
+    outgoing = m.posters[1 - m.front]
+    incoming.uri = uri
+    incoming.scale = [1.0, 1.0]
+    m.fadeIn.fieldToInterp = incoming.id + ".opacity"
+    m.fadeOut.fieldToInterp = outgoing.id + ".opacity"
+    m.fadeOut.keyValue = [outgoing.opacity, 0.0]
+    m.fade.control = "stop"
+    m.fade.control = "start"
+    ' Every other image drifts in a little, like the preview on Google TV
+    if m.index mod 2 = 1
+        m.zoomer.fieldToInterp = incoming.id + ".scale"
+        m.zoom.control = "stop"
+        m.zoom.control = "start"
+    end if
+end sub

@@ -1,0 +1,76 @@
+import "pkg:/components/everflix/EfCommon.bs"
+import "pkg:/source/utils/misc.bs"
+
+sub init()
+    m.bg = m.top.findNode("bg")
+    m.mask = m.top.findNode("mask")
+    m.image = m.top.findNode("image")
+    m.statusBg = m.top.findNode("statusBg")
+    m.status = m.top.findNode("status")
+    m.ring = m.top.findNode("ring")
+    m.title = m.top.findNode("title")
+    m.note = m.top.findNode("note")
+    m.initial = m.top.findNode("initial")
+    m.title.font = ef.font(ef.FONT_SEMI, 22)
+    m.note.font = ef.font(ef.FONT_REGULAR, 19)
+    m.status.font = ef.font(ef.FONT_BOLD, 19)
+    m.initial.font = ef.font(ef.FONT_BOLD, 80)
+    m.round = false
+end sub
+
+sub onContent()
+    node = m.top.itemContent
+    if not isValid(node) or not isValid(node.json) then return
+    d = node.json
+    m.round = d.LookupCI("round") = true
+    if m.round
+        ' Faces are circles
+        m.bg.uri = "pkg:/images/everflix/mask-circle.png"
+        m.bg.width = 192
+        m.bg.height = 192
+        m.bg.translation = [14, 0]
+        m.mask.maskUri = "pkg:/images/everflix/mask-circle.png"
+        m.mask.maskSize = [192, 192]
+        m.mask.translation = [14, 0]
+        m.image.width = 192
+        m.image.height = 192
+        m.image.loadWidth = 192
+        m.image.loadHeight = 192
+        m.ring.uri = "pkg:/images/everflix/mask-circle.png"
+        m.ring.width = 204
+        m.ring.height = 204
+        m.ring.translation = [8, -6]
+        m.ring.blendColor = ef.INK
+        m.top.removeChild(m.ring)
+        m.top.insertChild(m.ring, 0)
+        m.title.translation = [0, 206]
+        m.title.horizAlign = "center"
+        m.note.translation = [0, 270]
+        m.note.horizAlign = "center"
+        m.title.maxLines = 2
+    end if
+    m.image.uri = d.LookupCI("image") ?? ""
+    m.title.text = d.LookupCI("title") ?? ""
+    m.note.text = d.LookupCI("note") ?? ""
+    status = d.LookupCI("status")
+    m.statusBg.visible = isValidAndNotEmpty(status)
+    m.status.text = status ?? ""
+    if isValid(d.LookupCI("statusColor")) then m.statusBg.color = d.statusColor
+    m.note.visible = not isValidAndNotEmpty(status) or m.round
+end sub
+
+sub onFocus()
+    focused = m.top.focusPercent > 0.5 and m.top.gridHasFocus
+    s = focused ? 1.06 : 1.0
+    m.top.scaleRotateCenter = m.round ? [110, 96] : [110, 165]
+    m.top.scale = [s, s]
+    if m.round
+        ' A white disc behind the face works as its ring
+        m.ring.visible = focused
+        m.ring.translation = [8, -6]
+    else
+        m.ring.visible = focused
+        ' Requests show why only when focused, like Google TV
+        if isValidAndNotEmpty(m.status.text) then m.note.visible = focused
+    end if
+end sub

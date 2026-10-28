@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Everflix: full-screen image of a title, slowly cycling through its backdrops like a silent preview. -->
+<component name="EfBackdrop" extends="Group">
+  <children>
+    <Rectangle width="1920" height="1080" color="0x0B0D12FF" />
+    <Poster id="a" width="1920" height="1080" loadDisplayMode="scaleToZoom" loadWidth="1920" loadHeight="1080" opacity="0" scaleRotateCenter="[960, 540]" />
+    <Poster id="b" width="1920" height="1080" loadDisplayMode="scaleToZoom" loadWidth="1920" loadHeight="1080" opacity="0" scaleRotateCenter="[960, 540]" />
+    <Poster uri="pkg:/images/everflix/shade-left.png" width="1300" height="1080" />
+    <Poster id="bottom" uri="pkg:/images/everflix/shade-bottom.png" width="1920" height="700" translation="[0, 380]" />
+    <Rectangle id="floor" width="1920" height="0" translation="[0, 1080]" color="0x0B0D12FF" />
+    <Timer id="cycle" duration="3.5" repeat="true" />
+    <Animation id="fade" duration="0.6" repeat="false" easeFunction="linear">
+      <FloatFieldInterpolator id="fadeIn" key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="a.opacity" />
+      <FloatFieldInterpolator id="fadeOut" key="[0.0, 1.0]" keyValue="[1.0, 0.0]" fieldToInterp="b.opacity" />
+    </Animation>
+    <Animation id="zoom" duration="3.5" repeat="false" easeFunction="linear">
+      <Vector2DFieldInterpolator id="zoomer" key="[0.0, 1.0]" keyValue="[[1.0, 1.0], [1.06, 1.06]]" fieldToInterp="a.scale" />
+    </Animation>
+  </children>
+  <interface>
+    <field id="item" type="assocarray" onChange="onItem" />
+    <field id="cycleImages" type="boolean" value="true" />
+    <!-- Where the image fades into the background (Google TV: 62% of the height) -->
+    <field id="fadeTop" type="integer" value="380" onChange="onFadeTop" />
+  </interface>
+</component>

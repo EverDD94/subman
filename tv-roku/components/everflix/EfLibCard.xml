@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Everflix: library card, 16:9 image with the name over a dark fade, white border when focused. -->
+<component name="EfLibCard" extends="Group">
+  <children>
+    <Poster id="bg" width="440" height="248" uri="pkg:/images/everflix/round8.9.png" blendColor="0x161A22FF" />
+    <MaskGroup maskUri="pkg:/images/everflix/mask-wide.png" maskSize="[440, 248]">
+      <Poster id="image" width="440" height="248" loadDisplayMode="scaleToZoom" loadWidth="440" loadHeight="248" />
+      <Poster uri="pkg:/images/everflix/shade-bottom.png" width="440" height="248" opacity="0.9" />
+    </MaskGroup>
+    <Label id="name" translation="[20, 186]" width="400" height="44" vertAlign="bottom" color="0xFFFFFFFF" />
+    <Rectangle id="progress" translation="[20, 234]" width="0" height="5" color="0x3D63E0FF" />
+    <Poster id="ring" uri="pkg:/images/everflix/focus-ring.9.png" width="440" height="248" visible="false" />
+  </children>
+  <interface>
+    <field id="itemContent" type="node" onChange="onContent" />
+    <field id="focusPercent" type="float" onChange="onFocus" />
+    <field id="rowFocusPercent" type="float" onChange="onFocus" />
+  </interface>
+</component>

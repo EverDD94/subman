@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Everflix: side menu. Narrow with icons; opens with labels when it gets focus (like Netflix TV). -->
+<component name="EfRail" extends="Group">
+  <children>
+    <Poster id="shade" uri="pkg:/images/everflix/rail-closed.png" width="140" height="1080" />
+    <Poster id="logo" uri="pkg:/images/everflix/logo-e.png" width="46" height="60" translation="[42, 50]" />
+    <Group id="items" translation="[24, 150]" />
+  </children>
+  <interface>
+    <field id="active" type="string" value="home" onChange="paint" />
+    <field id="open" type="boolean" value="false" onChange="onOpen" />
+    <field id="selected" type="string" alwaysNotify="true" />
+    <field id="leave" type="boolean" alwaysNotify="true" />
+    <function name="focusIn" />
+  </interface>
+</component>

@@ -187,6 +187,11 @@ sub onJumpToEvent(msg)
     jumpToData = msg.getData()
     if not isValid(jumpToData) then return
 
+    if isStringEqual(jumpToData.selectiontype, "ef")
+        onEverflixJump(jumpToData)
+        return
+    end if
+
     currentView = m.global.sceneManager.callFunc("getActiveScene")
 
     ' If current view is audio player, remove it from the scene stack so users can't press back to return to it

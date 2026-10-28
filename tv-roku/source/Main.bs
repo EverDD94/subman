@@ -88,7 +88,7 @@ sub Main (args as dynamic) as void
     ' Delete any old library filters
     clearOldLibraryFilters()
 
-    displayWhatsNewPopup(args)
+    ' Everflix: no "What's new" popup
 
     ' Handle input messages
     input = CreateObject("roInput")
@@ -119,6 +119,14 @@ sub Main (args as dynamic) as void
 
         if isNodeEvent(msg, "jumpTo")
             onJumpToEvent(msg)
+            ' Everflix "Cambiar de usuario" in Mi perfil
+            if m.efChangeUser = true
+                m.efChangeUser = false
+                SignOut(false)
+                setUserColors()
+                sceneManager.callFunc("clearScenes")
+                goto app_start
+            end if
         else if isNodeEvent(msg, "closeSidePanel")
             onCloseSidePanelEvent()
         else if isNodeEvent(msg, "quickPlayNode")

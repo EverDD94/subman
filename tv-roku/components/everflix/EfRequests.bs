@@ -1,0 +1,86 @@
+import "pkg:/components/everflix/EfCommon.bs"
+import "pkg:/source/utils/misc.bs"
+
+sub init()
+    m.top.overhangVisible = false
+    m.top.optionsAvailable = false
+    m.grid = m.top.findNode("grid")
+    m.empty = m.top.findNode("empty")
+    m.rail = m.top.findNode("rail")
+    m.top.findNode("heading").font = ef.font(ef.FONT_BOLD, 54)
+    m.top.findNode("sub").font = ef.font(ef.FONT_REGULAR, 26)
+    m.empty.font = ef.font(ef.FONT_REGULAR, 30)
+    m.rail.observeField("selected", "onRailSelected")
+    m.rail.observeField("leave", "onRailLeave")
+    m.task = CreateObject("roSGNode", "EfTask")
+    m.task.observeField("result", "onLoaded")
+    m.task.job = "vt"
+    m.task.args = { path: "/api/pedir/mine" }
+    m.task.control = "RUN"
+end sub
+
+function statusOf(status as string) as object
+    if status = "ya-esta" then return { label: "Ya está para ver", color: "0x2E9E5BFF" }
+    if status = "descargando" then return { label: "Descargando", color: "0x3D63E0FF" }
+    if status = "aceptada" then return { label: "Aprobada", color: "0x3D63E0FF" }
+    if status = "rechazada" then return { label: "No aprobada", color: "0x8A3A3AFF" }
+    if status = "no-disponible" then return { label: "Buscándola", color: "0x8A6A1EFF" }
+    return { label: "Esperando aprobación", color: "0x4A4F5CFF" }
+end function
+
+sub onLoaded()
+    r = m.task.result
+    items = []
+    if isValid(r) and isValid(r.data) and isValid(r.data.LookupCI("items")) then items = r.data.items
+    if not isValid(r) or not r.ok
+        m.empty.text = "No puedo hablar con Videotecario ahora mismo."
+        return
+    end if
+    if items.count() = 0
+        m.empty.text = "Aún no has pedido nada. Búscalo en Buscar y pulsa «Pedir»."
+        return
+    end if
+    m.empty.visible = false
+    content = CreateObject("roSGNode", "ContentNode")
+    for each it in items
+        st = statusOf(it.LookupCI("status") ?? "")
+        title = it.LookupCI("title") ?? ""
+        if isValid(it.LookupCI("year")) then title = title + ` (${it.year})`
+        node = content.createChild("HomeData")
+        node.json = { Id: "", Name: title, Type: "Request", image: it.LookupCI("poster") ?? "", title: title, status: st.label, statusColor: st.color, note: it.LookupCI("why") ?? "" }
+    end for
+    m.grid.content = content
+    if not m.rail.hasFocus() then m.grid.setFocus(true)
+end sub
+
+sub onRailSelected()
+    if m.rail.selected = "requests"
+        onRailLeave()
+        return
+    end if
+    ef.go({ target: m.rail.selected })
+end sub
+
+sub onRailLeave()
+    if isValid(m.grid.content) and m.grid.content.getChildCount() > 0
+        m.grid.setFocus(true)
+    else
+        m.top.setFocus(true)
+    end if
+end sub
+
+sub OnScreenShown()
+    scene = m.top.getScene()
+    overhang = scene.findNode("overhang")
+    if isValid(overhang) then overhang.visible = false
+    onRailLeave()
+end sub
+
+function onKeyEvent(key as string, press as boolean) as boolean
+    if not press then return false
+    if key = "left"
+        m.rail.callFunc("focusIn")
+        return true
+    end if
+    return false
+end function

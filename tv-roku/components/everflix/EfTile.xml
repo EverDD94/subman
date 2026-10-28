@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Everflix: grid tile for Mis peticiones (poster + status) and Mi perfil (round face). -->
+<component name="EfTile" extends="Group">
+  <children>
+    <Poster id="bg" uri="pkg:/images/everflix/round8.9.png" blendColor="0x161A22FF" width="220" height="330" />
+    <MaskGroup id="mask" maskUri="pkg:/images/everflix/mask-poster.png" maskSize="[220, 330]">
+      <Poster id="image" width="220" height="330" loadDisplayMode="scaleToZoom" loadWidth="220" loadHeight="330" />
+      <Rectangle id="statusBg" width="220" height="40" translation="[0, 290]" visible="false" />
+    </MaskGroup>
+    <Label id="initial" width="220" height="220" horizAlign="center" vertAlign="center" color="0xF4F2EEFF" visible="false" />
+    <Label id="status" translation="[14, 290]" width="200" height="40" vertAlign="center" color="0xFFFFFFFF" />
+    <Poster id="ring" uri="pkg:/images/everflix/focus-ring.9.png" width="220" height="330" visible="false" />
+    <Label id="title" translation="[0, 340]" width="220" wrap="true" maxLines="2" color="0xF4F2EEFF" />
+    <Label id="note" translation="[0, 408]" width="220" wrap="true" maxLines="2" color="0x9AA0ADFF" />
+  </children>
+  <interface>
+    <field id="itemContent" type="node" onChange="onContent" />
+    <field id="focusPercent" type="float" onChange="onFocus" />
+    <field id="gridHasFocus" type="boolean" onChange="onFocus" />
+  </interface>
+</component>

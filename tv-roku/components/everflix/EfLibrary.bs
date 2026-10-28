@@ -1,0 +1,177 @@
+import "pkg:/components/everflix/EfCommon.bs"
+import "pkg:/source/utils/misc.bs"
+
+' Big libraries load in pages so the first screen comes up fast
+const PAGE_SIZE = 100
+
+sub init()
+    m.top.overhangVisible = false
+    m.top.optionsAvailable = false
+    m.backdrop = m.top.findNode("backdrop")
+    m.hero = m.top.findNode("hero")
+    m.heading = m.top.findNode("heading")
+    m.row = m.top.findNode("row")
+    m.empty = m.top.findNode("empty")
+    m.rail = m.top.findNode("rail")
+    m.heroTimer = m.top.findNode("heroTimer")
+    m.heading.font = ef.font(ef.FONT_BOLD, 26)
+    m.empty.font = ef.font(ef.FONT_REGULAR, 28)
+
+    m.row.observeField("rowItemFocused", "onFocused")
+    m.row.observeField("rowItemSelected", "onSelected")
+    m.heroTimer.observeField("fire", "showFocused")
+    m.rail.observeField("selected", "onRailSelected")
+    m.rail.observeField("leave", "onRailLeave")
+
+    m.task = CreateObject("roSGNode", "EfTask")
+    m.task.observeField("result", "onPage")
+    m.infoTask = CreateObject("roSGNode", "EfTask")
+    m.infoTask.observeField("result", "onLibraryInfo")
+
+    m.total = 0
+    m.loaded = 0
+    m.loading = false
+    m.title = ""
+    m.types = ""
+    m.parentId = invalid
+    m.content = CreateObject("roSGNode", "ContentNode")
+    m.rowNode = m.content.createChild("ContentNode")
+end sub
+
+sub onSetup()
+    s = m.top.setup
+    if s.kind = "series"
+        m.title = "Series"
+        m.types = "Series"
+        m.rail.active = "series"
+        loadMore()
+    else if s.kind = "movies"
+        m.title = "Películas"
+        m.types = "Movie"
+        m.rail.active = "movies"
+        loadMore()
+    else
+        m.parentId = s.libraryId
+        m.rail.active = "lib:" + s.libraryId
+        m.infoTask.job = "item"
+        m.infoTask.args = { id: s.libraryId }
+        m.infoTask.control = "RUN"
+    end if
+end sub
+
+sub onLibraryInfo()
+    library = m.infoTask.result.item
+    kind = ""
+    if isValid(library)
+        m.title = library.LookupCI("Name") ?? ""
+        kind = LCase(library.LookupCI("CollectionType") ?? "")
+    end if
+    if kind = "tvshows"
+        m.types = "Series"
+    else if kind = "movies"
+        m.types = "Movie"
+    else if kind = "boxsets"
+        m.types = "BoxSet"
+    else
+        m.types = "Series,Movie,Video"
+    end if
+    loadMore()
+end sub
+
+sub loadMore()
+    if m.loading then return
+    if m.total > 0 and m.loaded >= m.total then return
+    m.loading = true
+    params = {
+        Recursive: true,
+        IncludeItemTypes: m.types,
+        SortBy: "DateCreated",
+        SortOrder: "Descending",
+        StartIndex: m.loaded,
+        Limit: PAGE_SIZE
+    }
+    if isValid(m.parentId) then params.ParentId = m.parentId
+    m.task.job = "items"
+    m.task.args = { params: params }
+    m.task.control = "RUN"
+end sub
+
+sub onPage()
+    r = m.task.result
+    m.loading = false
+    if not isValid(r) or not isValid(r.items) then return
+    m.total = r.total
+    first = m.loaded = 0
+    for each item in r.items
+        m.rowNode.appendChild(ef.itemNode(item))
+    end for
+    m.loaded = m.rowNode.getChildCount()
+    count = m.total
+    if m.loaded > count then count = m.loaded
+    m.heading.text = UCase(`${m.title} · ${count}`)
+    m.empty.visible = m.loaded = 0
+    m.empty.text = "No hay nada aquí todavía."
+    if first
+        m.row.content = m.content
+        if m.loaded > 0 and not m.rail.hasFocus() then m.row.setFocus(true)
+        showFocused()
+    end if
+end sub
+
+function focusedItem() as dynamic
+    f = m.row.rowItemFocused
+    if not isValid(f) or f.count() < 2 then return m.rowNode.getChild(0)
+    return m.rowNode.getChild(f[1])
+end function
+
+sub onFocused()
+    f = m.row.rowItemFocused
+    if isValid(f) and f.count() = 2 and f[1] >= m.loaded - 20 then loadMore()
+    m.heroTimer.control = "stop"
+    m.heroTimer.control = "start"
+end sub
+
+sub showFocused()
+    node = focusedItem()
+    if not isValid(node) then return
+    m.hero.item = node.json
+    m.backdrop.item = node.json
+end sub
+
+sub onSelected()
+    node = focusedItem()
+    if isValid(node) then ef.go({ target: "details", id: node.json.Id })
+end sub
+
+sub onRailSelected()
+    ef.go({ target: m.rail.selected })
+end sub
+
+sub onRailLeave()
+    if m.loaded > 0 then m.row.setFocus(true)
+end sub
+
+sub OnScreenShown()
+    scene = m.top.getScene()
+    overhang = scene.findNode("overhang")
+    if isValid(overhang) then overhang.visible = false
+    if m.loaded > 0
+        m.row.setFocus(true)
+    else
+        m.top.setFocus(true)
+    end if
+end sub
+
+function onKeyEvent(key as string, press as boolean) as boolean
+    if not press then return false
+    if key = "left" and m.row.isInFocusChain()
+        m.rail.callFunc("focusIn")
+        return true
+    end if
+    if key = "play" and m.row.isInFocusChain()
+        node = focusedItem()
+        if isValid(node) then ef.go({ target: "play", item: node.json })
+        return true
+    end if
+    return false
+end function

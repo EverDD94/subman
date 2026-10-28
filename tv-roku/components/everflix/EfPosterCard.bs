@@ -1,0 +1,62 @@
+import "pkg:/components/everflix/EfCommon.bs"
+import "pkg:/source/utils/misc.bs"
+
+sub init()
+    m.image = m.top.findNode("image")
+    m.title = m.top.findNode("title")
+    m.subtitle = m.top.findNode("subtitle")
+    m.fallback = m.top.findNode("fallback")
+    m.progress = m.top.findNode("progress")
+    m.progressBg = m.top.findNode("progressBg")
+    m.watched = m.top.findNode("watched")
+    m.title.font = ef.font(ef.FONT_SEMI, 22)
+    m.subtitle.font = ef.font(ef.FONT_REGULAR, 19)
+    m.fallback.font = ef.font(ef.FONT_BOLD, 28)
+    m.top.scaleRotateCenter = [110, 165]
+end sub
+
+sub onContent()
+    node = m.top.itemContent
+    if not isValid(node) or not isValid(node.json) then return
+    item = node.json
+    kind = item.LookupCI("Type")
+    isEpisode = kind = "Episode"
+
+    m.image.uri = item.LookupCI("efPoster") ?? ""
+    m.fallback.text = item.LookupCI("Name") ?? ""
+    m.fallback.visible = not isValidAndNotEmpty(m.image.uri)
+
+    if isEpisode
+        m.title.text = item.LookupCI("SeriesName") ?? ""
+        season = item.LookupCI("ParentIndexNumber")
+        episode = item.LookupCI("IndexNumber")
+        prefix = ""
+        if isValid(season) and isValid(episode) then prefix = `T${season} · E${episode} · `
+        m.subtitle.text = prefix + (item.LookupCI("Name") ?? "")
+    else
+        m.title.text = item.LookupCI("Name") ?? ""
+        year = item.LookupCI("ProductionYear")
+        m.subtitle.text = isValid(year) ? year.toStr() : ""
+        if isValidAndNotEmpty(item.LookupCI("efNote")) then m.subtitle.text = item.efNote
+    end if
+
+    data = item.LookupCI("UserData")
+    percent = 0
+    played = false
+    if isValid(data)
+        percent = data.LookupCI("PlayedPercentage") ?? 0
+        played = data.LookupCI("Played") ?? false
+    end if
+    m.progress.width = 196 * percent / 100
+    m.progress.visible = percent > 0
+    m.progressBg.visible = percent > 0
+    m.watched.visible = played and percent = 0
+end sub
+
+sub onFocus()
+    f = m.top.focusPercent * m.top.rowFocusPercent
+    s = 1 + 0.08 * f
+    m.top.scale = [s, s]
+    m.title.opacity = 0.75 + 0.25 * f
+    m.top.findNode("ring").visible = f > 0.5
+end sub

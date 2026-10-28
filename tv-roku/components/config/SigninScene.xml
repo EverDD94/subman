@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <component name="SigninScene" extends="JFScreen">
   <children>
+    <Poster uri="pkg:/images/everflix/logo-full.png" width="264" height="80" translation="[828, 40]" />
     <Text
       text="Sign In"
       horizAlign="center"
       font="font:LargeSystemFont"
       height="100"
       width="1920"
-      translation="[0, 100]" />
+      translation="[0, 120]" />
 
     <Poster uri="pkg:/images/baseline_person_white_48dp.png" id="overlayCurrentUserProfileImage" width="256" height="256" loadDisplayMode="scaleToZoom" translation="[832, 190]" />
 
@@ -15,7 +16,7 @@
       <Text id="errorMessage" text="" wrap="true" width="600" font="font:MediumSystemFont" horizAlign="center" translation="[10, 15]" />
     </Rectangle>
 
-    <Rectangle id="signInFormContainer" color="#101420" width="870" height="280" translation="[525, 466]">
+    <Rectangle id="signInFormContainer" color="0x161A22FF" width="870" height="280" translation="[525, 466]">
       <FormList id="configOptions" translation="[60, 40]" itemSpacing="[0, 50]" />
     </Rectangle>
 

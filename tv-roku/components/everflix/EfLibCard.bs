@@ -7,7 +7,7 @@ sub init()
     m.ring = m.top.findNode("ring")
     m.progress = m.top.findNode("progress")
     m.name.font = ef.font(ef.FONT_BOLD, 24)
-    m.top.scaleRotateCenter = [220, 0]  ' grow down and sideways, never up into the row title
+    m.top.scaleRotateCenter = [0, 0]  ' grow down and sideways, never up into the row title
 end sub
 
 sub onContent()

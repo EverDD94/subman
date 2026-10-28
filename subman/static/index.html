@@ -684,7 +684,7 @@ dialog.sheet .foot{display:none}
   .shelfhead h3{font-size:20px}
   .reason > button{grid-column:2;justify-self:start}
   .dtabs{margin:0 -14px;padding:2px 14px}
-  dialog{width:100vw;max-width:100vw;max-height:100dvh;height:auto;margin:auto 0 0;border-radius:22px 22px 0 0;border-bottom:0;padding:22px 18px calc(22px + env(safe-area-inset-bottom))}
+  dialog{width:100vw;max-width:100vw;max-height:calc(100dvh - env(safe-area-inset-top) - 10px);height:auto;margin:auto 0 0;border-radius:22px 22px 0 0;border-bottom:0;padding:22px 18px calc(22px + env(safe-area-inset-bottom))}
   dialog[open]{animation:up .32s var(--ease-out)}
   @keyframes up{from{transform:translateY(40px);opacity:0}}
   dialog.sheet{width:100vw;height:100dvh;max-height:100dvh;border-radius:0;margin:0;padding:0}
@@ -1436,7 +1436,7 @@ function updDraw() {
   if (!r) { bar.hidden = true; return; }
   let p, txt;
   if (r.done) { p = 1; txt = "Actualizado. Recargando…"; }
-  else if (!r.eta) { p = .03; txt = "Buscando versión nueva…"; }
+  else if (!r.eta) { p = .03; txt = r.waiting ? "Esperando a que acabe la descarga para actualizar…" : "Buscando versión nueva…"; }
   else {
     const el = (Date.now() - r.t0) / 1000, f = el / r.eta, rest = r.eta - el;
     p = f <= 1 ? .95 * f : .95 + .04 * (1 - Math.exp(-(f - 1) * 2));  // si tarda más de lo previsto, sigue moviéndose sin llegar al final
@@ -1465,10 +1465,12 @@ function watchUpdate(before) {
       if (u.build !== before || (r.down && !u.running)) {  // ya volvió: la versión nueva
         clearInterval(updWatch); r.done = true; updDraw(); setTimeout(() => location.reload(), 1500); return;
       }
+      r.waiting = u.phase === "esperando";
       if (u.eta) { r.eta = u.eta; r.bytes = u.bytes; r.t0 = Date.now() - (u.elapsed || 0) * 1000; }
       if (u.phase === "reiniciando" || (!u.running && u.message === "reiniciando")) r.down = true;
       else if (!u.running) return updStop(u.message);
     } catch (e) { if (r.eta) r.down = true; }  // no contesta: se está reiniciando
+    if (!r.eta && !r.waiting && Date.now() - r.started > 90000) return updStop("No se pudo comprobar si hay versión nueva; prueba otra vez más tarde.");
     if (Date.now() - r.started > 20 * 60000) updStop("La actualización está tardando mucho; mira Container Manager en el NAS.");
   }, 2000);
 }

@@ -597,6 +597,12 @@ class App:
                 "build": updater.BUILD, "built": updater.BUILT, "watchtower": updater.available(),
                 "settings": cfg["update"], "now": time.strftime("%H:%M"), "timezone": cfg.get("timezone", "")}
 
+    def _dl_moving(self) -> bool:
+        """¿Se está bajando un archivo ahora mismo? (bytes entrando en los últimos 2 minutos)"""
+        d = self.dl
+        return bool(d["current"] and d.get("total") and (d.get("done") or 0) < d["total"]
+                    and time.time() - (d.get("moved") or 0) < 120)
+
     def update_now(self) -> dict:
         if not updater.available():
             return {"ok": False, "error": "falta Watchtower en el proyecto de Container Manager (mira INSTALAR.md)"}
@@ -607,7 +613,7 @@ class App:
 
         def work():
             try:
-                while self.dl["current"] and "esperando que pulses" not in self.dl["message"]:  # (si sólo espera tu toque al anuncio, no hace falta esperar)
+                while self._dl_moving():  # sólo si están entrando bytes de verdad (pidiendo al bot o esperando el anuncio no cuenta)
                     # reiniciar a media descarga la cortaría (y habría que pulsar otra vez el anuncio)
                     self.upd.update(phase="esperando", message=f"esperando a que acabe la descarga de {self.dl['what']}")
                     time.sleep(20)
@@ -2015,6 +2021,8 @@ class App:
                     self.dl["speed"] = v if not old else 0.6 * old + 0.4 * v
                     rate.update(t=now, done=done)
                 self.dl.update(done=done, total=total, message=f"{row['title']}: {name}")
+                if total and done < total:
+                    self.dl["moved"] = now
                 if total:
                     status.show(self._dl_progress(row, label, name, done, total, self.dl.get("speed") or 0, len(placed)))
                 if total and name not in started:

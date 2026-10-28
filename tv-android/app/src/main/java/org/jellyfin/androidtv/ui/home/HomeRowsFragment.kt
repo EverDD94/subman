@@ -295,13 +295,12 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 			.show()
 	}
 
-	/** The library item for a TheMovieDB title we already have: by its TheMovieDB id, else by name. */
+	/** The library item for a TheMovieDB title we already have: searched by name, preferring the one with its TheMovieDB id. */
 	private suspend fun findOwned(title: DiscoverTitle): java.util.UUID? {
 		val kind = if (title.kind == "tv") BaseItemKind.SERIES else BaseItemKind.MOVIE
-		val byId by api.itemsApi.getItems(GetItemsRequest(recursive = true, includeItemTypes = setOf(kind), anyProviderIdEquals = listOf("Tmdb.${title.tmdb}"), limit = 1))
-		byId.items.firstOrNull()?.let { return it.id }
-		val byName by api.itemsApi.getItems(GetItemsRequest(recursive = true, includeItemTypes = setOf(kind), searchTerm = title.title, limit = 1))
-		return byName.items.firstOrNull()?.id
+		val found by api.itemsApi.getItems(GetItemsRequest(recursive = true, includeItemTypes = setOf(kind), searchTerm = title.title, fields = setOf(org.jellyfin.sdk.model.api.ItemFields.PROVIDER_IDS), limit = 10))
+		val tmdb = title.tmdb.toString()
+		return (found.items.firstOrNull { item -> item.providerIds?.any { it.key.equals("Tmdb", true) && it.value == tmdb } == true } ?: found.items.firstOrNull())?.id
 	}
 
 	private inner class ItemViewClickedListener : OnItemViewClickedListener {

@@ -81,7 +81,7 @@ sub formListShowDialog(configField)
         DialogFocusColor: "0xFFFFFFFF",
         DialogFocusItemColor: "0x000000FF",
         DialogInputFieldColor: "0x0B0D12FF",
-        DialogKeyboardColor: "0xF4F2EEFF",
+        DialogKeyboardColor: "0x262B37FF",
         DialogFootprintColor: "0x3D63E0FF"
     }
     dialog.palette = m.greenPalette

@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.compose.foundation.background
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -49,6 +50,18 @@ class HomeFragment : Fragment() {
 		LaunchedEffect(rowsFocusRequester) { rowsFocusRequester.requestFocus() }
 
 		androidx.compose.foundation.layout.Box {
+		// Darken the backdrop behind the text on the left and fade its right edge, so the title and synopsis always read
+		androidx.compose.foundation.layout.Box(
+			Modifier.fillMaxSize().background(
+				androidx.compose.ui.graphics.Brush.horizontalGradient(
+					0f to androidx.compose.ui.graphics.Color(0xF00B0D12),
+					0.45f to androidx.compose.ui.graphics.Color(0x990B0D12),
+					0.75f to androidx.compose.ui.graphics.Color.Transparent,
+					0.92f to androidx.compose.ui.graphics.Color.Transparent,
+					1f to androidx.compose.ui.graphics.Color(0xCC0B0D12),
+				)
+			)
+		)
 		Row {
 			MainRail(MainToolbarActiveButton.Home)
 

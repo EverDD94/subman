@@ -1,0 +1,201 @@
+import "pkg:/components/everflix/EfCommon.bs"
+import "pkg:/source/api/Image.bs"
+import "pkg:/source/utils/misc.bs"
+
+' Item height and the gap after a divider
+const ROW_HEIGHT = 66
+
+sub init()
+    m.shade = m.top.findNode("shade")
+    m.logo = m.top.findNode("logo")
+    m.itemsGroup = m.top.findNode("items")
+    m.index = 1
+    m.entries = []
+    m.top.focusable = true
+    m.top.observeField("focusedChild", "onFocusChange")
+    build([])
+    ' Libraries come from the server
+    m.task = CreateObject("roSGNode", "EfTask")
+    m.task.job = "views"
+    m.task.observeField("result", "onViews")
+    m.task.control = "RUN"
+end sub
+
+sub onViews()
+    views = m.task.result.items
+    if isValid(views) then build(views)
+end sub
+
+sub build(views as object)
+    entries = [
+        { key: "search", label: "Buscar", icon: "search" },
+        { key: "home", label: "Inicio", icon: "home" },
+        { key: "movies", label: "Películas", icon: "movie" },
+        { key: "series", label: "Series", icon: "tv" },
+        { divider: true }
+    ]
+    for each view in views
+        kind = LCase(view.LookupCI("CollectionType") ?? "")
+        icon = "folder"
+        if kind = "tvshows" then icon = "tv"
+        if kind = "movies" then icon = "movie"
+        entries.push({ key: "lib:" + view.Id, label: view.Name, icon: icon, view: view })
+    end for
+    entries.push({ divider: true })
+    entries.push({ key: "requests", label: "Mis peticiones", icon: "plus" })
+    entries.push({ key: "settings", label: "Ajustes", icon: "gear" })
+    user = m.global.session.user
+    photo = ""
+    if isValidAndNotEmpty(user.PrimaryImageTag) then photo = UserImageURL(user.id, { tag: user.PrimaryImageTag, maxWidth: 96, maxHeight: 96 })
+    entries.push({ key: "profile", label: user.name ?? "Mi perfil", icon: "user", photo: photo })
+
+    m.itemsGroup.removeChildrenIndex(m.itemsGroup.getChildCount(), 0)
+    m.entries = []
+    y = 0
+    for each e in entries
+        if e.LookupCI("divider") = true
+            line = m.itemsGroup.createChild("Rectangle")
+            line.translation = [16, y + 10]
+            line.width = 260
+            line.height = 2
+            line.color = "0xF4F2EE26"
+            line.visible = m.top.open
+            e.node = line
+            y += 22
+        else
+            g = m.itemsGroup.createChild("Group")
+            g.translation = [0, y]
+            pill = g.createChild("Poster")
+            pill.uri = "pkg:/images/everflix/round8.9.png"
+            pill.width = 300
+            pill.height = 56
+            pill.blendColor = "0xFFFFFFFF"
+            pill.visible = false
+            if isValidAndNotEmpty(e.LookupCI("photo"))
+                mask = g.createChild("MaskGroup")
+                mask.maskUri = "pkg:/images/everflix/mask-circle.png"
+                mask.maskSize = [40, 40]
+                mask.translation = [22, 8]
+                icon = mask.createChild("Poster")
+                icon.width = 40
+                icon.height = 40
+                icon.uri = e.photo
+            else
+                icon = g.createChild("Poster")
+                icon.uri = "pkg:/images/everflix/" + e.icon + ".png"
+                icon.width = 34
+                icon.height = 34
+                icon.translation = [25, 11]
+            end if
+            label = g.createChild("Label")
+            label.text = e.label
+            label.font = ef.font(ef.FONT_SEMI, 25)
+            label.translation = [80, 0]
+            label.height = 56
+            label.width = 210
+            label.vertAlign = "center"
+            label.visible = m.top.open
+            dot = g.createChild("Poster")
+            dot.uri = "pkg:/images/everflix/mask-circle.png"
+            dot.width = 10
+            dot.height = 10
+            dot.blendColor = ef.ACCENT
+            dot.translation = [280, 23]
+            dot.visible = false
+            e.node = g
+            e.pill = pill
+            e.icon = icon
+            e.label = label
+            e.dot = dot
+            m.entries.push(e)
+            y += ROW_HEIGHT
+        end if
+    end for
+    m.dividers = []
+    for each e in entries
+        if e.LookupCI("divider") = true then m.dividers.push(e.node)
+    end for
+    ' Keep the cursor on the active entry
+    m.index = activeIndex()
+    paint()
+end sub
+
+function activeIndex() as integer
+    for i = 0 to m.entries.count() - 1
+        if m.entries[i].key = m.top.active then return i
+    end for
+    return 1
+end function
+
+sub focusIn()
+    m.index = activeIndex()
+    m.top.setFocus(true)
+end sub
+
+sub onFocusChange()
+    m.top.open = m.top.hasFocus()
+end sub
+
+sub onOpen()
+    open = m.top.open
+    if open
+        m.shade.uri = "pkg:/images/everflix/rail-open.png"
+        m.shade.width = 560
+        m.logo.uri = "pkg:/images/everflix/logo-full.png"
+        m.logo.width = 198
+        m.logo.height = 60
+    else
+        m.shade.uri = "pkg:/images/everflix/rail-closed.png"
+        m.shade.width = 140
+        m.logo.uri = "pkg:/images/everflix/logo-e.png"
+        m.logo.width = 46
+        m.logo.height = 60
+    end if
+    for each d in m.dividers
+        d.visible = open
+    end for
+    paint()
+end sub
+
+sub paint()
+    if not isValid(m.entries) then return
+    open = m.top.open
+    for i = 0 to m.entries.count() - 1
+        e = m.entries[i]
+        focused = open and i = m.index
+        active = e.key = m.top.active
+        e.pill.visible = focused
+        e.label.visible = open
+        if focused
+            e.label.color = "0x000000FF"
+            if e.icon.subtype() = "Poster" and not isValidAndNotEmpty(e.LookupCI("photo")) then e.icon.blendColor = "0x000000FF"
+        else
+            alpha = active ? "FF" : "99"
+            e.label.color = "0xF4F2EE" + alpha
+            if e.icon.subtype() = "Poster" and not isValidAndNotEmpty(e.LookupCI("photo")) then e.icon.blendColor = "0xF4F2EE" + alpha
+        end if
+        e.dot.visible = active and open and not focused
+    end for
+end sub
+
+function onKeyEvent(key as string, press as boolean) as boolean
+    if not press then return false
+    if key = "up"
+        if m.index > 0 then m.index--
+        paint()
+        return true
+    else if key = "down"
+        if m.index < m.entries.count() - 1 then m.index++
+        paint()
+        return true
+    else if key = "OK"
+        m.top.selected = m.entries[m.index].key
+        return true
+    else if key = "right" or key = "back"
+        m.top.leave = true
+        return true
+    else if key = "left"
+        return true
+    end if
+    return false
+end function

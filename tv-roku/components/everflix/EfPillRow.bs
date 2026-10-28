@@ -1,0 +1,53 @@
+sub init()
+    m.strip = m.top.findNode("strip")
+    m.pills = []
+end sub
+
+sub build()
+    m.strip.removeChildrenIndex(m.strip.getChildCount(), 0)
+    m.pills = []
+    x = 0
+    for each it in m.top.items
+        p = m.strip.createChild("EfPill")
+        p.small = m.top.small
+        p.key = it.key
+        p.primary = it.LookupCI("primary") = true
+        p.selected = it.LookupCI("selected") = true
+        p.text = it.text
+        p.translation = [x, 0]
+        x += p.pillWidth + m.top.spacing
+        m.pills.push(p)
+    end for
+    if m.top.index >= m.pills.count() then m.top.index = 0
+    paint()
+end sub
+
+sub paint()
+    for i = 0 to m.pills.count() - 1
+        m.pills[i].highlighted = m.top.active and i = m.top.index
+    end for
+    ' Keep the focused pill on screen
+    if m.pills.count() > 0 and m.top.index < m.pills.count()
+        p = m.pills[m.top.index]
+        right = p.translation[0] + p.pillWidth
+        offset = 0
+        if right > m.top.maxWidth then offset = m.top.maxWidth - right
+        m.strip.translation = [offset, 0]
+    end if
+end sub
+
+function count() as integer
+    return m.pills.count()
+end function
+
+' Moves the cursor; returns false when it is already at the edge
+function move(delta as integer) as boolean
+    n = m.top.index + delta
+    if n < 0 or n >= m.pills.count() then return false
+    m.top.index = n
+    return true
+end function
+
+sub press()
+    if m.top.index < m.pills.count() then m.top.pressed = m.pills[m.top.index].key
+end sub

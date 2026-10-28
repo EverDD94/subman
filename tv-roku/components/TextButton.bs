@@ -43,9 +43,10 @@ sub onFocusChanged()
         return
     end if
 
+    ' Everflix pills: white with black text when focused
     if m.top.focus
-        m.buttonText.color = m.top.focusTextColor
-        m.buttonBackground.blendColor = m.top.focusBackground
+        m.buttonText.color = "0x000000FF"
+        m.buttonBackground.blendColor = "0xFFFFFFFF"
         m.buttonIcon.uri = m.top.focusIcon <> "" ? m.top.focusIcon : m.top.icon
     else
         m.buttonText.color = m.top.textColor

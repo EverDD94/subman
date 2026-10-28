@@ -3,10 +3,11 @@
   <children>
     <LayoutGroup translation="[150,150]" itemSpacings="40">
       <LayoutGroup>
+        <Poster uri="pkg:/images/everflix/logo-full.png" width="198" height="60" />
         <Text text="Connect to Server" id="prompt" font="font:LargeBoldSystemFont" />
       </LayoutGroup>
 
-      <Rectangle id="serverPickerContainer" color="#101420" width="1620" height="400">
+      <Rectangle id="serverPickerContainer" color="0x161A22FF" width="1620" height="400">
         <MarkupList
           id="serverPicker"
           translation="[20, 20]"

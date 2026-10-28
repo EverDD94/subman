@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Everflix: detail screen for movies, series, episodes, collections and people. -->
+<component name="EfDetails" extends="JFScreen">
+  <children>
+    <EfBackdrop id="backdrop" fadeTop="360" />
+    <EfHero id="hero" translation="[120, 56]" textWidth="1100" overviewLines="2" />
+    <EfPillRow id="buttons" translation="[120, 500]" />
+    <EfPillRow id="langs" translation="[120, 584]" small="true" />
+    <EfPillRow id="seasons" translation="[120, 652]" small="true" spacing="12" />
+    <Label id="section" translation="[120, 650]" width="1600" color="0xFFFFFFCC" />
+    <RowList
+      id="episodes"
+      translation="[120, 722]"
+      itemComponentName="EfCard"
+      itemSize="[1800, 330]"
+      numRows="1"
+      rowItemSize="[[400, 225]]"
+      rowItemSpacing="[[28, 0]]"
+      showRowLabel="[false]"
+      rowFocusAnimationStyle="floatingFocus"
+      drawFocusFeedback="false"
+      visible="false" />
+    <RowList
+      id="similar"
+      translation="[120, 694]"
+      itemComponentName="EfPosterCard"
+      itemSize="[1800, 380]"
+      numRows="1"
+      rowItemSize="[[220, 330]]"
+      rowItemSpacing="[[24, 0]]"
+      showRowLabel="[false]"
+      rowFocusAnimationStyle="floatingFocus"
+      drawFocusFeedback="false"
+      visible="false" />
+    <Label id="loading" translation="[120, 500]" text="Cargando…" color="0x9AA0ADFF" />
+  </children>
+  <interface>
+    <field id="itemId" type="string" onChange="load" />
+  </interface>
+</component>

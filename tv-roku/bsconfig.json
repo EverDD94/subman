@@ -4,6 +4,7 @@
     "source/**/*.*",
     "components/**/*.*",
     "images/**/*.*",
+    "fonts/*.*",
     "videos/*.*",
     "locale/**/*.*",
     "settings/*.*"

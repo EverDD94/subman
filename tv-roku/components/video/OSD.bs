@@ -85,7 +85,7 @@ sub init()
     m.deviceInfo = CreateObject("roDeviceInfo")
 
     m.progressBarBackground.color = ColorPalette.BLACK77
-    m.progressBar.color = ColorPalette.TRIADBLUE
+    m.progressBar.color = ColorPalette.HIGHLIGHT
 
     optionButtons = m.optionControls.getChildren(-1, 0)
     for each button in optionButtons

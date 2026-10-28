@@ -1,0 +1,93 @@
+' Everflix: shared look and small helpers for the Everflix screens.
+import "pkg:/source/api/baserequest.bs"
+import "pkg:/source/api/Image.bs"
+import "pkg:/source/enums/ImageType.bs"
+import "pkg:/source/utils/misc.bs"
+
+namespace ef
+    const ACCENT = "0x3D63E0FF"
+    const INK = "0xF4F2EEFF"
+    const MUTED = "0x9AA0ADFF"
+    const BG = "0x0B0D12FF"
+    const CARD = "0x161A22FF"
+    const SOFT_BLUE = "0x9DB4FFFF"
+    const FONT_BOLD = "pkg:/fonts/archivo_extrabold.ttf"
+    const FONT_SEMI = "pkg:/fonts/archivo_semibold.ttf"
+    const FONT_REGULAR = "pkg:/fonts/archivo_regular.ttf"
+
+    function font(uri as string, size as integer) as object
+        f = CreateObject("roSGNode", "Font")
+        f.uri = uri
+        f.size = size
+        return f
+    end function
+
+    ' Fields we ask Jellyfin for in every Everflix list
+    function fields() as string
+        return "Overview,Genres,MediaSources,MediaStreams,ParentId,PrimaryImageAspectRatio,ProductionYear,OfficialRating,CommunityRating,ChildCount,RecursiveItemCount"
+    end function
+
+    ' Adds ready-made image URLs to a Jellyfin item so the UI thread never builds them.
+    function decorate(item as object) as object
+        if not isValid(item) then return item
+        item.efThumb = FirstItemImageURL(item, [ImageType.THUMB, ImageType.BACKDROP, ImageType.PRIMARY], { maxWidth: 480, maxHeight: 270 })
+        if isStringEqual(item.LookupCI("Type"), "Episode")
+            ' Episodes show their own frame; the series art is the fallback
+            own = ItemImageURL(item, ImageType.PRIMARY, { maxWidth: 480, maxHeight: 270 }, false)
+            if isValidAndNotEmpty(own) then item.efThumb = own
+        end if
+        item.efPoster = ItemImageURL(item, ImageType.PRIMARY, { maxWidth: 300, maxHeight: 450 })
+        item.efBackdrop = FirstItemImageURL(item, [ImageType.BACKDROP, ImageType.THUMB, ImageType.PRIMARY], { maxWidth: 1920, maxHeight: 1080 })
+        item.efLogo = ItemImageURL(item, ImageType.LOGO, { maxWidth: 700, maxHeight: 260 })
+        return item
+    end function
+
+    ' Builds a HomeData node (what the rest of the app understands) from a Jellyfin item.
+    function itemNode(item as object) as object
+        node = CreateObject("roSGNode", "HomeData")
+        node.json = item
+        node.title = item.LookupCI("Name")
+        return node
+    end function
+
+    ' GET on Jellyfin, returns the parsed JSON or invalid
+    function getJellyfin(path as string, params = {} as object) as dynamic
+        req = APIRequest(path, params)
+        if not isValid(req) then return invalid
+        return getJson(req)
+    end function
+
+    ' Language code to Spanish name, like the Google TV app
+    function langName(code as dynamic) as string
+        if not isValidAndNotEmpty(code) then return "Desconocido"
+        c = LCase(code)
+        names = { spa: "Español", es: "Español", esp: "Español", eng: "Inglés", en: "Inglés", por: "Portugués", pt: "Portugués", fre: "Francés", fra: "Francés", fr: "Francés", jpn: "Japonés", ja: "Japonés", ita: "Italiano", it: "Italiano", ger: "Alemán", deu: "Alemán", de: "Alemán", und: "Desconocido" }
+        if names.DoesExist(c) then return names[c]
+        return UCase(code)
+    end function
+
+    function isSpanish(code as dynamic) as boolean
+        if not isValidAndNotEmpty(code) then return false
+        c = LCase(code)
+        return c = "spa" or c = "es" or c = "esp"
+    end function
+
+    ' Videotecario runs on the same NAS: 8787 at home, 8921 through the https proxy.
+    function videotecarioBase() as string
+        server = m.global.session.server.url
+        if not isValidAndNotEmpty(server) then return ""
+        r = CreateObject("roRegex", "^(https?)://([^/:]+)", "i")
+        parts = r.match(server)
+        if parts.count() < 3 then return ""
+        if LCase(parts[1]) = "https" then return "https://" + parts[2] + ":8921"
+        return "http://" + parts[2] + ":8787"
+    end function
+end namespace
+
+namespace ef
+    ' Asks Main to open an Everflix screen or start playback (see source/Everflix.bs)
+    sub go(data as object)
+        data.selectionType = "ef"
+        m.top.getScene().jumpTo = data
+    end sub
+end namespace

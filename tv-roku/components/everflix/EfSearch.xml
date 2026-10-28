@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Everflix: search with its own on-screen keyboard. What you don't have can be requested. -->
+<component name="EfSearch" extends="JFScreen">
+  <children>
+    <Rectangle width="1920" height="1080" color="0x0B0D12FF" />
+    <Label id="heading" translation="[170, 60]" text="BUSCAR" color="0xF4F2EEFF" />
+    <Poster id="queryBg" uri="pkg:/images/everflix/round8.9.png" blendColor="0x161A22FF" translation="[170, 140]" width="470" height="70" />
+    <Label id="query" translation="[194, 140]" width="430" height="70" vertAlign="center" color="0xF4F2EEFF" />
+    <Group id="keys" translation="[170, 240]" />
+    <Label id="hint" translation="[700, 150]" width="1150" wrap="true" color="0x9AA0ADFF" text="Escribe el nombre de una película, serie o persona." />
+    <RowList
+      id="results"
+      translation="[700, 130]"
+      itemComponentName="EfPosterCard"
+      itemSize="[1200, 470]"
+      numRows="2"
+      rowItemSize="[[220, 330]]"
+      rowItemSpacing="[[24, 0]]"
+      itemSpacing="[0, 10]"
+      showRowLabel="[true]"
+      rowLabelOffset="[[0, 14]]"
+      rowLabelColor="0xF4F2EEFF"
+      rowFocusAnimationStyle="floatingFocus"
+      vertFocusAnimationStyle="fixedFocus"
+      drawFocusFeedback="false"
+      visible="false" />
+    <Group id="toast" translation="[700, 990]" visible="false">
+      <Poster id="toastBg" uri="pkg:/images/everflix/pill.9.png" blendColor="0x3D63E0FF" height="60" />
+      <Label id="toastText" translation="[28, 0]" height="60" vertAlign="center" color="0xFFFFFFFF" />
+    </Group>
+    <EfRail id="rail" active="search" />
+    <Timer id="debounce" duration="0.6" repeat="false" />
+    <Timer id="toastTimer" duration="4" repeat="false" />
+  </children>
+</component>

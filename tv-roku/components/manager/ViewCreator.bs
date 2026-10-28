@@ -399,28 +399,9 @@ sub onStateChange()
             end if
         end if
 
-        ' If there is something next in the queue, play it
+        ' If there is something next in the queue, Everflix shows it full screen first
         if m.global.queueManager.callFunc("getPosition") < m.global.queueManager.callFunc("getCount") - 1
-            stillwatchingPopupInactivityTime = chainLookupReturn(m.global.session, "user.settings.stillwatchingPopupInactivityTime", "0")
-            if stillwatchingPopupInactivityTime <> "0"
-                stillwatchingPopupInactivityTime = stillwatchingPopupInactivityTime.ToInt()
-                m.deviceInfo = CreateObject("roDeviceInfo")
-
-                if m.deviceInfo.TimeSinceLastKeypress() >= (stillwatchingPopupInactivityTime * 60)
-                    m.stillWatchingTimer = createObject("roSGNode", "Timer")
-                    m.stillWatchingTimer.repeat = false
-                    m.stillWatchingTimer.duration = STILL_WATCHING_POPUP_TIMER_SECONDS
-                    m.stillWatchingTimer.observeField("fire", "stillWatchingTimerComplete")
-                    m.stillWatchingTimer.control = TimerControl.START
-
-                    m.global.sceneManager.callFunc("optionDialog", "stillwatching", tr("Are You Still Watching?"), [tr("Playback will automatically stop in 1 minute if no buttons are pressed.")], [tr("Yes, continue"), tr("No, stop playback")], {})
-                    return
-                end if
-            end if
-
-            m.global.sceneManager.callFunc("clearPreviousScene")
-            m.global.queueManager.callFunc("moveForward")
-            m.global.queueManager.callFunc("playQueue")
+            showEverflixNextUp()
             return
         end if
 
@@ -452,6 +433,48 @@ sub onStateChange()
             m.voiceInputTask.control = TaskControl.STOP
         end if
     end if
+end sub
+
+' Everflix: "Siguiente" with a countdown, or "¿Sigues viendo?" after a long stretch without the remote
+sub showEverflixNextUp()
+    queue = m.global.queueManager
+    nextItem = queue.callFunc("getItemByIndex", queue.callFunc("getPosition") + 1)
+    json = {}
+    if isValid(nextItem)
+        if isValid(nextItem.json) then json = nextItem.json else json = nextItem
+    end if
+
+    if not isValid(m.global.efInARow) then m.global.addFields({ efInARow: 0 })
+    minutes = chainLookupReturn(m.global.session, "user.settings.stillwatchingPopupInactivityTime", "0").ToInt()
+    if minutes = 0 then minutes = 90
+    deviceInfo = CreateObject("roDeviceInfo")
+    idle = deviceInfo.TimeSinceLastKeypress() >= minutes * 60
+    still = idle or m.global.efInARow >= 3
+
+    m.efNextUp = CreateObject("roSGNode", "EfNextUp")
+    m.efNextUp.stillWatching = still
+    m.efNextUp.item = json
+    m.efNextUp.observeField("result", "onEverflixNextUp")
+    m.view.appendChild(m.efNextUp)
+    m.efNextUp.setFocus(true)
+end sub
+
+sub onEverflixNextUp()
+    result = m.efNextUp.result
+    if isValid(m.view) then m.view.removeChild(m.efNextUp)
+    if result = "next" or result = "next-auto"
+        ' Episodes that roll on by themselves count towards "¿Sigues viendo?"
+        if result = "next-auto" then m.global.efInARow = m.global.efInARow + 1 else m.global.efInARow = 0
+        m.global.sceneManager.callFunc("clearPreviousScene")
+        m.global.queueManager.callFunc("moveForward")
+        m.global.queueManager.callFunc("playQueue")
+    else
+        m.global.efInARow = 0
+        m.global.queueManager.callFunc("bypassNextPreferredAudioTrackIndexReset")
+        m.global.queueManager.callFunc("clear")
+        m.global.sceneManager.callFunc("popScene")
+    end if
+    m.efNextUp = invalid
 end sub
 
 sub stillWatchingTimerComplete()

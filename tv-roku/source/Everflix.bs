@@ -1,0 +1,97 @@
+' Everflix: opens the Everflix screens and starts playback for them (see ef.go in EfCommon.bs).
+import "pkg:/source/enums/SubtitleSelection.bs"
+import "pkg:/source/utils/misc.bs"
+
+sub onEverflixJump(data as object)
+    target = data.LookupCI("target") ?? ""
+    sceneManager = m.global.sceneManager
+
+    if target = "play"
+        everflixPlay(data)
+        return
+    end if
+
+    if target = "changeUser"
+        m.efChangeUser = true
+        return
+    end if
+
+    if target = "settings"
+        sceneManager.callFunc("settings")
+        return
+    end if
+
+    if target = "details"
+        group = CreateObject("roSGNode", "EfDetails")
+        group.itemId = data.id
+        sceneManager.callFunc("pushScene", group)
+        return
+    end if
+
+    ' Menu entries replace whatever was open, so Back always leads home
+    goHome()
+    if target = "home" then return
+
+    group = invalid
+    if target = "search"
+        group = CreateObject("roSGNode", "EfSearch")
+    else if target = "movies" or target = "series"
+        group = CreateObject("roSGNode", "EfLibrary")
+        group.setup = { kind: target }
+    else if target.left(4) = "lib:"
+        group = CreateObject("roSGNode", "EfLibrary")
+        group.setup = { kind: "library", libraryId: target.mid(4) }
+    else if target = "requests"
+        group = CreateObject("roSGNode", "EfRequests")
+    else if target = "profile"
+        group = CreateObject("roSGNode", "EfProfile")
+    end if
+    if isValid(group) then sceneManager.callFunc("pushScene", group)
+end sub
+
+sub goHome()
+    sceneManager = m.global.sceneManager
+    while sceneManager.callFunc("getSceneCount") > 1
+        active = sceneManager.callFunc("getActiveScene")
+        if isValid(active) and active.isSubType("Home") then exit while
+        sceneManager.callFunc("popScene")
+    end while
+end sub
+
+' Plays an item with the audio and subtitle chosen in the Everflix detail screen
+sub everflixPlay(data as object)
+    item = data.LookupCI("item")
+    if not isValid(item) then return
+    kind = item.LookupCI("Type")
+
+    ' A series plays its next (or half-watched) episode
+    if kind = "Series" or kind = "BoxSet" or kind = "Season"
+        onEverflixJump({ target: "details", id: item.Id })
+        return
+    end if
+
+    json = {}
+    json.Append(item)
+    if data.LookupCI("fromStart") = true and isValid(json.UserData)
+        userData = {}
+        userData.Append(json.UserData)
+        userData.PlaybackPositionTicks = 0
+        json.UserData = userData
+    end if
+
+    node = CreateObject("roSGNode", "HomeData")
+    node.json = json
+    audioIndex = data.LookupCI("audioIndex")
+    if isValid(audioIndex) and audioIndex > 0 then node.selectedAudioStreamIndex = audioIndex
+
+    startLoadingSpinner()
+    queue = m.global.queueManager
+    queue.callFunc("clear")
+    queue.callFunc("resetShuffle")
+    quickplay.video(node)
+    subIndex = data.LookupCI("subIndex")
+    if isValid(subIndex)
+        queue.callFunc("setPreferredSubtitleTrack", { StreamIndex: subIndex })
+    end if
+    queue.callFunc("playQueue")
+end sub

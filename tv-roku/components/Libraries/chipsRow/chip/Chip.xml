@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <component name="Chip" extends="Group">
     <children>
-        <Poster id="buttonBackground" uri="pkg:/images/white.9.png" opacity="0" height="0" />
+        <Poster id="buttonBackground" uri="pkg:/images/everflix/pill.9.png" opacity="0" height="0" />
         <ScrollingText id="buttonText" font="font:SmallSystemFont" horizAlign="center" vertAlign="center" opacity="0" height="0" />
 
         <Animation id="toggleAnimation" duration="1" repeat="false" easeFunction="linear">

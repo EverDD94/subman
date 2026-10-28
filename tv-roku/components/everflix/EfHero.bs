@@ -1,0 +1,108 @@
+import "pkg:/components/everflix/EfCommon.bs"
+import "pkg:/source/utils/misc.bs"
+
+sub init()
+    m.badge = m.top.findNode("badge")
+    m.badgeBg = m.top.findNode("badgeBg")
+    m.badgeLabel = m.top.findNode("badgeLabel")
+    m.meta = m.top.findNode("meta")
+    m.title = m.top.findNode("title")
+    m.episode = m.top.findNode("episode")
+    m.left = m.top.findNode("left")
+    m.bar = m.top.findNode("bar")
+    m.barFill = m.top.findNode("barFill")
+    m.overview = m.top.findNode("overview")
+    m.episodeRow = m.top.findNode("episodeRow")
+
+    m.badgeLabel.font = ef.font(ef.FONT_BOLD, 20)
+    m.meta.font = ef.font(ef.FONT_SEMI, 21)
+    m.title.font = ef.font(ef.FONT_BOLD, 84)
+    m.episode.font = ef.font(ef.FONT_SEMI, 27)
+    m.left.font = ef.font(ef.FONT_REGULAR, 27)
+    m.overview.font = ef.font(ef.FONT_REGULAR, 27)
+    m.top.findNode("previewLabel").font = ef.font(ef.FONT_SEMI, 21)
+end sub
+
+sub onWidth()
+    m.title.width = m.top.textWidth
+    m.overview.width = m.top.textWidth
+end sub
+
+sub onLines()
+    m.overview.maxLines = m.top.overviewLines
+end sub
+
+sub onPreview()
+    m.top.findNode("previewTag").visible = m.top.preview
+end sub
+
+sub onItem()
+    item = m.top.item
+    if not isValid(item) or item.count() = 0
+        m.top.visible = false
+        return
+    end if
+    m.top.visible = true
+
+    kind = item.LookupCI("Type")
+    isEpisode = kind = "Episode"
+    title = item.LookupCI("Name") ?? ""
+    if isEpisode and isValidAndNotEmpty(item.LookupCI("SeriesName")) then title = item.LookupCI("SeriesName")
+    m.title.text = UCase(title)
+
+    badge = ""
+    if kind = "Episode" or kind = "Series" or kind = "Season" then badge = "SERIE"
+    if kind = "Movie" then badge = "PELÍCULA"
+    if kind = "BoxSet" then badge = "COLECCIÓN"
+    if kind = "Person" then badge = "PERSONA"
+    m.badgeLabel.text = badge
+    m.badge.visible = badge <> ""
+    rect = m.badgeLabel.boundingRect()
+    m.badgeBg.width = rect.width + 24
+
+    meta = []
+    year = item.LookupCI("ProductionYear")
+    if isValid(year) then meta.push(year.toStr())
+    genres = item.LookupCI("Genres")
+    if isValid(genres) and genres.count() > 0
+        g = genres[0]
+        if genres.count() > 1 then g = g + " · " + genres[1]
+        meta.push(g)
+    end if
+    rating = item.LookupCI("OfficialRating")
+    if isValidAndNotEmpty(rating) then meta.push(rating)
+    m.meta.text = UCase(meta.join(" · "))
+    m.top.findNode("badgeRow").visible = badge <> "" or m.meta.text <> ""
+
+    episodeLine = ""
+    if isEpisode
+        parts = []
+        season = item.LookupCI("ParentIndexNumber")
+        number = item.LookupCI("IndexNumber")
+        if isValid(season) and isValid(number) then parts.push(`T${season} · E${number}`)
+        parts.push(item.LookupCI("Name") ?? "")
+        episodeLine = parts.join(" · ")
+    end if
+    m.episode.text = episodeLine
+
+    runTicks = item.LookupCI("RunTimeTicks") ?? 0
+    posTicks = 0
+    data = item.LookupCI("UserData")
+    if isValid(data) then posTicks = data.LookupCI("PlaybackPositionTicks") ?? 0
+    progress = 0
+    ' Ticks are 64-bit numbers; make the division a real one
+    if runTicks > 0 then progress = (posTicks * 1.0) / (runTicks * 1.0)
+    if progress > 1 then progress = 1
+    minutesLeft = 0
+    if runTicks > 0 then minutesLeft = Int(((runTicks - posTicks) * 1.0) / 600000000.0)
+    m.left.text = ""
+    if progress > 0 and minutesLeft > 0 then m.left.text = `Quedan ${minutesLeft} min`
+    ' Empty labels would still take space in the row
+    m.episode.visible = episodeLine <> ""
+    m.left.visible = m.left.text <> ""
+    m.episodeRow.visible = episodeLine <> "" or m.left.text <> ""
+    m.bar.visible = progress > 0
+    m.barFill.width = 340 * progress
+
+    m.overview.text = item.LookupCI("Overview") ?? ""
+end sub

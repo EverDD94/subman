@@ -1,0 +1,98 @@
+import "pkg:/components/everflix/EfCommon.bs"
+import "pkg:/source/utils/misc.bs"
+
+sub init()
+    m.backdrop = m.top.findNode("backdrop")
+    m.kicker = m.top.findNode("kicker")
+    m.title = m.top.findNode("title")
+    m.line = m.top.findNode("line")
+    m.overview = m.top.findNode("overview")
+    m.buttons = m.top.findNode("buttons")
+    m.tick = m.top.findNode("tick")
+    m.kicker.font = ef.font(ef.FONT_BOLD, 30)
+    m.title.font = ef.font(ef.FONT_BOLD, 84)
+    m.line.font = ef.font(ef.FONT_SEMI, 32)
+    m.overview.font = ef.font(ef.FONT_REGULAR, 27)
+    m.tick.observeField("fire", "onTick")
+    m.buttons.observeField("pressed", "onPressed")
+    m.top.focusable = true
+    m.done = false
+end sub
+
+sub onItem()
+    item = ef.decorate(m.top.item)
+    m.backdrop.item = item
+    m.left = m.top.seconds
+    if m.top.stillWatching
+        m.kicker.text = "¿SIGUES VIENDO?"
+    else
+        m.kicker.text = "SIGUIENTE"
+    end if
+    m.title.text = UCase(item.LookupCI("SeriesName") ?? item.LookupCI("Name") ?? "")
+    parts = []
+    season = item.LookupCI("ParentIndexNumber")
+    number = item.LookupCI("IndexNumber")
+    if isValid(season) and isValid(number) then parts.push(`T${season} · E${number}`)
+    parts.push(item.LookupCI("Name") ?? "")
+    m.line.text = parts.join(" · ")
+    m.overview.text = item.LookupCI("Overview") ?? ""
+
+    y = 350 + m.title.boundingRect().height + 16
+    m.line.translation = [170, y]
+    y += 56
+    m.overview.translation = [170, y]
+    y += m.overview.boundingRect().height + 40
+    m.buttons.translation = [170, y]
+    paintButtons()
+    m.buttons.active = true
+    if not m.top.stillWatching then m.tick.control = "start"
+end sub
+
+sub paintButtons()
+    if m.top.stillWatching
+        m.buttons.items = [{ key: "next", text: "▶  Seguir viendo", primary: true }, { key: "cancel", text: "Salir" }]
+    else
+        m.buttons.items = [{ key: "next", text: `▶  Ver ahora · ${m.left}`, primary: true }, { key: "cancel", text: "Cancelar" }]
+    end if
+end sub
+
+sub onTick()
+    m.left--
+    if m.left <= 0
+        m.tick.control = "stop"
+        finish("next-auto")
+        return
+    end if
+    index = m.buttons.index
+    paintButtons()
+    m.buttons.index = index
+end sub
+
+sub onPressed()
+    finish(m.buttons.pressed)
+end sub
+
+sub finish(result as string)
+    if m.done then return
+    m.done = true
+    m.tick.control = "stop"
+    m.top.result = result
+end sub
+
+function onKeyEvent(key as string, press as boolean) as boolean
+    if not press then return false
+    if key = "left" or key = "right"
+        m.buttons.callFunc("move", key = "left" ? -1 : 1)
+        return true
+    else if key = "OK"
+        m.buttons.callFunc("press")
+        return true
+    else if key = "back"
+        finish("cancel")
+        return true
+    else if key = "play"
+        finish("next")
+        return true
+    end if
+    return true
+end function

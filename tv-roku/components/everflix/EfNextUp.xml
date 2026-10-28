@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Everflix: full-screen "Siguiente" with a countdown, or "¿Sigues viendo?" after a long run without touching the remote. -->
+<component name="EfNextUp" extends="Group">
+  <children>
+    <EfBackdrop id="backdrop" fadeTop="420" />
+    <Label id="kicker" translation="[170, 300]" color="0x9DB4FFFF" />
+    <Label id="title" translation="[170, 350]" width="1300" wrap="true" maxLines="2" color="0xF4F2EEFF" />
+    <Label id="line" translation="[170, 0]" width="1300" color="0xF4F2EECC" />
+    <Label id="overview" translation="[170, 0]" width="1100" wrap="true" maxLines="3" lineSpacing="4" color="0xF4F2EEB3" />
+    <EfPillRow id="buttons" translation="[170, 0]" />
+    <Timer id="tick" duration="1" repeat="true" />
+  </children>
+  <interface>
+    <!-- the next episode (Jellyfin JSON) -->
+    <field id="item" type="assocarray" onChange="onItem" />
+    <field id="stillWatching" type="boolean" value="false" />
+    <field id="seconds" type="integer" value="10" />
+    <!-- "next", "cancel" (or "next-auto" when the countdown ran out) -->
+    <field id="result" type="string" alwaysNotify="true" />
+  </interface>
+</component>

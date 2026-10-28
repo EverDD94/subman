@@ -1,0 +1,44 @@
+import "pkg:/components/everflix/EfCommon.bs"
+
+sub init()
+    m.bg = m.top.findNode("bg")
+    m.label = m.top.findNode("label")
+    m.label.font = ef.font(ef.FONT_BOLD, 28)
+    m.top.scaleRotateCenter = [0, 32]
+end sub
+
+sub onSmall()
+    h = 64
+    size = 28
+    pad = 32
+    if m.top.small
+        h = 50
+        size = 23
+        pad = 24
+    end if
+    m.bg.height = h
+    m.label.height = h
+    m.label.translation = [pad, 0]
+    m.label.font = ef.font(m.top.small ? ef.FONT_SEMI : ef.FONT_BOLD, size)
+    paint()
+end sub
+
+sub paint()
+    m.label.text = m.top.text
+    pad = m.top.small ? 24 : 32
+    w = m.label.boundingRect().width + pad * 2
+    m.bg.width = w
+    m.top.pillWidth = w
+    if m.top.highlighted
+        m.bg.blendColor = "0xFFFFFFFF"
+        m.label.color = "0x000000FF"
+    else if m.top.primary or m.top.selected
+        m.bg.blendColor = ef.ACCENT
+        m.label.color = "0xFFFFFFFF"
+    else
+        m.bg.blendColor = "0xFFFFFF26"
+        m.label.color = ef.INK
+    end if
+    s = m.top.highlighted ? 1.05 : 1.0
+    m.top.scale = [s, s]
+end sub

@@ -20,9 +20,10 @@ sub onFontSizeChanged()
 end sub
 
 sub onFocusChanged()
+    ' Everflix pills: white with black text when focused
     if m.top.focus
-        m.buttonBackground.blendColor = m.top.focusBackground
-        m.buttonText.color = m.top.focusColor
+        m.buttonBackground.blendColor = "0xFFFFFFFF"
+        m.buttonText.color = "0x000000FF"
         m.buttonText.font = "font:SmallBoldSystemFont"
         if m.top.fontSize > 0
             m.buttonText.font.size = m.top.fontSize

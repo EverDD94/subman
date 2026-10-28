@@ -1,12 +1,4 @@
-import "pkg:/source/api/baserequest.bs"
-import "pkg:/source/api/Image.bs"
-import "pkg:/source/enums/AnimationControl.bs"
-import "pkg:/source/enums/AnimationState.bs"
-import "pkg:/source/enums/ColorPalette.bs"
-import "pkg:/source/enums/ItemType.bs"
-import "pkg:/source/enums/KeyCode.bs"
-import "pkg:/source/enums/TaskControl.bs"
-import "pkg:/source/utils/config.bs"
+import "pkg:/components/everflix/EfCommon.bs"
 import "pkg:/source/utils/deviceCapabilities.bs"
 import "pkg:/source/utils/misc.bs"
 
@@ -14,376 +6,171 @@ sub init()
     m.isFirstRun = true
     m.top.overhangTitle = ""
     m.top.optionsAvailable = false
-    m.postTask = createObject("roSGNode", "PostTask")
+    m.top.overhangVisible = false
 
-    m.favoritesOptionText = tr("Add To Favorites")
+    m.rows = m.top.findNode("rows")
+    m.hero = m.top.findNode("hero")
+    m.rail = m.top.findNode("rail")
+    m.empty = m.top.findNode("empty")
+    m.heroTimer = m.top.findNode("heroTimer")
+    m.backdrops = [m.top.findNode("backdropA"), m.top.findNode("backdropB")]
+    m.front = 0
+    m.fade = m.top.findNode("fade")
+    m.fadeIn = m.top.findNode("fadeIn")
+    m.fadeOut = m.top.findNode("fadeOut")
 
-    m.loadItemsTask1 = createObject("roSGNode", "LoadItemsTask")
-    m.loadItemsTask1.observeField("content", "onMyListLoaded")
-    m.loadItemsTask1.itemsToLoad = "isInMyList"
+    m.rows.rowLabelFont = ef.font(ef.FONT_BOLD, 30)
+    m.empty.font = ef.font(ef.FONT_REGULAR, 28)
+    m.rows.observeField("rowItemFocused", "onItemFocused")
+    m.rows.observeField("rowItemSelected", "onItemSelected")
+    m.heroTimer.observeField("fire", "showFocused")
+    m.rail.observeField("selected", "onRailSelected")
+    m.rail.observeField("leave", "onRailLeave")
 
-    m.loadMetaDataTask = CreateObject("roSGNode", "LoadItemsTask")
-    m.loadMetaDataTask.itemsToLoad = "metaData"
-    m.loadMetaDataTask.observeField("content", "onMetaDataLoaded")
-
-    m.homeRows = m.top.findNode("homeRows")
-    m.homeRows.focusBitmapBlendColor = chainLookupReturn(m.global.session, "user.settings.colorCursor", ColorPalette.HIGHLIGHT)
-
-    m.buttons = m.top.findNode("buttons")
-    m.toggleButtonsAnimation = m.top.findNode("toggleButtonsAnimation")
-    m.buttonsFade = m.top.findNode("buttonsFade")
-    m.buttonsMove = m.top.findNode("buttonsMove")
-
-    setButtonColors()
-end sub
-
-sub refresh()
-    m.homeRows.focusBitmapBlendColor = chainLookupReturn(m.global.session, "user.settings.colorCursor", ColorPalette.HIGHLIGHT)
-    m.homeRows.callFunc("updateHomeRows")
-end sub
-
-sub setButtonColors()
-    m.searchButton = m.top.findNode("searchButton")
-    m.searchButton.textColor = ColorPalette.WHITE
-    m.searchButton.background = ColorPalette.DARKGREY
-    m.searchButton.focusTextColor = ColorPalette.WHITE
-    m.searchButton.focusBackground = chainLookupReturn(m.global.session, "user.settings.colorCursor", ColorPalette.HIGHLIGHT)
-
-    m.settingsButton = m.top.findNode("settingsButton")
-    m.settingsButton.textColor = ColorPalette.WHITE
-    m.settingsButton.background = ColorPalette.DARKGREY
-    m.settingsButton.focusTextColor = ColorPalette.WHITE
-    m.settingsButton.focusBackground = chainLookupReturn(m.global.session, "user.settings.colorCursor", ColorPalette.HIGHLIGHT)
+    m.postTask = CreateObject("roSGNode", "PostTask")
+    m.task = CreateObject("roSGNode", "EfTask")
+    m.task.observeField("result", "onLoaded")
 end sub
 
 sub loadLibraries()
-    m.homeRows.callFunc("loadLibraries")
+    load()
+end sub
+
+sub refresh()
+    load()
+end sub
+
+sub load()
+    m.task.job = "home"
+    m.task.control = "STOP"
+    m.task.control = "RUN"
+end sub
+
+sub onLoaded()
+    r = m.task.result
+    if not isValid(r) or not isValid(r.rows) then return
+    focus = m.rows.rowItemFocused
+    root = CreateObject("roSGNode", "ContentNode")
+    for each row in r.rows
+        rowNode = root.createChild("ContentNode")
+        rowNode.title = row.title
+        for each item in row.items
+            rowNode.appendChild(ef.itemNode(item))
+        end for
+    end for
+    m.rows.content = root
+    m.empty.visible = root.getChildCount() = 0
+    m.empty.text = "Aún no hay nada en tu biblioteca."
+    if isValid(focus) and focus.count() = 2 and focus[0] < root.getChildCount()
+        row = root.getChild(focus[0])
+        col = focus[1]
+        if col >= row.getChildCount() then col = row.getChildCount() - 1
+        if col < 0 then col = 0
+        m.rows.jumpToRowItem = [focus[0], col]
+    end if
+    if not m.rail.hasFocus() then m.rows.setFocus(true)
+    showFocused()
+end sub
+
+function focusedItem() as dynamic
+    if not isValid(m.rows.content) then return invalid
+    f = m.rows.rowItemFocused
+    if not isValid(f) or f.count() < 2 then return invalid
+    row = m.rows.content.getChild(f[0])
+    if not isValid(row) then return invalid
+    return row.getChild(f[1])
+end function
+
+sub onItemFocused()
+    m.heroTimer.control = "stop"
+    m.heroTimer.control = "start"
+end sub
+
+sub showFocused()
+    node = focusedItem()
+    if not isValid(node) then return
+    item = node.json
+    m.hero.item = item
+    setBackdrop(item.LookupCI("efBackdrop") ?? "")
+end sub
+
+' Cross-fade between two posters so the backdrop never flashes black
+sub setBackdrop(uri as string)
+    current = m.backdrops[m.front]
+    if current.uri = uri then return
+    m.front = 1 - m.front
+    incoming = m.backdrops[m.front]
+    outgoing = m.backdrops[1 - m.front]
+    incoming.uri = uri
+    m.fadeIn.fieldToInterp = incoming.id + ".opacity"
+    m.fadeOut.fieldToInterp = outgoing.id + ".opacity"
+    m.fadeOut.keyValue = [outgoing.opacity, 0.0]
+    m.fade.control = "stop"
+    m.fade.control = "start"
+end sub
+
+sub onItemSelected()
+    node = focusedItem()
+    if not isValid(node) then return
+    ef.go({ target: "details", id: node.json.Id })
+end sub
+
+sub onRailSelected()
+    ef.go({ target: m.rail.selected })
+end sub
+
+sub onRailLeave()
+    m.rows.setFocus(true)
 end sub
 
 ' JFScreen hook called when the screen is displayed by the screen manager
 sub OnScreenShown()
-    m.homeRows.rowLabelColor = chainLookupReturn(m.global.session, "user.settings.colorHomeRowHeaders", ColorPalette.WHITE)
-
     scene = m.top.getScene()
     overhang = scene.findNode("overhang")
-    if isValid(overhang)
-        overhang.visible = true
-        overhang.title = ""
-        ' Users without a profile picture get the placeholder
-        userImageTag = chainLookup(m.global.session, "user.PrimaryImageTag")
-        if isValidAndNotEmpty(userImageTag)
-            overhang.currentUserProfileImage = UserImageURL(m.global.session.user.id, { "tag": userImageTag })
-        else
-            overhang.currentUserProfileImage = "pkg:/images/baseline_person_white_48dp.png"
-        end if
-        overhang.currentUser = m.global.session.user.name
-    end if
+    if isValid(overhang) then overhang.visible = false
 
-    if isValid(m.top.lastFocus)
-        if LCase(m.top.lastFocus.id) = "overhang"
-            overhang.callFunc("highlightUser")
-        end if
-        m.top.lastFocus.setFocus(true)
-    else
-        m.top.setFocus(true)
-        group = m.global.sceneManager.callFunc("getActiveScene")
-        group.lastFocus = m.top
-    end if
+    m.rail.active = "home"
+    m.rows.setFocus(true)
+    group = m.global.sceneManager.callFunc("getActiveScene")
+    if isValid(group) then group.lastFocus = m.rows
 
-    if not m.isFirstRun
-        if m.homeRows.callFunc("isFocusOnFavoriteRow")
-            m.homeRows.focusBitmapBlendColor = chainLookupReturn(m.global.session, "user.settings.colorCursor", ColorPalette.HIGHLIGHT)
-            m.homeRows.callFunc("reloadFavorites")
-        else
-            refresh()
-        end if
-    end if
-
-    ' post the device profile the first time this screen is loaded
     if m.isFirstRun
+        ' post the device profile the first time this screen is loaded
         m.isFirstRun = false
         m.postTask.arrayData = getDeviceCapabilities()
         m.postTask.apiUrl = "/Sessions/Capabilities/Full"
         m.postTask.control = "RUN"
         m.postTask.observeField("responseCode", "postFinished")
+    else
+        load()
     end if
 end sub
 
-' JFScreen hook called when the screen is hidden by the screen manager
 sub OnScreenHidden()
-    scene = m.top.getScene()
-    overhang = scene.findNode("overhang")
-    if isValid(overhang)
-        overhang.callFunc("dehighlightUser")
-        overhang.currentUser = ""
-        overhang.title = ""
-    end if
 end sub
 
-' Triggered by m.postTask after completing a post.
-' Empty the task data when finished.
 sub postFinished()
     m.postTask.unobserveField("responseCode")
     m.postTask.callFunc("empty")
 end sub
 
-sub onRowFocusedChange()
-    if m.top.rowFocused > 0
-        if m.buttons.opacity > 0
-            toggleButtonsVisibility()
-        end if
-        return
-    end if
-
-    if m.buttons.opacity < 1
-        toggleButtonsVisibility(true)
-    end if
-end sub
-
-sub toggleButtonsVisibility(runInReverse = false as boolean)
-    m.buttonsFade.reverse = runInReverse
-    m.buttonsMove.reverse = runInReverse
-
-    if not isStringEqual(m.toggleButtonsAnimation.state, AnimationState.RUNNING)
-        m.toggleButtonsAnimation.control = AnimationControl.START
-    end if
-end sub
-
-sub onMyListLoaded()
-    isInMyListData = m.loadItemsTask1.content
-    m.loadItemsTask1.content = []
-
-    if not isValidAndNotEmpty(isInMyListData) then return
-
-    focusedItem = m.homeRows.content.getChild(m.homeRows.rowItemFocused[0]).getChild(m.homeRows.rowItemFocused[1])
-    if not isValid(focusedItem) then return
-
-    dialogData = []
-    paramData = {
-        id: focusedItem.LookupCI("id")
-    }
-
-    if isInMyListData[0]
-        dialogData.push(tr("Remove From My List"))
-    else
-        if inArray([ItemType.EPISODE, ItemType.MOVIE, ItemType.SEASON, ItemType.SERIES, ItemType.VIDEO, ItemType.MUSICVIDEO, ItemType.RECORDING, ItemType.BOXSET], focusedItem.LookupCI("type"))
-            dialogData.push(tr("Add To My List"))
-        end if
-    end if
-
-    if not inArray([ItemType.RADIOSTATION], focusedItem.LookupCI("type"))
-        dialogData.push(m.favoritesOptionText)
-    end if
-
-    if not inArray([ItemType.COLLECTIONFOLDER, ItemType.RADIOSTATION, ItemType.CHANNEL, ItemType.FOLDER, ItemType.PLAYLIST, ItemType.PROGRAM, ItemType.TVCHANNEL, ItemType.USERVIEW], focusedItem.LookupCI("type"))
-        dialogData.push(tr("Add To Playlist"))
-    end if
-
-    if inArray([ItemType.EPISODE, ItemType.MOVIE, ItemType.SEASON, ItemType.SERIES, ItemType.VIDEO, ItemType.MUSICVIDEO, ItemType.RECORDING, ItemType.BOXSET, ItemType.AUDIOBOOK, ItemType.BOOK], focusedItem.LookupCI("type"))
-        showBothOptions = false
-        if isChainValid(focusedItem, "PlayedPercentage")
-            if focusedItem.PlayedPercentage > 0
-                showBothOptions = true
-            end if
-        end if
-
-        if showBothOptions
-            dialogData.push(tr("Mark As Unplayed"))
-            dialogData.push(tr("Mark As Played"))
-        else
-            if isChainValid(focusedItem, "isWatched")
-                if focusedItem.isWatched
-                    dialogData.push(tr("Mark As Unplayed"))
-                else
-                    dialogData.push(tr("Mark As Played"))
-                end if
-            end if
-        end if
-    end if
-
-    if inArray([ItemType.EPISODE, ItemType.SEASON], focusedItem.LookupCI("type"))
-        dialogData.push(tr("Go To Series"))
-        dialogData.push(tr("Go To Season"))
-        paramData.SeasonId = focusedItem.json.LookupCI("SeasonId")
-        paramData.SeriesId = focusedItem.json.LookupCI("SeriesId")
-    end if
-
-    if inArray([ItemType.MUSICALBUM], focusedItem.LookupCI("type"))
-        dialogData.push(tr("Play Instant Mix"))
-        dialogData.push(tr("Go To Artist"))
-
-        genreData = focusedItem.json.LookupCI("Genre")
-        if isValidAndNotEmpty(genreData)
-            if isValidAndNotEmpty(genreData[0])
-                if isValidAndNotEmpty(genreData[0].Name)
-                    dialogData.push(tr("Go To Genre") + `: ${genreData[0].LookupCI("Name")}`)
-                    paramData.GenreName = genreData[0].LookupCI("Name")
-                    paramData.GenreId = genreData[0].LookupCI("Id")
-                    paramData.LibraryId = chainLookup(focusedItem, "json.LibraryId")
-                end if
-            end if
-        end if
-
-        paramData.ArtistId = focusedItem.json.LookupCI("AlbumArtistId")
-        paramData.ArtistName = focusedItem.json.LookupCI("albumartist")
-        paramData.AlbumId = focusedItem.LookupCI("id")
-    end if
-
-    m.global.sceneManager.callFunc("optionDialog", "libraryitem", focusedItem.LookupCI("title") ?? tr("Options"), [], dialogData, paramData)
-end sub
-
-sub setLastFocus(lastFocusElement)
-    group = m.global.sceneManager.callFunc("getActiveScene")
-
-    if isValid(group)
-        group.lastFocus = lastFocusElement
-    end if
-end sub
-
-function audioMiniPlayerIsVisibleInScene()
-    scene = m.top.getScene()
-    audioMiniPlayer = scene.findNode("audioMiniPlayer")
-
-    if not isValid(audioMiniPlayer) then return false
-
-    return audioMiniPlayer.callFunc("isVisible")
-end function
-
-' Special handling for key presses on the home screen.
 function onKeyEvent(key as string, press as boolean) as boolean
     if not press then return false
-
-    if m.buttons.isInFocusChain()
-        if isStringEqual(key, KeyCode.REPLAY)
-            if not audioMiniPlayerIsVisibleInScene() then return true
-            m.searchButton.focus = false
-            m.settingsButton.focus = false
-        end if
-
-        if isStringEqual(key, KeyCode.OK)
-            if m.searchButton.hasFocus()
-                m.top.getScene().jumpTo = {
-                    selectionType: "search"
-                }
-                return true
-            end if
-
-            if m.settingsButton.hasFocus()
-                m.top.getScene().jumpTo = {
-                    selectionType: "settings"
-                }
-                return true
-            end if
-        end if
-
-        if isStringEqual(key, KeyCode.DOWN)
-            m.searchButton.focus = false
-            m.settingsButton.focus = false
-            m.homeRows.setfocus(true)
-            setLastFocus(m.homeRows)
+    if m.rows.hasFocus() or m.rows.isInFocusChain()
+        if key = "left"
+            m.rail.callFunc("focusIn")
             return true
-        end if
-
-        if isStringEqual(key, KeyCode.RIGHT)
-            if m.searchButton.hasFocus()
-                m.searchButton.focus = false
-                m.settingsButton.focus = true
-                m.settingsButton.setfocus(true)
-                setLastFocus(m.settingsButton)
-                return true
-            end if
-
-            if m.settingsButton.hasFocus()
-                m.settingsButton.focus = false
-                scene = m.top.getScene()
-                if not isValid(scene) then return false
-
-                overhang = scene.findNode("overhang")
-                if not isValid(overhang) then return false
-
-                overhang.callFunc("highlightUser")
-                overhang.setfocus(true)
-                setLastFocus(overhang)
-                return true
-
-            end if
-        end if
-
-        if isStringEqual(key, KeyCode.LEFT)
-            if m.settingsButton.hasFocus()
-                m.searchButton.focus = true
-                m.settingsButton.focus = false
-                m.searchButton.setfocus(true)
-                setLastFocus(m.searchButton)
-                return true
-            end if
-        end if
-
-        return false
-    end if
-
-    ' If the user hit back and is not on the first item of the row,
-    ' assume they want to go to the first item of the row.
-    ' Otherwise, they are exiting the app.
-    if isStringEqual(key, KeyCode.BACK)
-        rowItemFocused = chainLookupReturn(m.homeRows, "rowItemFocused", [0, 0])
-        if isNumber(rowItemFocused[1])
-            if rowItemFocused[1] > 0
-                m.homeRows.jumpToRowItem = [rowItemFocused[0], 0]
-                return true
-            end if
-        end if
-    end if
-
-    if isStringEqual(key, KeyCode.OPTIONS)
-        if m.homeRows.hasFocus()
-            focusedItem = m.homeRows.content.getChild(m.homeRows.rowItemFocused[0]).getChild(m.homeRows.rowItemFocused[1])
-            if not isValidAndNotEmpty(focusedItem) then return false
-            if chainLookupReturn(focusedItem, "json.FavoriteViewAll", false) then return true
-
-            ' Skip loading playlists and mylist data for radio stations
-            if inArray([ItemType.RADIOSTATION], focusedItem.LookupCI("type"))
-                itemID = focusedItem.LookupCI("id")
-                if isStringEqual(itemID, "createstation")
-                    return false
-                end if
-
-                paramData = {
-                    id: itemID
-                }
-                m.global.sceneManager.callFunc("optionDialog", "libraryitem", focusedItem.LookupCI("title") ?? tr("Options"), [], [tr("Delete Radio Station")], paramData)
-                return true
-            end if
-
-
-            m.loadMetaDataTask.itemId = focusedItem.LookupCI("id")
-            m.loadMetaDataTask.control = TaskControl.RUN
+        else if key = "play"
+            node = focusedItem()
+            if isValid(node) then ef.go({ target: "play", item: node.json })
             return true
+        else if key = "back"
+            f = m.rows.rowItemFocused
+            if isValid(f) and f.count() = 2 and (f[0] > 0 or f[1] > 0)
+                m.rows.jumpToRowItem = [0, 0]
+                return true
+            end if
         end if
     end if
-
-    if isStringEqual(key, KeyCode.UP)
-        ' In case the user pressed up rapidly and the focused row wasn't able to update in time
-        if m.buttons.opacity < 1
-            toggleButtonsVisibility(true)
-        end if
-
-        m.searchButton.focus = true
-        m.searchButton.setfocus(true)
-        setLastFocus(m.searchButton)
-        return true
-    end if
-
     return false
 end function
-
-sub onMetaDataLoaded()
-    data = m.loadMetaDataTask.content[0]
-
-    m.favoritesOptionText = chainLookupReturn(data, "json.UserData.IsFavorite", false) ? tr("Remove From Favorites") : tr("Add To Favorites")
-
-    focusedItem = m.homeRows.content.getChild(m.homeRows.rowItemFocused[0]).getChild(m.homeRows.rowItemFocused[1])
-
-    m.loadItemsTask1.itemId = focusedItem.LookupCI("id")
-    m.loadItemsTask1.control = TaskControl.RUN
-end sub

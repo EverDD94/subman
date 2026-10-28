@@ -1650,7 +1650,11 @@ class App:
                 dl.add("tv", tid, title, year, "manual", season=n)
             self.dl_wake.set()
             return {"ok": True, "done": len(new)}
-        if dl.has(b["kind"], tid):
+        if b["kind"] == "tv":  # sin elegir (desde la tele): se piden las temporadas que falten
+            if dl.db.execute("SELECT 1 FROM downloads WHERE kind='tv' AND tmdb=? AND state NOT IN ('cancelado','listo')",
+                             (tid,)).fetchone():
+                return {"ok": False, "error": "ya está en Descargas"}
+        elif dl.has(b["kind"], tid):
             return {"ok": False, "error": "ya está en Descargas"}
         dl.add(b["kind"], tid, title, year, "manual")
         self.dl_wake.set()
@@ -1806,8 +1810,12 @@ class App:
         seasons = phono.seasons(api.buttons(cid))
         if not seasons:
             return "Phono no tiene temporadas para descargar"
-        if row["season"] is None:  # una fila por temporada
-            first, *rest = sorted(seasons)
+        if row["season"] is None:  # una fila por temporada (sin las que ya tienes o ya se están pidiendo)
+            missing = sorted(set(seasons) - dl.seasons_in(row["tmdb"]))
+            if not missing:
+                dl.set(rid, state="cancelado", detail="ya tienes o estás pidiendo todas las temporadas")
+                return "ya tienes o estás pidiendo todas las temporadas"
+            first, *rest = missing
             for n in rest:
                 dl.add("tv", row["tmdb"], row["title"], row["year"], row["how"], season=n)
             dl.set(rid, season=first)
@@ -1913,6 +1921,8 @@ class App:
                 got = self._dl_phono(cfg, dl, row, db) if d.get("phono", True) else "Phono está apagado en Proveedores"
                 if isinstance(got, tuple):
                     link, what = got
+                elif dl.get(rid)["state"] == "cancelado":  # no quedaba ninguna temporada por pedir
+                    return
                 else:
                     src = self._dl_channels(cfg, dl, row, db)
                     if not src:

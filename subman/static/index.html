@@ -688,6 +688,8 @@ dialog.sheet .foot{display:none}
   dialog[open]{animation:up .32s var(--ease-out)}
   @keyframes up{from{transform:translateY(40px);opacity:0}}
   dialog.sheet{width:100vw;height:100dvh;max-height:100dvh;border-radius:0;margin:0;padding:0}
+  dialog .x{position:fixed;top:calc(env(safe-area-inset-top) + 10px);right:calc(env(safe-area-inset-right) + 12px);width:44px;height:44px;background:rgba(0,0,0,.55);color:#fff;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+  dialog.sheet .hero{margin-top:0}
   .hero{aspect-ratio:4/3;min-height:0}
   .dbody{grid-template-columns:1fr;padding:0 18px 24px;margin-top:-90px;gap:16px}
   .dbody .poster{width:120px}

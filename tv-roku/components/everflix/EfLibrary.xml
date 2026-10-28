@@ -1,19 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Everflix: Películas, Series or one library. Top half previews the focused title, one row below. -->
+<!-- Everflix: Películas, Series or one library. Top half previews the focused title, one row per main genre below (like Netflix). -->
 <component name="EfLibrary" extends="JFScreen">
   <children>
     <EfBackdrop id="backdrop" fadeTop="300" />
     <EfHero id="hero" translation="[170, 90]" preview="true" visible="false" />
-    <Label id="heading" translation="[170, 668]" width="1500" color="0xFFFFFFCC" />
     <RowList
       id="row"
-      translation="[170, 712]"
+      translation="[170, 640]"
       itemComponentName="EfLibCard"
-      itemSize="[1750, 300]"
-      numRows="1"
+      itemSize="[1750, 330]"
+      numRows="2"
       rowItemSize="[[440, 248]]"
       rowItemSpacing="[[24, 0]]"
-      showRowLabel="[false]"
+      itemSpacing="[0, 10]"
+      showRowLabel="[true]"
+      rowLabelOffset="[[0, 14]]"
+      rowLabelColor="0xFFFFFFCC"
+      vertFocusAnimationStyle="fixedFocus"
       rowFocusAnimationStyle="floatingFocus"
       drawFocusFeedback="false" />
     <Label id="empty" translation="[170, 760]" width="1500" color="0x9AA0ADFF" text="Cargando…" />

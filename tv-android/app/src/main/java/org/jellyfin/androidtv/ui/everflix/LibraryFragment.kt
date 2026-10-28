@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -76,12 +77,12 @@ import timber.log.Timber
 
 /**
  * Everflix library screen (Series / Películas), split in two: the focused title fills the top
- * with its images cycling like a preview, and the whole library is one row underneath.
+ * with its images cycling like a preview, and the library is sorted into one row per main genre underneath.
  */
 const val EXTRA_ALL = "everflix_all"
 const val ALL_SERIES = "series"
 const val ALL_MOVIES = "movies"
-private const val PAGE_SIZE = 100
+private const val PAGE_SIZE = 300
 
 class LibraryFragment : Fragment() {
 	override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?) = content {
@@ -108,50 +109,39 @@ private fun LibraryScreen(library: BaseItemDto?, allShows: Boolean) {
 	val title = library?.name ?: if (allShows) "Series" else "Películas"
 
 	var items by remember { mutableStateOf<List<BaseItemDto>>(emptyList()) }
-	var focused by remember { mutableIntStateOf(0) }
+	var current by remember { mutableStateOf<BaseItemDto?>(null) }
 	val firstCard = remember { FocusRequester() }
 
-	var total by remember { mutableIntStateOf(0) }
-	var loading by remember { mutableStateOf(false) }
-
-	// Loads the library in pages of 100 so big libraries are complete without a long first wait
-	suspend fun loadMore() {
-		if (loading || (total > 0 && items.size >= total)) return
-		loading = true
-		val page = withContext(Dispatchers.IO) {
-			runCatching {
-				api.itemsApi.getItems(
-					parentId = library?.id,
-					recursive = true,
-					includeItemTypes = kinds,
-					sortBy = setOf(ItemSortBy.DATE_CREATED),
-					sortOrder = setOf(SortOrder.DESCENDING),
-					fields = ItemRepository.itemFields,
-					startIndex = items.size,
-					limit = PAGE_SIZE,
-				).content
-			}.onFailure { Timber.w(it, "Failed to load library") }.getOrNull()
-		}
-		if (page != null) {
-			total = page.totalRecordCount
-			items = items + page.items
-		}
-		loading = false
-	}
-
+	// The whole library is needed to sort it into genre rows: pages of 300 with the light field set
 	LaunchedEffect(library?.id, allShows) {
-		loadMore()
+		val all = mutableListOf<BaseItemDto>()
+		while (true) {
+			val page = withContext(Dispatchers.IO) {
+				runCatching {
+					api.itemsApi.getItems(
+						parentId = library?.id,
+						recursive = true,
+						includeItemTypes = kinds,
+						sortBy = setOf(ItemSortBy.DATE_CREATED),
+						sortOrder = setOf(SortOrder.DESCENDING),
+						fields = ItemRepository.browseFields,
+						startIndex = all.size,
+						limit = PAGE_SIZE,
+					).content
+				}.onFailure { Timber.w(it, "Failed to load library") }.getOrNull()
+			} ?: break
+			all += page.items
+			if (items.isEmpty()) items = all.toList()
+			if (page.items.isEmpty() || all.size >= page.totalRecordCount) break
+		}
+		items = all.toList()
 		if (items.isNotEmpty()) runCatching { firstCard.requestFocus() }
 	}
 
-	LaunchedEffect(focused) {
-		if (focused >= items.size - 20) loadMore()
-	}
-
-	val current = items.getOrNull(focused)
+	val rows = remember(items) { genreRows(items) }
 
 	Box(Modifier.fillMaxSize().background(Color(0xFF0B0D12))) {
-		if (current != null) PreviewBackdrop(api, current)
+		current?.let { PreviewBackdrop(api, it) }
 
 		Row(Modifier.fillMaxSize()) {
 			MainRail(
@@ -164,36 +154,77 @@ private fun LibraryScreen(library: BaseItemDto?, allShows: Boolean) {
 			)
 
 			Column(Modifier.fillMaxSize()) {
-				Box(Modifier.fillMaxWidth().height(330.dp).padding(start = 24.dp, top = 36.dp)) {
-					if (current != null) HeroDetails(current, preview = true)
+				Box(Modifier.fillMaxWidth().height(300.dp).padding(start = 24.dp, top = 36.dp)) {
+					current?.let { HeroDetails(it, preview = true) }
 				}
 
-				Text(
-					text = "$title · ${maxOf(total, items.size)}".uppercase(),
-					color = Color.White.copy(alpha = 0.8f),
-					fontSize = 13.sp,
-					fontWeight = FontWeight.W800,
-					letterSpacing = 1.sp,
-					modifier = Modifier.padding(start = 24.dp, bottom = 10.dp),
-				)
-
-				LazyRow(
-					horizontalArrangement = Arrangement.spacedBy(12.dp),
-					contentPadding = PaddingValues(start = 24.dp, end = 48.dp, top = 8.dp, bottom = 24.dp),
+				// One row per main genre, like Netflix: down changes genre, sideways moves through it
+				LazyColumn(
+					verticalArrangement = Arrangement.spacedBy(4.dp),
+					contentPadding = PaddingValues(bottom = 120.dp),
+					modifier = Modifier.fillMaxSize(),
 				) {
-					itemsIndexed(items, key = { _, it -> it.id }) { index, item ->
-						LibraryCard(
-							api = api,
-							item = item,
-							modifier = if (index == 0) Modifier.focusRequester(firstCard) else Modifier,
-							onFocus = { focused = index },
-							onClick = { navigationRepository.navigate(Destinations.itemDetails(item.id)) },
-						)
+					itemsIndexed(rows, key = { _, row -> row.first }) { rowIndex, (name, rowItems) ->
+						Column {
+							Text(
+								text = if (rowIndex == 0) "$title · $name".uppercase() else "$name · ${rowItems.size}".uppercase(),
+								color = Color.White.copy(alpha = 0.8f),
+								fontSize = 13.sp,
+								fontWeight = FontWeight.W800,
+								letterSpacing = 1.sp,
+								modifier = Modifier.padding(start = 24.dp, top = 6.dp),
+							)
+							LazyRow(
+								horizontalArrangement = Arrangement.spacedBy(12.dp),
+								contentPadding = PaddingValues(start = 24.dp, end = 48.dp, top = 10.dp, bottom = 12.dp),
+							) {
+								itemsIndexed(rowItems, key = { _, it -> it.id }) { index, item ->
+									LibraryCard(
+										api = api,
+										item = item,
+										modifier = if (rowIndex == 0 && index == 0) Modifier.focusRequester(firstCard) else Modifier,
+										onFocus = { current = item },
+										onClick = { navigationRepository.navigate(Destinations.itemDetails(item.id)) },
+									)
+								}
+							}
+						}
 					}
 				}
 			}
 		}
 	}
+}
+
+// Main genre (the first one Jellyfin lists) → row. Names come in Spanish or English depending on the server's
+// metadata language, and TMDb series use their own combined genres ("Action & Adventure").
+private val GENRE_ROWS = listOf(
+	"Para reír" to listOf("comedia", "comedy"),
+	"Acción y aventura" to listOf("acción", "accion", "action", "aventura", "adventure", "action & adventure"),
+	"Para pasar miedo" to listOf("terror", "horror"),
+	"Ciencia ficción y fantasía" to listOf("ciencia ficción", "ciencia ficcion", "science fiction", "sci-fi", "fantasía", "fantasia", "fantasy", "sci-fi & fantasy"),
+	"Suspense y misterio" to listOf("suspense", "thriller", "misterio", "mystery", "suspenso"),
+	"Crimen" to listOf("crimen", "crime"),
+	"Para enamorarse" to listOf("romance", "romántica", "romantica"),
+	"Drama" to listOf("drama"),
+	"Animación" to listOf("animación", "animacion", "animation", "anime"),
+	"Para ver en familia" to listOf("familia", "family", "kids", "infantil", "niños"),
+	"Historia y guerra" to listOf("historia", "history", "bélica", "belica", "war", "war & politics", "guerra y política"),
+	"Del oeste" to listOf("western", "wéstern"),
+	"Música" to listOf("música", "musica", "music", "musical"),
+	"De verdad" to listOf("documental", "documentary", "reality", "telerrealidad"),
+)
+
+/** "Recién añadidas" first, then one row per main genre (largest first), and whatever doesn't fit at the end. */
+internal fun genreRows(items: List<BaseItemDto>): List<Pair<String, List<BaseItemDto>>> {
+	if (items.isEmpty()) return emptyList()
+	val byGenre = items.groupBy { item ->
+		val genres = item.genres.orEmpty().map { it.lowercase().trim() }
+		// The first genre that has a row; usually the very first one, which is the main genre
+		genres.firstNotNullOfOrNull { g -> GENRE_ROWS.firstOrNull { g in it.second }?.first } ?: "Más títulos"
+	}
+	val genreRows = GENRE_ROWS.mapNotNull { (name, _) -> byGenre[name]?.let { name to it } }.sortedByDescending { it.second.size }
+	return listOf("Recién añadidas" to items.take(30)) + genreRows + listOfNotNull(byGenre["Más títulos"]?.let { "Más títulos" to it })
 }
 
 /** Full-width image of the focused title, slowly cycling through its backdrops like a silent preview. */

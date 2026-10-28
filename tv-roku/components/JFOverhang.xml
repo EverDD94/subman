@@ -2,11 +2,11 @@
 <component name="JFOverhang" extends="Group">
   <children>
     <LayoutGroup id="overlayLeftGroup" layoutDirection="horiz" translation="[50, 54]" itemSpacings="60">
-      <ScrollingText id="overlayTitle" font="font:LargeSystemFont" vertAlign="center" height="64" maxWidth="1100" repeatCount="0" />
+      <ScrollingText id="overlayTitle" vertAlign="center" height="64" maxWidth="1100" repeatCount="0"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="45" /></ScrollingText>
     </LayoutGroup>
 
     <LayoutGroup id="overlayRightGroup" layoutDirection="horiz" itemSpacings="15" translation="[1766, 53]" horizAlignment="right">
-      <Text id="overlayCurrentUser" font="font:MediumSystemFont" width="300" horizAlign="right" vertAlign="center" height="64" />
+      <Text id="overlayCurrentUser" width="300" horizAlign="right" vertAlign="center" height="64"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></Text>
       <MaskGroup id="backgroundMask" maskUri="pkg:/images/icons/circle66.png" maskSize="[66,66]">
         <Poster uri="pkg:/images/icons/circle.png" id="overlayCurrentUserProfileImage" width="66" height="66" loadDisplayMode="scaleToZoom" />
       </MaskGroup>

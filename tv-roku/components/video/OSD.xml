@@ -4,11 +4,11 @@
     <Poster uri="pkg:/images/osdBackground.png" width="1920" height="279" />
 
     <LayoutGroup id="videoInfo" layoutDirection="vert" translation="[103,61]">
-      <ScrollingText id="itemTitle" font="font:LargeBoldSystemFont" maxWidth="1400" />
+      <ScrollingText id="itemTitle" maxWidth="1400"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="45" /></ScrollingText>
       <LayoutGroup id="videoInfo" layoutDirection="horiz" translation="[103,61]">
-        <Text id="itemSeason" font="font:MediumSystemFont" color="0xffffffFF" />
-        <Text id="itemEpisode" font="font:MediumSystemFont" color="0xffffffFF" />
-        <Text id="itemEpisodeEnd" font="font:MediumSystemFont" color="0xffffffFF" />
+        <Text id="itemSeason" color="0xffffffFF"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></Text>
+        <Text id="itemEpisode" color="0xffffffFF"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></Text>
+        <Text id="itemEpisodeEnd" color="0xffffffFF"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></Text>
       </LayoutGroup>
     </LayoutGroup>
 
@@ -66,8 +66,8 @@
     />
 
     <Group id="progressBarGroup" translation="[103,875]">
-      <Rectangle id="progressBarBackground" width="1714" height="12" />
-      <Rectangle id="progressBar" width="0" height="12" opacity="0.75" />
+      <Rectangle id="progressBarBackground" width="1714" height="8" />
+      <Rectangle id="progressBar" width="0" height="8" />
       <Poster id="scrubber" uri="pkg:/images/icons/progress-bar-scrubber.png" width="20" height="20" />
       <Poster id="scrubberOldPosition" uri="pkg:/images/icons/progress-bar-scrubber.png" width="20" height="20" />
     </Group>
@@ -83,11 +83,11 @@
       <Poster id="fastForwardIcon4" uri="pkg:/images/icons/fastforward.png" width="40" height="25" visible="false" />
     </LayoutGroup>
 
-    <Text id="liveTvPos" font="font:SmallSystemFont" color="0xffffffFF" translation="[103,825]" horizAlign="left" vertAlign="center" />
-    <Text id="videoPositionTime" font="font:MediumSystemFont" color="0xffffffFF" translation="[103,905]" />
-    <Text id="liveTVRewindLimitExceeded" text="Live TV rewind limit" font="font:MediumSystemFont" color="0xffcc66FF" translation="[103,950]" visible="false" />
-    <Text id="videoRemainingTime" font="font:MediumSystemFont" color="0xffffffFF" horizAlign="right" width="200" translation="[1617,905]" />
-    <Text id="videoEndingTime" font="font:SmallSystemFont" color="0xffffffFF" horizAlign="right" width="200" translation="[1617,825]" />
+    <Text id="liveTvPos" color="0xffffffFF" translation="[103,825]" horizAlign="left" vertAlign="center"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="33" /></Text>
+    <Text id="videoPositionTime" color="0xffffffFF" translation="[103,905]"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></Text>
+    <Text id="liveTVRewindLimitExceeded" text="Live TV rewind limit" color="0xffcc66FF" translation="[103,950]" visible="false"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></Text>
+    <Text id="videoRemainingTime" color="0xffffffFF" horizAlign="right" width="200" translation="[1617,905]"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></Text>
+    <Text id="videoEndingTime" color="0xffffffFF" horizAlign="right" width="200" translation="[1617,825]"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="33" /></Text>
 
     <Timer id="inactivityTimer" duration="1" repeat="true" />
   </children>

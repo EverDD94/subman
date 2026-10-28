@@ -3,7 +3,7 @@
   <children>
     <Poster id="buttonBackground" uri="pkg:/images/everflix/pill.9.png" />
     <Poster id="buttonIcon" />
-    <ScrollingText id="buttonText" vertAlign="center" font="font:MediumSystemFont" horizAlign="left" />
+    <ScrollingText id="buttonText" vertAlign="center" horizAlign="left"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></ScrollingText>
   </children>
   <interface>
     <field id="background" type="color" value="" />

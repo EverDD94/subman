@@ -18,10 +18,15 @@ sub init()
 end sub
 
 sub onFocusChanged()
+    ' Everflix: translucent pill, white with a black icon when focused
     if m.top.focus and m.top.enabled
-        m.buttonBackground.blendColor = m.top.focusBackground
+        m.buttonBackground.blendColor = "0xFFFFFFFF"
+        m.buttonIcon.blendColor = "0x000000FF"
+        m.buttonText.color = "0x000000FF"
     else
-        m.buttonBackground.blendColor = m.top.background
+        m.buttonBackground.blendColor = "0xFFFFFF26"
+        m.buttonIcon.blendColor = "0xFFFFFFFF"
+        m.buttonText.color = "0xF4F2EEFF"
     end if
 end sub
 
@@ -35,7 +40,7 @@ sub onEnabledChanged()
 end sub
 
 sub onBackgroundChanged()
-    m.buttonBackground.blendColor = m.top.background
+    onFocusChanged()
     m.top.unobserveField("background")
 end sub
 

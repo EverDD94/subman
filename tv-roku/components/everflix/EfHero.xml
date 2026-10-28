@@ -5,7 +5,7 @@
     <LayoutGroup id="column" layoutDirection="vert" itemSpacings="[14]">
       <Group id="previewTag" visible="false">
         <Poster id="previewBg" uri="pkg:/images/everflix/pill.9.png" blendColor="0x0000008C" width="130" height="34" />
-        <Label id="previewLabel" text="● Avance" width="130" height="34" horizAlign="center" vertAlign="center" color="0xFFFFFFFF" />
+        <Label id="previewLabel" text="Avance" width="130" height="34" horizAlign="center" vertAlign="center" color="0xFFFFFFFF" />
       </Group>
       <LayoutGroup id="badgeRow" layoutDirection="horiz" itemSpacings="[18]" vertAlignment="center">
         <Group id="badge">

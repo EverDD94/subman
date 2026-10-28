@@ -5,20 +5,20 @@
       id="checkmark"
       width="60"
       height="50"
-      font="font:MediumBoldSystemFont"
+     
       horizAlign="center"
       vertAlign="center"
       text="✓"
-      visible="false" />
+      visible="false"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="36" /></Label>
 
     <Label
       id="unplayedNumber"
       width="60"
       height="50"
-      font="font:MediumBoldSystemFont"
+     
       horizAlign="center"
       vertAlign="center"
-      visible="false" />
+      visible="false"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="36" /></Label>
   </children>
   <interface>
     <field id="data" type="assocarray" onChange="onDataChange" />

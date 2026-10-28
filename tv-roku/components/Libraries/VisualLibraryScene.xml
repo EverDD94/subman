@@ -40,28 +40,28 @@
       <Vector2DFieldInterpolator id="genreListMove" key="[0.1, .9]" keyValue="[[100, 260], [100, 120]]" fieldToInterp="genrelist.translation" />
     </Animation>
 
-    <Text id="selectedItemName" visible="false" translation="[120, 40]" wrap="true" font="font:LargeBoldSystemFont" width="850" height="196" horizAlign="left" vertAlign="center" />
+    <Text id="selectedItemName" visible="false" translation="[120, 40]" wrap="true" width="850" height="196" horizAlign="left" vertAlign="center"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="45" /></Text>
     <Poster id="itemLogo" visible="false" translation="[120, 40]" loadDisplayMode="scaleToFit" width="384" height="196" />
 
     <LayoutGroup layoutDirection="horiz" translation="[120, 260]" itemSpacings="[30]" id="infoGroup">
-      <Text id="selectedItemProductionYear" font="font:SmallestSystemFont" />
-      <Text id="runtime" font="font:SmallestSystemFont" />
-      <Text id="selectedItemOfficialRating" font="font:SmallestSystemFont" />
+      <Text id="selectedItemProductionYear"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="27" /></Text>
+      <Text id="runtime"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="27" /></Text>
+      <Text id="selectedItemOfficialRating"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="27" /></Text>
 
       <LayoutGroup id="communityRatingGroup" visible="false" layoutDirection="horiz" itemSpacings="[-5]">
-        <Poster id="star" uri="pkg:/images/sharp_star_white_18dp.png" height="28" width="28" blendColor="#00a4dcFF" />
-        <Text id="communityRating" font="font:SmallestSystemFont" />
+        <Poster id="star" uri="pkg:/images/sharp_star_white_18dp.png" height="28" width="28" blendColor="#3D63E0FF" />
+        <Text id="communityRating"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="27" /></Text>
       </LayoutGroup>
 
       <LayoutGroup layoutDirection="horiz" id="criticRatingGroup">
         <Poster id="criticRatingIcon" height="28" width="28" />
-        <Text id="criticRatingLabel" font="font:SmallestSystemFont" />
+        <Text id="criticRatingLabel"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="27" /></Text>
       </LayoutGroup>
     </LayoutGroup>
 
-    <Text id="selectedItemOverview" font="font:SmallestSystemFont" translation="[120, 320]" wrap="true" lineSpacing="20" maxLines="4" width="900" ellipsisText="..." />
+    <Text id="selectedItemOverview" translation="[120, 320]" wrap="true" lineSpacing="20" maxLines="4" width="900" ellipsisText="..."><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="27" /></Text>
 
-    <Text translation="[0,540]" id="emptyText" font="font:LargeSystemFont" width="1910" horizAlign="center" vertAlign="center" height="64" visible="false" />
+    <Text translation="[0,540]" id="emptyText" width="1910" horizAlign="center" vertAlign="center" height="64" visible="false"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="45" /></Text>
     <LibraryFilterDialog id="options" visible="false" />
 
     <Alpha id="alpha" wrap="false" />

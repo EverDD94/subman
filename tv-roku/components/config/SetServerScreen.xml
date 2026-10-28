@@ -4,7 +4,7 @@
     <LayoutGroup translation="[150,150]" itemSpacings="40">
       <LayoutGroup>
         <Poster uri="pkg:/images/everflix/logo-full.png" width="198" height="60" />
-        <Text text="Connect to Server" id="prompt" font="font:LargeBoldSystemFont" />
+        <Text text="Connect to Server" id="prompt"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="45" /></Text>
       </LayoutGroup>
 
       <Rectangle id="serverPickerContainer" color="0x161A22FF" width="1620" height="400">
@@ -27,7 +27,7 @@
         <Poster id="serverUrlOutline" visible="false" uri="pkg:/images/hd_focus.9.png" />
       </Rectangle>
 
-      <Text id="errorMessage" text="" font="font:MediumSystemFont" color="#ff0000FF" />
+      <Text id="errorMessage" text="" color="#ff0000FF"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></Text>
 
       <LayoutGroup horizAlignment="center">
         <StandardButton

@@ -37,14 +37,14 @@
       <Vector2DFieldInterpolator id="genreListMove" key="[0.1, .9]" keyValue="[[100, 260], [100, 120]]" fieldToInterp="genrelist.translation" />
     </Animation>
 
-    <Text id="selectedArtistName" visible="false" translation="[120, 40]" wrap="true" font="font:LargeBoldSystemFont" width="850" height="196" horizAlign="left" vertAlign="center" />
+    <Text id="selectedArtistName" visible="false" translation="[120, 40]" wrap="true" width="850" height="196" horizAlign="left" vertAlign="center"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="45" /></Text>
     <Poster id="artistLogo" visible="false" translation="[120, 40]" loadDisplayMode="scaleToFit" width="384" height="196" />
-    <Text id="selectedArtistCreditedFor" visible="false" translation="[120, 260]" wrap="true" font="font:SmallestSystemFont" width="850" height="30" horizAlign="left" />
-    <Text id="selectedArtistSongCount" translation="[120, 270]" wrap="true" font="font:SmallestSystemFont" width="850" height="30" horizAlign="left" />
-    <Text id="selectedArtistAlbumCount" translation="[120, 310]" wrap="true" font="font:SmallestSystemFont" width="850" height="30" horizAlign="left" />
-    <Text id="selectedArtistGenres" translation="[120, 350]" wrap="true" font="font:SmallestSystemFont" width="850" height="30" horizAlign="left" />
+    <Text id="selectedArtistCreditedFor" visible="false" translation="[120, 260]" wrap="true" width="850" height="30" horizAlign="left"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="27" /></Text>
+    <Text id="selectedArtistSongCount" translation="[120, 270]" wrap="true" width="850" height="30" horizAlign="left"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="27" /></Text>
+    <Text id="selectedArtistAlbumCount" translation="[120, 310]" wrap="true" width="850" height="30" horizAlign="left"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="27" /></Text>
+    <Text id="selectedArtistGenres" translation="[120, 350]" wrap="true" width="850" height="30" horizAlign="left"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="27" /></Text>
 
-    <Text translation="[0,540]" id="emptyText" font="font:LargeSystemFont" width="1910" horizAlign="center" vertAlign="center" height="64" visible="false" />
+    <Text translation="[0,540]" id="emptyText" width="1910" horizAlign="center" vertAlign="center" height="64" visible="false"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="45" /></Text>
     <LibraryFilterDialog id="options" visible="false" />
 
     <Alpha id="alpha" />

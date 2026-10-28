@@ -147,10 +147,10 @@ sub buildButtons()
         played = item.UserData.Played = true
         favorite = item.UserData.IsFavorite = true
     end if
-    list = [{ key: "play", text: "▶  " + label, primary: true }]
-    if canResume then list.push({ key: "restart", text: "↺  Desde el principio" })
-    list.push({ key: "played", text: played ? "✓  Visto" : "Marcar como visto" })
-    list.push({ key: "favorite", text: favorite ? "♥  En mi lista" : "♡  Mi lista" })
+    list = [{ key: "play", icon: "play", text: label, primary: true }]
+    if canResume then list.push({ key: "restart", icon: "restart", text: "Desde el principio" })
+    list.push({ key: "played", icon: played ? "check" : "", text: played ? "Visto" : "Marcar como visto" })
+    list.push({ key: "favorite", icon: favorite ? "heart-full" : "heart-line", text: favorite ? "En mi lista" : "Mi lista" })
     index = m.buttons.index
     m.buttons.items = list
     if index < list.count() then m.buttons.index = index
@@ -195,11 +195,11 @@ sub buildLangs()
     if not isValid(m.audioLang) and m.audios.count() > 0 then m.audioLang = m.audios[0]
 
     list = []
-    if m.audios.count() > 1 then list.push({ key: "audio", text: "Audio: " + ef.langName(m.audioLang) + "  ⇄" })
+    if m.audios.count() > 1 then list.push({ key: "audio", icon: "swap", text: "Audio: " + ef.langName(m.audioLang) })
     if m.subs.count() > 0
         subText = "No"
         if m.subLang <> "" then subText = ef.langName(m.subLang)
-        list.push({ key: "subs", text: "Subtítulos: " + subText + "  ⇄" })
+        list.push({ key: "subs", icon: "swap", text: "Subtítulos: " + subText })
     end if
     index = m.langs.index
     m.langs.items = list

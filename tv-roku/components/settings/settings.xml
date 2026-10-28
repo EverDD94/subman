@@ -1,18 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <component name="Settings" extends="JFScreen">
   <children>
-
-    <Text id="path" translation="[95, 175]" font="font:SmallestBoldSystemFont" />
+    <Rectangle width="1920" height="1080" color="0x0B0D12FF" />
+    <Label id="efTitle" text="Ajustes" translation="[110, 70]" />
+    <Text id="path" translation="[112, 175]"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="27" /></Text>
     <MultiStyleLabel id="version" translation="[95, 1000]" />
 
     <LabelList
       translation="[120, 250]"
       id="settingsMenu"
-      font="font:SmallSystemFont"
-      itemSize="[510, 54]"
+     
+      itemSize="[510, 64]"
       itemSpacing="[0,10]"
       numRows="11"
-      vertFocusAnimationStyle="floatingFocus" />
+      vertFocusAnimationStyle="floatingFocus"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="33" /></LabelList>
 
     <Poster translation="[710, 230]" id="testRectangle" width="1110" height="800" uri="pkg:/images/white.9.png" />
 
@@ -20,7 +21,7 @@
 
     <RadioButtonList id="radioSetting" numRows="6" vertFocusAnimationStyle="floatingFocus" translation="[1034, 510]" />
 
-    <RadioButtonList id="boolSetting" vertFocusAnimationStyle="floatingFocus" translation="[1034, 610]">
+    <RadioButtonList id="boolSetting" visible="false" vertFocusAnimationStyle="floatingFocus" translation="[1034, 610]">
       <ContentNode role="content">
         <ContentNode title="Disabled" />
         <ContentNode title="Enabled" />
@@ -40,7 +41,7 @@
       itemSpacing="[20, 20]"
       drawFocusFeedback="true" />
 
-    <Slider id="slider" translation="[740, 510]" />
+    <Slider id="slider" visible="false" translation="[740, 510]" />
 
     <IntegerKeyboard translation="[1034, 510]" id="integerSetting" domain="numeric" visible="false" />
     <Timer id="keypressTimer" duration="5" />

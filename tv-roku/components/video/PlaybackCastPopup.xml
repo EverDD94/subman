@@ -2,7 +2,7 @@
 <component name="PlaybackCastPopup" extends="Group" initialFocus="castList">
   <children>
     <Rectangle color="0x000000DD" width="1920" height="1080" />
-    <Text id="title" translation="[103, 100]" font="font:LargeBoldSystemFont" />
+    <Text id="title" translation="[103, 100]"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="45" /></Text>
     <RowList
       id="castList"
       translation="[103, 200]"
@@ -18,11 +18,11 @@
     <Group id="personDetails" visible="false">
       <Rectangle color="0x101420FF" width="1714" height="875" translation="[103, 145]" />
       <Poster id="personImage" width="250" height="375" translation="[145, 190]" failedBitmapUri="pkg:/images/baseline_person_white_48dp.png" />
-      <Text id="personName" width="1310" translation="[450, 190]" font="font:LargeBoldSystemFont" />
-      <Text id="personRole" width="1310" translation="[450, 265]" font="font:MediumSystemFont" color="#aaaaaa" />
-      <Text id="personOverview" width="1310" height="210" translation="[450, 335]" wrap="true" maxLines="6" ellipsisText="..." font="font:SmallestSystemFont" />
-      <Text id="libraryTitle" width="1600" translation="[145, 572]" font="font:MediumBoldSystemFont" />
-      <Text id="libraryLoading" width="1600" translation="[145, 640]" font="font:SmallSystemFont" color="#aaaaaa" />
+      <Text id="personName" width="1310" translation="[450, 190]"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="45" /></Text>
+      <Text id="personRole" width="1310" translation="[450, 265]" color="#aaaaaa"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></Text>
+      <Text id="personOverview" width="1310" height="210" translation="[450, 335]" wrap="true" maxLines="6" ellipsisText="..."><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="27" /></Text>
+      <Text id="libraryTitle" width="1600" translation="[145, 572]"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="36" /></Text>
+      <Text id="libraryLoading" width="1600" translation="[145, 640]" color="#aaaaaa"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="33" /></Text>
       <RowList
         id="libraryList"
         visible="false"

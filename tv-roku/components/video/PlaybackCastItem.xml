@@ -9,16 +9,16 @@
         horizAlign="left"
         vertAlign="bottom"
         height="48"
-        font="font:SmallestBoldSystemFont"
-        repeatCount="0" />
+       
+        repeatCount="0"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="27" /></ScrollingText>
       <ScrollingText
         id="SubTitle"
         horizAlign="left"
         vertAlign="center"
         height="32"
-        font="font:SmallestBoldSystemFont"
+       
         color="#777777FF"
-        repeatCount="0" />
+        repeatCount="0"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="27" /></ScrollingText>
     </LayoutGroup>
   </children>
   <interface>

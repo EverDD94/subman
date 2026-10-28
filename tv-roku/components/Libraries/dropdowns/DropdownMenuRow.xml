@@ -3,7 +3,7 @@
   <children>
     <LayoutGroup id="dropdownOptions" layoutDirection="horiz" itemSpacings="[15]">
       <LayoutGroup layoutDirection="vert" itemSpacings="[10]">
-        <Text font="font:SmallSystemFont" text="Search" />
+        <Text text="Search"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="33" /></Text>
         <Poster id="voiceBoxBackground" uri="pkg:/images/white.9.png" blendColor="#FFFFFF" height="75" width="335">
           <VoiceTextEditBox
             id="voiceBox"
@@ -20,7 +20,7 @@
         </Poster>
       </LayoutGroup>
       <LayoutGroup layoutDirection="vert" itemSpacings="[10]">
-        <Text id="sortLabel" font="font:SmallSystemFont" text="Sort By" />
+        <Text id="sortLabel" text="Sort By"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="33" /></Text>
         <TextButton
           id="sortButton"
           iconSide="right"
@@ -33,7 +33,7 @@
           width="335" />
       </LayoutGroup>
       <LayoutGroup layoutDirection="vert" itemSpacings="[10]">
-        <Text id="sortOrderLabel" font="font:SmallSystemFont" text="Sort Order" />
+        <Text id="sortOrderLabel" text="Sort Order"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="33" /></Text>
         <TextButton
           id="sortOrderButton"
           iconSide="right"
@@ -46,7 +46,7 @@
           width="335" />
       </LayoutGroup>
       <LayoutGroup layoutDirection="vert" itemSpacings="[10]">
-        <Text id="filterLabel" font="font:SmallSystemFont" text="TAB_FILTER" />
+        <Text id="filterLabel" text="TAB_FILTER"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="33" /></Text>
         <TextButton
           id="filterButton"
           iconSide="right"
@@ -59,7 +59,7 @@
           width="335" />
       </LayoutGroup>
       <LayoutGroup layoutDirection="vert" itemSpacings="[10]">
-        <Text id="viewLabel" font="font:SmallSystemFont" text="TAB_VIEW" />
+        <Text id="viewLabel" text="TAB_VIEW"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="33" /></Text>
         <TextButton
           id="viewButton"
           iconSide="right"

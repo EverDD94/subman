@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <component name="OptionsRow" extends="Group">
   <children>
-    <Label id="categoryLabel" translation="[40, 0]" width="430" height="80" horizAlign="left" vertAlign="center" font="font:MediumSystemFont" />
-    <Label id="leftArrow" text="‹" translation="[500, 0]" width="60" height="80" horizAlign="center" vertAlign="center" font="font:MediumBoldSystemFont" />
-    <ScrollingText id="valueLabel" translation="[570, 0]" maxWidth="800" height="80" horizAlign="center" vertAlign="center" font="font:MediumSystemFont" repeatCount="0" />
-    <Label id="rightArrow" text="›" translation="[1400, 0]" width="60" height="80" horizAlign="center" vertAlign="center" font="font:MediumBoldSystemFont" />
+    <Label id="categoryLabel" translation="[40, 0]" width="430" height="80" horizAlign="left" vertAlign="center"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></Label>
+    <Label id="leftArrow" text="‹" translation="[500, 0]" width="60" height="80" horizAlign="center" vertAlign="center"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="36" /></Label>
+    <ScrollingText id="valueLabel" translation="[570, 0]" maxWidth="800" height="80" horizAlign="center" vertAlign="center" repeatCount="0"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></ScrollingText>
+    <Label id="rightArrow" text="›" translation="[1400, 0]" width="60" height="80" horizAlign="center" vertAlign="center"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="36" /></Label>
   </children>
   <interface>
     <field id="itemContent" type="node" onChange="itemContentChanged" />

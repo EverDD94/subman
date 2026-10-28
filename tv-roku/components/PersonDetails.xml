@@ -11,8 +11,8 @@
       layoutdirection="vert" translation="[60, 180]" itemSpacings="[36]">
       <LayoutGroup id="header_group" layoutdirection="horiz">
         <LayoutGroup id="title_group" layoutdirection="vert" itemSpacings="[11]">
-          <Rectangle id="title_rectangle" height="100" width="1426" color="#000018">
-            <Text id="name" font="font:LargeBoldSystemFont" height="100" width="1426" vertAlign="bottom" />
+          <Rectangle id="title_rectangle" height="100" width="1426" color="#0B0D12">
+            <Text id="name" height="100" width="1426" vertAlign="bottom"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="45" /></Text>
           </Rectangle>
         </LayoutGroup>
         <ButtonGroupHoriz id="buttons">
@@ -29,7 +29,7 @@
               <Rectangle id='dscrRect' translation="[3, 3]" height="639" width="1316" color="0x202020ff">
                 <Text id="description"
                   height="627" width="1280" wrap="true" translation="[18, 15]"
-                  font="font:SmallestSystemFont" color="#e4e4e4ff" ellipsisText=" ...  (-OK- for More)" />
+                  color="#e4e4e4ff" ellipsisText=" ...  (-OK- for More)"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="27" /></Text>
               </Rectangle>
             </Rectangle>
           </LayoutGroup>

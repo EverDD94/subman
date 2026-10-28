@@ -3,6 +3,7 @@ import "pkg:/components/everflix/EfCommon.bs"
 sub init()
     m.bg = m.top.findNode("bg")
     m.label = m.top.findNode("label")
+    m.icon = m.top.findNode("icon")
     m.label.font = ef.font(ef.FONT_BOLD, 28)
     m.top.scaleRotateCenter = [0, 32]
 end sub
@@ -26,18 +27,36 @@ end sub
 sub paint()
     m.label.text = m.top.text
     pad = m.top.small ? 24 : 32
-    w = m.label.boundingRect().width + pad * 2
+    h = m.bg.height
+    iconW = 0
+    m.icon.visible = m.top.icon <> ""
+    if m.icon.visible
+        size = m.top.small ? 24 : 30
+        m.icon.uri = "pkg:/images/everflix/" + m.top.icon + ".png"
+        m.icon.width = size
+        m.icon.height = size
+        m.icon.translation = [pad - 4, (h - size) / 2]
+        iconW = size + 8
+    end if
+    textX = pad + iconW
+    if m.top.text = "" then textX = pad
+    m.label.translation = [textX, 0]
+    w = m.label.boundingRect().width + textX + pad
+    if m.top.text = "" then w = pad * 2 + iconW - 8
     m.bg.width = w
     m.top.pillWidth = w
     if m.top.highlighted
         m.bg.blendColor = "0xFFFFFFFF"
         m.label.color = "0x000000FF"
+        m.icon.blendColor = "0x000000FF"
     else if m.top.primary or m.top.selected
         m.bg.blendColor = ef.ACCENT
         m.label.color = "0xFFFFFFFF"
+        m.icon.blendColor = "0xFFFFFFFF"
     else
         m.bg.blendColor = "0xFFFFFF26"
         m.label.color = ef.INK
+        m.icon.blendColor = ef.INK
     end if
     s = m.top.highlighted ? 1.05 : 1.0
     m.top.scale = [s, s]

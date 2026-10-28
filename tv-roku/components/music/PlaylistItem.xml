@@ -8,8 +8,8 @@
       <Poster id="poster" loadDisplayMode="scaleToZoom" width="70" height="70" />
 
       <LayoutGroup layoutDirection="vert" horizAlignment="left" itemSpacings="[0]">
-        <ScrollingText height="40" id="title" horizAlign="left" vertAlign="center" font="font:SmallBoldSystemFont" maxWidth="1025" />
-        <ScrollingText height="25" id="subtitle" horizAlign="left" vertAlign="center" font="font:SmallSystemFont" maxWidth="1025" />
+        <ScrollingText height="40" id="title" horizAlign="left" vertAlign="center" maxWidth="1025"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="33" /></ScrollingText>
+        <ScrollingText height="25" id="subtitle" horizAlign="left" vertAlign="center" maxWidth="1025"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="33" /></ScrollingText>
       </LayoutGroup>
 
       <LayoutGroup layoutDirection="vert" horizAlignment="left" itemSpacings="[0]">
@@ -17,8 +17,8 @@
         <PlayedCheckmark id="playedIndicator" width="60" height="46" scale="[.75, .75]" scaleRotateCenter="[0, 0]" />
       </LayoutGroup>
 
-      <Text id="position" height="60" horizAlign="right" vertAlign="center" font="font:SmallBoldSystemFont" width="150" />
-      <Text id="tracklength" height="60" horizAlign="right" vertAlign="center" font="font:SmallBoldSystemFont" width="150" />
+      <Text id="position" height="60" horizAlign="right" vertAlign="center" width="150"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="33" /></Text>
+      <Text id="tracklength" height="60" horizAlign="right" vertAlign="center" width="150"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="33" /></Text>
     </LayoutGroup>
   </children>
   <interface>

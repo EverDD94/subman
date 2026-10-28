@@ -9,8 +9,8 @@
       <Poster id="loopIndicator" width="50" height="50" uri="pkg:/images/icons/loopIndicator-off.png" opacity="0" />
     </LayoutGroup>
 
-    <Text id="positionTimestamp" width="100" height="25" font="font:SmallestSystemFont" translation="[100,868]" color="#999999" text="0:00" />
-    <Text id="totalLengthTimestamp" width="100" height="25" horizAlign="right" font="font:SmallestSystemFont" translation="[1720,868]" color="#999999" />
+    <Text id="positionTimestamp" width="100" height="25" translation="[100,868]" color="#999999" text="0:00"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="27" /></Text>
+    <Text id="totalLengthTimestamp" width="100" height="25" horizAlign="right" translation="[1720,868]" color="#999999"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="27" /></Text>
 
     <Rectangle id="seekBar" translation="[100,845]" width="1720" height="10">
       <Rectangle id="bufferPosition" height="10" />
@@ -29,18 +29,18 @@
         <Poster id="shuffle" width="64" height="64" uri="pkg:/images/icons/shuffle.png" opacity="0" />
       </LayoutGroup>
     </LayoutGroup>
-    <Text id="stopConfirmMessage" visible="false" width="1720" height="30" horizAlign="center" font="font:SmallestSystemFont" translation="[100,985]" color="#ffffff" />
+    <Text id="stopConfirmMessage" visible="false" width="1720" height="30" horizAlign="center" translation="[100,985]" color="#ffffff"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="27" /></Text>
 
     <LayoutGroup translation="[100,100]" layoutDirection="vert" horizAlignment="left" itemSpacings="[15]">
-      <ScrollingText id="song" font="font:MediumBoldSystemFont" maxWidth="1800" height="50" />
+      <ScrollingText id="song" maxWidth="1800" height="50"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="36" /></ScrollingText>
       <ScrollingText id="artist" maxWidth="1800" height="25" />
-      <Text id="numberofsongs" width="500" height="25" font="font:SmallestSystemFont" color="#999999" />
+      <Text id="numberofsongs" width="500" height="25" color="#999999"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="27" /></Text>
     </LayoutGroup>
 
     <Poster id="albumCover" width="500" height="500" translation="[100,275]" />
 
     <Rectangle id="seekPosition" visible="false" color="0x00000090" height="40" width="110" translation="[100, 790]">
-      <Text text="0:00" id="seekTimestamp" width="110" height="40" horizAlign="center" vertAlign="center" font="font:SmallestSystemFont" />
+      <Text text="0:00" id="seekTimestamp" width="110" height="40" horizAlign="center" vertAlign="center"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="27" /></Text>
     </Rectangle>
 
     <ExpandingLabel
@@ -77,7 +77,7 @@
       padding="[20, 10]"
     />
 
-    <Rectangle id="screenSaverBackground" width="1920" height="1080" color="#000018" visible="false" />
+    <Rectangle id="screenSaverBackground" width="1920" height="1080" color="#0B0D12" visible="false" />
     <Poster id="screenSaverAlbumCover" width="500" height="500" translation="[960,575]" opacity="0" />
     <Poster id="PosterOne" width="290" height="218" translation="[960,540]" opacity="0" />
 

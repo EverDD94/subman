@@ -154,7 +154,7 @@ function suggestionItem(s as object, admin as boolean) as object
     image = s.LookupCI("backdrop") ?? ""
     if image = "" then image = s.LookupCI("poster") ?? ""
     item = { Id: "tmdb-" + s.kind + s.tmdb.toStr(), Name: s.title, Type: kind, Overview: s.LookupCI("overview") ?? "",
-        Genres: s.LookupCI("genres") ?? [], efThumb: image, efBackdrop: image, efPoster: s.LookupCI("poster") ?? "", efNote: note,
+        Genres: s.LookupCI("genres") ?? [], UserData: { Played: false, PlaybackPositionTicks: 0, UnplayedItemCount: 0, IsFavorite: false }, efThumb: image, efBackdrop: image, efPoster: s.LookupCI("poster") ?? "", efNote: note,
         efSuggestion: { kind: s.kind, tmdb: s.tmdb, title: s.title, poster: s.LookupCI("poster") ?? "", overview: s.LookupCI("overview") ?? "", have: s.LookupCI("have") = true, asked: s.LookupCI("asked") <> invalid } }
     if isValid(year) then item.ProductionYear = year
     if isValid(year) then item.efSuggestion.year = year

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Everflix: the last frame of the intro, with the E breathing, until the home has its rows. -->
+<component name="EfSplash" extends="Group">
+  <children>
+    <Group id="box">
+      <Rectangle width="1920" height="1080" color="0x0C0D12FF" />
+      <Poster id="logo" uri="pkg:/images/everflix/intro-end.jpg" width="1920" height="1080" />
+    </Group>
+    <Animation id="pulse" duration="1.6" repeat="true" easeFunction="inOutQuad">
+      <FloatFieldInterpolator key="[0.0, 0.5, 1.0]" keyValue="[1.0, 0.55, 1.0]" fieldToInterp="logo.opacity" />
+    </Animation>
+    <Animation id="out" duration="0.35" repeat="false" easeFunction="linear">
+      <FloatFieldInterpolator key="[0.0, 1.0]" keyValue="[1.0, 0.0]" fieldToInterp="box.opacity" />
+    </Animation>
+    <Timer id="safety" duration="15" repeat="false" />
+  </children>
+  <interface>
+    <field id="done" type="boolean" alwaysNotify="false" onChange="onDone" />
+  </interface>
+</component>

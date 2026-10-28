@@ -74,25 +74,31 @@ end function
 
 ' Same rows as the Google TV home
 function loadHome() as object
-    rows = []
     common = { Fields: ef.fields(), ImageTypeLimit: 1, EnableTotalRecordCount: false }
-
-    p = { MediaTypes: "Video", Limit: 30 }
-    p.Append(common)
-    addRow(rows, "Continuar viendo", ef.getJellyfin(`Users/${efUid()}/Items/Resume`, p))
-
-    p = { UserId: efUid(), Limit: 30, EnableResumable: true, EnableRewatching: false }
-    p.Append(common)
-    addRow(rows, "Siguiente", ef.getJellyfin("Shows/NextUp", p))
-
     forYou = { Recursive: true, IncludeItemTypes: "Series,Movie", SortOrder: "Descending", Limit: 30 }
     forYou.Append(common)
+
+    resume = { MediaTypes: "Video", Limit: 30 }
+    resume.Append(common)
+    nextUp = { UserId: efUid(), Limit: 30, EnableResumable: true, EnableRewatching: false }
+    nextUp.Append(common)
+    latest = { SortBy: "DateCreated" }
+    latest.Append(forYou)
+    mine = { SortBy: "DateCreated", IsFavorite: true }
+    mine.Append(forYou)
+    got = getJellyfinAll([
+        [`Users/${efUid()}/Items/Resume`, resume],
+        ["Shows/NextUp", nextUp],
+        [`Users/${efUid()}/Items`, latest],
+        [`Users/${efUid()}/Items`, mine],
+        [`Users/${efUid()}/Items`, playedParams()]
+    ])
 
     ' Picks from your library by what you watch most; with no history, a slice that moves on each day
     p = {}
     p.Append(forYou)
     p.IsPlayed = false
-    genres = favouriteGenres()
+    genres = favouriteGenres(listOf(got[4]))
     if genres.count() > 0
         p.Genres = genres.join("|")
         p.SortBy = "CommunityRating"
@@ -102,20 +108,23 @@ function loadHome() as object
         p.SortBy = "PremiereDate"
         p.StartIndex = (dayOfYearOf(date) * 7) mod 120
     end if
+
+    rows = []
+    addRow(rows, "Continuar viendo", got[0])
+    addRow(rows, "Siguiente", got[1])
     addRow(rows, "Recomendado para ti", ef.getJellyfin(`Users/${efUid()}/Items`, p))
-
-    p = {}
-    p.Append(forYou)
-    p.SortBy = "DateCreated"
-    addRow(rows, "Lo último en tu biblioteca", ef.getJellyfin(`Users/${efUid()}/Items`, p))
-
-    p = {}
-    p.Append(forYou)
-    p.SortBy = "DateCreated"
-    p.IsFavorite = true
-    addRow(rows, "Mi lista", ef.getJellyfin(`Users/${efUid()}/Items`, p))
-
+    addRow(rows, "Lo último en tu biblioteca", got[2])
+    addRow(rows, "Mi lista", got[3])
     return { rows: rows }
+end function
+
+' Several Jellyfin GETs; the answers come back in the same order (invalid where one failed)
+function getJellyfinAll(calls as object) as object
+    out = []
+    for each c in calls
+        out.push(ef.getJellyfin(c[0], c[1]))
+    end for
+    return out
 end function
 
 ' Rows from outside the library (releases, streaming platforms), shaped like Jellyfin items so cards and hero show them
@@ -153,9 +162,12 @@ function suggestionItem(s as object, admin as boolean) as object
 end function
 
 ' The genres of what you watched lately (movies, and the series of your episodes), most watched first
-function favouriteGenres() as object
+function playedParams() as object
+    return { Recursive: true, IncludeItemTypes: "Movie,Episode", IsPlayed: true, SortBy: "DatePlayed", SortOrder: "Descending", Limit: 80, Fields: "Genres", EnableTotalRecordCount: false }
+end function
+
+function favouriteGenres(played as object) as object
     counts = {}
-    played = listOf(ef.getJellyfin(`Users/${efUid()}/Items`, { Recursive: true, IncludeItemTypes: "Movie,Episode", IsPlayed: true, SortBy: "DatePlayed", SortOrder: "Descending", Limit: 80, Fields: "Genres", EnableTotalRecordCount: false }))
     perSeries = {}
     for each item in played
         if item.LookupCI("Type") = "Movie"
@@ -266,8 +278,14 @@ end function
 
 ' Talks to Videotecario with the user's own Jellyfin token (no other password needed)
 function videotecario(path as string, body as dynamic) as object
-    ' Try the address derived from the Jellyfin server first, then Jellyfin's own LAN address
-    ' (from inside the house the public port may not answer)
+    ' The address that answered last time first (so a dead one is not waited on every time); otherwise
+    ' the one derived from the Jellyfin server, Jellyfin's own LAN address and the NAS, keeping the first that answers
+    reg = CreateObject("roRegistrySection", "everflix")
+    known = reg.Read("videotecario")
+    if known <> ""
+        res = videotecarioAt(known, path, body)
+        if isValid(res.LookupCI("code")) then return res
+    end if
     bases = []
     base = ef.videotecarioBase()
     if base <> "" then bases.push(base)
@@ -275,17 +293,21 @@ function videotecario(path as string, body as dynamic) as object
     if isValid(info) and isValidAndNotEmpty(info.LookupCI("LocalAddress"))
         r = CreateObject("roRegex", "^https?://([^/:]+)", "i")
         parts = r.match(info.LocalAddress)
-        if parts.count() > 1
-            lan = "http://" + parts[1] + ":8787"
-            if lan <> base then bases.push(lan)
-        end if
+        if parts.count() > 1 then bases.push("http://" + parts[1] + ":8787")
     end if
-    if bases.count() = 0 then return { ok: false, error: "No encuentro Videotecario" }
+    bases.push("http://192.168.1.121:8787")
+    res = { ok: false, error: "Videotecario no responde" }
     for each b in bases
-        res = videotecarioAt(b, path, body)
-        if isValid(res.LookupCI("code")) then return res
+        if b <> known
+            res = videotecarioAt(b, path, body)
+            if isValid(res.LookupCI("code")) then exit for
+        end if
     end for
-    return { ok: false, error: "Videotecario no responde" }
+    if isValid(res.LookupCI("base"))
+        reg.Write("videotecario", res.base)
+        reg.Flush()
+    end if
+    return res
 end function
 
 function videotecarioAt(base as string, path as string, body as dynamic) as object
@@ -312,7 +334,7 @@ function videotecarioAt(base as string, path as string, body as dynamic) as obje
     end if
     if msg.GetResponseCode() <= 0 then return { ok: false, error: "Videotecario no responde" }
     data = ParseJson(msg.GetString())
-    return { ok: msg.GetResponseCode() = 200, code: msg.GetResponseCode(), data: data }
+    return { ok: msg.GetResponseCode() = 200, code: msg.GetResponseCode(), data: data, base: base }
 end function
 
 ' Faces of the cast of what you watch, to pick a profile photo from

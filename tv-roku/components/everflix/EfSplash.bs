@@ -1,0 +1,23 @@
+sub init()
+    m.out = m.top.findNode("out")
+    m.out.observeField("state", "onOut")
+    m.top.findNode("pulse").control = "start"
+    safety = m.top.findNode("safety")
+    safety.observeField("fire", "onSafety")
+    safety.control = "start"
+end sub
+
+' The home is ready (or a login screen needs to be seen): fade out and go away
+sub onDone()
+    if m.top.done then m.out.control = "start"
+end sub
+
+sub onSafety()
+    m.top.done = true
+end sub
+
+sub onOut()
+    if m.out.state <> "stopped" then return
+    parent = m.top.getParent()
+    if parent <> invalid then parent.removeChild(m.top)
+end sub

@@ -14,6 +14,8 @@ end sub
 ' Push a new group onto the stack, replacing the existing group on the screen
 sub pushScene(newGroup)
     currentGroup = m.groups.peek()
+    ' Everflix: anything but the home (a login screen, a dialog) has to be seen, so the intro's E goes away
+    if isValid(newGroup) and newGroup.subtype() <> "Home" and m.global.hasField("efSplash") and isValid(m.global.efSplash) then m.global.efSplash.done = true
     if isValid(newGroup)
         if isValid(currentGroup)
             'Search through group and store off last focused item

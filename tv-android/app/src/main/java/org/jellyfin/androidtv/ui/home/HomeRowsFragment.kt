@@ -127,9 +127,9 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 			val topGenres = lastGenres ?: kotlinx.coroutines.withTimeoutOrNull(1500) { runCatching { helper.favouriteGenres(api) }.getOrNull() }.orEmpty()
 			if (lastGenres != null) launch { runCatching { helper.favouriteGenres(api) }.onSuccess { lastGenres = it } }
 			else lastGenres = topGenres.takeIf { it.isNotEmpty() }
-			if (topGenres.isNotEmpty()) rows.add(helper.loadForYou("Recomendado para ti", ItemSortBy.COMMUNITY_RATING, unwatchedOnly = true, genres = topGenres))
+			if (topGenres.isNotEmpty()) rows.add(helper.loadForYou("Recomendado para ti", ItemSortBy.COMMUNITY_RATING, unwatchedOnly = true, genres = topGenres, ratedOnly = true))
 			// Without a viewing history: a slice of what you haven't seen that moves on each day
-			else rows.add(helper.loadForYou("Recomendado para ti", ItemSortBy.PREMIERE_DATE, unwatchedOnly = true, startIndex = (java.time.LocalDate.now().dayOfYear * 7) % 120))
+			else rows.add(helper.loadForYou("Recomendado para ti", ItemSortBy.PREMIERE_DATE, unwatchedOnly = true, startIndex = (java.time.LocalDate.now().dayOfYear * 7) % 120, ratedOnly = true))
 			rows.add(helper.loadForYou("Lo último en tu biblioteca", ItemSortBy.DATE_CREATED, unwatchedOnly = false))
 			rows.add(helper.loadForYou("Mi lista", ItemSortBy.DATE_CREATED, favoritesOnly = true))
 			if (currentUser.policy?.enableLiveTvAccess == true && HomeSectionType.LIVE_TV in homesections) {

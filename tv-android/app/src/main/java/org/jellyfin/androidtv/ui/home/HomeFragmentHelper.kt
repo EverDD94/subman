@@ -86,6 +86,7 @@ class HomeFragmentHelper(
 		favoritesOnly: Boolean = false,
 		startIndex: Int? = null,
 		genres: Collection<String>? = null,
+		ratedOnly: Boolean = false,
 	): HomeFragmentRow {
 		val query = GetItemsRequest(
 			recursive = true,
@@ -94,6 +95,8 @@ class HomeFragmentHelper(
 			isFavorite = if (favoritesOnly) true else null,
 			startIndex = startIndex,
 			genres = genres,
+			// Courses and home videos have no rating: they never get recommended
+			minCommunityRating = if (ratedOnly) 0.1 else null,
 			sortBy = setOf(sortBy),
 			sortOrder = setOf(SortOrder.DESCENDING),
 			fields = ItemRepository.browseFields,

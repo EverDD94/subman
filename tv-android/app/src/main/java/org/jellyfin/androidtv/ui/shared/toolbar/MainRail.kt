@@ -3,6 +3,7 @@ package org.jellyfin.androidtv.ui.shared.toolbar
 import android.widget.ImageView
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.Image
@@ -160,14 +161,11 @@ fun MainRail(
 		if (open) Box(Modifier.padding(horizontal = 12.dp, vertical = 8.dp).fillMaxWidth().height(1.dp).background(RailInk.copy(alpha = 0.15f)))
 
 		// Closed, the libraries would only repeat the movie and series icons above
-		if (open) views.forEach { view ->
+		// Live TV is hardly used: always last
+		if (open) views.sortedBy { it.collectionType == CollectionType.LIVETV }.forEach { view ->
 			val isActive = view.id == activeLibrary
 			RailItem(
-				icon = when (view.collectionType) {
-					CollectionType.TVSHOWS -> R.drawable.ic_tv
-					CollectionType.MOVIES -> R.drawable.ic_movie
-					else -> R.drawable.ic_folder
-				},
+				icon = libraryIcon(view.name.orEmpty(), view.collectionType),
 				label = view.name ?: "",
 				open = open,
 				active = isActive,
@@ -252,9 +250,28 @@ private fun RailItem(
 			)
 		}
 		if (open) {
-			Text(text = label, color = content, fontSize = 16.sp, fontWeight = FontWeight.W600, maxLines = 1)
+			// Names that don't fit scroll along while focused
+			Text(text = label, color = content, fontSize = 16.sp, fontWeight = FontWeight.W600, maxLines = 1, softWrap = false, modifier = if (focused) Modifier.basicMarquee(iterations = Int.MAX_VALUE) else Modifier)
 			Spacer(Modifier.weight(1f))
 		}
 		if (active) Box(Modifier.size(6.dp).clip(CircleShape).background(RailAccent))
+	}
+}
+
+/** An icon for each library by its name, so they are told apart (cartoons, kids, Christian, soaps…). */
+private fun libraryIcon(name: String, type: CollectionType?): Int {
+	val n = name.lowercase()
+	return when {
+		type == CollectionType.LIVETV || "directo" in n -> R.drawable.ic_tv_guide
+		"academy" in n || "curso" in n -> R.drawable.ic_lightbulb
+		"cristian" in n -> R.drawable.ic_heart
+		"anima" in n || "muñe" in n -> R.drawable.ic_star
+		"infantil" in n || "niño" in n -> R.drawable.ic_users
+		"novela" in n -> R.drawable.ic_masks
+		"realit" in n -> R.drawable.ic_microphone
+		type == CollectionType.BOXSETS || "colecc" in n -> R.drawable.ic_grid
+		type == CollectionType.TVSHOWS || "serie" in n -> R.drawable.ic_tv
+		type == CollectionType.MOVIES || "pel" in n -> R.drawable.ic_movie
+		else -> R.drawable.ic_folder
 	}
 }

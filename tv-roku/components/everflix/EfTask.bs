@@ -111,6 +111,9 @@ function loadHome() as object
         p.StartIndex = (dayOfYearOf(date) * 7) mod 120
     end if
 
+    skip = courseIds()
+    if skip.count() > 0 then p.ExcludeItemIds = skip.join(",")
+
     rows = []
     addRow(rows, "Continuar viendo", got[0])
     addRow(rows, "Siguiente", got[1])
@@ -118,6 +121,20 @@ function loadHome() as object
     addRow(rows, "Lo último en tu biblioteca", got[2])
     addRow(rows, "Mi lista", got[3])
     return { rows: rows }
+end function
+
+' Courses (libraries named like "Invested Academy" or "Cursos") are there to watch on purpose, never to recommend
+function courseIds() as object
+    ids = []
+    for each view in listOf(ef.getJellyfin(`Users/${efUid()}/Views`))
+        name = LCase(view.LookupCI("Name") ?? "")
+        if Instr(1, name, "academy") > 0 or Instr(1, name, "curso") > 0
+            for each item in listOf(ef.getJellyfin(`Users/${efUid()}/Items`, { ParentId: view.Id, EnableImages: false, EnableTotalRecordCount: false }))
+                ids.push(item.Id)
+            end for
+        end if
+    end for
+    return ids
 end function
 
 ' Several Jellyfin GETs; the answers come back in the same order (invalid where one failed)

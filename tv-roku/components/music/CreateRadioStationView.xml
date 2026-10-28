@@ -2,7 +2,7 @@
 <component name="CreateRadioStationView" extends="JFScreen">
   <children>
     <LayoutGroup id="toplevel" layoutDirection="vert" translation="[100, 100]" itemSpacings="[30]">
-      <Text id="sortBy" font="font:LargeBoldSystemFont" text="Create Radio Station" />
+      <Text id="sortBy" text="Create Radio Station"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="45" /></Text>
 
       <LayoutGroup layoutDirection="horiz" itemSpacings="[200]">
         <LayoutGroup layoutDirection="vert" itemSpacings="[30]">

@@ -8,10 +8,10 @@
         id="headerText"
         text="TAB_FILTER"
         horizAlign="Left"
-        font="font:LargeSystemFont"
+       
         height="100"
         width="1920"
-        translation="[100, 50]" />
+        translation="[100, 50]"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="45" /></Text>
       <Rectangle id="headerBorder" width="1520" height="2" translation="[100, 120]" />
 
       <LayoutGroup id="menuOptions" horizAlignment="left" translation="[100,200]" itemSpacings="[50]">
@@ -56,20 +56,20 @@
         id="tooManyResultsText"
         text="Your search returned more than 50 tags. Rework your search to reduce the number of matching tags."
         horizAlign="Left"
-        font="font:MediumSystemFont"
+       
         wrap="true"
         width="600"
         visible="false"
-        translation="[900, 250]" />
+        translation="[900, 250]"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></Text>
       <Text
         id="noResultsText"
         text="Your search returned no tags."
         horizAlign="Left"
-        font="font:MediumSystemFont"
+       
         wrap="true"
         width="600"
         visible="false"
-        translation="[900, 250]" />
+        translation="[900, 250]"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></Text>
       <CheckList
         opacity="0"
         translation="[900, 200]"

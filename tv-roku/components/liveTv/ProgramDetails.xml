@@ -14,19 +14,19 @@
 
             <Group translation="[ 96, 160 ]">
                 <LayoutGroup itemSpacings="[4,20, 20, 20, 40]">
-                    <Text id="programName" font="font:LargeBoldSystemFont" />
+                    <Text id="programName"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="45" /></Text>
 
                     <LayoutGroup id="episodeDetailsGroup" layoutDirection="horiz" itemSpacings="[10]">
                         <Group id="isLive">
                             <Poster id="isLiveBackground" uri="pkg:/images/white.9.png" blendColor="#FF0000" />
-                            <Text id="isLiveText" text="Live" font="font:SmallestBoldSystemFont" translation="[8,4]" />
+                            <Text id="isLiveText" text="Live" translation="[8,4]"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="27" /></Text>
                         </Group>
                         <Group id="isRepeat">
                             <Poster id="isRepeatBackground" uri="pkg:/images/white.9.png" blendColor="#009688" />
-                            <Text id="isRepeatText" text="Repeat" font="font:SmallestBoldSystemFont" translation="[8,4]" />
+                            <Text id="isRepeatText" text="Repeat" translation="[8,4]"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="27" /></Text>
                         </Group>
-                        <Text id="episodeNumber" font="font:SmallSystemFont" />
-                        <Text id="episodeTitle" font="font:SmallSystemFont" />
+                        <Text id="episodeNumber"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="33" /></Text>
+                        <Text id="episodeTitle"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="33" /></Text>
                     </LayoutGroup>
 
                     <LayoutGroup layoutDirection="horiz" itemSpacings="[30]">
@@ -35,7 +35,7 @@
                         <Text id="channelName" />
                     </LayoutGroup>
 
-                    <Text id="overview" wrap="true" width="1210" font="font:SmallestSystemFont" />
+                    <Text id="overview" wrap="true" width="1210"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="27" /></Text>
 
                     <LayoutGroup layoutDirection="horiz" itemSpacings="[30]">
                         <!-- View Channel button -->
@@ -66,8 +66,8 @@
         </Group>
         <!-- When no schedule information to display  -->
         <LayoutGroup id="noInformation" translation="[96, 300]">
-            <Text id="noInfoChannelName" font="font:LargeBoldSystemFont" />
-            <Text font="font:SmallSystemFont" text="No schedule information" />
+            <Text id="noInfoChannelName"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="45" /></Text>
+            <Text text="No schedule information"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="33" /></Text>
         </LayoutGroup>
         <Animation id="focusAnimation" duration="0.66" repeat="false" easeFunction="linear">
             <FloatFieldInterpolator id="viewChannelFocusAnimationOpacity" key="[0.0, 1]" fieldToInterp="viewChannelButton.opacity" />

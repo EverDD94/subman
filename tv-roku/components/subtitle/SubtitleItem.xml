@@ -3,8 +3,8 @@
   <children>
     <LayoutGroup layoutDirection="horiz" horizAlignment="left" itemSpacings="[10]" translation="[0, 15]">
       <LayoutGroup layoutDirection="vert" horizAlignment="left" itemSpacings="[5]">
-        <ScrollingText id="displayTitle" horizAlign="left" vertAlign="center" font="font:SmallBoldSystemFont" maxWidth="425" repeatCount="0" />
-        <ScrollingText id="path" horizAlign="left" vertAlign="center" font="font:SmallSystemFont" maxWidth="425" repeatCount="0" />
+        <ScrollingText id="displayTitle" horizAlign="left" vertAlign="center" maxWidth="425" repeatCount="0"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="33" /></ScrollingText>
+        <ScrollingText id="path" horizAlign="left" vertAlign="center" maxWidth="425" repeatCount="0"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="33" /></ScrollingText>
       </LayoutGroup>
     </LayoutGroup>
 

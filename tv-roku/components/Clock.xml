@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <component name="Clock" extends="Group">
   <children>
-    <Text id="clockTime" font="font:SmallSystemFont" horizAlign="right" vertAlign="center" height="64" width="200" />
+    <Text id="clockTime" horizAlign="right" vertAlign="center" height="64" width="200"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="33" /></Text>
     <Timer id="currentTimeTimer" repeat="true" duration="1" />
   </children>
   <interface>

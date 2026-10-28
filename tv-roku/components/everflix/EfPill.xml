@@ -3,10 +3,12 @@
 <component name="EfPill" extends="Group">
   <children>
     <Poster id="bg" uri="pkg:/images/everflix/pill.9.png" height="64" />
+    <Poster id="icon" width="30" height="30" visible="false" />
     <Label id="label" height="64" vertAlign="center" translation="[32, 0]" />
   </children>
   <interface>
     <field id="text" type="string" onChange="paint" />
+    <field id="icon" type="string" onChange="paint" />
     <field id="primary" type="boolean" value="false" onChange="paint" />
     <field id="selected" type="boolean" value="false" onChange="paint" />
     <field id="highlighted" type="boolean" value="false" onChange="paint" />

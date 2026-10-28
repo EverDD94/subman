@@ -50,9 +50,9 @@ end sub
 
 sub paintButtons()
     if m.top.stillWatching
-        m.buttons.items = [{ key: "next", text: "▶  Seguir viendo", primary: true }, { key: "cancel", text: "Salir" }]
+        m.buttons.items = [{ key: "next", icon: "play", text: "Seguir viendo", primary: true }, { key: "cancel", text: "Salir" }]
     else
-        m.buttons.items = [{ key: "next", text: `▶  Ver ahora · ${m.left}`, primary: true }, { key: "cancel", text: "Cancelar" }]
+        m.buttons.items = [{ key: "next", icon: "play", text: `Ver ahora · ${m.left}`, primary: true }, { key: "cancel", text: "Cancelar" }]
     end if
 end sub
 

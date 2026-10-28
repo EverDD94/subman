@@ -3,7 +3,7 @@
   <children>
     <Poster id="buttonBackground" uri="pkg:/images/everflix/pill.9.png" />
     <Poster id="buttonIcon" />
-    <Text id="buttonText" color="#ffffff" font="font:SmallestSystemFont" horizAlign="center" />
+    <Text id="buttonText" color="#ffffff" horizAlign="center"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="27" /></Text>
   </children>
   <interface>
     <field id="background" type="color" value="" />

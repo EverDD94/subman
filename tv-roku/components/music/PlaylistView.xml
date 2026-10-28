@@ -4,17 +4,17 @@
     <LayoutGroup id="toplevel" layoutDirection="vert" translation="[100, 100]" itemSpacings="[20]">
       <LayoutGroup layoutDirection="horiz" itemSpacings="[15]">
         <LayoutGroup layoutDirection="vert" itemSpacings="[25]">
-          <ScrollingText id="title" horizAlign="left" font="font:MediumBoldSystemFont" maxWidth="1380" height="45" />
+          <ScrollingText id="title" horizAlign="left" maxWidth="1380" height="45"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="36" /></ScrollingText>
 
           <LayoutGroup layoutDirection="horiz" itemSpacings="[25]">
             <LayoutGroup layoutDirection="horiz" itemSpacings="[15]">
               <Poster id="runtimeIcon" width="35" height="35" uri="pkg:/images/icons/35px/clock.png" />
-              <Text id="runtime" vertAlign="center" font="font:MediumSystemFont" height="35" />
+              <Text id="runtime" vertAlign="center" height="35"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></Text>
             </LayoutGroup>
 
             <LayoutGroup layoutDirection="horiz" itemSpacings="[15]">
               <Poster id="numberofsongsIcon" width="35" height="35" uri="pkg:/images/icons/35px/musicNote.png" />
-              <Text id="numberofsongs" vertAlign="center" font="font:MediumSystemFont" height="35" />
+              <Text id="numberofsongs" vertAlign="center" height="35"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></Text>
             </LayoutGroup>
           </LayoutGroup>
 
@@ -34,11 +34,11 @@
 
     <Rectangle id='songListRect' translation="[100, 435]" width="1720" height="610">
       <LayoutGroup id="tableHeading" layoutDirection="horiz" itemSpacings="[20]" translation="[45, 15]">
-        <Text id="trackHeading" font="font:SmallBoldSystemFont" horizAlign="left" vertAlign="center" text="" width="140" />
-        <Text id="titleHeading" font="font:SmallBoldSystemFont" horizAlign="left" vertAlign="center" text="Title" width="1020" />
-        <Text id="playedHeading" font="font:SmallBoldSystemFont" horizAlign="center" vertAlign="center" text="Played" width="70" />
-        <Text id="positionHeading" font="font:SmallBoldSystemFont" horizAlign="right" vertAlign="center" text="Position" width="155" />
-        <Text id="lengthHeading" font="font:SmallBoldSystemFont" horizAlign="right" vertAlign="center" text="Length" width="155" />
+        <Text id="trackHeading" horizAlign="left" vertAlign="center" text="" width="140"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="33" /></Text>
+        <Text id="titleHeading" horizAlign="left" vertAlign="center" text="Title" width="1020"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="33" /></Text>
+        <Text id="playedHeading" horizAlign="center" vertAlign="center" text="Played" width="70"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="33" /></Text>
+        <Text id="positionHeading" horizAlign="right" vertAlign="center" text="Position" width="155"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="33" /></Text>
+        <Text id="lengthHeading" horizAlign="right" vertAlign="center" text="Length" width="155"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="33" /></Text>
       </LayoutGroup>
 
       <PlaylistItems

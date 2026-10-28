@@ -2,7 +2,7 @@
 <component name="StandardButton" extends="Group">
   <children>
     <Poster id="buttonBackground" uri="pkg:/images/everflix/pill.9.png" />
-    <Text id="buttonText" font="font:SmallSystemFont" horizAlign="center" vertAlign="center" />
+    <Text id="buttonText" horizAlign="center" vertAlign="center"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="33" /></Text>
   </children>
   <interface>
     <field id="background" type="color" value="" />

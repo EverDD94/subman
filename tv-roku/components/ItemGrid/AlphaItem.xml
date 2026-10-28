@@ -9,8 +9,8 @@
       height="25"
       width="35"
       id="letterText"
-      font="font:SmallestSystemFont"
+     
       horizAlign="center"
-      vertAlign="center" />
+      vertAlign="center"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="27" /></Text>
   </children>
 </component>

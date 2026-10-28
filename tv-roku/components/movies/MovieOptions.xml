@@ -5,7 +5,7 @@
     <Group translation="[100,100]">
       <Poster width="1720" height="880" uri="pkg:/images/dialog.9.png" />
       <LayoutGroup horizAlignment="center" translation="[860,90]" itemSpacings="[60]">
-        <Label id="optionsHeader" text="Options" horizAlign="center" font="font:LargeSystemFont" />
+        <Label id="optionsHeader" text="Options" horizAlign="center"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="45" /></Label>
         <MarkupList
           id="optionsMenu"
           itemComponentName="OptionsRow"
@@ -23,7 +23,7 @@
       <Group translation="[210,150]">
         <Poster width="1500" height="780" uri="pkg:/images/dialog.9.png" />
         <LayoutGroup horizAlignment="center" translation="[750,60]" itemSpacings="[40]">
-          <Label id="detailTitle" horizAlign="center" font="font:LargeSystemFont" />
+          <Label id="detailTitle" horizAlign="center"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="45" /></Label>
           <Group>
             <RadiobuttonList id="subtitleMenu" itemspacing="[0,10]" opacity="1" vertFocusAnimationStyle="floatingFocus" drawFocusFeedback="false" itemSize="[1300, 70]" numRows="8" />
             <RadiobuttonList id="audioMenu" itemspacing="[0,10]" opacity="0" vertFocusAnimationStyle="floatingFocus" drawFocusFeedback="false" itemSize="[1300, 70]" numRows="8" />

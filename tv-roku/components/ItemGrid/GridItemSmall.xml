@@ -4,7 +4,7 @@
     <Poster id="backdrop" translation="[0,23]" loadDisplayMode="scaleToZoom" uri="pkg:/images/white.9.png" />
     <Poster id="itemPoster" translation="[0,23]" loadDisplayMode="scaleToZoom" />
 
-    <ScrollingText id="title" horizAlign="center" font="font:SmallSystemFont" repeatCount="0" />
+    <ScrollingText id="title" horizAlign="center" repeatCount="0"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="33" /></ScrollingText>
 
     <Poster id="itemIcon" width="50" height="50" />
     <Text id="posterText" translation="[5,5]" horizAlign="center" vertAlign="center" ellipsizeOnBoundary="true" wrap="true" />

@@ -5,43 +5,43 @@
       <LayoutGroup layoutDirection="horiz" itemSpacings="[15]">
         <LayoutGroup layoutDirection="vert" itemSpacings="[25]">
           <LayoutGroup layoutDirection="vert" itemSpacings="[0]">
-            <ScrollingText id="title" horizAlign="left" font="font:MediumBoldSystemFont" maxWidth="1400" height="45" />
+            <ScrollingText id="title" horizAlign="left" maxWidth="1400" height="45"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="36" /></ScrollingText>
           </LayoutGroup>
 
           <LayoutGroup id="topLevelDetails" layoutDirection="horiz" itemSpacings="[25]">
             <LayoutGroup id="runtimeContainer" layoutDirection="horiz" itemSpacings="[15]">
               <Poster id="runtimeIcon" width="35" height="35" uri="pkg:/images/icons/35px/clock.png" />
-              <Text id="runtime" vertAlign="center" font="font:MediumSystemFont" height="35" />
+              <Text id="runtime" vertAlign="center" height="35"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></Text>
             </LayoutGroup>
 
             <LayoutGroup id="numberofepisodesContainer" layoutDirection="horiz" itemSpacings="[15]">
               <Poster id="numberofepisodesIcon" width="35" height="35" uri="pkg:/images/icons/35px/tv.png" />
-              <Text id="numberofepisodes" vertAlign="center" font="font:MediumSystemFont" height="35" />
+              <Text id="numberofepisodes" vertAlign="center" height="35"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></Text>
             </LayoutGroup>
 
             <LayoutGroup id="releasedContainer" layoutDirection="horiz" itemSpacings="[15]">
               <Poster id="releasedIcon" width="35" height="35" uri="pkg:/images/icons/35px/calendar.png" />
-              <Text id="released" vertAlign="center" font="font:MediumSystemFont" height="35" />
+              <Text id="released" vertAlign="center" height="35"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></Text>
             </LayoutGroup>
 
             <LayoutGroup id="ratingContainer" layoutDirection="horiz" itemSpacings="[15]">
               <Poster id="ratingIcon" width="35" height="35" uri="pkg:/images/icons/35px/rating.png" />
-              <Text id="rating" vertAlign="center" font="font:MediumSystemFont" height="35" />
+              <Text id="rating" vertAlign="center" height="35"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></Text>
             </LayoutGroup>
 
             <LayoutGroup id="communityReviewContainer" layoutDirection="horiz" itemSpacings="[15]">
               <Poster id="communityReviewIcon" height="35" width="35" uri="pkg:/images/sharp_star_white_18dp.png" />
-              <Text id="communityReview" vertAlign="center" font="font:MediumSystemFont" height="35" />
+              <Text id="communityReview" vertAlign="center" height="35"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></Text>
             </LayoutGroup>
 
             <LayoutGroup id="historyContainer" layoutDirection="horiz" itemSpacings="[15]">
               <Poster id="historyIcon" width="35" height="35" uri="pkg:/images/icons/35px/antenna.png" />
-              <ScrollingText id="history" vertAlign="center" font="font:MediumSystemFont" maxWidth="175" height="35" />
+              <ScrollingText id="history" vertAlign="center" maxWidth="175" height="35"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></ScrollingText>
             </LayoutGroup>
 
             <LayoutGroup id="genresContainer" layoutDirection="horiz" itemSpacings="[15]">
               <Poster id="genresIcon" width="35" height="35" uri="pkg:/images/icons/35px/genre.png" />
-              <ScrollingText id="genres" vertAlign="center" font="font:MediumSystemFont" maxWidth="250" height="35" />
+              <ScrollingText id="genres" vertAlign="center" maxWidth="250" height="35"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></ScrollingText>
             </LayoutGroup>
           </LayoutGroup>
 

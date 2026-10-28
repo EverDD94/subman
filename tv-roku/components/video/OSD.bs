@@ -84,7 +84,7 @@ sub init()
     m.videoControls.getChild(m.top.defaultButtonIndex).focus = true
     m.deviceInfo = CreateObject("roDeviceInfo")
 
-    m.progressBarBackground.color = ColorPalette.BLACK77
+    m.progressBarBackground.color = "0xFFFFFF40"
     m.progressBar.color = ColorPalette.HIGHLIGHT
 
     optionButtons = m.optionControls.getChildren(-1, 0)

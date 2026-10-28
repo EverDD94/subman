@@ -7,10 +7,10 @@
         id="unhideUserHeader"
         text="Unhide Users"
         horizAlign="left"
-        font="font:MediumSystemFont"
+       
         height="100"
         width="400"
-        translation="[120, 120]" />
+        translation="[120, 120]"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></Text>
 
       <LabelList
         translation="[120,220]"
@@ -25,10 +25,10 @@
       <Text
         text="Select User"
         horizAlign="center"
-        font="font:LargeSystemFont"
+       
         height="100"
         width="1920"
-        translation="[0, 170]" />
+        translation="[0, 170]"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="45" /></Text>
 
       <UserRow id="userRow" rowFocusAnimationStyle="fixedFocusWrap" translation="[130, 310]" />
 
@@ -43,10 +43,10 @@
         id="manageHiddenUsers"
         text="Manage Hidden Users"
         horizAlign="center"
-        font="font:SmallestSystemFont"
+       
         height="100"
         width="350"
-        translation="[785, 925]" />
+        translation="[785, 925]"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="27" /></Text>
     </Rectangle>
 
     <Animation id="hiddenUserAnimation" duration="0.5" repeat="false" easeFunction="linear">

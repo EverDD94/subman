@@ -7,24 +7,24 @@
       <LayoutGroup layoutDirection="horiz" itemSpacings="[15]">
         <LayoutGroup layoutDirection="vert" itemSpacings="[25]">
           <LayoutGroup layoutDirection="vert" itemSpacings="[0]">
-            <ScrollingText id="albumTitle" horizAlign="left" font="font:MediumBoldSystemFont" maxWidth="1290" height="45" />
-            <ScrollingText id="artistName" horizAlign="left" font="font:MediumSystemFont" maxWidth="1290" height="23" />
+            <ScrollingText id="albumTitle" horizAlign="left" maxWidth="1290" height="45"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="36" /></ScrollingText>
+            <ScrollingText id="artistName" horizAlign="left" maxWidth="1290" height="23"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></ScrollingText>
           </LayoutGroup>
 
           <LayoutGroup layoutDirection="horiz" itemSpacings="[25]">
             <LayoutGroup layoutDirection="horiz" itemSpacings="[15]">
               <Poster id="runtimeIcon" width="35" height="35" uri="pkg:/images/icons/35px/clock.png" />
-              <Text id="runtime" vertAlign="center" font="font:MediumSystemFont" height="35" />
+              <Text id="runtime" vertAlign="center" height="35"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></Text>
             </LayoutGroup>
 
             <LayoutGroup layoutDirection="horiz" itemSpacings="[15]">
               <Poster id="numberofsongsIcon" width="35" height="35" uri="pkg:/images/icons/35px/musicNote.png" />
-              <Text id="numberofsongs" vertAlign="center" font="font:MediumSystemFont" height="35" />
+              <Text id="numberofsongs" vertAlign="center" height="35"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></Text>
             </LayoutGroup>
 
             <LayoutGroup layoutDirection="horiz" itemSpacings="[15]">
               <Poster id="releasedIcon" width="35" height="35" uri="pkg:/images/icons/35px/calendar.png" />
-              <Text id="released" vertAlign="center" font="font:MediumSystemFont" height="35" />
+              <Text id="released" vertAlign="center" height="35"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></Text>
             </LayoutGroup>
 
             <LayoutGroup layoutDirection="horiz" itemSpacings="[15]">
@@ -52,11 +52,11 @@
         <Rectangle id='songListRect' translation="[-30, 0]" width="1720" height="510">
 
           <LayoutGroup id="tableHeading" layoutDirection="horiz" itemSpacings="[20]" translation="[45, 20]">
-            <Text id="trackHeading" font="font:SmallBoldSystemFont" horizAlign="left" vertAlign="center" text="Track" width="80" />
+            <Text id="trackHeading" horizAlign="left" vertAlign="center" text="Track" width="80"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="33" /></Text>
             <Rectangle width="32" height="30" color="0x00000000" />
-            <Text id="titleHeading" font="font:SmallBoldSystemFont" horizAlign="left" vertAlign="center" text="Title" width="1238" />
-            <Text id="lengthHeading" font="font:SmallBoldSystemFont" horizAlign="right" vertAlign="center" text="Length" width="120" />
-            <Text id="playsHeading" font="font:SmallBoldSystemFont" horizAlign="right" vertAlign="center" text="Plays" width="80" />
+            <Text id="titleHeading" horizAlign="left" vertAlign="center" text="Title" width="1238"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="33" /></Text>
+            <Text id="lengthHeading" horizAlign="right" vertAlign="center" text="Length" width="120"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="33" /></Text>
+            <Text id="playsHeading" horizAlign="right" vertAlign="center" text="Plays" width="80"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="33" /></Text>
           </LayoutGroup>
 
           <AlbumTrackList

@@ -2,14 +2,14 @@
 <component name="SongItem" extends="Group">
   <children>
     <LayoutGroup layoutDirection="horiz" horizAlignment="left" itemSpacings="[20]" translation="[0, 0]">
-      <Text id="trackNumber" horizAlign="left" vertAlign="center" font="font:SmallSystemFont" width="80" height="50" />
+      <Text id="trackNumber" horizAlign="left" vertAlign="center" width="80" height="50"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="33" /></Text>
       <Rectangle width="32" height="50" color="0x00000000">
         <Poster id="favoriteIcon" translation="[2, 11]" uri="pkg:/images/icons/heart.png" width="28" height="28" visible="false" />
-        <Text id="favoriteStatusUnknown" horizAlign="center" vertAlign="center" font="font:SmallBoldSystemFont" width="32" height="50" text="?" visible="false" />
+        <Text id="favoriteStatusUnknown" horizAlign="center" vertAlign="center" width="32" height="50" text="?" visible="false"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="33" /></Text>
       </Rectangle>
-      <ScrollingText id="itemText" horizAlign="left" vertAlign="center" font="font:SmallSystemFont" maxWidth="1238" height="50" />
-      <Text id="tracklength" horizAlign="right" vertAlign="center" font="font:SmallSystemFont" width="120" height="50" />
-      <Text id="playCount" horizAlign="right" vertAlign="center" font="font:SmallSystemFont" width="80" height="50" />
+      <ScrollingText id="itemText" horizAlign="left" vertAlign="center" maxWidth="1238" height="50"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="33" /></ScrollingText>
+      <Text id="tracklength" horizAlign="right" vertAlign="center" width="120" height="50"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="33" /></Text>
+      <Text id="playCount" horizAlign="right" vertAlign="center" width="80" height="50"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="33" /></Text>
     </LayoutGroup>
   </children>
   <interface>

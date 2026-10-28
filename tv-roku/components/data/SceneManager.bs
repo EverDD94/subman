@@ -201,7 +201,7 @@ sub registerOverhangData(group)
         return
     end if
 
-    if group.isSubType("MovieDetails")
+    if group.isSubType("MovieDetails") or group.isSubType("Settings")
         m.overhang.visible = false
         return
     end if

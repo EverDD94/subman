@@ -37,11 +37,11 @@
 
   <children>
     <LayoutGroup id="bufferingVideoInfo" layoutDirection="vert" translation="[103,61]">
-      <ScrollingText id="bufferingItemTitle" font="font:LargeBoldSystemFont" maxWidth="1400" />
+      <ScrollingText id="bufferingItemTitle" maxWidth="1400"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="45" /></ScrollingText>
       <LayoutGroup id="bufferingVideoInfo" layoutDirection="horiz" translation="[103,61]">
-        <Text id="bufferingItemSeason" font="font:MediumSystemFont" color="0xffffffFF" />
-        <Text id="bufferingItemEpisode" font="font:MediumSystemFont" color="0xffffffFF" />
-        <Text id="bufferingItemEpisodeEnd" font="font:MediumSystemFont" color="0xffffffFF" />
+        <Text id="bufferingItemSeason" color="0xffffffFF"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></Text>
+        <Text id="bufferingItemEpisode" color="0xffffffFF"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></Text>
+        <Text id="bufferingItemEpisodeEnd" color="0xffffffFF"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></Text>
       </LayoutGroup>
     </LayoutGroup>
 
@@ -54,19 +54,19 @@
     <PlaybackCastPopup id="castPopup" visible="false" />
 
     <Rectangle id="chapterList" visible="false" color="0x00000098" width="400" height="380" translation="[103,210]">
-      <LabelList id="chapterMenu" itemSpacing="[0,20]" numRows="5" font="font:SmallSystemFont" itemSize="[315,40]" translation="[40,20]">
+      <LabelList id="chapterMenu" itemSpacing="[0,20]" numRows="5" itemSize="[315,40]" translation="[40,20]"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="33" />
         <ContentNode id="chapterContent" role="content" />
       </LabelList>
     </Rectangle>
 
-    <Text id="videoEndingTime" font="font:SmallSystemFont" color="0xffffffFF" horizAlign="right" width="200" translation="[1617,900]" visible="false" />
+    <Text id="videoEndingTime" color="0xffffffFF" horizAlign="right" width="200" translation="[1617,900]" visible="false"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="33" /></Text>
 
     <Rectangle id="nextUp" visible="false" color="0x000000CC" height="144" width="785" translation="[1000, 920]">
       <Poster id="nextItemPoster" width="150" height="124" translation="[10, 10]" />
       <LayoutGroup layoutDirection="vert" horizAlignment="left" itemSpacings="[10, 10]" translation="[180, 15]">
-        <Text text="Next Up" color="#FFFFFF" font="font:SmallBoldSystemFont" horizAlign="left" vertAlign="center" height="35" />
-        <ScrollingText id="nextItemSeriesTitle" maxWidth="300" color="#FFFFFF" font="font:SmallBoldSystemFont" horizAlign="left" vertAlign="top" height="35" />
-        <ScrollingText id="nextItemEpisodeTitle" maxWidth="300" color="#AAAAAA" font="font:SmallBoldSystemFont" horizAlign="left" vertAlign="top" height="35" />
+        <Text text="Next Up" color="#FFFFFF" horizAlign="left" vertAlign="center" height="35"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="33" /></Text>
+        <ScrollingText id="nextItemSeriesTitle" maxWidth="300" color="#FFFFFF" horizAlign="left" vertAlign="top" height="35"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="33" /></ScrollingText>
+        <ScrollingText id="nextItemEpisodeTitle" maxWidth="300" color="#AAAAAA" horizAlign="left" vertAlign="top" height="35"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="33" /></ScrollingText>
       </LayoutGroup>
     </Rectangle>
 
@@ -111,6 +111,6 @@
     <Timer id="leftTenSecondSkipTimer" repeat="true" duration="0.5" />
     <Timer id="rightTenSecondSkipTimer" repeat="true" duration="0.5" />
 
-    <Label id="spinnerPercent" text="0%" visible="false" horizAlign="center" vertAlign="center" height="100" width="100" font="font:SmallBoldSystemFont" />
+    <Label id="spinnerPercent" text="0%" visible="false" horizAlign="center" vertAlign="center" height="100" width="100"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="33" /></Label>
   </children>
 </component>

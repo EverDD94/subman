@@ -9,7 +9,7 @@
       itemSpacing="[20, 20]"
       drawFocusFeedback="true"
     />
-    <Text translation="[0,540]" id="emptyText" font="font:LargeSystemFont" width="1910" horizAlign="center" vertAlign="center" height="64" visible="false" />
+    <Text translation="[0,540]" id="emptyText" width="1910" horizAlign="center" vertAlign="center" height="64" visible="false"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="45" /></Text>
     <ItemGridOptions id="options" visible="false" />
 
     <VoiceTextEditBox id="VoiceBox" visible="true" width="0" translation="[33, 40]" />

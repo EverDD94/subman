@@ -36,6 +36,9 @@ sub init()
     m.extraRows = []
     m.askTask = CreateObject("roSGNode", "EfTask")
     m.askTask.observeField("result", "onAsked")
+    m.findTask = CreateObject("roSGNode", "EfTask")
+    m.findTask.job = "findOwned"
+    m.findTask.observeField("result", "onFound")
     m.toast = m.top.findNode("toast")
     m.toastText = m.top.findNode("toastText")
     m.toastBg = m.top.findNode("toastBg")
@@ -153,23 +156,53 @@ sub onItemSelected()
     ef.go({ target: "details", id: node.json.Id })
 end sub
 
-' Not in the library: ask for it (the admin's goes straight to downloads)
+' Already in the library: open it. Not yet: ask first, then download (admin) or request it (everyone else)
 sub askFor(s as object)
     if s.have
-        showToast("Ya está en tu biblioteca: " + s.title)
+        m.findTask.args = { kind: s.kind, tmdb: s.tmdb, title: s.title }
+        m.findTask.control = "STOP"
+        m.findTask.control = "RUN"
         return
     end if
     if s.asked
         showToast((ef.isAdmin() ? "Ya está en Descargas: " : "Ya lo pediste: ") + s.title)
         return
     end if
+    m.asking = s
+    dialog = CreateObject("roSGNode", "StandardMessageDialog")
+    dialog.title = s.title
+    dialog.message = ["Esto no está en tu biblioteca. " + (ef.isAdmin() ? "¿Quieres descargarlo?" : "¿Quieres pedirlo?")]
+    dialog.buttons = [ef.isAdmin() ? "Sí, descargar" : "Sí, pedirlo", "No"]
+    dialog.observeField("buttonSelected", "onAskAnswer")
+    dialog.observeField("wasClosed", "onAskClosed")
+    m.top.getScene().dialog = dialog
+end sub
+
+sub onAskAnswer(event as object)
+    dialog = event.getRoSGNode()
+    yes = dialog.buttonSelected = 0
+    dialog.close = true
+    if not yes then return
+    s = m.asking
     item = { kind: s.kind, tmdb: s.tmdb, title: s.title, poster: s.poster, overview: s.overview }
     if isValid(s.LookupCI("year")) then item.year = s.year
-    m.asking = s
     m.askTask.job = "vt"
     m.askTask.args = { path: "/api/pedir/ask", body: { item: item } }
     m.askTask.control = "STOP"
     m.askTask.control = "RUN"
+end sub
+
+sub onAskClosed()
+    m.rows.setFocus(true)
+end sub
+
+sub onFound()
+    r = m.findTask.result
+    if isValid(r) and isValid(r.LookupCI("id"))
+        ef.go({ target: "details", id: r.id })
+    else
+        showToast("No la encuentro en tu biblioteca")
+    end if
 end sub
 
 sub onAsked()

@@ -35,6 +35,8 @@ sub doJob()
         r = setUserData(`Users/${efUid()}/FavoriteItems/${a.id}`, a.value)
     else if job = "played"
         r = setUserData(`Users/${efUid()}/PlayedItems/${a.id}`, a.value)
+    else if job = "findOwned"
+        r = findOwned(a)
     else if job = "homeExtra"
         r = loadHomeExtra()
     else if job = "vt"
@@ -125,6 +127,25 @@ function getJellyfinAll(calls as object) as object
         out.push(ef.getJellyfin(c[0], c[1]))
     end for
     return out
+end function
+
+' The library item for a TheMovieDB title we already have: by its TheMovieDB id, else by name
+function findOwned(a as object) as object
+    kind = "Movie"
+    if a.kind = "tv" then kind = "Series"
+    base = { Recursive: true, IncludeItemTypes: kind, Limit: 1, EnableTotalRecordCount: false }
+    p = {}
+    p.Append(base)
+    p.AnyProviderIdEquals = "Tmdb." + a.tmdb.toStr()
+    found = listOf(ef.getJellyfin(`Users/${efUid()}/Items`, p))
+    if found.count() = 0
+        p = {}
+        p.Append(base)
+        p.SearchTerm = a.title
+        found = listOf(ef.getJellyfin(`Users/${efUid()}/Items`, p))
+    end if
+    if found.count() = 0 then return { id: invalid }
+    return { id: found[0].Id }
 end function
 
 ' Rows from outside the library (releases, streaming platforms), shaped like Jellyfin items so cards and hero show them

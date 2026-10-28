@@ -2605,6 +2605,12 @@ def serve(config_path: str, port: int | None = None) -> None:
     threading.Thread(target=app.downloader, name="descargas", daemon=True).start()
     threading.Thread(target=app.notice_watch, name="avisos", daemon=True).start()
     threading.Thread(target=bot.Bot(app).run, name="bot", daemon=True).start()
+    def warm():  # la portada de la tele ya preparada para la primera vez que se abre
+        try:
+            app._dsc(lambda d: (d.tv_home(), {})[1])
+        except Exception as e:
+            log.info("portada de la tele sin preparar: %s", e)
+    threading.Thread(target=warm, name="portada-tele", daemon=True).start()
     httpd = ThreadingHTTPServer(("0.0.0.0", port), make_handler(app))
     log.info("Videotecario en http://<ip-del-nas>:%d%s", port,
              " (pide usuario y contraseña)" if auth.enabled(cfg) else "")

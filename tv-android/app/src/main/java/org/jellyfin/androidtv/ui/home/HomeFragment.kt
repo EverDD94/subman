@@ -48,6 +48,7 @@ class HomeFragment : Fragment() {
 		val rowsFocusRequester = remember { FocusRequester() }
 		LaunchedEffect(rowsFocusRequester) { rowsFocusRequester.requestFocus() }
 
+		androidx.compose.foundation.layout.Box {
 		Row {
 			MainRail(MainToolbarActiveButton.Home)
 
@@ -85,6 +86,8 @@ class HomeFragment : Fragment() {
 				}
 			)
 			}
+		}
+		org.jellyfin.androidtv.ui.everflix.LoadingE()
 		}
 	}
 

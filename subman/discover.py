@@ -750,6 +750,60 @@ class Discover:
         with ThreadPoolExecutor(10) as ex:
             return list(ex.map(one, PLATFORMS))
 
+    HOME_PLATFORMS = ("netflix", "prime", "apple", "hbo", "disney")
+    _home_cache: dict = {}
+
+    def tv_home(self) -> list[dict]:
+        """Filas de fuera de la biblioteca para la portada de la tele: estrenos del último mes y lo nuevo
+        en las plataformas grandes, películas y series mezcladas. Se guarda 6 horas (TheMovieDB no cambia tanto)."""
+        import time
+        from concurrent.futures import ThreadPoolExecutor
+        hit = Discover._home_cache.get(self.language)
+        if hit and time.time() - hit[0] < 6 * 3600:
+            rows = hit[1]
+        else:
+            today = date.today()
+
+            def releases(kind):
+                field = "primary_release_date" if kind == "movie" else "first_air_date"
+                res = self.api._get(f"/discover/{kind}", page=1, sort_by="popularity.desc", include_adult="false",
+                                    **{f"{field}.gte": (today - timedelta(days=31)).isoformat(),
+                                       f"{field}.lte": today.isoformat(), "vote_count.gte": 3})
+                return [card(kind, d, self.genres()) for d in res.get("results", []) if d.get("id") and d.get("poster_path")]
+
+            def platform(pid, kind):
+                res = self._platform_ask(pid, kind, True, 1)
+                return [card(kind, d, self.genres()) for d in res.get("results", []) if d.get("id") and d.get("poster_path")]
+
+            def mix(a, b):  # película, serie, película… para que la fila no sea toda de un tipo
+                out = []
+                for i in range(max(len(a), len(b))):
+                    out += a[i:i + 1] + b[i:i + 1]
+                return out
+
+            with ThreadPoolExecutor(12) as ex:
+                rel = [ex.submit(releases, k) for k in KINDS]
+                plats = {pid: [ex.submit(platform, pid, k) for k in KINDS] for pid in self.HOME_PLATFORMS}
+
+                def got(fs):
+                    lists = []
+                    for f in fs:
+                        try:
+                            lists.append(f.result())
+                        except Exception as e:
+                            log.warning("portada de la tele: %s", e)
+                            lists.append([])
+                    return mix(*lists)
+                rows = [{"id": "estrenos", "title": "Estrenos del mundo", "items": got(rel)}]
+                rows += [{"id": pid, "title": f"Lo nuevo en {PLATFORMS[pid]['name']}", "items": got(plats[pid])}
+                         for pid in self.HOME_PLATFORMS]
+            Discover._home_cache[self.language] = (time.time(), rows)
+        idx = self.owned_index()
+        keep = ("kind", "tmdb", "title", "year", "poster", "backdrop", "overview", "genres", "vote")
+        return [{"id": r["id"], "title": r["title"],
+                 "items": [{k: c.get(k) for k in keep} | {"have": self.in_library(c, idx)} for c in r["items"]]}
+                for r in rows if r["items"]]
+
     def stats(self) -> dict:
         rows = self.db.execute("SELECT rating, COUNT(*) n FROM discover WHERE rating IS NOT NULL GROUP BY rating")
         return {str(r["rating"]): r["n"] for r in rows}

@@ -37,6 +37,7 @@ sub onContent()
         m.title.text = item.LookupCI("Name") ?? ""
         year = item.LookupCI("ProductionYear")
         m.subtitle.text = isValid(year) ? year.toStr() : ""
+        if isValid(item.LookupCI("efNote")) then m.subtitle.text = item.efNote
     end if
 
     data = item.LookupCI("UserData")

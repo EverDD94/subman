@@ -35,6 +35,8 @@ sub doJob()
         r = setUserData(`Users/${efUid()}/FavoriteItems/${a.id}`, a.value)
     else if job = "played"
         r = setUserData(`Users/${efUid()}/PlayedItems/${a.id}`, a.value)
+    else if job = "homeExtra"
+        r = loadHomeExtra()
     else if job = "vt"
         r = videotecario(a.path, a.body)
     else if job = "faces"
@@ -70,7 +72,7 @@ function decorateAll(items as object) as object
     return items
 end function
 
-' Same rows as "Para ti" on Google TV
+' Same rows as the Google TV home
 function loadHome() as object
     rows = []
     common = { Fields: ef.fields(), ImageTypeLimit: 1, EnableTotalRecordCount: false }
@@ -86,10 +88,26 @@ function loadHome() as object
     forYou = { Recursive: true, IncludeItemTypes: "Series,Movie", SortOrder: "Descending", Limit: 30 }
     forYou.Append(common)
 
+    ' Picks from your library by what you watch most; with no history, a slice that moves on each day
+    p = {}
+    p.Append(forYou)
+    p.IsPlayed = false
+    genres = favouriteGenres()
+    if genres.count() > 0
+        p.Genres = genres.join("|")
+        p.SortBy = "CommunityRating"
+    else
+        date = CreateObject("roDateTime")
+        date.ToLocalTime()
+        p.SortBy = "PremiereDate"
+        p.StartIndex = (dayOfYearOf(date) * 7) mod 120
+    end if
+    addRow(rows, "Recomendado para ti", ef.getJellyfin(`Users/${efUid()}/Items`, p))
+
     p = {}
     p.Append(forYou)
     p.SortBy = "DateCreated"
-    addRow(rows, "Novedades", ef.getJellyfin(`Users/${efUid()}/Items`, p))
+    addRow(rows, "Lo último en tu biblioteca", ef.getJellyfin(`Users/${efUid()}/Items`, p))
 
     p = {}
     p.Append(forYou)
@@ -97,24 +115,80 @@ function loadHome() as object
     p.IsFavorite = true
     addRow(rows, "Mi lista", ef.getJellyfin(`Users/${efUid()}/Items`, p))
 
-    ' Same picks all day long: a slice of what you haven't seen that moves on each day
-    date = CreateObject("roDateTime")
-    date.ToLocalTime()
-    dayOfYear = dayOfYearOf(date)
-    p = {}
-    p.Append(forYou)
-    p.SortBy = "PremiereDate"
-    p.IsPlayed = false
-    p.StartIndex = (dayOfYear * 7) mod 120
-    addRow(rows, "Recomendado para ti", ef.getJellyfin(`Users/${efUid()}/Items`, p))
-
-    p = {}
-    p.Append(forYou)
-    p.SortBy = "CommunityRating"
-    p.IsPlayed = false
-    addRow(rows, "Lo más valorado que no has visto", ef.getJellyfin(`Users/${efUid()}/Items`, p))
-
     return { rows: rows }
+end function
+
+' Rows from outside the library (releases, streaming platforms), shaped like Jellyfin items so cards and hero show them
+function loadHomeExtra() as object
+    rows = []
+    res = videotecario("/api/pedir/home", invalid)
+    if not res.ok or not isValid(res.data) or not isValid(res.data.LookupCI("rows")) then return { rows: rows }
+    admin = ef.isAdmin()
+    for each row in res.data.rows
+        items = []
+        for each s in row.items
+            items.push(suggestionItem(s, admin))
+        end for
+        if items.count() > 0 then rows.push({ title: row.title, items: items })
+    end for
+    return { rows: rows }
+end function
+
+function suggestionItem(s as object, admin as boolean) as object
+    kind = "Movie"
+    if s.kind = "tv" then kind = "Series"
+    note = admin ? "Descargar" : "Pedir"
+    if s.LookupCI("asked") <> invalid then note = admin ? "En Descargas" : "Ya lo pediste"
+    if s.LookupCI("have") = true then note = "En tu biblioteca"
+    year = s.LookupCI("year")
+    if isValid(year) then note = year.toStr() + " · " + note
+    image = s.LookupCI("backdrop") ?? ""
+    if image = "" then image = s.LookupCI("poster") ?? ""
+    item = { Id: "tmdb-" + s.kind + s.tmdb.toStr(), Name: s.title, Type: kind, Overview: s.LookupCI("overview") ?? "",
+        Genres: s.LookupCI("genres") ?? [], efThumb: image, efBackdrop: image, efPoster: s.LookupCI("poster") ?? "", efNote: note,
+        efSuggestion: { kind: s.kind, tmdb: s.tmdb, title: s.title, poster: s.LookupCI("poster") ?? "", overview: s.LookupCI("overview") ?? "", have: s.LookupCI("have") = true, asked: s.LookupCI("asked") <> invalid } }
+    if isValid(year) then item.ProductionYear = year
+    if isValid(year) then item.efSuggestion.year = year
+    return item
+end function
+
+' The genres of what you watched lately (movies, and the series of your episodes), most watched first
+function favouriteGenres() as object
+    counts = {}
+    played = listOf(ef.getJellyfin(`Users/${efUid()}/Items`, { Recursive: true, IncludeItemTypes: "Movie,Episode", IsPlayed: true, SortBy: "DatePlayed", SortOrder: "Descending", Limit: 80, Fields: "Genres", EnableTotalRecordCount: false }))
+    perSeries = {}
+    for each item in played
+        if item.LookupCI("Type") = "Movie"
+            for each g in (item.LookupCI("Genres") ?? [])
+                counts[g] = (counts[g] ?? 0) + 1
+            end for
+        else if isValid(item.LookupCI("SeriesId"))
+            perSeries[item.SeriesId] = (perSeries[item.SeriesId] ?? 0) + 1
+        end if
+    end for
+    if perSeries.count() > 0
+        ids = []
+        for each id in perSeries
+            ids.push(id)
+        end for
+        for each series in listOf(ef.getJellyfin(`Users/${efUid()}/Items`, { Ids: ids.join(","), Fields: "Genres" }))
+            n = perSeries.LookupCI(series.Id) ?? 1
+            if n > 5 then n = 5
+            for each g in (series.LookupCI("Genres") ?? [])
+                counts[g] = (counts[g] ?? 0) + n
+            end for
+        end for
+    end if
+    ranked = []
+    for each g in counts
+        ranked.push({ name: g, n: counts[g] })
+    end for
+    ranked.SortBy("n", "r")
+    top = []
+    for each r in ranked
+        if top.count() < 3 then top.push(r.name)
+    end for
+    return top
 end function
 
 function dayOfYearOf(date as object) as integer
@@ -229,7 +303,9 @@ function videotecarioAt(base as string, path as string, body as dynamic) as obje
         started = req.AsyncGetToString()
     end if
     if not started then return { ok: false, error: "Videotecario no responde" }
-    msg = wait(6000, port)
+    timeout = 6000
+    if path = "/api/pedir/home" then timeout = 30000
+    msg = wait(timeout, port)
     if type(msg) <> "roUrlEvent"
         req.AsyncCancel()
         return { ok: false, error: "Videotecario no responde" }

@@ -8,7 +8,10 @@ import org.jellyfin.androidtv.data.repository.ItemRepository
 import org.jellyfin.androidtv.preference.UserPreferences
 import org.jellyfin.androidtv.ui.browsing.BrowseRowDef
 import org.jellyfin.sdk.model.api.BaseItemDto
+import org.jellyfin.sdk.api.client.ApiClient
+import org.jellyfin.sdk.api.client.extensions.itemsApi
 import org.jellyfin.sdk.model.api.BaseItemKind
+import org.jellyfin.sdk.model.api.ItemFields
 import org.jellyfin.sdk.model.api.ItemSortBy
 import org.jellyfin.sdk.model.api.MediaType
 import org.jellyfin.sdk.model.api.SortOrder
@@ -82,6 +85,7 @@ class HomeFragmentHelper(
 		unwatchedOnly: Boolean = false,
 		favoritesOnly: Boolean = false,
 		startIndex: Int? = null,
+		genres: Collection<String>? = null,
 	): HomeFragmentRow {
 		val query = GetItemsRequest(
 			recursive = true,
@@ -89,6 +93,7 @@ class HomeFragmentHelper(
 			isPlayed = if (unwatchedOnly) false else null,
 			isFavorite = if (favoritesOnly) true else null,
 			startIndex = startIndex,
+			genres = genres,
 			sortBy = setOf(sortBy),
 			sortOrder = setOf(SortOrder.DESCENDING),
 			fields = ItemRepository.browseFields,
@@ -98,6 +103,31 @@ class HomeFragmentHelper(
 		)
 
 		return HomeFragmentBrowseRowDefRow(BrowseRowDef(title, query, 0, false, true, arrayOf(ChangeTriggerType.LibraryUpdated, ChangeTriggerType.FavoriteUpdate)))
+	}
+
+	/** The genres of what you watched lately (movies and the series of your episodes), most watched first. */
+	suspend fun favouriteGenres(api: ApiClient): List<String> {
+		val played by api.itemsApi.getItems(
+			GetItemsRequest(
+				recursive = true,
+				includeItemTypes = setOf(BaseItemKind.MOVIE, BaseItemKind.EPISODE),
+				isPlayed = true,
+				sortBy = setOf(ItemSortBy.DATE_PLAYED),
+				sortOrder = setOf(SortOrder.DESCENDING),
+				fields = setOf(ItemFields.GENRES),
+				limit = 80,
+				enableTotalRecordCount = false,
+			)
+		)
+		val counts = mutableMapOf<String, Int>()
+		played.items.filter { it.type == BaseItemKind.MOVIE }.forEach { m -> m.genres.orEmpty().forEach { counts.merge(it, 1, Int::plus) } }
+		// Episodes have no genres of their own: each series counts as many times as you watched it
+		val episodesPerSeries = played.items.filter { it.type == BaseItemKind.EPISODE }.mapNotNull { it.seriesId }.groupingBy { it }.eachCount()
+		if (episodesPerSeries.isNotEmpty()) {
+			val series by api.itemsApi.getItems(GetItemsRequest(ids = episodesPerSeries.keys, fields = setOf(ItemFields.GENRES)))
+			series.items.forEach { s -> s.genres.orEmpty().forEach { counts.merge(it, minOf(episodesPerSeries[s.id] ?: 1, 5), Int::plus) } }
+		}
+		return counts.entries.sortedByDescending { it.value }.take(3).map { it.key }
 	}
 
 	fun loadOnNow(): HomeFragmentRow {

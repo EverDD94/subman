@@ -2290,6 +2290,7 @@ def make_handler(app: App):
             u, q.get("section", ["novedades"])[0], int(q.get("page", ["1"])[0]), q.get("q", [""])[0].strip())}),
         "/api/pedir/mine": lambda u, q: app._dsc(lambda d: {"items": app._friends().mine(u)}),
         "/api/pedir/admin": lambda u, q: app.tv_admin(u),
+        "/api/pedir/home": lambda u, q: app._dsc(lambda d: {"rows": app._friends().tv_home(u)}),
     }
     friend_post = {
         "/api/pedir/notices/read": lambda u, b: (app._notices().read_all(u["id"]), {"ok": True})[1],

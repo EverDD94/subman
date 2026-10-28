@@ -1,20 +1,19 @@
 import "pkg:/components/everflix/EfCommon.bs"
 import "pkg:/source/utils/misc.bs"
 
-' Big libraries load in pages so the first screen comes up fast
-const PAGE_SIZE = 100
+' Big libraries load in pages so the first screen comes up fast; the genre rows come once all is loaded
+const PAGE_SIZE = 200
 
 sub init()
     m.top.overhangVisible = false
     m.top.optionsAvailable = false
     m.backdrop = m.top.findNode("backdrop")
     m.hero = m.top.findNode("hero")
-    m.heading = m.top.findNode("heading")
     m.row = m.top.findNode("row")
     m.empty = m.top.findNode("empty")
     m.rail = m.top.findNode("rail")
     m.heroTimer = m.top.findNode("heroTimer")
-    m.heading.font = ef.font(ef.FONT_BOLD, 26)
+    m.row.rowLabelFont = ef.font(ef.FONT_BOLD, 26)
     m.empty.font = ef.font(ef.FONT_REGULAR, 28)
 
     m.row.observeField("rowItemFocused", "onFocused")
@@ -34,8 +33,8 @@ sub init()
     m.title = ""
     m.types = ""
     m.parentId = invalid
-    m.content = CreateObject("roSGNode", "ContentNode")
-    m.rowNode = m.content.createChild("ContentNode")
+    m.items = []
+    m.content = invalid
 end sub
 
 sub onSetup()
@@ -103,30 +102,114 @@ sub onPage()
     m.total = r.total
     first = m.loaded = 0
     for each item in r.items
-        m.rowNode.appendChild(ef.itemNode(item))
+        m.items.push(item)
     end for
-    m.loaded = m.rowNode.getChildCount()
-    count = m.total
-    if m.loaded > count then count = m.loaded
-    m.heading.text = UCase(`${m.title} · ${count}`)
+    m.loaded = m.items.count()
+    done = r.items.count() = 0 or m.loaded >= m.total
     m.empty.visible = m.loaded = 0
     m.empty.text = "No hay nada aquí todavía."
+    if first or done then buildRows(done)
     if first
-        m.row.content = m.content
         if m.loaded > 0 and not m.rail.hasFocus() then m.row.setFocus(true)
         showFocused()
     end if
+    if not done then loadMore()
 end sub
 
+' Main genre (the first one Jellyfin lists) → row. Names come in Spanish or English depending on the server's
+' metadata language, and TMDb series use their own combined genres ("Action & Adventure").
+function genreRows() as object
+    return [
+        ["Para reír", ["comedia", "comedy"]],
+        ["Acción y aventura", ["acción", "accion", "action", "aventura", "adventure", "action & adventure"]],
+        ["Para pasar miedo", ["terror", "horror"]],
+        ["Ciencia ficción y fantasía", ["ciencia ficción", "ciencia ficcion", "science fiction", "sci-fi", "fantasía", "fantasia", "fantasy", "sci-fi & fantasy"]],
+        ["Suspense y misterio", ["suspense", "thriller", "misterio", "mystery", "suspenso"]],
+        ["Crimen", ["crimen", "crime"]],
+        ["Para enamorarse", ["romance", "romántica", "romantica"]],
+        ["Drama", ["drama"]],
+        ["Animación", ["animación", "animacion", "animation", "anime"]],
+        ["Para ver en familia", ["familia", "family", "kids", "infantil", "niños"]],
+        ["Historia y guerra", ["historia", "history", "bélica", "belica", "war", "war & politics", "guerra y política"]],
+        ["Del oeste", ["western", "wéstern"]],
+        ["Música", ["música", "musica", "music", "musical"]],
+        ["De verdad", ["documental", "documentary", "reality", "telerrealidad"]]
+    ]
+end function
+
+' "Recién añadidas" first, then one row per main genre (largest first), and whatever doesn't fit at the end.
+' Until everything has loaded there is only the first row.
+sub buildRows(complete as boolean)
+    focus = m.row.rowItemFocused
+    content = CreateObject("roSGNode", "ContentNode")
+    recent = content.createChild("ContentNode")
+    recent.title = UCase(`${m.title} · Recién añadidas`)
+    for i = 0 to m.items.count() - 1
+        if i >= 30 and complete then exit for
+        recent.appendChild(ef.itemNode(m.items[i]))
+    end for
+    if complete
+        lookup = {}
+        rows = genreRows()
+        for each row in rows
+            for each g in row[1]
+                lookup[g] = row[0]
+            end for
+        end for
+        groups = {}
+        for each item in m.items
+            name = "Más títulos"
+            for each g in (item.LookupCI("Genres") ?? [])
+                hit = lookup[LCase(g.trim())]
+                if isValid(hit)
+                    name = hit
+                    exit for
+                end if
+            end for
+            if not isValid(groups[name]) then groups[name] = []
+            groups[name].push(item)
+        end for
+        ordered = []
+        for each row in rows
+            if isValid(groups[row[0]]) then ordered.push({ name: row[0], items: groups[row[0]] })
+        end for
+        ordered = sortBySize(ordered)
+        if isValid(groups["Más títulos"]) then ordered.push({ name: "Más títulos", items: groups["Más títulos"] })
+        for each row in ordered
+            node = content.createChild("ContentNode")
+            node.title = UCase(`${row.name} · ${row.items.count()}`)
+            for each item in row.items
+                node.appendChild(ef.itemNode(item))
+            end for
+        end for
+    end if
+    m.content = content
+    m.row.content = content
+    ' keep the place in the first row when the genre rows arrive
+    if isValid(focus) and focus.count() = 2 and focus[0] = 0 and focus[1] > 0 and focus[1] < recent.getChildCount()
+        m.row.jumpToRowItem = [0, focus[1]]
+    end if
+end sub
+
+function sortBySize(rows as object) as object
+    for each r in rows
+        r.size = r.items.count()
+    end for
+    rows.sortBy("size", "r")
+    return rows
+end function
+
 function focusedItem() as dynamic
+    if not isValid(m.content) then return invalid
     f = m.row.rowItemFocused
-    if not isValid(f) or f.count() < 2 then return m.rowNode.getChild(0)
-    return m.rowNode.getChild(f[1])
+    rowNode = m.content.getChild(0)
+    if not isValid(f) or f.count() < 2 then return rowNode.getChild(0)
+    rowNode = m.content.getChild(f[0])
+    if not isValid(rowNode) then return invalid
+    return rowNode.getChild(f[1])
 end function
 
 sub onFocused()
-    f = m.row.rowItemFocused
-    if isValid(f) and f.count() = 2 and f[1] >= m.loaded - 20 then loadMore()
     m.heroTimer.control = "stop"
     m.heroTimer.control = "start"
 end sub

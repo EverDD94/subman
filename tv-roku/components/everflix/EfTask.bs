@@ -130,22 +130,26 @@ function getJellyfinAll(calls as object) as object
 end function
 
 ' The library item for a TheMovieDB title we already have: by its TheMovieDB id, else by name
+' The library item for a TheMovieDB title. Jellyfin may ignore AnyProviderIdEquals and answer with any item,
+' so the TheMovieDB id is checked here; if no item carries it, a search by name that matches the title exactly
 function findOwned(a as object) as object
     kind = "Movie"
     if a.kind = "tv" then kind = "Series"
-    base = { Recursive: true, IncludeItemTypes: kind, Limit: 1, EnableTotalRecordCount: false }
-    p = {}
+    tmdb = a.tmdb.toStr()
+    base = { Recursive: true, IncludeItemTypes: kind, Fields: "ProviderIds", EnableTotalRecordCount: false }
+    p = { AnyProviderIdEquals: "Tmdb." + tmdb, Limit: 20 }
     p.Append(base)
-    p.AnyProviderIdEquals = "Tmdb." + a.tmdb.toStr()
-    found = listOf(ef.getJellyfin(`Users/${efUid()}/Items`, p))
-    if found.count() = 0
-        p = {}
-        p.Append(base)
-        p.SearchTerm = a.title
-        found = listOf(ef.getJellyfin(`Users/${efUid()}/Items`, p))
-    end if
-    if found.count() = 0 then return { id: invalid }
-    return { id: found[0].Id }
+    p2 = { SearchTerm: a.title, Limit: 20 }
+    p2.Append(base)
+    named = invalid
+    for each found in [listOf(ef.getJellyfin(`Users/${efUid()}/Items`, p)), listOf(ef.getJellyfin(`Users/${efUid()}/Items`, p2))]
+        for each it in found
+            ids = it.LookupCI("ProviderIds") ?? {}
+            if (ids.LookupCI("Tmdb") ?? "") = tmdb and it.LookupCI("Type") = kind then return { id: it.Id }
+            if named = invalid and LCase(it.LookupCI("Name") ?? "") = LCase(a.title) and it.LookupCI("Type") = kind then named = it.Id
+        end for
+    end for
+    return { id: named }
 end function
 
 ' Rows from outside the library (releases, streaming platforms), shaped like Jellyfin items so cards and hero show them

@@ -2885,7 +2885,7 @@ function billboard(list) {
       <h2 class="bbt">${esc(c.title)}</h2>
       <div class="meta">${meta}</div>
       ${c.overview ? `<p class="bbov">${esc(c.overview)}</p>` : ""}
-      <div class="bbacts"><button class="btn main" onclick="dscOpen('${k}')">${ico("play", "fill")}Ver la ficha</button>${rateButtons(c, k, false)}${c.have ? "" : `<button class="havebtn" onclick="dlAdd('${k}')">${ico("download")}${FRIEND ? "Pedir" : "Descargar"}</button>`}</div>
+      <div class="bbacts"><button class="btn main" onclick="dscOpen('${k}')">${ico("play", "fill")}Ver la ficha</button>${rateButtons(c, k, false)}${c.have && c.kind !== "tv" ? "" : `<button class="havebtn" onclick="dlAdd('${k}')">${ico("download")}${FRIEND ? "Pedir" : "Descargar"}</button>`}</div>
     </div>
     <button class="bbpost" onclick="dscOpen('${k}')" aria-label="Ver la ficha de ${esc(c.title)}" style="border:0;padding:0;cursor:pointer">${c.poster ? `<img src="${esc(c.poster)}" alt="">` : ""}</button>
     ${list.length > 1 ? `<div class="bbdots">${list.map((x, i) => `<button class="${i === dsc.bb ? "on" : ""}" onclick="bbShow(${i})" aria-label="${esc(x.title)}"></button>`).join("")}</div>` : ""}
@@ -2914,14 +2914,14 @@ function tile(c, quick) {
   const k = c.kind + c.tmdb, open = dsc.openTile === k;
   const img = c.poster ? `<img loading="lazy" src="${esc(c.poster)}" alt="" draggable="false">` : `<div class="noimg">${esc(c.title)}</div>`;
   const sub = [c.year, (c.genres || [])[0], c.kind === "tv" ? "Serie" : ""].filter(Boolean).join(" · ");
-  const acts = quick && !peekOn() ? `<div class="tquick">${rateButtons(c, k, false)}${c.have ? "" : `<button class="havebtn" onclick="dlAdd('${k}')" title="${DL}" aria-label="${DL}">${ico("download")}</button>`}</div>` : "";
+  const acts = quick && !peekOn() ? `<div class="tquick">${rateButtons(c, k, false)}${c.have && c.kind !== "tv" ? "" : `<button class="havebtn" onclick="dlAdd('${k}')" title="${DL}" aria-label="${DL}">${ico("download")}</button>`}</div>` : "";
   return `<article class="tile ${open ? "open" : ""} ${dsc.peek === k ? "cur" : ""}" data-k="${k}"><div class="tbox"><div class="tmedia"><button onclick="tileClick(this)" aria-label="${esc(c.title)}" aria-expanded="${open}">${img}</button>${c.have ? `<span class="own" title="La tengo">${ico("check")}</span>` : ""}${open ? tileActs(c, k) : ""}</div>${acts}</div>
     <h3 class="tt">${esc(c.title)}</h3><p class="ts">${esc(sub)}</p>${dsc.section === "para-ti" && c.because && c.because.length ? `<p class="tw">${esc(becauseText(c))}</p>` : ""}</article>`;
 }
 // los botones que salen encima del póster al pincharlo
 function tileActs(c, k) {
   return `<div class="tacts">${rateButtons(c, k, false)}
-    ${c.have ? "" : `<button onclick="dlAdd('${k}')">${ico("download")}${DL}</button>`}
+    ${c.have && c.kind !== "tv" ? "" : `<button onclick="dlAdd('${k}')">${ico("download")}${DL}</button>`}
     ${c.trailer ? `<a class="tbtn" href="${esc(c.trailer)}" target="_blank" rel="noopener">${ico("play", "fill")}Ver el tráiler</a>` : ""}
     <button onclick="dscOpen('${k}')">${ico("more")}Ver la ficha</button></div>`;
 }
@@ -3001,7 +3001,7 @@ function renderPeek(anim) {
     ${c.tagline ? `<p class="tagline">${esc(c.tagline)}</p>` : ""}
     <p class="pk-ov">${esc(c.overview) || "<i>No hay resumen en español.</i>"}</p>
     ${facts.length ? `<dl class="facts">${facts.map(([a, b]) => `<dt>${a}</dt><dd>${esc(b)}</dd>`).join("")}</dl>` : ""}
-    <div class="pk-acts">${rateButtons(c, k)}${c.have ? "" : dlButton(k)}
+    <div class="pk-acts">${rateButtons(c, k)}${c.have && c.kind !== "tv" ? "" : dlButton(k)}
       ${c.trailer ? `<a class="btn main" href="${esc(c.trailer)}" target="_blank" rel="noopener">${ico("play", "fill")}Ver el tráiler</a>` : ""}
       <button class="btn sec" onclick="dscOpen('${k}')">Ver la ficha completa</button></div></div></div>`;
 }
@@ -3065,7 +3065,7 @@ function renderDetail(partial) {
         <p class="ov">${esc(c.overview) || (partial ? "" : "<i>No hay resumen.</i>")}${c.overview_lang === "en" ? ` <span class="hint">(en inglés: no hay resumen en español)</span>` : ""}</p>
         ${facts.length ? `<dl class="facts">${facts.map(([a, b]) => `<dt>${a}</dt><dd>${esc(b)}</dd>`).join("")}</dl>` : ""}
         ${c.trailer ? `<a class="trailer" href="${esc(c.trailer)}" target="_blank" rel="noopener">${ico("play", "fill")}Ver el tráiler</a>` : ""}
-        <div class="dacts">${rateButtons(c, k)}${c.have ? "" : dlButton(k)}${followBtn(c)}</div>
+        <div class="dacts">${rateButtons(c, k)}${c.have && c.kind !== "tv" ? "" : dlButton(k)}${followBtn(c)}</div>
       </div></div>
     ${cast ? `<div class="castwrap"><h3>Reparto</h3><div class="cast">${cast}</div></div>` : partial ? `<p class="empty">Cargando la ficha…</p>` : ""}`;
 }
@@ -3477,7 +3477,7 @@ function renderDeck(quiet) {
         <p class="ov">${esc(c.overview) || "<i>Sin resumen en español.</i>"}</p>
         <p style="margin:10px 0 0"><a href="#" onclick="dscOpen('${k}');return false">Ficha completa, reparto y tráiler</a></p>
         <div class="deckbtns">${b(-1, "down", "No me gusta", "nope")}${b(1, "up", "Me gusta", "like")}${b(2, "heart", "Me encanta", "love")}</div>
-        <div class="deckbtns two"><button class="btn sec" onclick="deckAnswer(0)">No la he visto</button>${c.have ? "" : dlButton(k).replace('class="havebtn', 'class="btn sec havebtn')}</div>
+        <div class="deckbtns two"><button class="btn sec" onclick="deckAnswer(0)">No la he visto</button>${c.have && c.kind !== "tv" ? "" : dlButton(k).replace('class="havebtn', 'class="btn sec havebtn')}</div>
         <p class="kbd">Atajos de teclado: 1 me encanta · 2 me gusta · 3 no me gusta · 4 no la he visto</p>
         <p class="kbd touch">Arrastra la tarjeta a la derecha si te gusta y a la izquierda si no.</p>
       </div></div></div>`;

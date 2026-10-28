@@ -606,7 +606,8 @@ class App:
 
         def work():
             try:
-                while self.dl["current"]:  # reiniciar a media descarga la cortaría (y habría que pulsar otra vez el anuncio)
+                while self.dl["current"] and "esperando que pulses" not in self.dl["message"]:  # (si sólo espera tu toque al anuncio, no hace falta esperar)
+                    # reiniciar a media descarga la cortaría (y habría que pulsar otra vez el anuncio)
                     self.upd.update(phase="esperando", message=f"esperando a que acabe la descarga de {self.dl['what']}")
                     time.sleep(20)
                 try:

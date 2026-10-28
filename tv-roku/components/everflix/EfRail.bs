@@ -176,6 +176,13 @@ sub paint()
         end if
         e.dot.visible = active and open and not focused
     end for
+    ' Scroll so the cursor stays on screen when there are many libraries
+    if m.entries.count() = 0 then return
+    y = m.entries[m.index].node.translation[1]
+    offset = y - 760
+    if offset < 0 then offset = 0
+    m.itemsGroup.translation = [24, 150 - offset]
+    m.logo.visible = offset = 0
 end sub
 
 function onKeyEvent(key as string, press as boolean) as boolean

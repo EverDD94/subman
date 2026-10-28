@@ -34,12 +34,21 @@ sub build(views as object)
         { key: "series", label: "Series", icon: "tv" },
         { divider: true }
     ]
+    ' Live TV goes last: it is hardly used
+    ordered = []
+    tail = []
     for each view in views
+        if LCase(view.LookupCI("CollectionType") ?? "") = "livetv" then tail.push(view) else ordered.push(view)
+    end for
+    ordered.Append(tail)
+    for each view in ordered
         kind = LCase(view.LookupCI("CollectionType") ?? "")
         icon = "folder"
         if kind = "tvshows" then icon = "tv"
         if kind = "movies" then icon = "movie"
         if kind = "music" then icon = "note"
+        if kind = "livetv" then icon = "antenna"
+        if kind = "boxsets" then icon = "stack"
         icon = iconFor(LCase(view.Name ?? ""), icon)
         entries.push({ key: "lib:" + view.Id, label: view.Name, icon: icon, view: view })
     end for
@@ -88,12 +97,13 @@ sub build(views as object)
                 icon.height = 34
                 icon.translation = [25, 11]
             end if
-            label = g.createChild("Label")
+            ' long names scroll so they can be read whole
+            label = g.createChild("ScrollingLabel")
             label.text = e.label
             label.font = ef.font(ef.FONT_SEMI, 25)
             label.translation = [80, 0]
             label.height = 56
-            label.width = 210
+            label.maxWidth = 190
             label.vertAlign = "center"
             label.visible = m.top.open
             dot = g.createChild("Poster")
@@ -128,7 +138,10 @@ function iconFor(name as string, fallback as string) as string
         ["academy", "cap"], ["curso", "cap"], ["clase", "cap"],
         ["docu", "globe"], ["viaje", "globe"], ["natural", "globe"],
         ["infantil", "balloon"], ["niño", "balloon"], ["nino", "balloon"], ["kids", "balloon"], ["disney", "balloon"], ["dibujo", "balloon"],
-        ["anime", "star"], ["manga", "star"],
+        ["cristian", "cross"], ["biblia", "cross"],
+        ["anime", "star"], ["animad", "star"], ["manga", "star"],
+        ["novela", "heart"], ["reality", "camera"], ["realities", "camera"], ["colecc", "stack"],
+        ["directo", "antenna"], ["live", "antenna"],
         ["músic", "note"], ["music", "note"], ["concierto", "note"], ["karaoke", "note"]
     ]
     for each w in words

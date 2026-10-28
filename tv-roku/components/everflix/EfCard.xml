@@ -2,6 +2,7 @@
 <!-- Everflix: wide 16:9 card used in the home and detail rows. -->
 <component name="EfCard" extends="Group">
   <children>
+    <Group id="art">
     <Poster id="bg" width="400" height="225" uri="pkg:/images/everflix/round8.9.png" blendColor="0x161A22FF" />
     <MaskGroup id="mask" maskUri="pkg:/images/everflix/mask-wide.png" maskSize="[400, 225]">
       <Poster id="image" width="400" height="225" loadDisplayMode="scaleToZoom" loadWidth="400" loadHeight="225" />
@@ -11,8 +12,9 @@
     <Rectangle id="progress" translation="[16, 205]" width="0" height="5" color="0x3D63E0FF" visible="false" />
     <Poster id="ring" uri="pkg:/images/everflix/focus-ring.9.png" width="400" height="225" visible="false" />
     <Poster id="watched" uri="pkg:/images/icons/check_white.png" width="32" height="32" translation="[356, 12]" visible="false" />
-    <Label id="title" translation="[2, 236]" width="396" height="30" color="0xF4F2EEFF" opacity="0.75" />
-    <Label id="subtitle" translation="[2, 266]" width="396" height="26" color="0x9AA0ADFF" />
+    </Group>
+    <Label id="title" translation="[2, 246]" width="396" height="30" color="0xF4F2EEFF" opacity="0.75" />
+    <Label id="subtitle" translation="[2, 276]" width="396" height="26" color="0x9AA0ADFF" />
   </children>
   <interface>
     <field id="itemContent" type="node" onChange="onContent" />

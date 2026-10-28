@@ -12,9 +12,6 @@ sub init()
     m.title.font = ef.font(ef.FONT_SEMI, 22)
     m.subtitle.font = ef.font(ef.FONT_REGULAR, 19)
     m.fallback.font = ef.font(ef.FONT_BOLD, 28)
-    ' only the picture grows when focused; the text stays put so it is never cut or pushed into the next row
-    m.art = m.top.findNode("art")
-    m.art.scaleRotateCenter = [0, 0]  ' grow right and down: the row cuts anything left of or above the card
 end sub
 
 sub onContent()
@@ -57,8 +54,6 @@ end sub
 
 sub onFocus()
     f = m.top.focusPercent * m.top.rowFocusPercent
-    s = 1 + 0.08 * f
-    m.art.scale = [s, s]
     m.title.opacity = 0.75 + 0.25 * f
     m.top.findNode("ring").visible = f > 0.5
 end sub

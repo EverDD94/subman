@@ -8,6 +8,7 @@ contraseña, la página los pide (ver auth.py).
 from __future__ import annotations
 
 import collections
+import concurrent.futures
 import json
 import logging
 import logging.handlers
@@ -1986,6 +1987,19 @@ class App:
                     elif p.is_file() and downloads.videos([p]) and p.name not in got_names:
                         put(p)
 
+            # colocar cada video (mover, sacar subtítulos, avisar a Jellyfin) va en segundo plano,
+            # de uno en uno, para que el siguiente capítulo empiece a bajar en cuanto acaba el anterior
+            placing = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+            pending = []
+
+            def put_bg(path: Path, _info=None):
+                pending.append(placing.submit(put, path, _info))
+
+            def placed_all():
+                placing.shutdown(wait=True)
+                for f in pending:
+                    f.result()
+
             started = set()
 
             rate = {"name": None, "t": 0.0, "done": 0}
@@ -2025,20 +2039,24 @@ class App:
                     s["ids"].append(mid)
                 note(seen=json.dumps(s))
 
-            if seen and not src:
-                log.info("descargas: %s ya lo mandó @%s; lo retomo sin pedirlo otra vez", row["title"], seen["bot"])
-                self._telegram(cfg).take(f"t.me/{seen['bot']}", seen["ids"], tmp, progress=progress,
-                                         stop=lambda: self.dl["stop"] == rid,
-                                         skip=lambda name, size: name in got_names, on_file=put)
-            elif src:
-                self._telegram(cfg).take(src["channel"], src["ids"], tmp, progress=progress,
-                                         stop=lambda: self.dl["stop"] == rid,
-                                         skip=lambda name, size: name in got_names, on_file=put)
-            else:
-                self._telegram(cfg).fetch(link[1], tmp, bot=link[0], progress=progress,
-                                          stop=lambda: self.dl["stop"] == rid, on_manual=manual,
-                                          skip=lambda name, size: name in got_names, on_file=put, on_seen=seen_file, one=row["kind"] == "movie",
-                                          remind=label if d.get("remind", True) and not by_bot else "")
+            try:
+                if seen and not src:
+                    log.info("descargas: %s ya lo mandó @%s; lo retomo sin pedirlo otra vez", row["title"], seen["bot"])
+                    self._telegram(cfg).take(f"t.me/{seen['bot']}", seen["ids"], tmp, progress=progress,
+                                             stop=lambda: self.dl["stop"] == rid,
+                                             skip=lambda name, size: name in got_names, on_file=put_bg)
+                elif src:
+                    self._telegram(cfg).take(src["channel"], src["ids"], tmp, progress=progress,
+                                             stop=lambda: self.dl["stop"] == rid,
+                                             skip=lambda name, size: name in got_names, on_file=put_bg)
+                else:
+                    self._telegram(cfg).fetch(link[1], tmp, bot=link[0], progress=progress,
+                                              stop=lambda: self.dl["stop"] == rid, on_manual=manual,
+                                              skip=lambda name, size: name in got_names, on_file=put_bg, on_seen=seen_file, one=row["kind"] == "movie",
+                                              remind=label if d.get("remind", True) and not by_bot else "")
+            finally:
+                placing.shutdown(wait=True)  # lo ya bajado se coloca aunque el bot falle
+            placed_all()
             if self.dl["stop"] == rid:
                 shutil.rmtree(tmp, ignore_errors=True)
                 status.show(f"✖️ Cancelada\n\n{label}", final=True)

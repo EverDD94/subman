@@ -246,15 +246,17 @@ class Telegram:
     # --- pedir al bot -------------------------------------------------------------------
     def fetch(self, code: str, dest: Path, bot: str = BOT, progress=lambda what, done, total: None,
               stop=lambda: False, on_manual=lambda bot: None, skip=lambda name, size: False,
-              on_file=lambda path, info: None, remind: str = "") -> list[tuple[Path, dict]]:
+              on_file=lambda path, info: None, remind: str = "", on_seen=lambda bot, mid: None) -> list[tuple[Path, dict]]:
         """Pide ``code`` al bot y descarga lo que mande en ``dest`` (una película o los capítulos de
         una temporada). Devuelve [(ruta, info)].
 
         ``skip(nombre, tamaño)``: los que ya se bajaron antes (tras un reinicio) no se vuelven a bajar.
         ``on_file(ruta, info)``: se llama en cuanto termina cada archivo (en otro hilo).
         ``remind``: si se pasa, cuando toca pulsar el anuncio te llega un recordatorio a «Mensajes guardados»
-        con ese nombre."""
-        return self._run(self._fetch(bot, code, Path(dest), progress, stop, on_manual, skip, on_file, remind),
+        con ese nombre.
+        ``on_seen(bot, id)``: en cuanto llega cada archivo, antes de bajarlo, para poder retomarlo tras un
+        reinicio sin volver a pedirlo (ni pulsar otra vez el anuncio)."""
+        return self._run(self._fetch(bot, code, Path(dest), progress, stop, on_manual, skip, on_file, remind, on_seen),
                          timeout=None)
 
     async def _remind(self, bot: str, what: str) -> None:
@@ -272,7 +274,7 @@ class Telegram:
                 log.warning("Telegram: no se pudo mandar el aviso: %s", e2)
 
     async def _fetch(self, name, code, dest, progress, stop, on_manual, skip=lambda n, s: False,
-                     on_file=lambda p, i: None, remind=""):
+                     on_file=lambda p, i: None, remind="", on_seen=lambda b, i: None):
         bot = await self.client.get_entity(name)
         last = await self.client.get_messages(bot, limit=1)
         last_id = last[0].id if last else 0
@@ -308,6 +310,7 @@ class Telegram:
                     break
                 elif kind == "file":
                     fname = _safe(m.file.name or f"phono-{m.id}.mkv")
+                    await asyncio.get_running_loop().run_in_executor(None, on_seen, name, m.id)
                     if skip(fname, m.file.size or 0):
                         log.info("Telegram: %s ya estaba bajado", fname)
                     else:

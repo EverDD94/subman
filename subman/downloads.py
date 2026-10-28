@@ -54,7 +54,8 @@ CREATE TABLE IF NOT EXISTS downloads (
     retry REAL,                    -- no-esta / error: cuándo volver a intentarlo
     bot TEXT,                      -- el bot de Telegram en el que hay que pulsar el anuncio
     got TEXT,                      -- JSON: archivos ya recibidos del bot (para no volver a bajarlos)
-    source TEXT                    -- JSON {"channel": "t.me/…", "ids": [mensajes]} si viene de un canal
+    source TEXT,                   -- JSON {"channel": "t.me/…", "ids": [mensajes]} si viene de un canal
+    seen TEXT                      -- JSON {"bot": nombre, "ids": [mensajes]}: lo que el bot ya mandó (para retomar)
 );
 """
 
@@ -66,7 +67,7 @@ class Downloads:
         self.db.executescript(SCHEMA)
         self.db.executescript(discover.SCHEMA)  # «Por conseguir» vive ahí
         cols = {r[1] for r in self.db.execute("PRAGMA table_info(downloads)")}
-        for col in ("bot", "got", "source"):  # bases de antes
+        for col in ("bot", "got", "source", "seen"):  # bases de antes
             if col not in cols:
                 self.db.execute(f"ALTER TABLE downloads ADD COLUMN {col} TEXT")
                 self.db.commit()

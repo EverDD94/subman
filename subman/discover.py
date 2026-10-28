@@ -814,6 +814,24 @@ class Discover:
                 rows = [{"id": "estrenos", "title": "Estrenos del mundo", "items": got(rel)}]
                 rows += [{"id": pid, "title": f"Lo nuevo en {PLATFORMS[pid]['name']}", "items": got(plats[pid])}
                          for pid in self.HOME_PLATFORMS]
+            # la letra de la tele no tiene chino, coreano, etc.: esos títulos salen en inglés
+            def latin(t):
+                return all(ord(ch) < 0x250 or 0x2000 <= ord(ch) < 0x2070 for ch in t)
+
+            def fix(c):
+                if latin(c["title"]):
+                    return
+                try:
+                    d = self.api._get(f"/{c['kind']}/{c['tmdb']}", language="en-US")
+                    en = d.get("title") or d.get("name") or ""
+                except Exception:
+                    en = ""
+                for t in (en, c.get("original") or ""):
+                    if t and latin(t):
+                        c["title"] = t
+                        return
+            with ThreadPoolExecutor(8) as ex:
+                list(ex.map(fix, [c for r in rows for c in r["items"]]))
             Discover._home_cache[self.language] = (time.time(), rows)
         idx = self.owned_index()
         keep = ("kind", "tmdb", "title", "year", "poster", "backdrop", "overview", "genres", "vote")

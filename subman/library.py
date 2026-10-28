@@ -240,6 +240,9 @@ class Library:
     def __init__(self, db_path: str | Path):
         self.db = sqlite3.connect(str(db_path), timeout=30)
         self.db.row_factory = sqlite3.Row
+        # WAL: leer (la página, la tele) no bloquea al que escribe (las descargas) ni al revés
+        self.db.execute("PRAGMA journal_mode = WAL")
+        self.db.execute("PRAGMA busy_timeout = 30000")
         self.db.execute("PRAGMA foreign_keys = ON")
         self.db.executescript(SCHEMA)
         cols = {r[1] for r in self.db.execute("PRAGMA table_info(renamed)")}

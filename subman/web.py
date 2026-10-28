@@ -14,6 +14,7 @@ import logging.handlers
 import os
 import re
 import shutil
+import sqlite3
 import threading
 import time
 import traceback
@@ -1925,7 +1926,18 @@ class App:
             tmp = Path(d["tmp_dir"]) / str(rid)
 
             def note(**kw):  # el cliente de Telegram llama desde su hilo: conexión a la base aparte
-                downloads.Downloads(self.library(cfg), cfg).set(rid, **kw)
+                # un fallo al apuntar el estado no debe cortar la descarga del bot
+                for k in range(3):
+                    try:
+                        lib = self.library(cfg)
+                        try:
+                            downloads.Downloads(lib, cfg).set(rid, **kw)
+                        finally:
+                            lib.db.close()
+                        return
+                    except sqlite3.OperationalError as e:
+                        log.warning("descargas: no se pudo apuntar %s (%s)", list(kw), e)
+                        time.sleep(2 * (k + 1))
 
             # lo ya recibido (antes de un reinicio o un error) no se vuelve a bajar
             got_names = json.loads(row.get("got") or "[]")

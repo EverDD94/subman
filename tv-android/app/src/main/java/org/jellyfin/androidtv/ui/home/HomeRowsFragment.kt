@@ -38,7 +38,12 @@ import org.jellyfin.androidtv.data.service.BackgroundService
 import org.jellyfin.androidtv.preference.UserPreferences
 import org.jellyfin.androidtv.preference.UserSettingPreferences
 import org.jellyfin.androidtv.ui.GridButton
+import android.widget.Toast
 import org.jellyfin.androidtv.ui.browsing.CompositeClickedListener
+import org.jellyfin.androidtv.ui.everflix.DiscoverAsked
+import org.jellyfin.androidtv.ui.everflix.DiscoverTitle
+import org.jellyfin.androidtv.ui.everflix.HomeFragmentDiscoverRow
+import org.jellyfin.androidtv.ui.everflix.Videotecario
 import org.jellyfin.androidtv.ui.browsing.CompositeSelectedListener
 import org.jellyfin.androidtv.ui.itemhandling.BaseRowItem
 import org.jellyfin.androidtv.ui.itemhandling.ItemLauncher
@@ -107,14 +112,16 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 			// Check for coroutine cancellation
 			if (!isActive) return@launch
 
-			// Everflix "Para ti": fixed rows mixing movies and series, libraries live in the side menu
+			// Everflix home: what you're watching, picks from your library by what you watch most,
+			// what just arrived, and then what's out there that you may not have yet
 			rows.add(helper.loadResumeVideo())
 			rows.add(helper.loadNextUp())
-			rows.add(helper.loadForYou("Novedades", ItemSortBy.DATE_CREATED, unwatchedOnly = false))
+			val topGenres = runCatching { helper.favouriteGenres(api) }.getOrDefault(emptyList())
+			if (topGenres.isNotEmpty()) rows.add(helper.loadForYou("Recomendado para ti", ItemSortBy.COMMUNITY_RATING, unwatchedOnly = true, genres = topGenres))
+			// Without a viewing history: a slice of what you haven't seen that moves on each day
+			else rows.add(helper.loadForYou("Recomendado para ti", ItemSortBy.PREMIERE_DATE, unwatchedOnly = true, startIndex = (java.time.LocalDate.now().dayOfYear * 7) % 120))
+			rows.add(helper.loadForYou("Lo último en tu biblioteca", ItemSortBy.DATE_CREATED, unwatchedOnly = false))
 			rows.add(helper.loadForYou("Mi lista", ItemSortBy.DATE_CREATED, favoritesOnly = true))
-			// Same picks all day long: a slice of what you haven't seen that moves on each day
-			rows.add(helper.loadForYou("Recomendado para ti", ItemSortBy.PREMIERE_DATE, unwatchedOnly = true, startIndex = (java.time.LocalDate.now().dayOfYear * 7) % 120))
-			rows.add(helper.loadForYou("Lo más valorado que no has visto", ItemSortBy.COMMUNITY_RATING, unwatchedOnly = true))
 			if (currentUser.policy?.enableLiveTvAccess == true && HomeSectionType.LIVE_TV in homesections) {
 				rows.add(HomeFragmentLiveTVRow(requireActivity(), userRepository))
 				rows.add(helper.loadOnNow())
@@ -140,6 +147,14 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 						if (previousRow != null) itemAdapter.setSiblingRow(previousRow)
 					}
 				}
+			}
+
+			// Rows from outside the library come last and load after the rest, so they never slow the home screen down
+			val admin = currentUser.policy?.isAdministrator == true
+			val discoverRows = Videotecario(api.baseUrl, api.accessToken).home()
+			withContext(Dispatchers.Main) {
+				val cardPresenter = CardPresenter()
+				for (row in discoverRows) HomeFragmentDiscoverRow(row, admin).addToRowsAdapter(requireContext(), cardPresenter, adapter as MutableObjectAdapter<Row>)
 			}
 		}
 
@@ -238,6 +253,22 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 		mediaManager.removeAudioEventListener(this)
 	}
 
+	/** Already in the library: find it. Otherwise ask for it (the admin's goes straight to downloads). */
+	private fun onDiscoverClicked(title: DiscoverTitle) {
+		if (title.have) {
+			navigationRepository.navigate(Destinations.search(title.title))
+			return
+		}
+		if (DiscoverAsked.key(title) in DiscoverAsked.keys.value) return
+		val admin = userRepository.currentUser.value?.policy?.isAdministrator == true
+		lifecycleScope.launch {
+			val error = Videotecario(api.baseUrl, api.accessToken).ask(title)
+			if (error == null) DiscoverAsked.keys.value += DiscoverAsked.key(title)
+			val done = if (admin) "A descargar: ${title.title}. Aparecerá sola en tu biblioteca." else "Pedido enviado: ${title.title}. Se descargará cuando se apruebe."
+			Toast.makeText(requireContext(), error ?: done, Toast.LENGTH_SHORT).show()
+		}
+	}
+
 	private inner class ItemViewClickedListener : OnItemViewClickedListener {
 		override fun onItemClicked(
 			itemViewHolder: Presenter.ViewHolder?,
@@ -252,6 +283,11 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 					LiveTvOption.LIVE_TV_RECORDINGS_OPTION_ID -> navigationRepository.navigate(Destinations.liveTvRecordings)
 					LiveTvOption.LIVE_TV_SERIES_OPTION_ID -> navigationRepository.navigate(Destinations.liveTvSeriesRecordings)
 				}
+			}
+
+			if (item is DiscoverTitle) {
+				onDiscoverClicked(item)
+				return
 			}
 
 			if (item !is BaseRowItem) return

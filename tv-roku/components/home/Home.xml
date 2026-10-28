@@ -29,6 +29,11 @@
     <Label id="empty" translation="[170, 640]" width="1500" color="0x9AA0ADFF" text="Cargando…" />
 
     <EfRail id="rail" active="home" />
+    <Group id="toast" translation="[700, 990]" visible="false">
+      <Poster id="toastBg" uri="pkg:/images/everflix/pill.9.png" blendColor="0x3D63E0FF" height="60" />
+      <Label id="toastText" translation="[28, 0]" height="60" vertAlign="center" color="0xFFFFFFFF" />
+    </Group>
+    <Timer id="toastTimer" duration="4" repeat="false" />
     <OptionsSlider id="options" visible="false" />
 
     <Timer id="heroTimer" duration="0.3" repeat="false" />

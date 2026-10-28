@@ -30,6 +30,9 @@ data class DiscoverTitle(
 	val asked: Boolean,
 )
 
+/** A home screen row of titles from TheMovieDB. */
+data class DiscoverRow(val title: String, val titles: List<DiscoverTitle>)
+
 /** Something the others asked for, as the admin sees it. */
 data class OthersRequest(
 	val kind: String,
@@ -80,22 +83,35 @@ class Videotecario(jellyfinUrl: String?, private val token: String?) {
 		runCatching {
 			val url = URL("$base/api/pedir/browse?q=" + URLEncoder.encode(query, "UTF-8"))
 			val body = request(url, null) ?: return@runCatching emptyList()
-			val root = Json.parseToJsonElement(body).jsonObject
-			root["items"]?.jsonArray.orEmpty().map { it.jsonObject }.mapNotNull { o ->
-				val tmdb = o["tmdb"]?.jsonPrimitive?.intOrNull ?: return@mapNotNull null
-				DiscoverTitle(
-					kind = o["kind"]?.jsonPrimitive?.content ?: "movie",
-					tmdb = tmdb,
-					title = o["title"]?.jsonPrimitive?.content.orEmpty(),
-					year = o["year"]?.jsonPrimitive?.intOrNull,
-					poster = o["poster"]?.jsonPrimitive?.content.orEmpty(),
-					overview = o["overview"]?.jsonPrimitive?.content.orEmpty(),
-					have = o["have"]?.jsonPrimitive?.booleanOrNull ?: false,
-					asked = o["asked"]?.let { it !is kotlinx.serialization.json.JsonNull } ?: false,
-				)
-			}
+			Json.parseToJsonElement(body).jsonObject["items"].toTitles()
 		}.onFailure { Timber.w(it, "Videotecario search failed") }.getOrDefault(emptyList())
 	}
+
+	/** Rows for the home screen from outside the library: this month's releases and what's new on each big platform. */
+	suspend fun home(): List<DiscoverRow> = withContext(Dispatchers.IO) {
+		val base = base ?: return@withContext emptyList()
+		runCatching {
+			val body = request(URL("$base/api/pedir/home"), null, readTimeout = 30000) ?: return@runCatching emptyList()
+			Json.parseToJsonElement(body).jsonObject["rows"]?.jsonArray.orEmpty().map { it.jsonObject }.map { o ->
+				DiscoverRow(o["title"]?.jsonPrimitive?.content.orEmpty(), o["items"].toTitles())
+			}.filter { it.titles.isNotEmpty() }
+		}.onFailure { Timber.w(it, "Videotecario home failed") }.getOrDefault(emptyList())
+	}
+
+	private fun kotlinx.serialization.json.JsonElement?.toTitles(): List<DiscoverTitle> =
+		this?.jsonArray.orEmpty().map { it.jsonObject }.mapNotNull { o ->
+			val tmdb = o["tmdb"]?.jsonPrimitive?.intOrNull ?: return@mapNotNull null
+			DiscoverTitle(
+				kind = o["kind"]?.jsonPrimitive?.content ?: "movie",
+				tmdb = tmdb,
+				title = o["title"]?.jsonPrimitive?.content.orEmpty(),
+				year = o["year"]?.jsonPrimitive?.intOrNull,
+				poster = o["poster"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+				overview = o["overview"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+				have = o["have"]?.jsonPrimitive?.booleanOrNull ?: false,
+				asked = o["asked"]?.let { it !is kotlinx.serialization.json.JsonNull } ?: false,
+			)
+		}
 
 	/** What this user asked for, newest first, with where each one is (pending, approved, downloading…). */
 	suspend fun mine(): List<MyRequest> = withContext(Dispatchers.IO) {
@@ -181,10 +197,10 @@ class Videotecario(jellyfinUrl: String?, private val token: String?) {
 		}.getOrElse { "Videotecario no responde" }
 	}
 
-	private fun request(url: URL, payload: JsonObject?): String? {
+	private fun request(url: URL, payload: JsonObject?, readTimeout: Int = 8000): String? {
 		val conn = url.openConnection() as HttpURLConnection
 		conn.connectTimeout = 4000
-		conn.readTimeout = 8000
+		conn.readTimeout = readTimeout
 		token?.let { conn.setRequestProperty("X-Emby-Token", it) }
 		if (payload != null) {
 			conn.requestMethod = "POST"

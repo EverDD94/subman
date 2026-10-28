@@ -30,6 +30,18 @@ sub init()
     m.postTask = CreateObject("roSGNode", "PostTask")
     m.task = CreateObject("roSGNode", "EfTask")
     m.task.observeField("result", "onLoaded")
+    ' Rows from outside the library load on their own, after the rest, so they never slow the home screen down
+    m.extraTask = CreateObject("roSGNode", "EfTask")
+    m.extraTask.observeField("result", "onExtraLoaded")
+    m.extraRows = []
+    m.askTask = CreateObject("roSGNode", "EfTask")
+    m.askTask.observeField("result", "onAsked")
+    m.toast = m.top.findNode("toast")
+    m.toastText = m.top.findNode("toastText")
+    m.toastBg = m.top.findNode("toastBg")
+    m.toastTimer = m.top.findNode("toastTimer")
+    m.toastText.font = ef.font(ef.FONT_SEMI, 25)
+    m.toastTimer.observeField("fire", "hideToast")
 end sub
 
 sub loadLibraries()
@@ -49,6 +61,24 @@ end sub
 sub onLoaded()
     r = m.task.result
     if not isValid(r) or not isValid(r.rows) then return
+    m.libraryRows = r.rows
+    render()
+    m.extraTask.job = "homeExtra"
+    m.extraTask.control = "STOP"
+    m.extraTask.control = "RUN"
+end sub
+
+sub onExtraLoaded()
+    r = m.extraTask.result
+    if not isValid(r) or not isValid(r.rows) then return
+    m.extraRows = r.rows
+    render()
+end sub
+
+sub render()
+    r = { rows: [] }
+    r.rows.Append(m.libraryRows ?? [])
+    r.rows.Append(m.extraRows)
     focus = m.rows.rowItemFocused
     root = CreateObject("roSGNode", "ContentNode")
     for each row in r.rows
@@ -112,7 +142,61 @@ end sub
 sub onItemSelected()
     node = focusedItem()
     if not isValid(node) then return
+    s = node.json.LookupCI("efSuggestion")
+    if isValid(s)
+        askFor(s)
+        return
+    end if
     ef.go({ target: "details", id: node.json.Id })
+end sub
+
+' Not in the library: ask for it (the admin's goes straight to downloads)
+sub askFor(s as object)
+    if s.have
+        showToast("Ya está en tu biblioteca: " + s.title)
+        return
+    end if
+    if s.asked
+        showToast((ef.isAdmin() ? "Ya está en Descargas: " : "Ya lo pediste: ") + s.title)
+        return
+    end if
+    item = { kind: s.kind, tmdb: s.tmdb, title: s.title, poster: s.poster, overview: s.overview }
+    if isValid(s.LookupCI("year")) then item.year = s.year
+    m.asking = s
+    m.askTask.job = "vt"
+    m.askTask.args = { path: "/api/pedir/ask", body: { item: item } }
+    m.askTask.control = "STOP"
+    m.askTask.control = "RUN"
+end sub
+
+sub onAsked()
+    r = m.askTask.result
+    if isValid(r) and r.ok and isValid(r.data) and r.data.LookupCI("ok") = true
+        if r.data.LookupCI("downloading") = true
+            showToast("A descargar: " + m.asking.title + ". Aparecerá sola en tu biblioteca.")
+        else
+            showToast("Pedido enviado: " + m.asking.title + ". Se descargará cuando se apruebe.")
+        end if
+        m.extraTask.control = "STOP"
+        m.extraTask.control = "RUN"
+    else
+        message = "No se pudo pedir"
+        if isValid(r) and isValid(r.LookupCI("error")) then message = r.error
+        if isValid(r) and isValid(r.data) and isValid(r.data.LookupCI("error")) then message = r.data.error
+        showToast(message)
+    end if
+end sub
+
+sub showToast(text as string)
+    m.toastText.text = text
+    m.toastBg.width = m.toastText.boundingRect().width + 56
+    m.toast.visible = true
+    m.toastTimer.control = "stop"
+    m.toastTimer.control = "start"
+end sub
+
+sub hideToast()
+    m.toast.visible = false
 end sub
 
 sub onRailSelected()
@@ -162,7 +246,7 @@ function onKeyEvent(key as string, press as boolean) as boolean
             return true
         else if key = "play"
             node = focusedItem()
-            if isValid(node) then ef.go({ target: "play", item: node.json })
+            if isValid(node) and not isValid(node.json.LookupCI("efSuggestion")) then ef.go({ target: "play", item: node.json })
             return true
         else if key = "back"
             f = m.rows.rowItemFocused

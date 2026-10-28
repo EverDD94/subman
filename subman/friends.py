@@ -266,6 +266,15 @@ class Friends:
         return {f"{r['kind']}{r['tmdb']}": r["state"] for r in self.db.execute(
             "SELECT kind, tmdb, state FROM friend_requests WHERE user_id=?", (user["id"],))}
 
+    def tv_home(self, user: dict) -> list[dict]:
+        """La portada de la tele con lo que este usuario ya pidió marcado."""
+        asked = self.asked(user)
+        rows = self.dsc.tv_home()
+        for r in rows:
+            for c in r["items"]:
+                c["asked"] = asked.get(f"{c['kind']}{c['tmdb']}")
+        return rows
+
     def all(self) -> list[dict]:
         """Para ti: una fila por película o serie, con quién la pidió."""
         idx, dl = self.dsc.owned_index(), self._downloading()

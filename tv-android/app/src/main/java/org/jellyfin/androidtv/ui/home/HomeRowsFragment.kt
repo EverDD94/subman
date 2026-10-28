@@ -59,6 +59,9 @@ import org.jellyfin.androidtv.ui.presentation.PositionableListRowPresenter
 import org.jellyfin.androidtv.util.KeyProcessor
 import org.jellyfin.playback.core.PlaybackManager
 import org.jellyfin.sdk.api.client.ApiClient
+import org.jellyfin.sdk.api.client.extensions.itemsApi
+import org.jellyfin.sdk.model.api.BaseItemKind
+import org.jellyfin.sdk.model.api.request.GetItemsRequest
 import org.jellyfin.sdk.api.sockets.subscribe
 import org.jellyfin.sdk.model.api.LibraryChangedMessage
 import org.jellyfin.sdk.model.api.UserDataChangedMessage
@@ -262,20 +265,42 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 		mediaManager.removeAudioEventListener(this)
 	}
 
-	/** Already in the library: find it. Otherwise ask for it (the admin's goes straight to downloads). */
+	/** Already in the library: open it. Not yet: ask first, then download (admin) or request it (everyone else). */
 	private fun onDiscoverClicked(title: DiscoverTitle) {
 		if (title.have) {
-			navigationRepository.navigate(Destinations.search(title.title))
+			lifecycleScope.launch {
+				val id = withContext(Dispatchers.IO) { runCatching { findOwned(title) }.getOrNull() }
+				if (id != null) navigationRepository.navigate(Destinations.itemDetails(id))
+				else navigationRepository.navigate(Destinations.search(title.title))
+			}
 			return
 		}
-		if (DiscoverAsked.key(title) in DiscoverAsked.keys.value) return
 		val admin = userRepository.currentUser.value?.policy?.isAdministrator == true
-		lifecycleScope.launch {
-			val error = Videotecario(api.baseUrl, api.accessToken).ask(title)
-			if (error == null) DiscoverAsked.keys.value += DiscoverAsked.key(title)
-			val done = if (admin) "A descargar: ${title.title}. Aparecerá sola en tu biblioteca." else "Pedido enviado: ${title.title}. Se descargará cuando se apruebe."
-			Toast.makeText(requireContext(), error ?: done, Toast.LENGTH_SHORT).show()
+		if (DiscoverAsked.key(title) in DiscoverAsked.keys.value) {
+			Toast.makeText(requireContext(), (if (admin) "Ya está en Descargas: " else "Ya lo pediste: ") + title.title, Toast.LENGTH_SHORT).show()
+			return
 		}
+		android.app.AlertDialog.Builder(requireContext())
+			.setTitle(title.title)
+			.setMessage("Esto no está en tu biblioteca. " + if (admin) "¿Quieres descargarlo?" else "¿Quieres pedirlo?")
+			.setPositiveButton(if (admin) "Sí, descargar" else "Sí, pedirlo") { _, _ ->
+				lifecycleScope.launch {
+					val error = Videotecario(api.baseUrl, api.accessToken).ask(title)
+					if (error == null) DiscoverAsked.keys.value += DiscoverAsked.key(title)
+					val done = if (admin) "A descargar: ${title.title}. Aparecerá sola en tu biblioteca." else "Pedido enviado: ${title.title}. Se descargará cuando se apruebe."
+					Toast.makeText(requireContext(), error ?: done, Toast.LENGTH_SHORT).show()
+				}
+			}
+			.setNegativeButton("No", null)
+			.show()
+	}
+
+	/** The library item for a TheMovieDB title we already have: searched by name, preferring the one with its TheMovieDB id. */
+	private suspend fun findOwned(title: DiscoverTitle): java.util.UUID? {
+		val kind = if (title.kind == "tv") BaseItemKind.SERIES else BaseItemKind.MOVIE
+		val found by api.itemsApi.getItems(GetItemsRequest(recursive = true, includeItemTypes = setOf(kind), searchTerm = title.title, fields = setOf(org.jellyfin.sdk.model.api.ItemFields.PROVIDER_IDS), limit = 10))
+		val tmdb = title.tmdb.toString()
+		return (found.items.firstOrNull { item -> item.providerIds?.any { it.key.equals("Tmdb", true) && it.value == tmdb } == true } ?: found.items.firstOrNull())?.id
 	}
 
 	private inner class ItemViewClickedListener : OnItemViewClickedListener {

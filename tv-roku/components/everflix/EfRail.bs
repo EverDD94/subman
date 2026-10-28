@@ -61,7 +61,6 @@ sub build(views as object)
             line.color = "0xF4F2EE26"
             line.visible = m.top.open
             e.node = line
-            y += 22
         else
             g = m.itemsGroup.createChild("Group")
             g.translation = [0, y]
@@ -108,13 +107,14 @@ sub build(views as object)
             e.label = label
             e.dot = dot
             m.entries.push(e)
-            y += ROW_HEIGHT
         end if
     end for
+    m.all = entries
     m.dividers = []
     for each e in entries
         if e.LookupCI("divider") = true then m.dividers.push(e.node)
     end for
+    layout()
     ' Keep the cursor on the active entry
     m.index = activeIndex()
     paint()
@@ -154,7 +154,26 @@ sub onOpen()
     for each d in m.dividers
         d.visible = open
     end for
+    layout()
     paint()
+end sub
+
+' Closed, the libraries hide (their icons all look alike) and the rest close up; open, every entry shows with its name
+sub layout()
+    if not isValid(m.all) then return
+    open = m.top.open
+    y = 0
+    for each e in m.all
+        if e.LookupCI("divider") = true
+            e.node.translation = [16, y + 10]
+            if open then y += 22
+        else
+            show = open or not isValid(e.LookupCI("view"))
+            e.node.visible = show
+            e.node.translation = [0, y]
+            if show then y += ROW_HEIGHT
+        end if
+    end for
 end sub
 
 sub paint()

@@ -73,7 +73,16 @@ sub formListShowDialog(configField)
     dialog.buttons = [tr("OK"), tr("Cancel")]
     m.greenPalette = createObject("roSGNode", "RSGPalette")
     m.greenPalette.colors = {
-        DialogBackgroundColor: "#2A2B2A"
+        DialogBackgroundColor: "0x161A22FF",
+        DialogTextColor: "0xF4F2EEFF",
+        DialogItemColor: "0xF4F2EEFF",
+        DialogSecondaryTextColor: "0x9AA0ADFF",
+        DialogSecondaryItemColor: "0x9AA0ADFF",
+        DialogFocusColor: "0xFFFFFFFF",
+        DialogFocusItemColor: "0x000000FF",
+        DialogInputFieldColor: "0x0B0D12FF",
+        DialogKeyboardColor: "0xF4F2EEFF",
+        DialogFootprintColor: "0x3D63E0FF"
     }
     dialog.palette = m.greenPalette
 

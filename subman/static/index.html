@@ -1420,7 +1420,7 @@ async function loadUpdate() {
   $("#updNow").disabled = !upd.watchtower || upd.running;
   $("#updState").innerHTML = !upd.watchtower
     ? `<span class="pill revisar">falta Watchtower</span> Para que se actualice sola hay que añadir una vez el bloque «subman-actualizar» al proyecto en Container Manager (ver INSTALAR.md).`
-    : upd.running ? `<b>${upd.phase === "descargando" ? "Descargando versión nueva..." : "Buscando versión nueva..."}</b> <span class="muted">la barra de arriba dice cuánto falta; la página se recarga sola cuando vuelva.</span>`
+    : upd.running ? upd.phase === "esperando" ? `<b>Esperando a que acabe la descarga...</b> <span class="muted">${esc(upd.message || "")}; luego se actualiza sola.</span>` : `<b>${upd.phase === "descargando" ? "Descargando versión nueva..." : "Buscando versión nueva..."}</b> <span class="muted">la barra de arriba dice cuánto falta; la página se recarga sola cuando vuelva.</span>`
     : upd.message ? `<span class="muted">${esc(upd.message)}${upd.asked ? " · " + when(upd.asked) : ""}</span>` : "";
 }
 async function updSave(body) { try { await api("/api/update/settings", body); toast("Guardado"); } catch (e) { toast(e.message); } loadUpdate(); }

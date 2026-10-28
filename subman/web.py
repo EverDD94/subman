@@ -605,6 +605,9 @@ class App:
 
         def work():
             try:
+                while self.dl["current"]:  # reiniciar a media descarga la cortaría (y habría que pulsar otra vez el anuncio)
+                    self.upd.update(phase="esperando", message=f"esperando a que acabe la descarga de {self.dl['what']}")
+                    time.sleep(20)
                 try:
                     found = updater.check()
                 except Exception as e:  # sin respuesta de ghcr.io: que lo mire Watchtower, sin saber el tamaño
@@ -676,7 +679,7 @@ class App:
                     due = time.time()
                 if due is None:
                     continue
-                busy = (self.conv["current"] or self.names["running"] or self.dupes["running"] or self.state["running"]
+                busy = (self.conv["current"] or self.dl["current"] or self.names["running"] or self.dupes["running"] or self.state["running"]
                         or self.series["running"])
                 if busy and time.time() - due < 20 * 3600:
                     continue
@@ -1900,8 +1903,11 @@ class App:
             dl.set(rid, state="buscando", detail="buscando en Phono y en tus canales")
             db = tmdb.TMDb(cfg["tmdb"]["api_key"], cfg["tmdb"].get("language") or "es-MX")
             src = json.loads(row.get("source") or "null")
+            seen = json.loads(row.get("seen") or "null")  # el bot ya lo mandó antes de un reinicio: no se vuelve a pedir
             link, what = None, ""
-            if not src:
+            if seen and not src:
+                what = row.get("file") or "lo que ya mandó el bot"
+            elif not src:
                 got = self._dl_phono(cfg, dl, row, db) if d.get("phono", True) else "Phono está apagado en Proveedores"
                 if isinstance(got, tuple):
                     link, what = got
@@ -1914,7 +1920,7 @@ class App:
             if src:
                 what = f"{len(src['ids'])} video(s) de {src.get('title') or src['channel']}"
                 dl.set(rid, source=json.dumps(src, ensure_ascii=False), file=src.get("file") or what)
-            dl.set(rid, state="pidiendo", detail=f"bajando {what}" if src else f"pidiendo {what} al bot")
+            dl.set(rid, state="pidiendo", detail=f"bajando {what}" if src or seen else f"pidiendo {what} al bot")
             self.dl.update(message=f"{row['title']}: pidiendo al bot", last=time.time())
             tmp = Path(d["tmp_dir"]) / str(rid)
 
@@ -1988,14 +1994,27 @@ class App:
                 self.dl.update(message=f"{row['title']}: esperando que pulses el anuncio en Telegram")
                 self._nag(cfg, rid, label, name, status)
 
-            if src:
+            def seen_file(name, mid):
+                s = json.loads(downloads.Downloads(self.library(cfg), cfg).get(rid).get("seen") or "null") or {"bot": name, "ids": []}
+                if s["bot"] != name:
+                    s = {"bot": name, "ids": []}
+                if mid not in s["ids"]:
+                    s["ids"].append(mid)
+                note(seen=json.dumps(s))
+
+            if seen and not src:
+                log.info("descargas: %s ya lo mandó @%s; lo retomo sin pedirlo otra vez", row["title"], seen["bot"])
+                self._telegram(cfg).take(f"t.me/{seen['bot']}", seen["ids"], tmp, progress=progress,
+                                         stop=lambda: self.dl["stop"] == rid,
+                                         skip=lambda name, size: name in got_names, on_file=put)
+            elif src:
                 self._telegram(cfg).take(src["channel"], src["ids"], tmp, progress=progress,
                                          stop=lambda: self.dl["stop"] == rid,
                                          skip=lambda name, size: name in got_names, on_file=put)
             else:
                 self._telegram(cfg).fetch(link[1], tmp, bot=link[0], progress=progress,
                                           stop=lambda: self.dl["stop"] == rid, on_manual=manual,
-                                          skip=lambda name, size: name in got_names, on_file=put,
+                                          skip=lambda name, size: name in got_names, on_file=put, on_seen=seen_file,
                                           remind=label if d.get("remind", True) and not by_bot else "")
             if self.dl["stop"] == rid:
                 shutil.rmtree(tmp, ignore_errors=True)

@@ -67,6 +67,10 @@ import timber.log.Timber
 import kotlin.time.Duration.Companion.seconds
 
 class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyListener {
+	companion object {
+		private var lastGenres: List<String>? = null
+	}
+
 	private val api by inject<ApiClient>()
 	private val backgroundService by inject<BackgroundService>()
 	private val playbackManager by inject<PlaybackManager>()
@@ -116,7 +120,10 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 			// what just arrived, and then what's out there that you may not have yet
 			rows.add(helper.loadResumeVideo())
 			rows.add(helper.loadNextUp())
-			val topGenres = runCatching { helper.favouriteGenres(api) }.getOrDefault(emptyList())
+			// Remembered from last time so the home screen never waits for it; refreshed in the background
+			val topGenres = lastGenres ?: kotlinx.coroutines.withTimeoutOrNull(1500) { runCatching { helper.favouriteGenres(api) }.getOrNull() }.orEmpty()
+			if (lastGenres != null) launch { runCatching { helper.favouriteGenres(api) }.onSuccess { lastGenres = it } }
+			else lastGenres = topGenres.takeIf { it.isNotEmpty() }
 			if (topGenres.isNotEmpty()) rows.add(helper.loadForYou("Recomendado para ti", ItemSortBy.COMMUNITY_RATING, unwatchedOnly = true, genres = topGenres))
 			// Without a viewing history: a slice of what you haven't seen that moves on each day
 			else rows.add(helper.loadForYou("Recomendado para ti", ItemSortBy.PREMIERE_DATE, unwatchedOnly = true, startIndex = (java.time.LocalDate.now().dayOfYear * 7) % 120))
@@ -151,7 +158,9 @@ class HomeRowsFragment : RowsSupportFragment(), AudioEventListener, View.OnKeyLi
 
 			// Rows from outside the library come last and load after the rest, so they never slow the home screen down
 			val admin = currentUser.policy?.isAdministrator == true
-			val discoverRows = Videotecario(api.baseUrl, api.accessToken).home()
+			val videotecario = Videotecario(api.baseUrl, api.accessToken)
+			// The first time Videotecario may still be preparing these rows: try again once
+			val discoverRows = videotecario.home().ifEmpty { delay(5.seconds); videotecario.home() }
 			withContext(Dispatchers.Main) {
 				val cardPresenter = CardPresenter()
 				for (row in discoverRows) HomeFragmentDiscoverRow(row, admin).addToRowsAdapter(requireContext(), cardPresenter, adapter as MutableObjectAdapter<Row>)

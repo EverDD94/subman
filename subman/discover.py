@@ -752,14 +752,31 @@ class Discover:
 
     HOME_PLATFORMS = ("netflix", "prime", "apple", "hbo", "disney")
     _home_cache: dict = {}
+    _home_refreshing = False
 
-    def tv_home(self) -> list[dict]:
+    def tv_home(self, _force: bool = False) -> list[dict]:
         """Filas de fuera de la biblioteca para la portada de la tele: estrenos del último mes y lo nuevo
         en las plataformas grandes, películas y series mezcladas. Se guarda 6 horas (TheMovieDB no cambia tanto)."""
         import time
         from concurrent.futures import ThreadPoolExecutor
+        import threading
         hit = Discover._home_cache.get(self.language)
-        if hit and time.time() - hit[0] < 6 * 3600:
+        if _force:
+            hit = None
+        elif hit and time.time() - hit[0] >= 6 * 3600 and not Discover._home_refreshing:
+            # caducado: la tele recibe lo de antes al momento y se renueva por detrás
+            Discover._home_refreshing = True
+
+            def renew():
+                try:
+                    self.tv_home(_force=True)
+                except Exception as e:
+                    log.warning("portada de la tele: %s", e)
+                    Discover._home_cache[self.language] = hit
+                finally:
+                    Discover._home_refreshing = False
+            threading.Thread(target=renew, name="portada-tele", daemon=True).start()
+        if hit:
             rows = hit[1]
         else:
             today = date.today()

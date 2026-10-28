@@ -63,6 +63,7 @@ sub onLoaded()
     if not isValid(r) or not isValid(r.rows) then return
     m.libraryRows = r.rows
     render()
+    if m.global.hasField("efSplash") and isValid(m.global.efSplash) then m.global.efSplash.done = true
     m.extraTask.job = "homeExtra"
     m.extraTask.control = "STOP"
     m.extraTask.control = "RUN"
@@ -98,7 +99,9 @@ sub render()
         if col < 0 then col = 0
         m.rows.jumpToRowItem = [focus[0], col]
     end if
-    if not m.rail.hasFocus() then m.rows.setFocus(true)
+    ' only when the home is the screen in use: the late rows used to pull the focus away from
+    ' another screen (a series, the player), and the remote then did nothing
+    if m.top.isInFocusChain() and not m.rail.hasFocus() then m.rows.setFocus(true)
     showFocused()
 end sub
 

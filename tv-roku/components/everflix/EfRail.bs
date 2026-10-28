@@ -39,6 +39,8 @@ sub build(views as object)
         icon = "folder"
         if kind = "tvshows" then icon = "tv"
         if kind = "movies" then icon = "movie"
+        if kind = "music" then icon = "note"
+        icon = iconFor(LCase(view.Name ?? ""), icon)
         entries.push({ key: "lib:" + view.Id, label: view.Name, icon: icon, view: view })
     end for
     entries.push({ divider: true })
@@ -119,6 +121,21 @@ sub build(views as object)
     m.index = activeIndex()
     paint()
 end sub
+
+' A picture per library from its name, so the open menu does not show a column of identical icons
+function iconFor(name as string, fallback as string) as string
+    words = [
+        ["academy", "cap"], ["curso", "cap"], ["clase", "cap"],
+        ["docu", "globe"], ["viaje", "globe"], ["natural", "globe"],
+        ["infantil", "balloon"], ["niño", "balloon"], ["nino", "balloon"], ["kids", "balloon"], ["disney", "balloon"], ["dibujo", "balloon"],
+        ["anime", "star"], ["manga", "star"],
+        ["músic", "note"], ["music", "note"], ["concierto", "note"], ["karaoke", "note"]
+    ]
+    for each w in words
+        if Instr(1, name, w[0]) > 0 then return w[1]
+    end for
+    return fallback
+end function
 
 function activeIndex() as integer
     for i = 0 to m.entries.count() - 1

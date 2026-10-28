@@ -14,7 +14,7 @@
       rowItemSpacing="[[24, 0]]"
       itemSpacing="[0, 10]"
       showRowLabel="[true]"
-      rowLabelOffset="[[0, 14]]"
+      rowLabelOffset="[[0, 24]]"
       rowLabelColor="0xFFFFFFCC"
       vertFocusAnimationStyle="fixedFocus"
       rowFocusAnimationStyle="floatingFocus"

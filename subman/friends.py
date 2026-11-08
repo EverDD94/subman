@@ -31,6 +31,12 @@ DAYS = 180
 STATES = ("pendiente", "aceptada", "rechazada")
 CLIENT = 'MediaBrowser Client="Videotecario", Device="Pedir", DeviceId="videotecario-pedir", Version="1"'
 
+
+def _hdr(value: str) -> dict:
+    """Cabeceras para presentarse a Jellyfin: las versiones nuevas sólo leen ``Authorization``
+    (sin ella fallan con «request.App» nulo); las viejas, ``X-Emby-Authorization``."""
+    return {"Authorization": value, "X-Emby-Authorization": value}
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS friend_requests (
     kind TEXT NOT NULL,            -- movie | tv
@@ -77,13 +83,13 @@ def jellyfin_login(cfg: dict, user: str, password: str) -> dict | None:
         raise ValueError("Videotecario todavía no está conectado a Jellyfin")
     base = jf["url"].rstrip("/")
     r = requests.post(base + "/Users/AuthenticateByName", json={"Username": user, "Pw": password},
-                      headers={"X-Emby-Authorization": CLIENT}, timeout=15)
+                      headers=_hdr(CLIENT), timeout=15)
     if r.status_code in (400, 401, 403):
         return None
     r.raise_for_status()
     data = r.json()
     try:  # no hace falta que quede una sesión abierta en Jellyfin: la nuestra es la cookie
-        requests.post(base + "/Sessions/Logout", headers={"X-Emby-Authorization": f'{CLIENT}, Token="{data["AccessToken"]}"'},
+        requests.post(base + "/Sessions/Logout", headers=_hdr(f'{CLIENT}, Token="{data["AccessToken"]}"'),
                       timeout=10)
     except Exception:
         pass
@@ -110,7 +116,7 @@ def jellyfin_user(cfg: dict, token: str) -> dict | None:
         return None
     try:
         r = requests.get(jf["url"].rstrip("/") + "/Users/Me", timeout=10,
-                         headers={"X-Emby-Authorization": f'{CLIENT}, Token="{token}"'})
+                         headers=_hdr(f'{CLIENT}, Token="{token}"'))
         user = None
         if r.ok:
             data = r.json()
@@ -128,7 +134,7 @@ def is_admin(cfg: dict, user_id: str) -> bool:
     jf = cfg.get("jellyfin", {})
     try:
         r = requests.get(jf["url"].rstrip("/") + f"/Users/{user_id}", timeout=10,
-                         headers={"X-Emby-Token": jf.get("api_key", ""), "X-Emby-Authorization": f'{CLIENT}, Token="{jf.get("api_key", "")}"'})
+                         headers={"X-Emby-Token": jf.get("api_key", ""), **_hdr(f'{CLIENT}, Token="{jf.get("api_key", "")}"')})
         return r.ok and bool((r.json().get("Policy") or {}).get("IsAdministrator"))
     except Exception:
         return False

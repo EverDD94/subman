@@ -1716,6 +1716,7 @@ class App:
                     f.rename(f.with_name(mt.group(1) + f.name[len(new.stem):]))
             placed[i] = str(clean)
         self.wake.set()
+        self._jellyfin_refresh(cfg)  # el archivo cambió de nombre y la vieja se fue: que Jellyfin lo vuelva a mirar
         return f"; la copia vieja está en la papelera de videos" if gone else ""
 
     def downloads_seasons(self, b: dict) -> dict:

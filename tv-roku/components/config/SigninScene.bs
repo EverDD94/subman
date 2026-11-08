@@ -36,33 +36,26 @@ sub init()
     m.profileImage.observeField("loadStatus", "onPosterLoadStatusChanged")
 
     m.submit = m.top.findNode("submit")
-    m.submit.background = ColorPalette.LIGHTBLUE
-    m.submit.color = ColorPalette.DARKGREY
-    m.submit.focusBackground = ColorPalette.HIGHLIGHT
-    m.submit.focusColor = ColorPalette.WHITE
-
+    m.submit.primary = true
     m.quickConnect = m.top.findNode("quickConnect")
-    m.quickConnect.background = ColorPalette.LIGHTBLUE
-    m.quickConnect.color = ColorPalette.DARKGREY
-    m.quickConnect.focusBackground = ColorPalette.HIGHLIGHT
-    m.quickConnect.focusColor = ColorPalette.WHITE
 
     m.errorContainer = m.top.findNode("errorContainer")
-    m.errorContainer.color = "#CC0000"
+    m.errorContainer.color = "0xC0392BFF"
 
     m.config = m.top.findNode("configOptions")
-    m.config.focusBitmapBlendColor = ColorPalette.HIGHLIGHT
+    m.config.focusBitmapUri = "pkg:/images/everflix/focus-ring.9.png"
+    m.config.focusBitmapBlendColor = "0xFFFFFFFF"
     m.config.focusFootprintBlendColor = ColorPalette.TRANSPARENT
     ' When the last form field is confirmed, jump focus straight to Submit
     m.config.observeField("allFieldsSubmitted", "onAllFieldsSubmitted")
 
     username_field = CreateObject("roSGNode", "ConfigData")
-    username_field.label = tr("Username")
+    username_field.label = "Usuario"
     username_field.type = "string"
     username_field.value = string.EMPTY
 
     password_field = CreateObject("roSGNode", "ConfigData")
-    password_field.label = tr("Password")
+    password_field.label = "Contraseña"
     password_field.type = "password"
     registryPassword = get_setting("password")
     if isValid(registryPassword)
@@ -70,9 +63,10 @@ sub init()
     end if
 
     saveCredentials = m.top.findNode("saveCredentials")
-    saveCredentials.focusedColor = ColorPalette.HIGHLIGHT
-    saveCredentials.font.size = 30
-    saveCredentials.focusedFont.size = 30
+    saveCredentials.focusedColor = "0xFFFFFFFF"
+    saveCredentials.color = "0x9AA0ADFF"
+    saveCredentials.font.size = 28
+    saveCredentials.focusedFont.size = 28
 
     if not isStringEqual(get_setting("saveCredentials", "true"), "true")
         saveCredentials.checkedState = "[false]"

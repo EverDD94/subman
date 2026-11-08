@@ -9,9 +9,9 @@
   <children>
     <Rectangle id="background" translation="[0,0]" width="1460" height="100" />
 
-    <Poster id="poster" translation="[20,5]" width="90" height="90" />
+    <Poster id="poster" translation="[42,15]" width="54" height="70" />
     <Group id="labels" translation="[120,0]">
-      <Text text="Name:" horizAlign="left" width="130" height="65" translation="[0,5]"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="36" /></Text>
+      <Text text="Nombre:" horizAlign="left" width="130" height="65" translation="[0,5]"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="36" /></Text>
       <Text text="URL:" horizAlign="left" width="130" height="65" translation="[0,55]"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="36" /></Text>
 
       <Text id="name" horizAlign="left" height="65" translation="[145,5]"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></Text>

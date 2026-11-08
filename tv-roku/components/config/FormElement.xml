@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <component name="FormElement" extends="Group">
   <children>
-    <Text id="label" horizAlign="right" translation="[0, 5]" />
-    <Poster id="buttonBackground" uri="pkg:/images/everflix/round8.9.png" translation="[250, 8]" height="60" width="500" />
-    <TextEditBox id="value" translation="[270, 40]" />
+    <Text id="label" horizAlign="left" translation="[24, 0]" />
+    <Poster id="buttonBackground" uri="pkg:/images/everflix/round8.9.png" blendColor="0x0B0D12FF" translation="[240, 6]" height="63" width="500" />
+    <TextEditBox id="value" translation="[260, 40]" />
   </children>
 
   <interface>

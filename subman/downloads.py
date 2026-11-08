@@ -55,7 +55,8 @@ CREATE TABLE IF NOT EXISTS downloads (
     bot TEXT,                      -- el bot de Telegram en el que hay que pulsar el anuncio
     got TEXT,                      -- JSON: archivos ya recibidos del bot (para no volver a bajarlos)
     source TEXT,                   -- JSON {"channel": "t.me/…", "ids": [mensajes]} si viene de un canal
-    seen TEXT                      -- JSON {"bot": nombre, "ids": [mensajes]}: lo que el bot ya mandó (para retomar)
+    seen TEXT,                     -- JSON {"bot": nombre, "ids": [mensajes]}: lo que el bot ya mandó (para retomar)
+    swap TEXT                      -- JSON [rutas]: «Reemplazar por mejor calidad», las copias viejas que se quitan al llegar
 );
 """
 
@@ -67,7 +68,7 @@ class Downloads:
         self.db.executescript(SCHEMA)
         self.db.executescript(discover.SCHEMA)  # «Por conseguir» vive ahí
         cols = {r[1] for r in self.db.execute("PRAGMA table_info(downloads)")}
-        for col in ("bot", "got", "source", "seen"):  # bases de antes
+        for col in ("bot", "got", "source", "seen", "swap"):  # bases de antes
             if col not in cols:
                 self.db.execute(f"ALTER TABLE downloads ADD COLUMN {col} TEXT")
                 self.db.commit()
@@ -105,6 +106,18 @@ class Downloads:
             "VALUES (?,?,?,?,?,?,?,?,?,?)", (kind, int(tmdb), season, title, year, "cola", "", how, now, now))
         self.db.commit()
         return cur.lastrowid
+
+    def copies(self, tmdb: int, titles: list[str], year: int | None) -> list[str]:
+        """Los videos de esa película que ya tienes (por su [tmdbid-N] o por título y año)."""
+        names = {discover._norm(t) for t in titles if t} - {""}
+        out = []
+        for r in self.db.execute("SELECT path, title, year FROM media WHERE kind='movie'"):
+            m = discover._TMDBID.search(r["path"])
+            if (m and int(m.group(1)) == int(tmdb)) or (not m and discover._norm(r["title"]) in names
+                                                         and (not year or not r["year"] or abs(r["year"] - year) <= 1)):
+                if os.path.exists(r["path"]):
+                    out.append(r["path"])
+        return out
 
     def has_message(self, link: str, mid: int) -> bool:
         """¿Ese mensaje de un canal ya está en Descargas?"""

@@ -23,6 +23,8 @@ UA = "Mozilla/5.0 (compatible; Videotecario)"
 # Calidad preferida: 1080p, luego 720p; 4K pesa mucho y lo de menos de 720p se ve mal.
 QUALITY = {"1080p": 0, "720p": 1, "2160p": 2, "4k": 2, "480p": 3, "360p": 4}
 LANG = {"es": ("spanish", "español", "espanol", "castellano", "latino", "spa"), "en": ("english", "eng")}
+# Copias de cine (grabadas en la sala o de la sala): lo que se quiere cambiar al «Reemplazar».
+CAM = re.compile(r"(?<![a-z0-9])(cam|camrip|hdcam|hd-cam|ts|hdts|hd-ts|telesync|tc|hdtc|telecine|cine|screener|scr|dvdscr|hqcam)(?![a-z0-9])", re.I)
 _SEASON = re.compile(r"\b(?:season|temporada|s)\s*0*(\d{1,2})\b", re.I)
 
 
@@ -84,16 +86,20 @@ def lang_of(name: str) -> str | None:
     return next((code for code, names in LANG.items() if any(x in n for x in names)), None)
 
 
-def pick(files: list[dict], audio: list[str] = ("es", "en")) -> dict | None:
+def is_cam(f: dict) -> bool:
+    return bool(CAM.search((f.get("file_name") or "").replace("_", " ").replace(".", " ")))
+
+
+def pick(files: list[dict], audio: list[str] = ("es", "en"), no_cam: bool = False) -> dict | None:
     """El mejor archivo: audio en el primer idioma que haya, luego 1080p, que se vea en la tele,
-    con subtítulos y el más ligero."""
+    con subtítulos y el más ligero. Con ``no_cam`` no valen las copias de cine."""
     def key(f):
         langs = [lang_of(x) for x in f.get("languages") or []]
         rank = min((audio.index(l) for l in langs if l in audio), default=len(audio))
         q = QUALITY.get((f.get("resolution_label") or "").lower(), 5)
         return (rank, q, bool(f.get("is_hdr")), not f.get("for_tv"), not f.get("eng_subtitle"),
                 f.get("file_size_bytes") or 0)
-    ok = [f for f in files if f.get("download_url")]
+    ok = [f for f in files if f.get("download_url") and not (no_cam and is_cam(f))]
     if not ok:
         return None
     best = min(ok, key=key)

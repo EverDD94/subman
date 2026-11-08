@@ -1667,6 +1667,57 @@ class App:
         self.dl_wake.set()
         return {"ok": True}
 
+    def downloads_replace(self, b: dict) -> dict:
+        """«Reemplazar por mejor calidad»: se pide otra versión (que no sea de cine) y, al llegar,
+        la vieja va a la papelera de videos (se puede devolver)."""
+        cfg = self.cfg()
+        bad = self._discard_dir_problem(cfg)
+        if bad:
+            return {"ok": False, "error": bad}
+        dl = downloads.Downloads(self.library(cfg), cfg)
+        tid, title, year = int(b["tmdb"]), b.get("title") or "", b.get("year")
+        if dl.db.execute("SELECT 1 FROM downloads WHERE kind='movie' AND tmdb=? AND state NOT IN ('cancelado','listo','no-esta','error')",
+                         (tid,)).fetchone():
+            return {"ok": False, "error": "ya está en Descargas"}
+        old = dl.copies(tid, [title, b.get("original")], year)
+        if not old:
+            return {"ok": False, "error": "no encuentro esa película en tu biblioteca"}
+        rid = dl.add("movie", tid, title, year, "manual")
+        dl.set(rid, swap=json.dumps(old, ensure_ascii=False))
+        self.dl_wake.set()
+        return {"ok": True, "old": [Path(p).name for p in old]}
+
+    def _dl_swap(self, cfg: dict, dl, row: dict, placed: list[str]) -> str:
+        """Tras «Reemplazar»: la copia vieja a la papelera de videos y la nueva con el nombre limpio."""
+        old = [p for p in json.loads(row.get("swap") or "[]") if p not in placed]
+        if not old:
+            return ""
+        lib = self.library(cfg)
+        gone = []
+        for p in old:
+            m = lib.media("path=?", (p,))
+            if not m or not os.path.exists(p):
+                continue
+            try:
+                duplicates.move(lib, m[0], cfg["discard_dir"], MEDIA_ROOT, cfg["library"], Path(p).name, "discarded")
+                gone.append(p)
+            except OSError as e:
+                log.info("reemplazar: no se pudo apartar %s: %s", p, e)
+        for i, p in enumerate(placed):  # «La Odisea (2026) - 2.mkv» -> «La Odisea (2026).mkv» si ya quedó libre
+            new = Path(p)
+            mt = re.match(r"^(.*) - \d+$", new.stem)
+            if not mt:
+                continue
+            clean = new.with_name(mt.group(1) + new.suffix)
+            if clean.exists():
+                continue
+            for f in list(new.parent.iterdir()):
+                if f.name.startswith(new.stem + "."):
+                    f.rename(f.with_name(mt.group(1) + f.name[len(new.stem):]))
+            placed[i] = str(clean)
+        self.wake.set()
+        return f"; la copia vieja está en la papelera de videos" if gone else ""
+
     def downloads_seasons(self, b: dict) -> dict:
         """Las temporadas que tiene Phono de una serie, para elegir cuáles pedir."""
         cfg = self.cfg()
@@ -1808,10 +1859,12 @@ class App:
             return "Phono aún no la tiene"
         cid = card["content_id"]
         if row["kind"] == "movie":
-            f = phono.pick(api.files(cid), d["audio"])
+            swap = bool(json.loads(row.get("swap") or "null"))
+            f = phono.pick(api.files(cid), d["audio"], no_cam=swap)
             link = phono.bot_link(f["download_url"]) if f else None
             if not link:
-                return "Phono no tiene una versión en español ni en inglés"
+                return ("Phono sólo tiene copias de cine" if swap else
+                        "Phono no tiene una versión en español ni en inglés")
             dl.set(rid, file=f["file_name"], size=f.get("file_size_bytes"))
             return link, f["file_name"]
         seasons = phono.seasons(api.buttons(cid))
@@ -2076,7 +2129,8 @@ class App:
                 tmp.rmdir()
             if not placed:
                 raise ValueError("el bot no mandó ningún video")
-            dl.set(rid, state="listo", detail=f"{len(placed)} video(s) en la biblioteca", dest=json.dumps(placed, ensure_ascii=False))
+            swapped = self._dl_swap(cfg, dl, row, placed)
+            dl.set(rid, state="listo", detail=f"{len(placed)} video(s) en la biblioteca{swapped}", dest=json.dumps(placed, ensure_ascii=False))
             n = f"\n{len(placed)} capítulos" if row["kind"] == "tv" and len(placed) != 1 else ""
             status.show(f"✅ Finalizado: ya está en tu biblioteca\n\n{label}{n}", final=True)
             self.dl.update(message=f"{row['title']}: lista", done=0, total=0, speed=0.0)
@@ -2295,6 +2349,7 @@ def make_handler(app: App):
         "/api/avisos/followers": lambda b: (app._notices().set_followers(b["item"], list(b.get("users") or [])), {"ok": True})[1],
         "/api/requests/forget": lambda b: app._dsc(lambda d: (friends.Friends(d).forget(b["kind"], int(b["tmdb"])), {})[1]),
         "/api/downloads/add": lambda b: app.downloads_add(b),
+        "/api/downloads/replace": lambda b: app.downloads_replace(b),
         "/api/downloads/cancel": lambda b: app.downloads_cancel(int(b["id"])),
         "/api/downloads/retry": lambda b: app.downloads_retry(int(b["id"])),
         "/api/downloads/clear": lambda b: app.downloads_clear(),

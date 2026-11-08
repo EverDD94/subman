@@ -1096,6 +1096,7 @@ dialog.sheet .foot{display:none}
   <div class="card" id="unkTrashCard" hidden><h2 id="unkTrashTitle">Papelera de videos</h2>
     <div class="row" style="margin-bottom:8px"><button class="btn bad" id="unkEmpty">Vaciar la papelera de videos</button>
       <span class="muted">Las borra para siempre y libera el espacio.</span></div>
+    <input type="search" id="unkTrashQ" placeholder="Buscar en la papelera (lo más reciente sale primero)" style="width:100%;margin:8px 0">
     <table><thead><tr><th>Video</th><th>Ahora está en</th><th></th></tr></thead><tbody id="unkTrash"></tbody></table></div>
 </section>
 
@@ -2500,11 +2501,14 @@ async function loadUnknown() {
     await api("/api/unknown/retry", {id: +b.dataset.unkretry}); toast("Está en Nombres: escribe su nombre y pulsa Buscar"); show("nombres"); });
   const tr = unk.discarded;
   $("#unkTrashCard").hidden = !tr.length; $("#unkTrashTitle").textContent = `Papelera de videos: ${tr.length}`;
-  $("#unkTrash").innerHTML = tr.map(r => `<tr><td>${esc(r.title || "")}<div class="path">${esc(r.src)}</div><div class="muted" style="font-size:12px">${when(r.moved)}</div></td>
+  const q = ($("#unkTrashQ").value || "").trim().toLowerCase();
+  const shown = q ? tr.filter(r => ((r.title || "") + " " + r.src + " " + r.dest).toLowerCase().includes(q)) : tr;
+  $("#unkTrash").innerHTML = (q && !shown.length ? `<tr><td colspan="3" class="muted">Nada con «${esc(q)}»</td></tr>` : "") + shown.map(r => `<tr><td>${esc(r.title || "")}<div class="path">${esc(r.src)}</div><div class="muted" style="font-size:12px">${when(r.moved)}</div></td>
     <td class="path">${r.exists ? esc(r.dest) : "ya no está"}</td><td>${r.exists ? `<button class="btn sec" data-unkr="${r.id}">Devolver</button>` : ""}</td></tr>`).join("");
   document.querySelectorAll("[data-unkr]").forEach(b => b.onclick = async () => {
     const x = await api("/api/unknown/restore", {id: +b.dataset.unkr}); toast(x.ok ? "Devuelta a " + x.dest : x.error); loadUnknown(); });
 }
+let unkQT; $("#unkTrashQ").oninput = () => { clearTimeout(unkQT); unkQT = setTimeout(loadUnknown, 250); };
 async function unkDiscard(ids) {
   let r; try { r = await api("/api/unknown/discard", {ids}); } catch (e) { r = {ok: false, done: 0, error: e.message}; }
   toast(r.ok ? (r.done === 1 ? "Eliminada (está en la papelera de videos)" : `${r.done} eliminadas (están en la papelera de videos)`) : r.error);

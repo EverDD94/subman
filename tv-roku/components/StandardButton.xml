@@ -2,7 +2,7 @@
 <component name="StandardButton" extends="Group">
   <children>
     <Poster id="buttonBackground" uri="pkg:/images/everflix/pill.9.png" />
-    <Text id="buttonText" horizAlign="center" vertAlign="center"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="33" /></Text>
+    <Text id="buttonText" horizAlign="center" vertAlign="center"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="30" /></Text>
   </children>
   <interface>
     <field id="background" type="color" value="" />
@@ -13,6 +13,7 @@
     <field id="height" type="integer" value="" />
     <field id="width" type="integer" value="" />
     <field id="fontSize" type="integer" value="0" />
+    <field id="primary" type="boolean" value="false" />
     <field id="selected" type="boolean" value="false" />
     <field id="focus" type="boolean" />
     <field id="escape" type="string" value="" />

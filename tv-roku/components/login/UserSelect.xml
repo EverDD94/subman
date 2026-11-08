@@ -5,7 +5,7 @@
     <Rectangle id="unhideUsers" translation="[-600, 0]" width="600" height="1080">
       <Text
         id="unhideUserHeader"
-        text="Unhide Users"
+        text="Mostrar usuarios"
         horizAlign="left"
        
         height="100"
@@ -23,25 +23,25 @@
 
     <Rectangle id="viewContent" translation="[0, 0]">
       <Text
-        text="Select User"
+        text="¿Quién está viendo?"
         horizAlign="center"
        
         height="100"
         width="1920"
-        translation="[0, 170]"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="45" /></Text>
+        translation="[0, 170]"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="54" /></Text>
 
       <UserRow id="userRow" rowFocusAnimationStyle="fixedFocusWrap" translation="[130, 310]" />
 
       <StandardButton
         id="manualLogin"
-        text="Manual Login"
+        text="Entrar con usuario"
         height="85"
         width="350"
         translation="[785,800]" />
 
       <Text
         id="manageHiddenUsers"
-        text="Manage Hidden Users"
+        text="Usuarios ocultos"
         horizAlign="center"
        
         height="100"

@@ -9,17 +9,17 @@ sub init()
     m.value.backgroundUri = "pkg:/images/transparent.png"
     m.value.width = 440
 
-    m.name.color = ColorPalette.WHITE
-    m.value.textColor = ColorPalette.DARKGREY
+    m.name.color = "0x9AA0ADFF"
+    m.value.textColor = "0xF4F2EEFF"
     m.value.hintTextColor = ColorPalette.MIDGREY
 
     m.name.width = 240
     m.name.height = 75
 
     m.name.vertAlign = "center"
-    m.name.horizAlign = "center"
+    m.name.horizAlign = "left"
 
-    m.value.hintText = tr("Enter a username")
+    m.value.hintText = "Tu nombre de usuario"
     m.value.maxTextLength = 120
 end sub
 
@@ -28,7 +28,7 @@ sub itemContentChanged()
 
     m.name.text = data.label
     if isStringEqual(data.type, "password")
-        m.value.hintText = tr("Enter a password")
+        m.value.hintText = "Tu contraseña"
         m.value.secureMode = true
     end if
 

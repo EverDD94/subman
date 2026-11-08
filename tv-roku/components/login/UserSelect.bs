@@ -19,10 +19,6 @@ sub init()
     m.hiddenUsers.focusedColor = ColorPalette.WHITE
 
     m.manualLogin = m.top.findNode("manualLogin")
-    m.manualLogin.background = ColorPalette.LIGHTBLUE
-    m.manualLogin.color = ColorPalette.DARKGREY
-    m.manualLogin.focusBackground = ColorPalette.HIGHLIGHT
-    m.manualLogin.focusColor = ColorPalette.WHITE
 
     m.hiddenUserAnimation = m.top.findNode("hiddenUserAnimation")
     m.hiddenUserSlider = m.top.findNode("hiddenUserSlider")

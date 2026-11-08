@@ -247,8 +247,10 @@ def move(lib: Library, media: Media, dest_root: str, media_root: str, roots: lis
     if not others and not is_root and not has_subdirs:
         items = [folder]
     else:
-        items = [p for p in folder.iterdir() if p.is_file() and (p == video or p.name.startswith(video.stem + ".")
-                                                                  or p.name.startswith(video.stem + "-"))]
+        # el video y sus acompañantes (subtítulos, .nfo…), nunca otro video con el mismo nombre
+        # («Película.mp4» vieja y «Película.mkv» nueva en la misma carpeta)
+        items = [p for p in folder.iterdir() if p.is_file() and (p == video or (
+            p.suffix.lower() not in VIDEO_EXT and (p.name.startswith(video.stem + ".") or p.name.startswith(video.stem + "-"))))]
     done: list[tuple[Path, Path]] = []
     try:
         for src in items:

@@ -14,21 +14,21 @@
 
     <Clock id="clock" translation="[1618, 46]" />
 
-    <ButtonGroup id="optionControls" itemSpacings="[20]" layoutDirection="horiz" horizAlignment="left" translation="[103,120]">
-      <IconButton id="showVideoInfoPopup" padding="16" icon="pkg:/images/icons/videoInfo.png" height="65" width="100" />
-      <IconButton id="showVideoOverviewPopup" padding="25" icon="pkg:/images/icons/info.png" height="65" width="100" />
-      <IconButton id="showCastCrewPopup" padding="16" icon="pkg:/images/icons/userGroup.png" height="65" width="100" />
-      <IconButton id="chapterList" padding="16" icon="pkg:/images/icons/numberList.png" height="65" width="100" />
-      <IconButton id="showSubtitleMenu" padding="0" icon="pkg:/images/icons/subtitle.png" height="65" width="100" />
-      <IconButton id="showAudioMenu" padding="27" icon="pkg:/images/icons/musicNote.png" height="65" width="100" />
+    <ButtonGroup id="optionControls" itemSpacings="[28]" layoutDirection="horiz" horizAlignment="left" translation="[103,120]">
+      <IconButton id="showVideoInfoPopup" padding="30" icon="pkg:/images/icons/ef-details.png" text="Detalles" height="65" width="100" />
+      <IconButton id="showVideoOverviewPopup" padding="30" icon="pkg:/images/icons/ef-info.png" text="Sinopsis" height="65" width="100" />
+      <IconButton id="showCastCrewPopup" padding="30" icon="pkg:/images/icons/ef-cast.png" text="Reparto" height="65" width="100" />
+      <IconButton id="chapterList" padding="30" icon="pkg:/images/icons/ef-chapters.png" text="Capítulos" height="65" width="100" />
+      <IconButton id="showSubtitleMenu" padding="26" icon="pkg:/images/icons/ef-subtitles.png" text="Subtítulos" height="65" width="100" />
+      <IconButton id="showAudioMenu" padding="30" icon="pkg:/images/icons/ef-audio.png" text="Audio" height="65" width="100" />
     </ButtonGroup>
 
     <ButtonGroup id="videoControls" itemSpacings="[20]" layoutDirection="horiz" horizAlignment="center" translation="[960,950]">
-      <IconButton id="itemBack" padding="35" icon="pkg:/images/icons/itemPrevious.png" height="65" width="100" />
-      <IconButton id="chapterBack" padding="16" icon="pkg:/images/icons/previousChapter.png" height="65" width="100" />
+      <IconButton id="itemBack" padding="30" icon="pkg:/images/icons/ef-prev.png" height="65" width="100" />
+      <IconButton id="chapterBack" padding="30" icon="pkg:/images/icons/ef-back.png" height="65" width="100" />
       <IconButton id="videoPlayPause" padding="35" icon="pkg:/images/icons/play.png" height="65" width="100" />
-      <IconButton id="chapterNext" padding="16" icon="pkg:/images/icons/nextChapter.png" height="65" width="100" />
-      <IconButton id="itemNext" padding="35" icon="pkg:/images/icons/itemNext.png" height="65" width="100" />
+      <IconButton id="chapterNext" padding="30" icon="pkg:/images/icons/ef-fwd.png" height="65" width="100" />
+      <IconButton id="itemNext" padding="30" icon="pkg:/images/icons/ef-next.png" height="65" width="100" />
     </ButtonGroup>
 
     <ExpandingLabel

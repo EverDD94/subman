@@ -35,6 +35,10 @@ sub init()
     m.askTask = CreateObject("roSGNode", "EfTask")
     m.askTask.observeField("result", "onAsked")
 
+    ' The keyboard gets focus on its own node: giving it to the screen while the results
+    ' list held focus left the remote stuck on the last key
+    m.keysGroup.focusable = true
+
     m.text = ""
     m.keyIndex = 0
     m.inKeys = true
@@ -86,7 +90,7 @@ end sub
 sub paintKeys()
     for i = 0 to m.keyNodes.count() - 1
         k = m.keyNodes[i]
-        focused = m.inKeys and i = m.keyIndex and m.top.isInFocusChain() and not m.rail.hasFocus()
+        focused = m.inKeys and i = m.keyIndex and m.keysGroup.hasFocus()
         if focused
             k.bg.blendColor = "0xFFFFFFFF"
             k.label.color = "0x000000FF"
@@ -255,7 +259,7 @@ end sub
 
 sub onRailLeave()
     m.inKeys = true
-    m.top.setFocus(true)
+    m.keysGroup.setFocus(true)
     paintKeys()
 end sub
 
@@ -264,7 +268,7 @@ sub OnScreenShown()
     overhang = scene.findNode("overhang")
     if isValid(overhang) then overhang.visible = false
     if m.inKeys
-        m.top.setFocus(true)
+        m.keysGroup.setFocus(true)
     else
         m.results.setFocus(true)
     end if
@@ -277,14 +281,14 @@ function onKeyEvent(key as string, press as boolean) as boolean
     if m.results.isInFocusChain()
         if key = "left"
             m.inKeys = true
-            m.top.setFocus(true)
+            m.keysGroup.setFocus(true)
             paintKeys()
             return true
         end if
         return false
     end if
 
-    if not m.inKeys then return false
+    if not m.keysGroup.hasFocus() then return false
     k = m.keyNodes[m.keyIndex]
     if key = "OK"
         typeKey(k.key)

@@ -1143,7 +1143,11 @@ dialog.sheet .foot{display:none}
 <section id="papelera" hidden>
   <div class="ph"><h2 class="mg-h">Papelera</h2><p class="ph-sub">Aquí no se borra nada: lo que se quita espera aquí por si lo quieres de vuelta.</p></div>
   <div class="card">
-    <h2>Papelera y archivo</h2>
+    <input type="search" id="trashQ" placeholder="Buscar (película, serie, archivo…)" style="width:100%;margin-bottom:14px">
+    <h2>Videos apartados</h2>
+    <p class="muted" style="margin-top:0">Películas y capítulos que se quitaron (reemplazos, duplicados, «No se sabe qué es»). Lo más reciente primero.</p>
+    <table><thead><tr><th>Video</th><th></th></tr></thead><tbody id="trashVids"></tbody></table>
+    <h2 style="margin-top:22px">Papelera y archivo</h2>
     <p class="muted" style="margin-top:0">Aquí está todo lo que Videotecario ha apartado. Nada se borra. <b>Recuperar</b> lo devuelve junto a su video.</p>
     <table><thead><tr><th>Archivo</th><th>Dónde</th><th></th></tr></thead><tbody id="trashBody"></tbody></table>
     <p class="muted" id="trashCount"></p>
@@ -2059,8 +2063,16 @@ async function loadLog() {
 }
 
 // ---------- Papelera ----------
+let trashQT; $("#trashQ").oninput = () => { clearTimeout(trashQT); trashQT = setTimeout(loadTrash, 250); };
 async function loadTrash() {
-  const r = await api("/api/trash");
+  const q = ($("#trashQ").value || "").trim().toLowerCase(), hit = t => !q || t.toLowerCase().includes(q);
+  const [r, u] = await Promise.all([api("/api/trash"), api("/api/unknown").catch(() => ({discarded: []}))]);
+  const vids = (u.discarded || []).filter(v => v.exists && hit((v.title || "") + " " + v.src));
+  $("#trashVids").innerHTML = vids.map(v => `<tr><td>${esc(v.title || "")}<div class="path">${esc(v.src)}</div><div class="muted" style="font-size:12px">${when(v.moved)}</div></td>
+    <td><button class="btn sec" data-v="${v.id}">Devolver</button></td></tr>`).join("") || `<tr><td colspan="2" class="muted">${q ? "Nada con eso." : "Vacía."}</td></tr>`;
+  document.querySelectorAll("#trashVids button").forEach(b => b.onclick = async () => {
+    const x = await api("/api/unknown/restore", {id: +b.dataset.v}); toast(x.ok ? "Devuelta a " + x.dest : x.error); loadTrash(); });
+  r.files = r.files.filter(f => hit(f.rel)).sort((a, b) => a.mtime - b.mtime);
   $("#trashBody").innerHTML = r.files.slice().reverse().map(f => `<tr><td>${esc(f.rel)}<div class="muted" style="font-size:12px">${when(f.mtime)}</div></td>
     <td>${f.kind === "archivo" ? "archivo" : "papelera"}</td><td><button class="btn sec" data-p="${esc(f.path)}">Recuperar</button></td></tr>`).join("")
     || `<tr><td colspan="3" class="muted">Vacía.</td></tr>`;

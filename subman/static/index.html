@@ -1785,6 +1785,14 @@ async function dlClear() {
   loadDownloads();
 }
 async function dlRetry(id) { try { await api("/api/downloads/retry", {id}); } catch (e) { toast(e.message); } loadDownloads(); }
+async function dlSwap(k) {
+  const c = dscFind(k); if (!c) return;
+  if (!confirm(`¿Bajar otra versión de «${c.title}» que no sea de cine? Cuando llegue, la que tienes va a la papelera de videos (se puede devolver).`)) return;
+  try {
+    const r = await api("/api/downloads/replace", {tmdb: c.tmdb, title: c.title, original: c.original, year: c.year});
+    toast(r.ok === false ? r.error : "En la cola de descargas: buscando una copia mejor");
+  } catch (e) { toast(e.message); }
+}
 async function dlAdd(k) {
   const c = dscFind(k); if (!c) return;
   if (FRIEND) {
@@ -2904,6 +2912,7 @@ function rateButtons(c, k, labels = true) {
   const r = (v, icon, tip) => `<button title="${tip}" aria-label="${tip}" aria-pressed="${c.rating === v}" class="${c.rating === v ? "on" : ""} ${v < 0 ? "down" : ""}" onclick="dscRate('${k}',${v})">${ico(icon)}${labels ? `<span>${tip}</span>` : ""}</button>`;
   return `<div class="rate">${r(2, "heart", "Me encanta")}${r(1, "up", "Me gusta")}${r(-1, "down", "No me gusta")}</div>`;
 }
+function swapButton(k) { return `<button class="havebtn" onclick="dlSwap('${k}')" title="Bajar otra versión que no sea de cine y quitar la vieja">${ico("download")}Reemplazar por mejor calidad</button>`; }
 function dlButton(k) { return `<button class="havebtn" onclick="dlAdd('${k}')">${ico("download")}${DL}</button>`; }
 function kindLabel(c) { return c.kind === "tv" ? "Serie" : "Película"; }
 function poster(c, cls = "") { return c.poster ? `<img class="${cls}" loading="lazy" src="${esc(c.poster)}" alt="" draggable="false">` : `<div class="noimg ${cls}"></div>`; }
@@ -3001,7 +3010,7 @@ function renderPeek(anim) {
     ${c.tagline ? `<p class="tagline">${esc(c.tagline)}</p>` : ""}
     <p class="pk-ov">${esc(c.overview) || "<i>No hay resumen en español.</i>"}</p>
     ${facts.length ? `<dl class="facts">${facts.map(([a, b]) => `<dt>${a}</dt><dd>${esc(b)}</dd>`).join("")}</dl>` : ""}
-    <div class="pk-acts">${rateButtons(c, k)}${c.have && c.kind !== "tv" ? "" : dlButton(k)}
+    <div class="pk-acts">${rateButtons(c, k)}${c.have && c.kind !== "tv" ? (FRIEND ? "" : swapButton(k)) : dlButton(k)}
       ${c.trailer ? `<a class="btn main" href="${esc(c.trailer)}" target="_blank" rel="noopener">${ico("play", "fill")}Ver el tráiler</a>` : ""}
       <button class="btn sec" onclick="dscOpen('${k}')">Ver la ficha completa</button></div></div></div>`;
 }
@@ -3065,7 +3074,7 @@ function renderDetail(partial) {
         <p class="ov">${esc(c.overview) || (partial ? "" : "<i>No hay resumen.</i>")}${c.overview_lang === "en" ? ` <span class="hint">(en inglés: no hay resumen en español)</span>` : ""}</p>
         ${facts.length ? `<dl class="facts">${facts.map(([a, b]) => `<dt>${a}</dt><dd>${esc(b)}</dd>`).join("")}</dl>` : ""}
         ${c.trailer ? `<a class="trailer" href="${esc(c.trailer)}" target="_blank" rel="noopener">${ico("play", "fill")}Ver el tráiler</a>` : ""}
-        <div class="dacts">${rateButtons(c, k)}${c.have && c.kind !== "tv" ? "" : dlButton(k)}${followBtn(c)}</div>
+        <div class="dacts">${rateButtons(c, k)}${c.have && c.kind !== "tv" ? (FRIEND ? "" : swapButton(k)) : dlButton(k)}${followBtn(c)}</div>
       </div></div>
     ${cast ? `<div class="castwrap"><h3>Reparto</h3><div class="cast">${cast}</div></div>` : partial ? `<p class="empty">Cargando la ficha…</p>` : ""}`;
 }

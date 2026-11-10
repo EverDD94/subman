@@ -962,6 +962,27 @@ public class PlaybackController implements PlaybackControllerNotifiable {
         skip(-prefs.get(UserSettingPreferences.Companion.getSkipBackLength()));
     }
 
+    // Everflix: the same arrow or FF/RW key pressed again within 2.5 s doubles the jump,
+    // 10 s first and then 2×, 4×, 8×, 16× and 32× (as on Roku). Returns the label to show.
+    private long everflixSkipAt = 0;
+    private int everflixSkipDir = 0;
+    private int everflixSkipStep = 0;
+
+    public String speedSkip(int direction) {
+        long now = System.currentTimeMillis();
+        if (direction == everflixSkipDir && now - everflixSkipAt < 2500) {
+            if (everflixSkipStep < 5) everflixSkipStep++;
+        } else {
+            everflixSkipStep = 0;
+        }
+        everflixSkipDir = direction;
+        everflixSkipAt = now;
+        skip(direction * (10000 << everflixSkipStep));
+        String arrow = direction > 0 ? "▶▶" : "◀◀";
+        String amount = everflixSkipStep == 0 ? "10 s" : (1 << everflixSkipStep) + "×";
+        return direction > 0 ? amount + "  " + arrow : arrow + "  " + amount;
+    }
+
     public void seek(long pos) {
         seek(pos, false);
     }

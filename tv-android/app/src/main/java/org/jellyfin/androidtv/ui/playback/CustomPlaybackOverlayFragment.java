@@ -230,6 +230,7 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
         super.onDestroyView();
 
         binding = null;
+        speedBadge = null;
         // To fix race condition in hide timer
         mIsVisible = false;
     }
@@ -451,16 +452,48 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
                     playbackController.playPause();
                     return true;
                 } else if (keyCode == KeyEvent.KEYCODE_MEDIA_FAST_FORWARD || keyCode == KeyEvent.KEYCODE_BUTTON_R1 || keyCode == KeyEvent.KEYCODE_BUTTON_R2) {
-                    playbackController.fastForward();
+                    showSpeed(playbackController.speedSkip(1));
                     return true;
                 } else if (keyCode == KeyEvent.KEYCODE_MEDIA_REWIND || keyCode == KeyEvent.KEYCODE_BUTTON_L1 || keyCode == KeyEvent.KEYCODE_BUTTON_L2) {
-                    playbackController.rewind();
+                    showSpeed(playbackController.speedSkip(-1));
                     return true;
                 }
             }
         }
 
         return false;
+    }
+
+    // Everflix: glass badge with the jump speed (10 s, 2×…32×), top centre, fades after 1.5 s
+    private android.widget.TextView speedBadge;
+    private final Runnable hideSpeed = () -> { if (speedBadge != null) speedBadge.animate().alpha(0f).setDuration(250); };
+
+    private void showSpeed(String label) {
+        if (binding == null) return;
+        if (speedBadge == null) {
+            speedBadge = new android.widget.TextView(requireContext());
+            speedBadge.setTextColor(0xFFF4F2EE);
+            speedBadge.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 22);
+            speedBadge.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            int h = (int) (28 * getResources().getDisplayMetrics().density);
+            int v = (int) (10 * getResources().getDisplayMetrics().density);
+            speedBadge.setPadding(h, v, h, v);
+            android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+            bg.setColor(0x40FFFFFF);
+            bg.setStroke((int) getResources().getDisplayMetrics().density, 0x55FFFFFF);
+            bg.setCornerRadius(100f);
+            speedBadge.setBackground(bg);
+            android.widget.FrameLayout.LayoutParams lp = new android.widget.FrameLayout.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                    android.view.Gravity.TOP | android.view.Gravity.CENTER_HORIZONTAL);
+            lp.topMargin = (int) (48 * getResources().getDisplayMetrics().density);
+            binding.getRoot().addView(speedBadge, lp);
+        }
+        speedBadge.setText(label);
+        speedBadge.animate().cancel();
+        speedBadge.setAlpha(1f);
+        speedBadge.removeCallbacks(hideSpeed);
+        speedBadge.postDelayed(hideSpeed, 1500);
     }
 
     public void refreshFavorite(UUID channelId) {
@@ -574,13 +607,13 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
                     // Control fast forward and rewind if overlay hidden and not showing live TV
                     if (!playbackControllerContainer.getValue().getPlaybackController().isLiveTv()) {
                         if (keyCode == KeyEvent.KEYCODE_MEDIA_FAST_FORWARD || keyCode == KeyEvent.KEYCODE_BUTTON_R1 || keyCode == KeyEvent.KEYCODE_BUTTON_R2) {
-                            playbackControllerContainer.getValue().getPlaybackController().fastForward();
+                            showSpeed(playbackControllerContainer.getValue().getPlaybackController().speedSkip(1));
                             setFadingEnabled(true);
                             return true;
                         }
 
                         if (keyCode == KeyEvent.KEYCODE_MEDIA_REWIND || keyCode == KeyEvent.KEYCODE_BUTTON_L1 || keyCode == KeyEvent.KEYCODE_BUTTON_L2) {
-                            playbackControllerContainer.getValue().getPlaybackController().rewind();
+                            showSpeed(playbackControllerContainer.getValue().getPlaybackController().speedSkip(-1));
                             setFadingEnabled(true);
                             return true;
                         }
@@ -589,11 +622,13 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
                     if (!mIsVisible) {
                         if (!playbackControllerContainer.getValue().getPlaybackController().isLiveTv()) {
                             if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                                showSpeed(playbackControllerContainer.getValue().getPlaybackController().speedSkip(1));
                                 setFadingEnabled(true);
                                 return true;
                             }
 
                             if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) {
+                                showSpeed(playbackControllerContainer.getValue().getPlaybackController().speedSkip(-1));
                                 setFadingEnabled(true);
                                 return true;
                             }

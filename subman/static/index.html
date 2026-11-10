@@ -433,6 +433,9 @@ body:has(#descubrir.peekon:not([hidden])) > header{background:color-mix(in srgb,
 .door.p-hulu{background:radial-gradient(120% 90% at 85% 20%,#7dffb3 0%,#1ce783 40%,#05391e 100%)}
 .door.p-starz{background:radial-gradient(120% 90% at 85% 20%,#5a5a6a 0%,#1d1d26 45%,#000 100%)}
 .door.p-vix{background:radial-gradient(120% 90% at 85% 20%,#ffb347 0%,#ff6a00 40%,#3d1500 100%)}
+.door.p-amc{background:radial-gradient(120% 90% at 85% 20%,#9a9a9a 0%,#2b2b2b 40%,#050505 100%)}
+.door.p-mgm{background:radial-gradient(120% 90% at 85% 20%,#f3d27a 0%,#a67c1a 40%,#2a1d02 100%)}
+.door.p-tubi{background:radial-gradient(120% 90% at 85% 20%,#ffe14d 0%,#7b2cff 45%,#1a0640 100%)}
 .plathead{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 18px}
 .plathead h3{font:800 clamp(30px,4vw,46px)/1 var(--display);letter-spacing:-.04em;margin:0 12px 0 0}
 @media (hover:hover) and (pointer:fine){
@@ -3288,7 +3291,7 @@ function renderPlat() {
     const sm = plat.summary;
     const list = sm || [["netflix", "Netflix"], ["prime", "Prime Video"], ["disney", "Disney+"], ["hbo", "HBO Max"], ["apple", "Apple TV"],
       ["movistar", "Movistar Plus+"], ["skyshowtime", "SkyShowtime"], ["filmin", "Filmin"],
-      ["paramount", "Paramount+"], ["crunchyroll", "Crunchyroll"], ["rakuten", "Rakuten TV"], ["peacock", "Peacock"], ["hulu", "Hulu"], ["starz", "Starz"], ["vix", "ViX"]].map(([id, name]) => ({id, name}));
+      ["paramount", "Paramount+"], ["crunchyroll", "Crunchyroll"], ["rakuten", "Rakuten TV"], ["peacock", "Peacock"], ["hulu", "Hulu"], ["starz", "Starz"], ["vix", "ViX"], ["amc", "AMC+"], ["mgm", "MGM+"], ["tubi", "Tubi"]].map(([id, name]) => ({id, name}));
     $("#dscBox").innerHTML = `<p class="muted esthelp">Elige una plataforma y mira lo que acaba de salir en ella en España, o lo más visto de todo su catálogo.</p>
       <div class="plats">${list.map(p => `<button class="door p-${p.id}" onclick="platOpen('${p.id}')">
         <span class="fan" aria-hidden="true">${(p.posters || []).length ? p.posters.map(u => `<span><img src="${esc(u)}" alt="" loading="lazy"></span>`).join("") : "<span></span>".repeat(5)}</span>

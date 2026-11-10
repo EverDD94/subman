@@ -119,3 +119,45 @@ def latest(url: str, api_key: str, limit: int = 300) -> list[dict]:
                     "series": it.get("SeriesName", ""), "series_tmdb": tmdb_of.get(it.get("SeriesId", "")),
                     "season": it.get("ParentIndexNumber"), "episode": it.get("IndexNumber")})
     return out
+
+
+def watched(url: str, api_key: str) -> list[dict]:
+    """Lo que se ha visto (de los administradores): películas terminadas y series con capítulos vistos.
+
+    Devuelve [{"kind": "movie"|"tv", "tmdb": int, "n": capítulos vistos, "last": "fecha ISO"}], lo más reciente primero.
+    """
+    base = url.rstrip("/")
+    users = requests.get(base + "/Users", headers=_headers(api_key), timeout=30)
+    users.raise_for_status()
+    people = [u for u in users.json() if u.get("Policy", {}).get("IsAdministrator")] or users.json()
+    params = {"Recursive": "true", "IncludeItemTypes": "Movie,Episode", "Filters": "IsPlayed",
+              "Fields": "ProviderIds", "EnableImages": "false", "EnableUserData": "true",
+              "SortBy": "DatePlayed", "SortOrder": "Descending", "Limit": "2000"}
+    acc: dict[tuple, dict] = {}
+    series: dict[str, dict] = {}
+    for u in people[:3]:
+        r = requests.get(f"{base}/Users/{u['Id']}/Items", headers=_headers(api_key), params=params, timeout=60)
+        r.raise_for_status()
+        for it in r.json().get("Items", []):
+            last = (it.get("UserData") or {}).get("LastPlayedDate") or ""
+            if it.get("Type") == "Episode" and it.get("SeriesId"):
+                s = series.setdefault(it["SeriesId"], {"n": 0, "last": ""})
+                s["n"] += 1
+                s["last"] = max(s["last"], last)
+                continue
+            ids = {k.lower(): v for k, v in (it.get("ProviderIds") or {}).items() if v}
+            if str(ids.get("tmdb", "")).isdigit():
+                k = ("movie", int(ids["tmdb"]))
+                e = acc.setdefault(k, {"kind": "movie", "tmdb": k[1], "n": 1, "last": ""})
+                e["last"] = max(e["last"], last)
+    if series:
+        sids = list(series)
+        for i in range(0, len(sids), 100):
+            for s in _items(base, api_key, {"Ids": ",".join(sids[i:i + 100]), "Fields": "ProviderIds", "EnableImages": "false"}):
+                ids = {k.lower(): v for k, v in (s.get("ProviderIds") or {}).items() if v}
+                if str(ids.get("tmdb", "")).isdigit() and s.get("Id") in series:
+                    k = ("tv", int(ids["tmdb"]))
+                    e = acc.setdefault(k, {"kind": "tv", "tmdb": k[1], "n": 0, "last": ""})
+                    e["n"] += series[s["Id"]]["n"]
+                    e["last"] = max(e["last"], series[s["Id"]]["last"])
+    return sorted(acc.values(), key=lambda e: e["last"], reverse=True)

@@ -19,6 +19,7 @@ import random
 import re
 import time
 import unicodedata
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 
 from . import jellyfin
@@ -47,6 +48,9 @@ PLATFORMS = {
     "hulu": {"name": "Hulu", "ids": "15", "region": "US"},
     "starz": {"name": "Starz", "ids": "43", "region": "US"},
     "vix": {"name": "ViX", "ids": "457", "region": "US"},
+    "amc": {"name": "AMC+", "ids": "526", "region": "US"},
+    "mgm": {"name": "MGM+", "ids": "34", "region": "US"},
+    "tubi": {"name": "Tubi", "ids": "73", "region": "US"},
 }
 _TMDBID = re.compile(r"\[tmdbid-(\d+)\]", re.I)
 
@@ -371,12 +375,40 @@ class Discover:
                 "people": [p["name"] for p in L["people"] if p["w"] >= 0.5][:8],
                 "people_no": [p["name"] for p in L["people"] if p["w"] <= -0.5][:6]}
 
+    _watched: dict = {}
+
+    def watched(self) -> list[dict]:
+        """Lo que has visto en Jellyfin (se guarda 1 hora). Vacío si no hay Jellyfin."""
+        jf = self.cfg.get("jellyfin", {})
+        if not (jf.get("url") and jf.get("api_key")):
+            return []
+        hit = Discover._watched.get(jf["url"])
+        if not hit or time.time() - hit[0] > 3600:
+            try:
+                hit = (time.time(), jellyfin.watched(jf["url"], jf["api_key"]))
+            except Exception as e:
+                log.info("descubrir: sin historial de Jellyfin (%s)", e)
+                hit = (time.time(), (hit or (0, []))[1])
+            Discover._watched[jf["url"]] = hit
+        return hit[1]
+
     def for_you(self, limit: int = 60) -> list[dict]:
         marks = self.marks()
         prof = self.profile()
         liked = sorted(((k, v) for k, v in marks.items() if (v["rating"] or 0) > 0),
                        key=lambda kv: -kv[1]["rating"])[:40]
-        if not liked and not prof["done"]:
+        # lo que ves en Jellyfin cuenta como un «me gusta» (lo más reciente, más); lo que calificaste manda
+        seen = []
+        for i, w in enumerate(self.watched()):
+            k = (w["kind"], w["tmdb"])
+            if k in marks and marks[k]["rating"] is not None:
+                continue
+            if w["kind"] == "tv" and w["n"] < 3:
+                continue  # un par de capítulos no dice que te guste
+            seen.append((k, 1.2 - 0.6 * min(len(seen), 30) / 30))
+            if len(seen) >= 30:
+                break
+        if not liked and not seen and not prof["done"]:
             return []
         L = self.learned(marks)
         taste: dict[int, float] = {int(g): 3 * v for g, v in prof["genres"].items()}  # lo que marcaste a mano
@@ -385,7 +417,7 @@ class Discover:
         why: dict[tuple, list] = {}
         for c, reason in self._seed(self._with_learned(prof, L)):  # «Mis gustos» + lo aprendido
             k = (c["kind"], c["tmdb"])
-            score[k] = score.get(k, 0) + 0.6
+            score[k] = score.get(k, 0) + (0.15 if reason == "popular" else 0.35)  # relleno: poco
             cards[k] = c
             why.setdefault(k, []).append(reason)
         for (kind, tid), v in liked:
@@ -394,6 +426,19 @@ class Discover:
                 score[k] = score.get(k, 0) + v["rating"] * (1 - rank / 40)
                 cards[k] = c
                 why.setdefault(k, []).append(v["info"].get("title") or "")
+        with ThreadPoolExecutor(8) as ex:
+            recs = list(ex.map(lambda kw: (self._recommendations(*kw[0]), self._title(*kw[0])), seen))
+        for (sk, w), (rl, src) in zip(seen, recs):
+            for rank, c in enumerate(rl):
+                k = (c["kind"], c["tmdb"])
+                score[k] = score.get(k, 0) + w * (1 - rank / 40)
+                cards[k] = c
+                why.setdefault(k, []).append(f"viste {src}" if src else "")
+        hits = {k: len(set(v)) for k, v in why.items()}  # recomendado por varias cosas tuyas a la vez
+        for k, n in hits.items():
+            if n >= 2:
+                score[k] += 0.4 * (n - 1)
+        watched_keys = {(w["kind"], w["tmdb"]) for w in self.watched()}
         for p in [x for x in L["people"] if x["w"] >= 0.5][:6]:  # gente que sale en varias que te gustan
             for c in self._credits(p["id"]):
                 k = (c["kind"], c["tmdb"])
@@ -418,6 +463,10 @@ class Discover:
             mk = marks.get(k)
             if mk and (mk["rating"] not in (None, 0) or mk["have"] == 1):
                 continue  # ya calificada o ya la tienes
+            if k in watched_keys:
+                continue  # ya la viste
+            if c["vote"] and c["vote"] < 6:
+                continue  # mala nota
             if not (mk and mk["have"] == 0) and self.in_library(c, idx):
                 continue
             g = sum(taste.get(x, 0) for x in c["genre_ids"]) / max(1, len(c["genre_ids"]))
@@ -433,7 +482,35 @@ class Discover:
                     c["because"] = [f"te gusta: {self.genres()[top]}"]
             out.append(c)
         out.sort(key=lambda c: -c["score"])
-        return self._decorate(out[:limit], idx, marks)
+        # variedad: como mucho 3 por cada motivo principal, y películas y series alternadas
+        per: dict[str, int] = {}
+        picked = []
+        for c in out:
+            top = c["because"][0] if c["because"] else ""
+            if top and per.get(top, 0) >= 3:
+                continue
+            per[top] = per.get(top, 0) + 1
+            picked.append(c)
+        mv = [c for c in picked if c["kind"] == "movie"]
+        tv = [c for c in picked if c["kind"] == "tv"]
+        mixed = []
+        while mv or tv:
+            for lst in (mv, tv):
+                if lst:
+                    mixed.append(lst.pop(0))
+        return self._decorate(mixed[:limit], idx, marks)
+
+    _titles: dict = {}
+
+    def _title(self, kind: str, tid: int) -> str:
+        key = (self.language, kind, tid)
+        if key not in Discover._titles:
+            try:
+                d = self.api._get(f"/{kind}/{tid}")
+                Discover._titles[key] = d.get("title") or d.get("name") or ""
+            except Exception:
+                Discover._titles[key] = ""
+        return Discover._titles[key]
 
     def wanted(self) -> list[dict]:
         """Por conseguir: sólo lo que marcaste «No la tengo» / «Agregar a mi lista». Lo que puntúas va a
@@ -750,7 +827,8 @@ class Discover:
         with ThreadPoolExecutor(10) as ex:
             return list(ex.map(one, PLATFORMS))
 
-    HOME_PLATFORMS = ("netflix", "prime", "apple", "hbo", "disney")
+    HOME_PLATFORMS = ("netflix", "prime", "apple", "hbo", "disney", "hulu", "paramount", "peacock", "starz",
+                      "amc", "mgm", "crunchyroll")
     _home_cache: dict = {}
     _home_refreshing = False
 
@@ -798,7 +876,7 @@ class Discover:
                     out += a[i:i + 1] + b[i:i + 1]
                 return out
 
-            with ThreadPoolExecutor(12) as ex:
+            with ThreadPoolExecutor(16) as ex:
                 rel = [ex.submit(releases, k) for k in KINDS]
                 plats = {pid: [ex.submit(platform, pid, k) for k in KINDS] for pid in self.HOME_PLATFORMS}
 

@@ -32,6 +32,7 @@ class TMDb:
         self._shows: dict[int, dict] = {}
         self._seasons: dict[tuple[int, int], dict[int, str]] = {}
         self._runtimes: dict[tuple[int, int], list[int]] = {}
+        self._eps: dict[tuple[int, int], list[dict]] = {}
 
     def _get(self, path: str, **params) -> dict:
         for attempt in range(4):
@@ -110,6 +111,8 @@ class TMDb:
                 else:
                     raise
             self._runtimes[key] = [e["runtime"] for e in eps if e.get("runtime")]
+            self._eps[key] = [{"number": e["episode_number"], "name": (e.get("name") or "").strip(),
+                               "runtime": e.get("runtime") or None} for e in eps]
             names = {e["episode_number"]: (e.get("name") or "").strip() for e in eps}
             if any(_placeholder(n) for n in names.values()):
                 try:
@@ -120,6 +123,11 @@ class TMDb:
                     log.warning("TheMovieDB: títulos en inglés de la temporada %s: %s", number, e)
             self._seasons[key] = {k: "" if _placeholder(v) else v for k, v in names.items()}
         return self._seasons[key]
+
+    def episodes(self, tv_id: int, number: int) -> list[dict]:
+        """[{number, name, runtime}] de la temporada, en el orden de TheMovieDB."""
+        self.season(tv_id, number)
+        return sorted(self._eps.get((tv_id, number)) or [], key=lambda e: e["number"])
 
     def runtime(self, tv_id: int, number: int) -> float | None:
         """Lo que suele durar un capítulo de esa temporada (minutos), o None si TheMovieDB no lo sabe."""

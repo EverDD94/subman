@@ -1028,6 +1028,8 @@ dialog.sheet .foot{display:none}
 
 <section id="nombres" hidden>
   <div class="ph"><h2 class="mg-h">Nombres</h2><p class="ph-sub">Que Jellyfin reconozca cada película y cada capítulo a la primera.</p></div>
+  <div class="row" id="nmKind" style="gap:8px;margin-bottom:12px"><button class="btn" data-kind="pelis">Películas</button><button class="btn sec" data-kind="series">Series</button></div>
+  <div id="nmPelis">
   <div class="card">
     <div class="row" style="justify-content:space-between"><h2 style="margin:0">Nombres y carpetas</h2>
       <div class="row"><button class="btn sec" id="nmScan">Revisar nombres</button><button class="btn" id="nmAuto">Identificar todo</button>
@@ -1052,6 +1054,8 @@ dialog.sheet .foot{display:none}
     <div class="row" style="margin-bottom:8px"><label class="switch"><input type="checkbox" id="nmAll" checked><span>Todas</span></label>
       <button class="btn" id="nmOrganize">Ordenar las marcadas en carpetas</button></div>
     <table><thead><tr><th></th><th>Ahora</th><th>Quedará en</th></tr></thead><tbody id="nmLoose"></tbody></table></div>
+  </div>
+  <div id="nmSeries" hidden>
   <div class="card" id="srCard">
     <div class="row" style="justify-content:space-between"><h2 style="margin:0">Series</h2>
       <div class="row"><button class="btn sec" id="srAll" hidden>Renombrar todo lo marcado</button>
@@ -1064,6 +1068,7 @@ dialog.sheet .foot{display:none}
     <div id="srState"></div>
   </div>
   <div id="srGroups"></div>
+  </div>
   <div class="card" id="nmHistCard" hidden><h2>Cambios hechos</h2>
     <table><thead><tr><th>Película o serie</th><th>Antes → ahora</th><th></th></tr></thead><tbody id="nmHist"></tbody></table></div>
 </section>
@@ -2332,6 +2337,14 @@ function zoomImg(src) {  // carátula en grande; se cierra tocando en cualquier 
   d.onclick = () => d.remove();
   document.body.appendChild(d);
 }
+// Nombres: Películas y Series por separado (cada una con sus botones); se recuerda la última
+function nmKind(k) {
+  $("#nmPelis").hidden = k !== "pelis"; $("#nmSeries").hidden = k !== "series";
+  document.querySelectorAll("#nmKind [data-kind]").forEach(b => b.className = "btn" + (b.dataset.kind === k ? "" : " sec"));
+  try { localStorage.setItem("nmKind", k); } catch (e) {}
+}
+document.querySelectorAll("#nmKind [data-kind]").forEach(b => b.onclick = () => nmKind(b.dataset.kind));
+try { nmKind(localStorage.getItem("nmKind") || "pelis"); } catch (e) { nmKind("pelis"); }
 let sr = null, srShown = null;
 const srClosed = new Set();  // series plegadas (por su clave), se mantienen al volver a pintar
 async function loadSeries() {
@@ -2441,7 +2454,7 @@ function renderSeries() {
     b.disabled = true; b.textContent = `Renombrando ${ids.length}...`;  // sin preguntar: se puede deshacer en «Cambios hechos»
     let r; try { r = await api("/api/series/apply", {key: list[gi].key, ids}); } catch (err) { r = {ok: false, error: err.message}; }
     if (!r.ok) { b.disabled = false; b.textContent = "Renombrar los marcados"; return toast("No se pudo: " + r.error); }
-    toast(`Renombrados ${r.done}. Jellyfin los actualizará en unos minutos.`);
+    toast(r.done ? `Renombrados ${r.done}. Jellyfin los actualizará en unos minutos.` : "No se renombró nada: los marcados ya tenían su nombre");
     srShown = null; loadNames();
   });
 }

@@ -15,6 +15,8 @@
       <EfPillButton id="showAudioMenu" icon="pkg:/images/icons/ef-audio.png" text="Audio" />
     </ButtonGroup>
 
+    <Label id="optionHint" width="260" horizAlign="center" color="0xF4F2EEFF" visible="false"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="24" /></Label>
+
     <LayoutGroup id="videoInfo" layoutDirection="vert" itemSpacings="[6]" translation="[96,640]">
       <LayoutGroup id="videoInfoLine" layoutDirection="horiz">
         <Text id="itemSeason" color="0xC9D5FFFF"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="26" /></Text>
@@ -76,9 +78,9 @@
     </Group>
 
     <Group id="speedBadge" visible="false">
-      <Poster id="speedBadgeBg" uri="pkg:/images/everflix/pill.9.png" height="44" blendColor="0xF4F2EEFF" />
-      <Poster id="speedBadgeIcon" width="26" height="18" translation="[16,13]" blendColor="0x0B0D12FF" />
-      <Label id="speedBadgeText" color="0x0B0D12FF" height="44" vertAlign="center" translation="[48,0]"><Font role="font" uri="pkg:/fonts/archivo_extrabold.ttf" size="26" /></Label>
+      <Poster id="speedBadgeBg" uri="pkg:/images/everflix/pill.9.png" height="44" opacity="0" />
+      <Poster id="speedBadgeIcon" width="32" height="22" translation="[0,11]" blendColor="0xF4F2EEFF" />
+      <Label id="speedBadgeText" color="0xF4F2EEFF" height="44" vertAlign="center" translation="[40,0]"><Font role="font" uri="pkg:/fonts/archivo_extrabold.ttf" size="26" /></Label>
     </Group>
 
     <Text id="liveTvPos" color="0xffffffFF" translation="[250,820]" horizAlign="left" vertAlign="center"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="30" /></Text>

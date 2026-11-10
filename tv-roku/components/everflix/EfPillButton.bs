@@ -13,48 +13,28 @@ sub init()
 end sub
 
 sub layout()
+    ' Fixed size, so the row never spreads apart. Focus = white circle; the OSD shows the name below
     focused = m.top.focus = true and m.top.enabled
     h = m.top.height
-    pad = m.top.padding
     iconSize = Int(h * 0.5)
     m.icon.uri = m.top.icon
     m.icon.width = iconSize
     m.icon.height = iconSize
-
-    if not focused
-        m.label.visible = false
-        m.bg.visible = false
-        m.icon.translation = [Int((h - iconSize) / 2), Int((h - iconSize) / 2)]
-        m.icon.blendColor = "0xF4F2EEFF"
-        m.bg.width = h
-        m.bg.height = h
-        m.top.opacity = m.top.enabled ? 0.9 : 0.35
-        return
-    end if
-
-    x = pad
-    m.icon.translation = [x, Int((h - iconSize) / 2)]
-    x += iconSize
-    m.label.text = m.top.text
-    ' A label keeps its last width, and boundingRect never measures past it
-    m.label.width = 0
-    textWidth = 0
-    if m.top.text <> ""
-        x += 12
-        textWidth = m.label.boundingRect().width
-    end if
-    m.label.height = h
-    m.label.translation = [x, 0]
-    m.label.width = textWidth + 2
-    m.label.visible = true
-    x += textWidth
-    m.bg.width = x + pad
+    m.icon.translation = [Int((h - iconSize) / 2), Int((h - iconSize) / 2)]
+    m.label.visible = false
+    m.bg.width = h
     m.bg.height = h
-    m.bg.blendColor = "0xFFFFFFFF"
-    m.bg.visible = true
-    m.icon.blendColor = "0x0B0D12FF"
-    m.label.color = "0x0B0D12FF"
-    m.top.opacity = 1.0
+    if focused
+        m.bg.blendColor = "0xFFFFFFFF"
+        m.bg.opacity = 1.0
+        m.icon.blendColor = "0x0B0D12FF"
+        m.top.opacity = 1.0
+    else
+        m.bg.blendColor = "0xFFFFFFFF"
+        m.bg.opacity = 0.0
+        m.icon.blendColor = "0xF4F2EEFF"
+        m.top.opacity = m.top.enabled ? 0.9 : 0.35
+    end if
 end sub
 
 function onKeyEvent(key as string, press as boolean) as boolean

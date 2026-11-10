@@ -87,8 +87,10 @@ sub init()
     m.progressBarBackground.color = "0xFFFFFF38"
     m.progressBar.color = "0xF4F2EEFF"
 
+    m.optionHint = m.top.findNode("optionHint")
     optionButtons = m.optionControls.getChildren(-1, 0)
     for each button in optionButtons
+        button.observeField("focus", "onOptionFocusChanged")
         button.background = ColorPalette.DARKGREY
         button.focusBackground = chainLookupReturn(m.global.session, "user.settings.colorCursor", ColorPalette.HIGHLIGHT)
     end for
@@ -763,9 +765,23 @@ sub onSeekSpeedLabelChanged()
     text.width = 0
     textWidth = text.boundingRect().width
     text.width = textWidth + 2
-    m.top.findNode("speedBadgeBg").width = 48 + textWidth + 18
+    m.top.findNode("speedBadgeBg").width = 40 + textWidth
     badge.visible = true
     placeSpeedBadge()
+end sub
+
+' Everflix: name of the focused top icon, centred under it
+sub onOptionFocusChanged()
+    for each button in m.optionControls.getChildren(-1, 0)
+        if button.focus = true
+            rect = button.sceneBoundingRect()
+            m.optionHint.text = button.text
+            m.optionHint.translation = [rect.x + rect.width / 2 - 130, rect.y + rect.height + 10]
+            m.optionHint.visible = true
+            return
+        end if
+    end for
+    m.optionHint.visible = false
 end sub
 
 sub placeSpeedBadge()

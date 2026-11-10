@@ -197,6 +197,31 @@ class Videotecario(jellyfinUrl: String?, private val token: String?) {
 		}.getOrElse { "Videotecario no responde" }
 	}
 
+	/** What the admin rated this title (2 me encanta, 1 me gusta, -1 no me gusta, null none). Throws when it cannot rate (not admin, no server). */
+	suspend fun rating(kind: String, tmdb: Int): Int? = withContext(Dispatchers.IO) {
+		val base = base ?: error("no Videotecario")
+		val body = request(URL("$base/api/pedir/rating?kind=$kind&tmdb=$tmdb"), null) ?: error("no answer")
+		val root = Json.parseToJsonElement(body).jsonObject
+		if (root["ok"]?.jsonPrimitive?.booleanOrNull != true) error("not allowed")
+		root["rating"]?.jsonPrimitive?.content?.toIntOrNull()
+	}
+
+	/** Saves the rating (null removes it). Returns true when it worked. */
+	suspend fun rate(kind: String, tmdb: Int, rating: Int?, title: String?, year: Int?): Boolean = withContext(Dispatchers.IO) {
+		val base = base ?: return@withContext false
+		runCatching {
+			val payload = buildJsonObject {
+				put("kind", kind)
+				put("tmdb", tmdb)
+				put("rating", rating)
+				title?.let { put("title", it) }
+				year?.let { put("year", it) }
+			}
+			val body = request(URL("$base/api/pedir/rate"), payload) ?: return@runCatching false
+			Json.parseToJsonElement(body).jsonObject["ok"]?.jsonPrimitive?.booleanOrNull == true
+		}.getOrDefault(false)
+	}
+
 	private fun request(url: URL, payload: JsonObject?, readTimeout: Int = 8000): String? {
 		val conn = url.openConnection() as HttpURLConnection
 		conn.connectTimeout = 4000

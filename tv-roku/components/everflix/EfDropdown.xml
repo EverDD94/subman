@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Everflix: side panel with a list to pick one option (seasons, audio, subtitles). The screen drives it with up, down, OK and back. -->
+<component name="EfDropdown" extends="Group">
+  <children>
+    <Rectangle id="dim" width="1920" height="1080" color="0x000000AA" />
+    <Rectangle id="panel" translation="[1300, 0]" width="620" height="1080" color="0x12151CF5" />
+    <Label id="title" translation="[1360, 90]" width="500" />
+    <Group id="clip" translation="[1340, 170]">
+      <Group id="list" />
+    </Group>
+  </children>
+  <interface>
+    <!-- [{ key, text, selected, header }] ; header rows are titles and cannot be picked -->
+    <field id="items" type="array" onChange="build" />
+    <field id="title" type="string" onChange="onTitle" />
+    <field id="index" type="integer" value="0" onChange="paint" />
+    <field id="pressed" type="string" alwaysNotify="true" />
+    <function name="move" />
+    <function name="press" />
+  </interface>
+</component>

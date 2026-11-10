@@ -30,6 +30,7 @@
     <field id="item" type="assocarray" onChange="onItem" />
     <field id="preview" type="boolean" value="false" onChange="onPreview" />
     <field id="overviewLines" type="integer" value="3" onChange="onLines" />
+    <field id="centered" type="boolean" value="false" onChange="onCentered" />
     <field id="textWidth" type="integer" value="1000" onChange="onWidth" />
   </interface>
 </component>

@@ -106,3 +106,13 @@ sub onItem()
 
     m.overview.text = item.LookupCI("Overview") ?? ""
 end sub
+
+' Centres the whole block on the hero translation x (series page)
+sub onCentered()
+    c = m.top.centered
+    column = m.top.findNode("column")
+    column.horizAlignment = c ? "center" : "left"
+    for each id in ["title", "overview"]
+        m.top.findNode(id).horizAlign = c ? "center" : "left"
+    end for
+end sub

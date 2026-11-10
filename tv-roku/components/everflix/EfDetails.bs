@@ -8,14 +8,11 @@ sub init()
     m.hero = m.top.findNode("hero")
     m.buttons = m.top.findNode("buttons")
     m.hint = m.top.findNode("hint")
-    m.epCount = m.top.findNode("epCount")
     m.picker = m.top.findNode("picker")
     m.pickerMode = ""
     m.hint.font = ef.font(ef.FONT_SEMI, 22)
     m.hint.color = ef.MUTED
-    m.epCount.font = ef.font(ef.FONT_SEMI, 23)
-    m.epCount.color = ef.MUTED
-    m.seasons = m.top.findNode("seasons")
+    m.dock = m.top.findNode("dock")
     m.section = m.top.findNode("section")
     m.episodes = m.top.findNode("episodes")
     m.similar = m.top.findNode("similar")
@@ -27,7 +24,6 @@ sub init()
     m.buttons.observeField("index", "updateHint")
     m.buttons.observeField("active", "updateHint")
     m.picker.observeField("pressed", "onPicked")
-    m.seasons.observeField("pressed", "onSeason")
     m.episodes.observeField("rowItemSelected", "onEpisodeSelected")
     m.similar.observeField("rowItemSelected", "onSimilarSelected")
 
@@ -39,6 +35,7 @@ sub init()
     m.userDataTask.observeField("result", "onUserData")
 
     m.data = invalid
+    m.seasons = false
     m.zones = []
     m.zone = 0
     m.audioLang = invalid
@@ -71,19 +68,18 @@ sub onLoaded()
 
     m.subLang = invalid
     m.audioLang = invalid
+    m.seasons = r.seasons.count() > 0
+    m.seasonId = r.seasonId
     buildLangs()
     buildButtons()
 
     ' Seasons and episodes for series, otherwise a row of related titles
     if r.seasons.count() > 0
-        m.seasonId = r.seasonId
-        buildSeasonPill()
-        m.seasons.visible = true
         m.section.visible = false
         m.similar.visible = false
         loadEpisodes(r.seasonId)
     else
-        m.seasons.visible = false
+        m.seasons = false
         m.episodes.visible = false
         if r.similar.count() > 0
             title = "MÁS COMO ESTA"
@@ -157,7 +153,18 @@ sub buildButtons()
     m.played = played
     m.favorite = favorite
     lang = langText()
-    if lang <> "" then list.push({ key: "langs", icon: "globe", text: lang, trail: "chevron-down" })
+    if lang <> "" then list.push({ key: "langs", icon: "globe", text: "" })
+    if m.seasons and isValid(m.data.seasons) and m.data.seasons.count() > 0
+        name = "Temporada"
+        for each s in m.data.seasons
+            if s.Id = m.seasonId then name = s.Name
+        end for
+        if m.data.seasons.count() > 1
+            list.push({ key: "season", text: name, trail: "chevron-down" })
+        else
+            list.push({ key: "", text: name })
+        end if
+    end if
     index = m.buttons.index
     m.buttons.items = list
     if index < list.count() then m.buttons.index = index
@@ -173,7 +180,8 @@ sub updateHint()
     if key = "restart" then m.hint.text = "Ver desde el principio"
     if key = "played" then m.hint.text = m.played ? "Visto · pulsa para desmarcar" : "Marcar como visto"
     if key = "favorite" then m.hint.text = m.favorite ? "En mi lista · pulsa para quitar" : "Añadir a mi lista"
-    if key = "langs" then m.hint.text = "Audio y subtítulos"
+    if key = "langs" then m.hint.text = "Audio y subtítulos · " + langText()
+    if key = "season" and isValid(m.episodeList) then m.hint.text = `${m.episodeList.count()} episodios · elige temporada`
 end sub
 
 function langText() as string
@@ -185,18 +193,6 @@ function langText() as string
     end if
     return parts.join(" · ")
 end function
-
-sub buildSeasonPill()
-    name = "Temporada"
-    for each s in m.data.seasons
-        if s.Id = m.seasonId then name = s.Name
-    end for
-    if m.data.seasons.count() > 1
-        m.seasons.items = [{ key: "pick", text: name, trail: "chevron-down" }]
-    else
-        m.seasons.items = [{ key: "", text: name }]
-    end if
-end sub
 
 function streamsOf(item as dynamic) as object
     if not isValid(item) then return []
@@ -241,34 +237,30 @@ end sub
 ' Stacks the rows under the buttons so nothing leaves a gap
 sub layout()
     heroBottom = m.hero.translation[1] + m.hero.boundingRect().height
-    y = heroBottom + 30
+    y = heroBottom + 40
     if y < 420 then y = 420
-    m.buttons.translation = [120, y]
-    m.hint.translation = [124, y + 72]
-    if m.buttons.visible then y += 118
-    m.seasons.translation = [120, y]
+    ' Floating bar: the buttons centred inside one dark rounded dock
+    w = m.buttons.boundingRect().width
+    x = Int((1920 - w) / 2)
+    m.buttons.translation = [x, y + 10]
+    m.dock.width = w + 20
+    m.dock.translation = [x - 10, y]
+    m.dock.visible = m.buttons.visible
+    m.hint.translation = [660, y + 96]
+    if m.buttons.visible then y += 150
     m.section.translation = [120, y]
-    seasonW = 0
-    if m.seasons.visible and m.seasons.callFunc("count") > 0
-        seasonW = m.seasons.boundingRect().width
-    end if
-    m.epCount.translation = [120 + seasonW + 24, y]
-    m.epCount.visible = m.seasons.visible
-    if m.seasons.visible
-        m.episodes.translation = [120, y + 76]
-    end if
+    m.episodes.translation = [120, y]
     m.similar.translation = [120, y + 44]
 
     m.zones = []
     if m.buttons.visible then m.zones.push(m.buttons)
-    if m.seasons.visible and m.data.seasons.count() > 1 then m.zones.push(m.seasons)
     if m.episodes.visible then m.zones.push(m.episodes)
     if m.similar.visible then m.zones.push(m.similar)
     if m.zone >= m.zones.count() then m.zone = 0
 end sub
 
 sub applyFocus()
-    for each z in [m.buttons, m.seasons]
+    for each z in [m.buttons]
         z.active = false
     end for
     if m.zones.count() = 0
@@ -308,8 +300,6 @@ sub onEpisodes()
     end for
     m.episodes.content = content
     m.episodes.visible = r.items.count() > 0
-    n = r.items.count()
-    m.epCount.text = n = 1 ? "1 episodio" : `${n} episodios`
     if r.items.count() > 0 then m.episodes.jumpToRowItem = [0, focusIndex]
     ' A series without next-up plays its first episode
     if m.data.item.Type = "Series" and not isValid(m.data.nextUp)
@@ -359,6 +349,8 @@ sub onButton()
         play(playTarget())
     else if key = "langs"
         openLangPicker()
+    else if key = "season"
+        openSeasonPicker()
     else if key = "restart"
         play(playTarget(), true)
     else if key = "played" or key = "favorite"
@@ -386,8 +378,7 @@ sub onUserData()
     buildButtons()
 end sub
 
-sub onSeason()
-    if m.seasons.pressed <> "pick" then return
+sub openSeasonPicker()
     list = []
     for each s in m.data.seasons
         list.push({ key: s.Id, text: s.Name, selected: s.Id = m.seasonId })
@@ -431,7 +422,7 @@ sub onPicked()
         closePicker()
         if key <> m.seasonId
             m.seasonId = key
-            buildSeasonPill()
+            buildButtons()
             layout()
             loadEpisodes(key)
         end if

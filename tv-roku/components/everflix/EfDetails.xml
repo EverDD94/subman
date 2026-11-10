@@ -3,11 +3,10 @@
 <component name="EfDetails" extends="JFScreen">
   <children>
     <EfBackdrop id="backdrop" fadeTop="360" />
-    <EfHero id="hero" translation="[120, 56]" textWidth="1100" overviewLines="2" />
-    <EfPillRow id="buttons" translation="[120, 500]" />
-    <Label id="hint" translation="[120, 580]" width="600" />
-    <EfPillRow id="seasons" translation="[120, 652]" small="true" />
-    <Label id="epCount" translation="[400, 652]" height="50" vertAlign="center" />
+    <EfHero id="hero" translation="[960, 90]" textWidth="1300" overviewLines="2" centered="true" />
+    <Poster id="dock" uri="pkg:/images/everflix/pill.9.png" height="84" blendColor="0x0F121AE6" />
+    <EfPillRow id="buttons" translation="[120, 500]" spacing="10" />
+    <Label id="hint" translation="[660, 580]" width="600" horizAlign="center" />
     <Label id="section" translation="[120, 650]" width="1600" color="0xFFFFFFCC" />
     <RowList
       id="episodes"

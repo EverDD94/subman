@@ -73,5 +73,5 @@ jobs:
         run: |
           head=$(git ls-remote origin refs/heads/main | cut -f1)
           if [ "$head" != "${{ github.sha }}" ]; then echo "main ya va por $head: no toco latest"; exit 0; fi
-          docker buildx imagetools create -t ghcr.io/${{ github.repository_owner }}/subman:latest \
-            '${{ fromJSON(steps.meta.outputs.json).tags[0] }}'
+          img=$(echo "${{ fromJSON(steps.meta.outputs.json).tags[0] }}")
+          docker buildx imagetools create -t "${img%%:*}:latest" "$img"

@@ -5,10 +5,14 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.widget.ImageView
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.ui.focus.focusProperties
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -26,6 +30,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -81,7 +86,6 @@ import java.util.UUID
 private val Ink = Color(0xFFF4F2EE)
 private val Accent = Color(0xFF3D63E0)
 private val Bg = Color(0xFF0B0D12)
-private val SoftBlue = Color(0xFF9DB4FF)
 
 /**
  * Everflix item page: the title big over its backdrop, a few clear buttons, and underneath the
@@ -117,8 +121,6 @@ private fun DetailsScreen(id: UUID) {
 	// Chosen languages; null audio = file default, "" subtitles = off
 	var audioLang by remember { mutableStateOf<String?>(null) }
 	var subLang by remember { mutableStateOf<String?>(null) }
-	// Side panel: "season" or "langs", null when closed
-	var picker by remember { mutableStateOf<String?>(null) }
 	fun play(id: UUID, fromStart: Boolean = false) {
 		audioLang?.let { videoQueueManager.setLastPlayedAudioLanguageIsoCode(it) }
 		videoQueueManager.setLastPlayedSubtitleLanguageIsoCode(subLang)
@@ -126,7 +128,22 @@ private fun DetailsScreen(id: UUID) {
 		else playbackHelper.retrieveAndPlay(id, false, context)
 	}
 
-	LaunchedEffect(id) {
+	// Bumped each time the screen comes back (e.g. from the player) to refresh progress and ask for a rating
+	var resumes by remember { mutableIntStateOf(0) }
+	val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+	DisposableEffect(lifecycle) {
+		val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_RESUME) resumes++ }
+		lifecycle.addObserver(observer)
+		onDispose { lifecycle.removeObserver(observer) }
+	}
+	val videotecario = remember { Videotecario(api.baseUrl, api.accessToken) }
+	var rating by remember { mutableStateOf<Int?>(null) }
+	var canRate by remember { mutableStateOf(false) }
+	val askedRating = remember { mutableSetOf<String>() }
+	var panel by remember { mutableStateOf<String?>(null) }
+
+	LaunchedEffect(id, resumes) {
+		val firstLoad = item == null
 		val loaded = withContext(Dispatchers.IO) {
 			runCatching { api.userLibraryApi.getItem(itemId = id).content }.onFailure { Timber.w(it) }.getOrNull()
 		} ?: return@LaunchedEffect
@@ -159,7 +176,18 @@ private fun DetailsScreen(id: UUID) {
 				}
 			}.onFailure { Timber.w(it, "Failed to load details") }
 		}
-		runCatching { playButton.requestFocus() }.onFailure { runCatching { firstPoster.requestFocus() } }
+		// Rating as on the Videotecario web; only the admin can (his taste profile). Episodes rate their series.
+		val rateSrc = if (loaded.type == BaseItemKind.EPISODE) series else loaded
+		val kind = when (rateSrc?.type) { BaseItemKind.MOVIE -> "movie"; BaseItemKind.SERIES -> "tv"; else -> null }
+		val tmdb = rateSrc?.providerIds?.entries?.firstOrNull { it.key.equals("Tmdb", true) }?.value?.toIntOrNull()
+		if (kind != null && tmdb != null) {
+			runCatching { videotecario.rating(kind, tmdb) }
+				.onSuccess { rating = it; canRate = true }
+				.onFailure { canRate = false }
+			val key = "$kind$tmdb"
+			if (!firstLoad && canRate && (rating == null || rating == 0) && askedRating.add(key)) panel = "rate"
+		}
+		if (firstLoad) runCatching { playButton.requestFocus() }.onFailure { runCatching { firstPoster.requestFocus() } }
 	}
 
 	LaunchedEffect(season) {
@@ -182,204 +210,219 @@ private fun DetailsScreen(id: UUID) {
 	val played = current.userData?.played == true
 	val favorite = current.userData?.isFavorite == true
 
+	val streams = target.mediaSources?.firstOrNull()?.mediaStreams.orEmpty()
+	val audios = streams.filter { it.type == MediaStreamType.AUDIO }.mapNotNull { it.language }.distinct()
+	val subs = streams.filter { it.type == MediaStreamType.SUBTITLE }.mapNotNull { it.language }.distinct()
+	LaunchedEffect(target.id) {
+		if (subLang == null) subLang = subs.firstOrNull { it in SPANISH } ?: subs.firstOrNull() ?: ""
+	}
+	val rateSrc = if (current.type == BaseItemKind.EPISODE) series else current
+	fun saveRating(value: Int?) {
+		val src = rateSrc ?: return
+		val kind = if (src.type == BaseItemKind.MOVIE) "movie" else "tv"
+		val tmdb = src.providerIds?.entries?.firstOrNull { it.key.equals("Tmdb", true) }?.value?.toIntOrNull() ?: return
+		rating = value
+		scope.launch { videotecario.rate(kind, tmdb, value, src.name, src.productionYear) }
+	}
+	var hint by remember { mutableStateOf("") }
+
 	Box(Modifier.fillMaxSize().background(Bg)) {
 		PreviewBackdrop(api, series ?: current)
 
 		Column(
-			Modifier
+			horizontalAlignment = Alignment.CenterHorizontally,
+			modifier = Modifier
 				.fillMaxSize()
 				.verticalScroll(rememberScrollState())
-				.padding(start = 56.dp, top = 48.dp, bottom = 32.dp),
+				.padding(top = 40.dp, bottom = 32.dp),
 		) {
-			Box(Modifier.fillMaxWidth().padding(end = 56.dp, top = 24.dp), contentAlignment = Alignment.Center) {
-				Box(Modifier.fillMaxWidth(0.72f)) { HeroDetails(if (current.type == BaseItemKind.SERIES) nextUp ?: current else current, centered = true) }
-			}
+			Box(Modifier.fillMaxWidth(0.7f)) { HeroDetails(if (current.type == BaseItemKind.SERIES) nextUp ?: current else current, centered = true) }
 
-			val streams = target.mediaSources?.firstOrNull()?.mediaStreams.orEmpty()
-			val audios = streams.filter { it.type == MediaStreamType.AUDIO }.mapNotNull { it.language }.distinct()
-			val subs = streams.filter { it.type == MediaStreamType.SUBTITLE }.mapNotNull { it.language }.distinct()
-			LaunchedEffect(target.id) {
-				if (subLang == null) subLang = subs.firstOrNull { it in SPANISH } ?: subs.firstOrNull() ?: ""
-			}
-			val langText = listOfNotNull(
-				if (audios.size > 1) langName(audioLang ?: audios.first()) else null,
-				if (subs.isNotEmpty()) (if (subLang.isNullOrEmpty()) "Sin subtítulos" else "Sub. ${langName(subLang!!)}") else null,
-			).joinToString(" · ")
-			val seasonName = seasons.firstOrNull { it.id == season }?.name ?: "Temporada"
-
-			// Everflix floating bar (same as Roku): one centred row of glass tiles, the hint below
-			if (current.type != BaseItemKind.PERSON) {
-				var hint by remember { mutableStateOf("") }
-				Row(
-					horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
-					verticalAlignment = Alignment.CenterVertically,
-					modifier = Modifier.fillMaxWidth().padding(end = 56.dp, top = 28.dp),
-				) {
-					val label = when {
-						canResume -> "Continuar"
-						current.type == BaseItemKind.SERIES && nextUp != null -> "Ver T${nextUp?.parentIndexNumber ?: 1} · E${nextUp?.indexNumber ?: 1}"
-						else -> "Reproducir"
-					}
-					GlassTile("▶", label, primary = true, modifier = Modifier.focusRequester(playButton), onFocus = { hint = "" }) {
-						play(target.id)
-					}
-					if (canResume) GlassTile("↺", "Inicio", onFocus = { hint = "Ver desde el principio" }) {
-						play(target.id, fromStart = true)
-					}
-					GlassTile("✓", "Visto", selected = played, onFocus = { hint = if (played) "Visto · pulsa para desmarcar" else "Marcar como visto" }) {
-						scope.launch {
-							runCatching { mutations.setPlayed(current.id, !played) }.onSuccess { data -> item = current.copy(userData = data) }
-						}
-					}
-					GlassTile(if (favorite) "♥" else "♡", "Mi lista", selected = favorite, onFocus = { hint = if (favorite) "En mi lista · pulsa para quitar" else "Añadir a mi lista" }) {
-						scope.launch {
-							runCatching { mutations.setFavorite(current.id, !favorite) }.onSuccess { data -> item = current.copy(userData = data) }
-						}
-					}
-					if (langText.isNotEmpty()) GlassTile("Aa", "Idioma", onFocus = { hint = "Audio y subtítulos · $langText" }) {
-						picker = "langs"
-					}
-					if (seasons.size > 1) GlassTile("⌄", seasonShort(seasonName), onFocus = { hint = "${episodes.size} episodios · elige temporada" }) {
-						picker = "season"
-					} else if (seasons.size == 1) GlassTile("▭", seasonShort(seasonName), onFocus = { hint = "${episodes.size} episodios" }) {}
+			// Floating bar of glass cards
+			if (current.type != BaseItemKind.PERSON) Row(
+				horizontalArrangement = Arrangement.spacedBy(12.dp),
+				verticalAlignment = Alignment.CenterVertically,
+				modifier = Modifier.padding(top = 24.dp),
+			) {
+				val label = when {
+					canResume -> "Continuar"
+					current.type == BaseItemKind.SERIES && nextUp != null -> "Ver T${nextUp?.parentIndexNumber ?: 1} · E${nextUp?.indexNumber ?: 1}"
+					else -> "Reproducir"
 				}
-				Text(
-					hint,
-					color = Ink.copy(alpha = 0.6f),
-					fontSize = 13.sp,
-					fontWeight = FontWeight.W600,
-					textAlign = TextAlign.Center,
-					modifier = Modifier.fillMaxWidth().padding(end = 56.dp, top = 12.dp).height(20.dp),
-				)
-			}
-
-			if (seasons.isNotEmpty()) {
-				LazyRow(
-					horizontalArrangement = Arrangement.spacedBy(14.dp),
-					contentPadding = PaddingValues(top = 14.dp, end = 56.dp, bottom = 8.dp),
-					// Up from any episode goes back to the bar (Play), not to a random tile
-					modifier = Modifier.focusProperties { up = playButton },
-				) {
-					itemsIndexed(episodes, key = { _, it -> it.id }) { _, ep ->
-						EpisodeCard(api, ep) { play(ep.id) }
+				GlassTile("▶", label, primary = true, modifier = Modifier.focusRequester(playButton), onFocus = { hint = "" }) { play(target.id) }
+				if (canResume) GlassTile("↺", "Inicio", onFocus = { hint = "Ver desde el principio" }) { play(target.id, fromStart = true) }
+				GlassTile("✓", "Visto", selected = played, onFocus = { hint = if (played) "Visto · pulsa para desmarcar" else "Marcar como visto" }) {
+					scope.launch {
+						runCatching { mutations.setPlayed(current.id, !played) }.onSuccess { data -> item = current.copy(userData = data) }
 					}
 				}
-			} else if (similar.isNotEmpty()) {
-				SectionTitle(
-					when (current.type) {
-						BaseItemKind.BOX_SET -> "EN ESTA COLECCIÓN · ${similar.size}"
-						BaseItemKind.PERSON -> "APARECE EN · ${similar.size}"
-						else -> "MÁS COMO ESTA"
+				GlassTile(if (favorite) "♥" else "♡", "Mi lista", selected = favorite, onFocus = { hint = if (favorite) "En mi lista · pulsa para quitar" else "Añadir a mi lista" }) {
+					scope.launch {
+						runCatching { mutations.setFavorite(current.id, !favorite) }.onSuccess { data -> item = current.copy(userData = data) }
 					}
-				)
-				LazyRow(
-					horizontalArrangement = Arrangement.spacedBy(14.dp),
-					contentPadding = PaddingValues(top = 10.dp, end = 56.dp, bottom = 8.dp),
-				) {
-					itemsIndexed(similar, key = { _, it -> it.id }) { index, other ->
-						PosterCard(api, other, if (index == 0) Modifier.focusRequester(firstPoster) else Modifier) { navigationRepository.navigate(Destinations.itemDetails(other.id)) }
+				}
+				if (canRate) GlassTile("★", RATINGS[rating] ?: "Calificar", selected = RATINGS.containsKey(rating), onFocus = { hint = "Califica para mejorar tus recomendaciones" }) { panel = "rate" }
+				if (audios.size > 1 || subs.isNotEmpty()) GlassTile("🌐", "Idioma", onFocus = {
+					hint = "Audio y subtítulos · " + listOfNotNull(
+						if (audios.size > 1) langName(audioLang ?: audios.first()) else null,
+						if (subs.isNotEmpty()) (if (subLang.isNullOrEmpty()) "Sin subtítulos" else "Sub. " + langName(subLang!!)) else null,
+					).joinToString(" · ")
+				}) { panel = "langs" }
+				if (seasons.isNotEmpty()) {
+					val name = seasons.firstOrNull { it.id == season }?.name ?: "Temporada"
+					GlassTile("⌄", name.replace(Regex("^Temporada ", RegexOption.IGNORE_CASE), "Temp. "), onFocus = { hint = "${episodes.size} episodios · elige temporada" }) {
+						if (seasons.size > 1) panel = "season"
+					}
+				}
+			}
+			Text(hint, color = Ink.copy(alpha = 0.6f), fontSize = 13.sp, fontWeight = FontWeight.W600, modifier = Modifier.padding(top = 10.dp).height(18.dp))
+
+			Column(Modifier.fillMaxWidth().padding(start = 56.dp)) {
+				if (seasons.isNotEmpty()) {
+					LazyRow(
+						horizontalArrangement = Arrangement.spacedBy(14.dp),
+						contentPadding = PaddingValues(top = 14.dp, end = 56.dp, bottom = 8.dp),
+					) {
+						itemsIndexed(episodes, key = { _, it -> it.id }) { _, ep ->
+							EpisodeCard(api, ep) { play(ep.id) }
+						}
+					}
+				} else if (similar.isNotEmpty()) {
+					SectionTitle(
+						when (current.type) {
+							BaseItemKind.BOX_SET -> "EN ESTA COLECCIÓN · ${similar.size}"
+							BaseItemKind.PERSON -> "APARECE EN · ${similar.size}"
+							else -> "MÁS COMO ESTA"
+						}
+					)
+					LazyRow(
+						horizontalArrangement = Arrangement.spacedBy(14.dp),
+						contentPadding = PaddingValues(top = 10.dp, end = 56.dp, bottom = 8.dp),
+					) {
+						itemsIndexed(similar, key = { _, it -> it.id }) { index, other ->
+							PosterCard(api, other, if (index == 0) Modifier.focusRequester(firstPoster) else Modifier) { navigationRepository.navigate(Destinations.itemDetails(other.id)) }
+						}
 					}
 				}
 			}
 		}
 
-		picker?.let { mode ->
-			val t = target
-			val st = t.mediaSources?.firstOrNull()?.mediaStreams.orEmpty()
-			val audios = st.filter { it.type == MediaStreamType.AUDIO }.mapNotNull { it.language }.distinct()
-			val subs = st.filter { it.type == MediaStreamType.SUBTITLE }.mapNotNull { it.language }.distinct()
-			val options: List<Pair<String, () -> Unit>> = if (mode == "season") {
-				seasons.map { s -> ((if (s.id == season) "✓  " else "") + (s.name ?: "")) to { season = s.id } }
-			} else {
-				val a = if (audios.size > 1) audios.map { code -> ((if (code == (audioLang ?: audios.first())) "✓  " else "") + "Audio: " + langName(code)) to { audioLang = code } } else emptyList()
-				val sb = (subs + "").map { code -> ((if (code == (subLang ?: "")) "✓  " else "") + "Subtítulos: " + (if (code.isEmpty()) "No" else langName(code))) to { subLang = code } }
-				a + sb
+		when (panel) {
+			"season" -> SidePanel(
+				title = series?.name ?: "Temporadas",
+				options = seasons.map { PanelOption(it.id.toString(), it.name ?: "", selected = it.id == season) },
+				onDismiss = { panel = null },
+			) { key -> season = UUID.fromString(key); panel = null }
+			"langs" -> SidePanel(
+				title = "Audio y subtítulos",
+				options = buildList {
+					if (audios.size > 1) {
+						add(PanelOption("", "AUDIO", header = true))
+						audios.forEach { add(PanelOption("a:$it", langName(it), selected = it == (audioLang ?: audios.first()))) }
+					}
+					if (subs.isNotEmpty()) {
+						add(PanelOption("", "SUBTÍTULOS", header = true))
+						subs.forEach { add(PanelOption("s:$it", langName(it), selected = it == subLang)) }
+						add(PanelOption("s:", "Sin subtítulos", selected = subLang.isNullOrEmpty()))
+					}
+				},
+				onDismiss = { panel = null },
+			) { key ->
+				if (key.startsWith("a:")) audioLang = key.removePrefix("a:")
+				if (key.startsWith("s:")) subLang = key.removePrefix("s:")
 			}
-			SidePanel(if (mode == "season") "Temporadas" else "Idioma", options, onClose = {
-				picker = null
-				runCatching { playButton.requestFocus() }
-			})
+			"rate" -> SidePanel(
+				title = "¿Qué te pareció?",
+				options = listOf(
+					PanelOption("2", "Me encanta", selected = rating == 2),
+					PanelOption("1", "Me gusta", selected = rating == 1),
+					PanelOption("-1", "No me gusta", selected = rating == -1),
+					PanelOption("x", "Quitar calificación"),
+				),
+				onDismiss = { panel = null },
+			) { key -> saveRating(key.toIntOrNull()); panel = null }
 		}
 	}
 }
 
-private fun seasonShort(name: String): String {
-	val n = Regex("\\d+").find(name)?.value
-	return if (n != null && name.contains("emporada", ignoreCase = true)) "Temp. $n" else name.take(14)
-}
+private val RATINGS = mapOf(2 to "Me encanta", 1 to "Me gusta", -1 to "No me gusta")
 
-/** Glass tile for the floating bar: square glass with icon and label; Play is wide and white. Grows a little with a ring on focus. */
-@Composable
-private fun GlassTile(
-	icon: String,
-	label: String,
-	primary: Boolean = false,
-	selected: Boolean = false,
-	modifier: Modifier = Modifier,
-	onFocus: () -> Unit = {},
-	onClick: () -> Unit,
-) {
-	val interaction = remember { MutableInteractionSource() }
-	val focused by interaction.collectIsFocusedAsState()
-	LaunchedEffect(focused) { if (focused) onFocus() }
-	val grow by animateFloatAsState(if (focused) 1.08f else 1f, label = "grow")
-	val shape = RoundedCornerShape(16.dp)
-	Box(
-		modifier
-			.scale(grow)
-			.then(if (focused) Modifier.border(3.dp, Ink, RoundedCornerShape(19.dp)).padding(4.dp) else Modifier.padding(4.dp))
-			.width(if (primary) 120.dp else 62.dp)
-			.height(62.dp)
-			.clip(shape)
-			.background(if (primary) Ink else Color.White.copy(alpha = if (focused) 0.28f else 0.10f))
-			.border(1.dp, Color.White.copy(alpha = if (primary) 0f else 0.18f), shape)
-			.clickable(interactionSource = interaction, indication = null, onClick = onClick),
-	) {
-		if (primary) Column(Modifier.align(Alignment.CenterStart).padding(start = 12.dp)) {
-			Text(icon, color = Color.Black, fontSize = 18.sp, fontWeight = FontWeight.W800)
-			Text(label, color = Color.Black, fontSize = 13.sp, fontWeight = FontWeight.W800, maxLines = 1, overflow = TextOverflow.Ellipsis)
-		} else Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-			Text(icon, color = if (selected) SoftBlue else Ink, fontSize = 20.sp, fontWeight = FontWeight.W700)
-			Text(label, color = Ink, fontSize = 9.sp, fontWeight = FontWeight.W600, maxLines = 1, overflow = TextOverflow.Ellipsis)
-		}
-	}
-}
+private data class PanelOption(val key: String, val text: String, val selected: Boolean = false, val header: Boolean = false)
 
-/** Right-hand panel listing seasons or languages; Back closes it. */
+/** Side sheet to pick one option (seasons, languages, rating). Back closes it. */
 @Composable
-private fun SidePanel(title: String, options: List<Pair<String, () -> Unit>>, onClose: () -> Unit) {
+private fun SidePanel(title: String, options: List<PanelOption>, onDismiss: () -> Unit, onPick: (String) -> Unit) {
 	val first = remember { FocusRequester() }
-	BackHandler { onClose() }
-	LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
-	Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f))) {
+	BackHandler(onBack = onDismiss)
+	Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.65f)).clickable(indication = null, interactionSource = remember { MutableInteractionSource() }, onClick = onDismiss)) {
 		Column(
 			Modifier
 				.align(Alignment.CenterEnd)
 				.fillMaxHeight()
-				.width(300.dp)
-				.background(Color(0xF0141822))
-				.padding(28.dp)
-				.verticalScroll(rememberScrollState()),
+				.width(320.dp)
+				.background(Color(0xF512151C))
+				.verticalScroll(rememberScrollState())
+				.padding(horizontal = 20.dp, vertical = 44.dp),
 			verticalArrangement = Arrangement.spacedBy(6.dp),
 		) {
-			Text(title, color = Ink, fontSize = 20.sp, fontWeight = FontWeight.W800, modifier = Modifier.padding(bottom = 12.dp))
-			options.forEachIndexed { i, (text, pick) ->
-				val interaction = remember { MutableInteractionSource() }
-				val focused by interaction.collectIsFocusedAsState()
-				Text(
-					text,
-					color = if (focused) Color.Black else Ink,
-					fontSize = 15.sp,
-					fontWeight = FontWeight.W700,
-					modifier = Modifier
-						.fillMaxWidth()
-						.then(if (i == 0) Modifier.focusRequester(first) else Modifier)
-						.clip(RoundedCornerShape(10.dp))
-						.background(if (focused) Ink else Color.Transparent)
-						.clickable(interactionSource = interaction, indication = null) { pick(); onClose() }
-						.padding(horizontal = 14.dp, vertical = 10.dp),
-				)
+			Text(title, color = Ink, fontSize = 20.sp, fontWeight = FontWeight.W800, modifier = Modifier.padding(start = 12.dp, bottom = 14.dp))
+			val focusIndex = options.indexOfFirst { it.selected && !it.header }.takeIf { it >= 0 } ?: options.indexOfFirst { !it.header }
+			options.forEachIndexed { i, o ->
+				if (o.header) {
+					Text(o.text, color = Ink.copy(alpha = 0.5f), fontSize = 11.sp, fontWeight = FontWeight.W800, letterSpacing = 1.sp, modifier = Modifier.padding(start = 12.dp, top = 10.dp))
+				} else {
+					val interaction = remember { MutableInteractionSource() }
+					val focused by interaction.collectIsFocusedAsState()
+					Row(
+						verticalAlignment = Alignment.CenterVertically,
+						modifier = Modifier
+							.fillMaxWidth()
+							.then(if (i == focusIndex) Modifier.focusRequester(first) else Modifier)
+							.clip(RoundedCornerShape(10.dp))
+							.background(if (focused) Ink else Color.Transparent)
+							.clickable(interactionSource = interaction, indication = null) { onPick(o.key) }
+							.padding(horizontal = 12.dp, vertical = 10.dp),
+					) {
+						Text(o.text, color = if (focused) Color.Black else Ink.copy(alpha = if (o.selected) 1f else 0.7f), fontSize = 16.sp, fontWeight = FontWeight.W600, modifier = Modifier.weight(1f))
+						if (o.selected) Text("✓", color = if (focused) Color.Black else Color(0xFF9DB4FF), fontSize = 16.sp)
+					}
+				}
 			}
+		}
+	}
+	LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
+}
+
+/** Glass card button: icon over a short name; the primary one is wide and white. Grows a little when focused. */
+@Composable
+private fun GlassTile(icon: String, label: String, primary: Boolean = false, selected: Boolean = false, modifier: Modifier = Modifier, onFocus: () -> Unit = {}, onClick: () -> Unit) {
+	val interaction = remember { MutableInteractionSource() }
+	val focused by interaction.collectIsFocusedAsState()
+	LaunchedEffect(focused) { if (focused) onFocus() }
+	val scale by animateFloatAsState(if (focused) 1.08f else 1f, animationSpec = tween(180, easing = FastOutSlowInEasing), label = "tile")
+	val shape = RoundedCornerShape(14.dp)
+	Box(
+		modifier = modifier
+			.scale(scale)
+			.then(if (focused) Modifier.border(2.dp, Color.White, shape) else Modifier.border(1.dp, Color.White.copy(alpha = 0.18f), shape))
+			.clip(shape)
+			.background(
+				when {
+					primary -> Ink
+					focused -> Color.White.copy(alpha = 0.28f)
+					else -> Color.White.copy(alpha = 0.10f)
+				}
+			)
+			.clickable(interactionSource = interaction, indication = null, onClick = onClick)
+			.height(76.dp)
+			.width(if (primary) 150.dp else 76.dp),
+	) {
+		if (primary) Column(Modifier.padding(start = 14.dp, top = 12.dp)) {
+			Text(icon, color = Color.Black, fontSize = 20.sp)
+			Text(label, color = Color.Black, fontSize = 15.sp, fontWeight = FontWeight.W800, maxLines = 1, overflow = TextOverflow.Ellipsis)
+		} else Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxSize().padding(top = 12.dp)) {
+			Text(icon, color = if (selected) Color(0xFF9DB4FF) else Ink, fontSize = 22.sp)
+			Text(label, color = Ink, fontSize = 11.sp, fontWeight = FontWeight.W600, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp, start = 4.dp, end = 4.dp))
 		}
 	}
 }
@@ -397,6 +440,7 @@ private fun langName(code: String): String = when (code.lowercase()) {
 	else -> java.util.Locale.forLanguageTag(code).getDisplayLanguage(java.util.Locale("es")).replaceFirstChar { it.uppercase() }.ifBlank { code }
 }
 
+/** Small chip that cycles through its options on each press, easy with a TV remote. */
 @Composable
 private fun SectionTitle(text: String) = Text(
 	text = text,

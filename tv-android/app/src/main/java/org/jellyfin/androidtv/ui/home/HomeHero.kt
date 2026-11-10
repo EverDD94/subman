@@ -22,7 +22,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -63,7 +62,6 @@ fun HomeHero(modifier: Modifier = Modifier) {
 
 @Composable
 fun HeroDetails(item: BaseItemDto, preview: Boolean = false, centered: Boolean = false) {
-	val align = if (centered) TextAlign.Center else null
 	val isEpisode = item.type == BaseItemKind.EPISODE
 	val title = if (isEpisode) item.seriesName ?: item.name else item.name
 	val runTicks = item.runTimeTicks ?: 0L
@@ -86,6 +84,7 @@ fun HeroDetails(item: BaseItemDto, preview: Boolean = false, centered: Boolean =
 		item.name,
 	).joinToString(" · ") else null
 
+	val align = if (centered) androidx.compose.ui.text.style.TextAlign.Center else null
 	Column(
 		verticalArrangement = Arrangement.spacedBy(8.dp),
 		horizontalAlignment = if (centered) Alignment.CenterHorizontally else Alignment.Start,

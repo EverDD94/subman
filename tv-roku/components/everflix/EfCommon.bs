@@ -24,7 +24,7 @@ namespace ef
 
     ' Fields we ask Jellyfin for in every Everflix list
     function fields() as string
-        return "Overview,Genres,MediaSources,MediaStreams,ParentId,PrimaryImageAspectRatio,ProductionYear,OfficialRating,CommunityRating,ChildCount,RecursiveItemCount"
+        return "Overview,Genres,ProviderIds,MediaSources,MediaStreams,ParentId,PrimaryImageAspectRatio,ProductionYear,OfficialRating,CommunityRating,ChildCount,RecursiveItemCount"
     end function
 
     ' Adds ready-made image URLs to a Jellyfin item so the UI thread never builds them.

@@ -1,0 +1,65 @@
+import "pkg:/components/everflix/EfCommon.bs"
+
+const TILE = 120
+
+sub init()
+    m.body = m.top.findNode("body")
+    m.ring = m.top.findNode("ring")
+    m.bg = m.top.findNode("bg")
+    m.icon = m.top.findNode("icon")
+    m.label = m.top.findNode("label")
+    m.grow = m.top.findNode("grow")
+    m.growI = m.top.findNode("growI")
+    m.scale = 1.0
+end sub
+
+sub paint()
+    w = TILE
+    if m.top.primary then w = 240
+    h = TILE
+    m.bg.width = w
+    m.bg.height = h
+    m.ring.width = w + 16
+    m.ring.height = h + 16
+    m.ring.translation = [-8, -8]
+    m.body.scaleRotateCenter = [w / 2, h / 2]
+    if m.top.icon <> "" then m.icon.uri = "pkg:/images/everflix/" + m.top.icon + ".png"
+    m.label.text = m.top.text
+    if m.top.primary
+        m.bg.blendColor = "0xF4F2EEFF"
+        m.icon.width = 36
+        m.icon.height = 36
+        m.icon.translation = [24, 22]
+        m.icon.blendColor = "0x000000FF"
+        m.label.font = ef.font(ef.FONT_BOLD, 26)
+        m.label.color = "0x000000FF"
+        m.label.horizAlign = "left"
+        m.label.width = w - 40
+        m.label.translation = [24, 68]
+    else
+        m.icon.width = 40
+        m.icon.height = 40
+        m.icon.translation = [(w - 40) / 2, 26]
+        m.icon.blendColor = m.top.selected ? ef.SOFT_BLUE : ef.INK
+        m.label.font = ef.font(ef.FONT_SEMI, 18)
+        m.label.color = ef.INK
+        m.label.horizAlign = "center"
+        m.label.width = w - 8
+        m.label.translation = [4, 78]
+    end if
+    m.top.pillWidth = w
+    onHighlight()
+end sub
+
+sub onHighlight()
+    on = m.top.highlighted
+    m.ring.visible = on
+    if not m.top.primary
+        m.bg.blendColor = on ? "0xFFFFFF47" : "0xFFFFFF1A"
+    end if
+    target = on ? 1.08 : 1.0
+    if target = m.scale then return
+    m.growI.keyValue = [[m.scale, m.scale], [target, target]]
+    m.scale = target
+    m.grow.control = "start"
+end sub

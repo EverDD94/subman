@@ -1,0 +1,108 @@
+import "pkg:/components/everflix/EfCommon.bs"
+
+const ROW_H = 76
+const VISIBLE_ROWS = 11
+
+sub init()
+    m.top.visible = false
+    m.title = m.top.findNode("title")
+    m.list = m.top.findNode("list")
+    m.title.font = ef.font(ef.FONT_BOLD, 34)
+    m.title.color = ef.INK
+    m.rows = []
+end sub
+
+sub onTitle()
+    m.title.text = m.top.title
+end sub
+
+sub build()
+    m.list.removeChildrenIndex(m.list.getChildCount(), 0)
+    m.rows = []
+    y = 0
+    first = -1
+    sel = -1
+    items = m.top.items
+    for i = 0 to items.count() - 1
+        it = items[i]
+        isHeader = it.LookupCI("header") = true
+        g = m.list.createChild("Group")
+        g.translation = [0, y]
+        bg = g.createChild("Poster")
+        bg.uri = "pkg:/images/everflix/round8.9.png"
+        bg.width = 540
+        bg.height = ROW_H - 12
+        bg.visible = false
+        check = g.createChild("Poster")
+        check.uri = "pkg:/images/everflix/check.png"
+        check.width = 28
+        check.height = 28
+        check.translation = [490, (ROW_H - 12 - 28) / 2]
+        check.visible = it.LookupCI("selected") = true
+        lab = g.createChild("Label")
+        lab.text = it.text
+        lab.height = ROW_H - 12
+        lab.width = 440
+        lab.vertAlign = "center"
+        lab.translation = [24, 0]
+        if isHeader
+            lab.font = ef.font(ef.FONT_BOLD, 20)
+            lab.color = ef.MUTED
+            lab.translation = [24, 10]
+        else
+            lab.font = ef.font(ef.FONT_SEMI, 28)
+            if first < 0 then first = i
+            if it.LookupCI("selected") = true and sel < 0 then sel = i
+        end if
+        m.rows.push({ g: g, bg: bg, lab: lab, check: check, header: isHeader, selected: check.visible })
+        y += ROW_H
+    end for
+    if sel < 0 then sel = first
+    if sel < 0 then sel = 0
+    m.top.index = sel
+    paint()
+end sub
+
+sub paint()
+    for i = 0 to m.rows.count() - 1
+        r = m.rows[i]
+        focused = (not r.header) and i = m.top.index
+        r.bg.visible = focused
+        r.bg.blendColor = "0xFFFFFFFF"
+        if focused
+            r.lab.color = "0x000000FF"
+            r.check.blendColor = "0x000000FF"
+        else if r.header
+            r.lab.color = ef.MUTED
+        else if r.selected
+            r.lab.color = ef.INK
+            r.check.blendColor = ef.SOFT_BLUE
+        else
+            r.lab.color = "0xF4F2EEB3"
+            r.check.blendColor = ef.INK
+        end if
+    end for
+    ' Scroll so the focused row stays in view
+    top = 0
+    if m.top.index >= VISIBLE_ROWS - 1 then top = m.top.index - (VISIBLE_ROWS - 2)
+    m.list.translation = [0, -top * ROW_H]
+    for i = 0 to m.rows.count() - 1
+        m.rows[i].g.visible = i >= top and i < top + VISIBLE_ROWS
+    end for
+end sub
+
+function move(delta as integer) as boolean
+    n = m.top.index
+    while true
+        n += delta
+        if n < 0 or n >= m.rows.count() then return false
+        if not m.rows[n].header then exit while
+    end while
+    m.top.index = n
+    return true
+end function
+
+sub press()
+    items = m.top.items
+    if m.top.index < items.count() then m.top.pressed = items[m.top.index].key
+end sub

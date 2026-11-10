@@ -29,6 +29,8 @@ sub layout()
         m.icon.visible = false
     end if
     m.label.text = m.top.text
+    ' A label keeps its last width, and boundingRect never measures past it
+    m.label.width = 0
     textWidth = 0
     if m.top.text <> "" then textWidth = m.label.boundingRect().width
     m.label.height = h

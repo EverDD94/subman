@@ -760,6 +760,7 @@ sub onSeekSpeedLabelChanged()
     text = m.top.findNode("speedBadgeText")
     icon.uri = m.top.seekForward ? "pkg:/images/icons/fastforward.png" : "pkg:/images/icons/rewind.png"
     text.text = m.top.seekSpeedLabel
+    text.width = 0
     textWidth = text.boundingRect().width
     text.width = textWidth + 2
     m.top.findNode("speedBadgeBg").width = 48 + textWidth + 18

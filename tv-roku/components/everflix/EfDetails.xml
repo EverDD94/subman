@@ -4,8 +4,8 @@
   <children>
     <EfBackdrop id="backdrop" fadeTop="360" />
     <EfHero id="hero" translation="[960, 90]" textWidth="1300" overviewLines="2" centered="true" />
-    <Poster id="dock" uri="pkg:/images/everflix/pill.9.png" height="84" blendColor="0x0F121AE6" />
-    <EfPillRow id="buttons" translation="[120, 500]" spacing="10" />
+    <Poster id="dock" visible="false" />
+    <EfPillRow id="buttons" translation="[120, 500]" spacing="18" tiles="true" />
     <Label id="hint" translation="[660, 580]" width="600" horizAlign="center" />
     <Label id="section" translation="[120, 650]" width="1600" color="0xFFFFFFCC" />
     <RowList

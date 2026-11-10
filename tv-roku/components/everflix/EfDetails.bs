@@ -147,22 +147,22 @@ sub buildButtons()
         favorite = item.UserData.IsFavorite = true
     end if
     list = [{ key: "play", icon: "play", text: label, primary: true }]
-    if canResume then list.push({ key: "restart", icon: "restart", text: "" })
-    list.push({ key: "played", icon: "check", text: "", selected: played })
-    list.push({ key: "favorite", icon: favorite ? "heart-full" : "heart-line", text: "", selected: favorite })
+    if canResume then list.push({ key: "restart", icon: "restart", text: "Inicio" })
+    list.push({ key: "played", icon: "check", text: "Visto", selected: played })
+    list.push({ key: "favorite", icon: favorite ? "heart-full" : "heart-line", text: "Mi lista", selected: favorite })
     m.played = played
     m.favorite = favorite
     lang = langText()
-    if lang <> "" then list.push({ key: "langs", icon: "globe", text: "" })
+    if lang <> "" then list.push({ key: "langs", icon: "globe", text: "Idioma" })
     if m.seasons and isValid(m.data.seasons) and m.data.seasons.count() > 0
         name = "Temporada"
         for each s in m.data.seasons
             if s.Id = m.seasonId then name = s.Name
         end for
         if m.data.seasons.count() > 1
-            list.push({ key: "season", text: name, trail: "chevron-down" })
+            list.push({ key: "season", icon: "chevron-down", text: seasonShort(name) })
         else
-            list.push({ key: "", text: name })
+            list.push({ key: "", icon: "tv", text: seasonShort(name) })
         end if
     end if
     index = m.buttons.index
@@ -178,6 +178,7 @@ sub updateHint()
     if m.buttons.index >= m.buttons.items.count() then return
     key = m.buttons.items[m.buttons.index].key
     if key = "restart" then m.hint.text = "Ver desde el principio"
+    if key = "play" then m.hint.text = ""
     if key = "played" then m.hint.text = m.played ? "Visto · pulsa para desmarcar" : "Marcar como visto"
     if key = "favorite" then m.hint.text = m.favorite ? "En mi lista · pulsa para quitar" : "Añadir a mi lista"
     if key = "langs" then m.hint.text = "Audio y subtítulos · " + langText()
@@ -245,9 +246,9 @@ sub layout()
     m.buttons.translation = [x, y + 10]
     m.dock.width = w + 20
     m.dock.translation = [x - 10, y]
-    m.dock.visible = m.buttons.visible
-    m.hint.translation = [660, y + 96]
-    if m.buttons.visible then y += 150
+    m.dock.visible = false
+    m.hint.translation = [660, y + 140]
+    if m.buttons.visible then y += 190
     m.section.translation = [120, y]
     m.episodes.translation = [120, y]
     m.similar.translation = [120, y + 44]
@@ -501,4 +502,10 @@ function onKeyEvent(key as string, press as boolean) as boolean
         return true
     end if
     return false
+end function
+
+' "Temporada 2" -> "Temp. 2" so it fits on a card
+function seasonShort(name as string) as string
+    if Left(LCase(name), 10) = "temporada " then return "Temp. " + Mid(name, 11)
+    return name
 end function

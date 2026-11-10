@@ -84,8 +84,8 @@ sub init()
     m.videoControls.getChild(m.top.defaultButtonIndex).focus = true
     m.deviceInfo = CreateObject("roDeviceInfo")
 
-    m.progressBarBackground.color = "0xFFFFFF40"
-    m.progressBar.color = ColorPalette.HIGHLIGHT
+    m.progressBarBackground.color = "0xFFFFFF38"
+    m.progressBar.color = "0xF4F2EEFF"
 
     optionButtons = m.optionControls.getChildren(-1, 0)
     for each button in optionButtons
@@ -162,7 +162,7 @@ end sub
 
 sub onItemSubtitleTextChanged()
     itemSeason = m.top.findNode("itemSeason")
-    itemSeason.font.size = 32
+    itemSeason.font.size = 26
     itemSeason.text = m.top.itemSubtitleText
 
     ' Move the option controls down to give room for season number
@@ -177,8 +177,8 @@ end sub
 sub onSeasonNumberChanged()
     m.top.unobserveField("seasonNumber")
     itemSeason = m.top.findNode("itemSeason")
-    itemSeason.font.size = 32
-    itemSeason.text = `S${m.top.seasonNumber}`
+    itemSeason.font.size = 26
+    itemSeason.text = `T${m.top.seasonNumber}`
 
     ' Move the option controls down to give room for season number
     if not m.optionControlsMoved
@@ -192,8 +192,8 @@ end sub
 sub onEpisodeNumberChanged()
     m.top.unobserveField("episodeNumber")
     itemEpisode = m.top.findNode("itemEpisode")
-    itemEpisode.font.size = 32
-    itemEpisode.text = `E${m.top.episodeNumber}`
+    itemEpisode.font.size = 26
+    itemEpisode.text = ` · E${m.top.episodeNumber}`
 
     ' Move the option controls down to give room for episode number
     if not m.optionControlsMoved
@@ -207,7 +207,7 @@ end sub
 sub onEpisodeNumberEndChanged()
     m.top.unobserveField("episodeNumberEnd")
     itemEpisodeEnd = m.top.findNode("itemEpisodeEnd")
-    itemEpisodeEnd.font.size = 32
+    itemEpisodeEnd.font.size = 26
     itemEpisodeEnd.text = `-${m.top.episodeNumberEnd}`
 
     ' Move the option controls down to give room for episode number
@@ -222,6 +222,8 @@ end sub
 ' @param {integer} horizontalPixels - Number of horizontal pixels to move option controls
 ' @param {integer} verticalPixels - Number of vertical pixels to move option controls
 sub moveOptionControls(horizontalPixels as integer, verticalPixels as integer)
+    ' Everflix: the title sits above the bottom panel now, so the top pills never move
+    return
     m.optionControls.translation = `[${m.optionControls.translation[0] + horizontalPixels}, ${m.optionControls.translation[1] + verticalPixels}]`
 end sub
 
@@ -248,6 +250,8 @@ end sub
 ' onLogoImageChanged: Handler for changes to m.top.logoImage param.
 '
 sub onLogoImageChanged()
+    ' Everflix: the bottom-left title replaces the logo
+    return
     if isValidAndNotEmpty(m.top.logoImage)
         logoImage = createObject("roSGNode", "Poster")
         logoImage.Id = "logoImage"
@@ -742,5 +746,34 @@ sub updateProgressBar(live as boolean, updatePosition as integer)
     end if
     m.scrubber.translation = [scrubberHorizTrans, m.scrubber.translation[1]]
     m.scrubberOldPosition.translation = [scrubberOldPositionTrans, m.scrubberOldPosition.translation[1]]
+    placeSpeedBadge()
+end sub
+
+' Everflix: "4×" pill that follows the scrubber while fast forwarding or rewinding
+sub onSeekSpeedLabelChanged()
+    badge = m.top.findNode("speedBadge")
+    if m.top.seekSpeedLabel = ""
+        badge.visible = false
+        return
+    end if
+    icon = m.top.findNode("speedBadgeIcon")
+    text = m.top.findNode("speedBadgeText")
+    icon.uri = m.top.seekForward ? "pkg:/images/icons/fastforward.png" : "pkg:/images/icons/rewind.png"
+    text.text = m.top.seekSpeedLabel
+    textWidth = text.boundingRect().width
+    text.width = textWidth + 2
+    m.top.findNode("speedBadgeBg").width = 48 + textWidth + 18
+    badge.visible = true
+    placeSpeedBadge()
+end sub
+
+sub placeSpeedBadge()
+    badge = m.top.findNode("speedBadge")
+    if not isValid(badge) or not badge.visible then return
+    width = m.top.findNode("speedBadgeBg").width
+    x = m.progressBarGroup.translation[0] + m.scrubber.translation[0] + m.scrubber.width / 2 - width / 2
+    if x < 60 then x = 60
+    if x > 1860 - width then x = 1860 - width
+    badge.translation = [x, m.progressBarGroup.translation[1] - 66]
 end sub
 

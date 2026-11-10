@@ -2,37 +2,40 @@
 <component name="OSD" extends="Group" initialFocus="videoPlayPause">
   <children>
     <Poster uri="pkg:/images/osdBackground.png" width="1920" height="279" />
+    <Poster uri="pkg:/images/everflix/shade-bottom.png" width="1920" height="700" translation="[0,380]" />
 
-    <LayoutGroup id="videoInfo" layoutDirection="vert" translation="[103,61]">
-      <ScrollingText id="itemTitle" maxWidth="1400"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="45" /></ScrollingText>
-      <LayoutGroup id="videoInfo" layoutDirection="horiz" translation="[103,61]">
-        <Text id="itemSeason" color="0xffffffFF"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></Text>
-        <Text id="itemEpisode" color="0xffffffFF"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></Text>
-        <Text id="itemEpisodeEnd" color="0xffffffFF"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></Text>
-      </LayoutGroup>
-    </LayoutGroup>
+    <Clock id="clock" translation="[96, 56]" />
 
-    <Clock id="clock" translation="[1618, 46]" />
-
-    <ButtonGroup id="optionControls" itemSpacings="[28]" layoutDirection="horiz" horizAlignment="left" translation="[103,120]">
-      <IconButton id="showVideoInfoPopup" padding="30" icon="pkg:/images/icons/ef-details.png" text="Detalles" height="65" width="100" />
-      <IconButton id="showVideoOverviewPopup" padding="30" icon="pkg:/images/icons/ef-info.png" text="Sinopsis" height="65" width="100" />
-      <IconButton id="showCastCrewPopup" padding="30" icon="pkg:/images/icons/ef-cast.png" text="Reparto" height="65" width="100" />
-      <IconButton id="chapterList" padding="30" icon="pkg:/images/icons/ef-chapters.png" text="Capítulos" height="65" width="100" />
-      <IconButton id="showSubtitleMenu" padding="26" icon="pkg:/images/icons/ef-subtitles.png" text="Subtítulos" height="65" width="100" />
-      <IconButton id="showAudioMenu" padding="30" icon="pkg:/images/icons/ef-audio.png" text="Audio" height="65" width="100" />
+    <ButtonGroup id="optionControls" itemSpacings="[16]" layoutDirection="horiz" horizAlignment="right" translation="[1848,52]">
+      <EfPillButton id="showVideoInfoPopup" icon="pkg:/images/icons/ef-details.png" text="Detalles" />
+      <EfPillButton id="showVideoOverviewPopup" icon="pkg:/images/icons/ef-info.png" text="Sinopsis" />
+      <EfPillButton id="showCastCrewPopup" icon="pkg:/images/icons/ef-cast.png" text="Reparto" />
+      <EfPillButton id="chapterList" icon="pkg:/images/icons/ef-chapters.png" text="Capítulos" />
+      <EfPillButton id="showSubtitleMenu" icon="pkg:/images/icons/ef-subtitles.png" text="Subtítulos" />
+      <EfPillButton id="showAudioMenu" icon="pkg:/images/icons/ef-audio.png" text="Audio" />
     </ButtonGroup>
 
-    <ButtonGroup id="videoControls" itemSpacings="[20]" layoutDirection="horiz" horizAlignment="center" translation="[960,950]">
-      <IconButton id="itemBack" padding="30" icon="pkg:/images/icons/ef-prev.png" height="65" width="100" />
-      <IconButton id="chapterBack" padding="30" icon="pkg:/images/icons/ef-back.png" height="65" width="100" />
-      <IconButton id="videoPlayPause" padding="35" icon="pkg:/images/icons/play.png" height="65" width="100" />
-      <IconButton id="chapterNext" padding="30" icon="pkg:/images/icons/ef-fwd.png" height="65" width="100" />
-      <IconButton id="itemNext" padding="30" icon="pkg:/images/icons/ef-next.png" height="65" width="100" />
+    <LayoutGroup id="videoInfo" layoutDirection="vert" itemSpacings="[6]" translation="[96,640]">
+      <LayoutGroup id="videoInfoLine" layoutDirection="horiz">
+        <Text id="itemSeason" color="0xC9D5FFFF"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="26" /></Text>
+        <Text id="itemEpisode" color="0xC9D5FFFF"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="26" /></Text>
+        <Text id="itemEpisodeEnd" color="0xC9D5FFFF"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="26" /></Text>
+      </LayoutGroup>
+      <ScrollingText id="itemTitle" maxWidth="1300"><Font role="font" uri="pkg:/fonts/archivo_extrabold.ttf" size="58" /></ScrollingText>
+    </LayoutGroup>
+
+    <Poster id="osdPanel" uri="pkg:/images/everflix/panel.9.png" width="1800" height="206" translation="[60,822]" />
+
+    <ButtonGroup id="videoControls" itemSpacings="[22]" layoutDirection="horiz" horizAlignment="center" translation="[960,926]">
+      <IconButton id="itemBack" padding="40" icon="pkg:/images/icons/ef-prev.png" height="76" width="76" />
+      <IconButton id="chapterBack" padding="40" icon="pkg:/images/icons/ef-back.png" height="76" width="76" />
+      <IconButton id="videoPlayPause" padding="38" icon="pkg:/images/icons/play.png" height="76" width="76" />
+      <IconButton id="chapterNext" padding="40" icon="pkg:/images/icons/ef-fwd.png" height="76" width="76" />
+      <IconButton id="itemNext" padding="40" icon="pkg:/images/icons/ef-next.png" height="76" width="76" />
     </ButtonGroup>
 
     <ExpandingLabel
-      translation="[705, 890]"
+      translation="[705, 740]"
       id="previousItem"
       visible="false"
       icon=""
@@ -50,7 +53,7 @@
     />
 
     <ExpandingLabel
-      translation="[1150, 890]"
+      translation="[1150, 740]"
       id="nextItem"
       visible="false"
       icon=""
@@ -65,29 +68,24 @@
       padding="[20, 10]"
     />
 
-    <Group id="progressBarGroup" translation="[103,875]">
-      <Rectangle id="progressBarBackground" width="1714" height="8" />
+    <Group id="progressBarGroup" translation="[250,878]">
+      <Rectangle id="progressBarBackground" width="1420" height="8" />
       <Rectangle id="progressBar" width="0" height="8" />
-      <Poster id="scrubber" uri="pkg:/images/icons/progress-bar-scrubber.png" width="20" height="20" />
+      <Poster id="scrubber" uri="pkg:/images/icons/progress-bar-scrubber.png" width="24" height="24" />
       <Poster id="scrubberOldPosition" uri="pkg:/images/icons/progress-bar-scrubber.png" width="20" height="20" />
     </Group>
 
-    <LayoutGroup id="fastForwardRewindIcons" layoutDirection="horiz" translation="[800,905]">
-      <Poster id="rewindIcon4" uri="pkg:/images/icons/rewind.png" width="40" height="25" visible="false" />
-      <Poster id="rewindIcon3" uri="pkg:/images/icons/rewind.png" width="40" height="25" visible="false" />
-      <Poster id="rewindIcon2" uri="pkg:/images/icons/rewind.png" width="40" height="25" visible="false" />
-      <Poster id="rewindIcon1" uri="pkg:/images/icons/rewind.png" width="40" height="25" visible="false" />
-      <Poster id="fastForwardIcon1" uri="pkg:/images/icons/fastforward.png" width="40" height="25" visible="false" />
-      <Poster id="fastForwardIcon2" uri="pkg:/images/icons/fastforward.png" width="40" height="25" visible="false" />
-      <Poster id="fastForwardIcon3" uri="pkg:/images/icons/fastforward.png" width="40" height="25" visible="false" />
-      <Poster id="fastForwardIcon4" uri="pkg:/images/icons/fastforward.png" width="40" height="25" visible="false" />
-    </LayoutGroup>
+    <Group id="speedBadge" visible="false">
+      <Poster id="speedBadgeBg" uri="pkg:/images/everflix/pill.9.png" height="44" blendColor="0xF4F2EEFF" />
+      <Poster id="speedBadgeIcon" width="26" height="18" translation="[16,13]" blendColor="0x0B0D12FF" />
+      <Label id="speedBadgeText" color="0x0B0D12FF" height="44" vertAlign="center" translation="[48,0]"><Font role="font" uri="pkg:/fonts/archivo_extrabold.ttf" size="26" /></Label>
+    </Group>
 
-    <Text id="liveTvPos" color="0xffffffFF" translation="[103,825]" horizAlign="left" vertAlign="center"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="33" /></Text>
-    <Text id="videoPositionTime" color="0xffffffFF" translation="[103,905]"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></Text>
-    <Text id="liveTVRewindLimitExceeded" text="Live TV rewind limit" color="0xffcc66FF" translation="[103,950]" visible="false"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></Text>
-    <Text id="videoRemainingTime" color="0xffffffFF" horizAlign="right" width="200" translation="[1617,905]"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="36" /></Text>
-    <Text id="videoEndingTime" color="0xffffffFF" horizAlign="right" width="200" translation="[1617,825]"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="33" /></Text>
+    <Text id="liveTvPos" color="0xffffffFF" translation="[250,820]" horizAlign="left" vertAlign="center"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="30" /></Text>
+    <Text id="videoPositionTime" color="0xF4F2EEFF" horizAlign="right" width="130" translation="[100,862]"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="30" /></Text>
+    <Text id="liveTVRewindLimitExceeded" text="Límite para retroceder en directo" color="0xffcc66FF" translation="[96,770]" visible="false"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="30" /></Text>
+    <Text id="videoRemainingTime" color="0xCFCAC2FF" horizAlign="left" width="160" translation="[1690,862]"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="30" /></Text>
+    <Text id="videoEndingTime" color="0xCFCAC2FF" horizAlign="right" width="360" translation="[1460,948]"><Font role="font" uri="pkg:/fonts/archivo_regular.ttf" size="26" /></Text>
 
     <Timer id="inactivityTimer" duration="1" repeat="true" />
   </children>
@@ -128,6 +126,8 @@
     <field id="defaultButtonIndex" type="integer" />
     <field id="isSeeking" type="boolean" />
     <field id="osdSeekKeyValue" type="string" />
+    <field id="seekForward" type="boolean" value="true" />
+    <field id="seekSpeedLabel" type="string" value="" alwaysNotify="true" onChange="onSeekSpeedLabelChanged" />
     <field id="skipSegmentButtonVisible" type="boolean" />
     <field id="playbackState" type="string" alwaysNotify="true" />
     <field id="action" type="string" alwaysNotify="true" />

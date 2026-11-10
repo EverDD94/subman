@@ -1,0 +1,64 @@
+sub init()
+    m.bg = m.top.findNode("bg")
+    m.icon = m.top.findNode("icon")
+    m.label = m.top.findNode("label")
+    m.top.observeField("text", "layout")
+    m.top.observeField("icon", "layout")
+    m.top.observeField("height", "layout")
+    m.top.observeField("padding", "layout")
+    m.top.observeField("focus", "paint")
+    m.top.observeField("enabled", "paint")
+    layout()
+    paint()
+end sub
+
+sub layout()
+    h = m.top.height
+    pad = m.top.padding
+    iconSize = Int(h * 0.44)
+    x = pad
+    m.icon.uri = m.top.icon
+    if m.top.icon <> ""
+        m.icon.visible = true
+        m.icon.width = iconSize
+        m.icon.height = iconSize
+        m.icon.translation = [x, Int((h - iconSize) / 2)]
+        x += iconSize
+        if m.top.text <> "" then x += 12
+    else
+        m.icon.visible = false
+    end if
+    m.label.text = m.top.text
+    textWidth = 0
+    if m.top.text <> "" then textWidth = m.label.boundingRect().width
+    m.label.height = h
+    m.label.translation = [x, 0]
+    m.label.width = textWidth + 2
+    x += textWidth
+    width = x + pad
+    if width < h then width = h
+    if m.top.text = "" then m.icon.translation = [Int((width - iconSize) / 2), Int((h - iconSize) / 2)]
+    m.bg.width = width
+    m.bg.height = h
+end sub
+
+sub paint()
+    if m.top.focus = true and m.top.enabled
+        m.bg.blendColor = "0xFFFFFFFF"
+        m.icon.blendColor = "0x0B0D12FF"
+        m.label.color = "0x0B0D12FF"
+    else
+        m.bg.blendColor = "0xFFFFFF29"
+        m.icon.blendColor = "0xF4F2EEFF"
+        m.label.color = "0xF4F2EEFF"
+    end if
+    m.top.opacity = m.top.enabled ? 1.0 : 0.35
+end sub
+
+function onKeyEvent(key as string, press as boolean) as boolean
+    if not press or not m.top.enabled then return false
+    if m.top.focus = true and (key = "left" or key = "right" or key = "up" or key = "down")
+        m.top.escape = key
+    end if
+    return false
+end function

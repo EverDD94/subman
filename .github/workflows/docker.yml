@@ -6,6 +6,11 @@ on:
     tags: ["v*"]
   workflow_dispatch:
 
+# Dos fusiones seguidas: una construcción detrás de otra (sin cancelar ninguna)
+concurrency:
+  group: imagen-docker
+  cancel-in-progress: false
+
 permissions:
   contents: read
   packages: write
@@ -28,7 +33,6 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository_owner }}/subman
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
             type=ref,event=tag
             type=sha,format=short
       - uses: docker/build-push-action@v6
@@ -62,3 +66,12 @@ jobs:
           curl -fs localhost:8787/ | grep -q '<title>Videotecario</title>'
           curl -fs localhost:8787/health && curl -fs localhost:8787/manifest.webmanifest > /dev/null
           docker rm -f web
+      # «latest» se pone al final y sólo si este commit sigue siendo el último de main: si dos
+      # construcciones se cruzan, la más vieja ya no pisa «latest» (y Actualizar ahora no ve nada nuevo)
+      - name: Marcar como latest
+        if: github.ref == 'refs/heads/main'
+        run: |
+          head=$(git ls-remote origin refs/heads/main | cut -f1)
+          if [ "$head" != "${{ github.sha }}" ]; then echo "main ya va por $head: no toco latest"; exit 0; fi
+          docker buildx imagetools create -t ghcr.io/${{ github.repository_owner }}/subman:latest \
+            '${{ fromJSON(steps.meta.outputs.json).tags[0] }}'

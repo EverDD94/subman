@@ -228,6 +228,9 @@ _SPECIAL = re.compile(r"\b(debate|gala|final|parte|part|pt)\b", re.I)
 _PART = re.compile(r"\b(?:parte|part|pt)[ ._-]*(\d{1,2})\b", re.I)
 _DEBATE = re.compile(r"\bdebate\b", re.I)
 _FINAL = re.compile(r"\bfinal\b[ ._-]*(\d{1,2})?", re.I)
+_CODE = re.compile(r"\bS\d{1,2}E\d{1,3}\b", re.I)
+# el título que ya trae el archivo: «Serie - S11E08 - Debate 1» → «Debate 1»
+_OLD_TITLE = re.compile(r"\bS(\d{1,2})E(\d{1,3})\b[ ._]*-[ ._]*(.+)$", re.I)
 _NUM_AFTER = re.compile(r"\bdebate\b[ ._-]*(\d{1,3})\b", re.I)
 
 
@@ -253,6 +256,9 @@ def _reorder(db: TMDb, g: dict, show: dict) -> None:
     for s in sorted({e["season"] for e in g["episodes"]}):
         eps = [e for e in g["episodes"] if e["season"] == s]
         if not any(_SPECIAL.search(Path(e["path"]).stem) for e in eps):
+            continue
+        # ya numerados a mano («Serie - S11E08 - Debate 1»): se respeta su número
+        if all(_CODE.search(Path(e["path"]).stem) for e in eps if _SPECIAL.search(Path(e["path"]).stem)):
             continue
         try:
             tm = db.episodes(int(show["tmdb"]), s)
@@ -309,6 +315,9 @@ def _targets(g: dict, show: dict) -> None:
     seen: dict[str, list[dict]] = {}
     for e in g["episodes"]:
         titles = g["titles"].get(e["season"], {})
+        om = _OLD_TITLE.search(Path(e["path"]).stem)
+        if om and not titles.get(e["episode"]) and not e["last"] and (int(om.group(1)), int(om.group(2))) == (e["season"], e["episode"]):
+            titles = {**titles, e["episode"]: om.group(3).strip()}  # TheMovieDB no lo titula: se queda el que tenía
         name = episode_name(show, e["season"], e["episode"], e["last"], titles, e.get("part"))
         dest = Path(g["dest_dir"]) / _season_folder(e["season"]) / (name + Path(e["path"]).suffix)
         e.update(target=str(dest.relative_to(Path(g["dest_dir"]).parent)), dest=str(dest), why=None)

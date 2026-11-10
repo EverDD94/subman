@@ -269,6 +269,9 @@ sub applyFocus()
     end if
     z = m.zones[m.zone]
     if z.subtype() = "EfPillRow"
+        ' Take focus off the lists first, or they keep it and "up" never reaches the buttons
+        m.episodes.setFocus(false)
+        m.similar.setFocus(false)
         z.active = true
         m.top.setFocus(true)
     else

@@ -67,11 +67,14 @@ def _read(path: Path, roots: list[str]) -> dict | None:
             "last": last, "series_dir": str(series_dir), "loose": loose, "tmdb": tag.group(1) if tag else None}
 
 
-def episode_name(show: dict, season: int, episode: int, last: int | None, titles: dict[int, str]) -> str:
+def episode_name(show: dict, season: int, episode: int, last: int | None, titles: dict[int, str],
+                 part: int | None = None) -> str:
     code = f"S{season:02d}E{episode:02d}" + (f"-E{last:02d}" if last else "")
     names = [titles.get(n, "") for n in range(episode, (last or episode) + 1)]
     title = " + ".join(n for n in names if n)
     title = safe_name(title)[:90].strip(" .-") if title else ""
+    if part:
+        title = f"{title} (parte {part})".strip()
     return f"{safe_name(show['name'])} - {code}" + (f" - {title}" if title else "")
 
 
@@ -214,8 +217,91 @@ def _plan_group(db: TMDb, g: dict, show: dict | None) -> dict:
         except Exception as e:
             log.warning("TheMovieDB: temporada %s de %s: %s", s, show["name"], e)
             g["titles"][s] = {}
+    _reorder(db, g, show)
     _targets(g, show)
     return g
+
+
+# Realitys y similares: los debates, galas y finales vienen numerados aparte («Debate 03», «Final 2»,
+# «Debate 10 parte 1»), mientras TheMovieDB los mezcla con los capítulos en el orden en que se emitieron.
+_SPECIAL = re.compile(r"\b(debate|gala|final|parte|part|pt)\b", re.I)
+_PART = re.compile(r"\b(?:parte|part|pt)[ ._-]*(\d{1,2})\b", re.I)
+_DEBATE = re.compile(r"\bdebate\b", re.I)
+_FINAL = re.compile(r"\bfinal\b[ ._-]*(\d{1,2})?", re.I)
+_NUM_AFTER = re.compile(r"\bdebate\b[ ._-]*(\d{1,3})\b", re.I)
+
+
+def _cost(files: list[dict], spots: list[dict], offset: int) -> float | None:
+    """Cuánto se equivocan las duraciones si el archivo n va al hueco n-1+offset (None si no cabe)."""
+    total, seen = 0.0, 0
+    for f in files:
+        i = f["n"] - 1 + offset
+        if not 0 <= i < len(spots):
+            return None
+        rt = spots[i]["runtime"]
+        if rt and f["minutes"]:
+            total += abs(f["minutes"] - rt) / rt
+            seen += 1
+    return total / seen if seen else 0.0
+
+
+def _reorder(db: TMDb, g: dict, show: dict) -> None:
+    """Si una temporada trae debates/finales numerados aparte, pone a cada archivo el capítulo que le
+    toca en TheMovieDB: los debates en los «Debate...» de TheMovieDB por su número, y el resto de
+    capítulos por orden, buscando el desfase (capítulos que faltan al principio) que mejor cuadra
+    con la duración. Los trozos («parte 1», «parte 2») van al mismo capítulo."""
+    for s in sorted({e["season"] for e in g["episodes"]}):
+        eps = [e for e in g["episodes"] if e["season"] == s]
+        if not any(_SPECIAL.search(Path(e["path"]).stem) for e in eps):
+            continue
+        try:
+            tm = db.episodes(int(show["tmdb"]), s)
+        except Exception as ex:
+            log.warning("TheMovieDB: capítulos de la temporada %s: %s", s, ex)
+            continue
+        tm_deb = [t for t in tm if _DEBATE.search(t["name"])]
+        tm_main = [t for t in tm if not _DEBATE.search(t["name"])]
+        if not tm_deb:
+            continue
+        units: dict[tuple, list[dict]] = {}
+        for e in eps:
+            stem = Path(e["path"]).stem
+            pm = _PART.search(stem)
+            part = int(pm.group(1)) if pm else None
+            if _DEBATE.search(stem):
+                fm, nm = _FINAL.search(stem), _NUM_AFTER.search(stem)
+                key = ("final", int(fm.group(1) or 1)) if fm else ("debate", int(nm.group(1)) if nm else e["episode"])
+            else:
+                key = ("main", e["episode"])
+            units.setdefault(key, []).append({"e": e, "part": part})
+        def minutes(key):
+            ms = [peek.info(x["e"]["path"])["minutes"] for x in units[key]]
+            return sum(ms) if all(ms) else None
+        assign: dict[tuple, dict | None] = {}
+        deb = sorted(k for k in units if k[0] == "debate")
+        last_n = max([k[1] for k in deb], default=0)
+        for k in deb:
+            assign[k] = tm_deb[k[1] - 1] if k[1] <= len(tm_deb) else None
+        for k in sorted(k for k in units if k[0] == "final"):
+            i = last_n + k[1] - 1
+            assign[k] = tm_deb[i] if i < len(tm_deb) else None
+        main = [{"key": k, "n": k[1], "minutes": minutes(k)} for k in sorted(k for k in units if k[0] == "main")]
+        if main:
+            tries = [(c, o) for o in range(0, 6) if (c := _cost(main, tm_main, o)) is not None]
+            off = min(tries, key=lambda t: (t[0], t[1]))[1] if tries else None
+            for f in main:
+                assign[f["key"]] = tm_main[f["n"] - 1 + off] if off is not None else None
+        for k, items in units.items():
+            t = assign.get(k)
+            for x in items:
+                e = x["e"]
+                if t is None:
+                    e["why_order"] = "no sé qué capítulo de TheMovieDB es"
+                    continue
+                e["episode"], e["last"], e["part"], e["fixed"] = t["number"], None, x["part"], True
+                m = minutes(k)
+                if t["runtime"] and m and abs(m - t["runtime"]) > max(15, 0.35 * t["runtime"]):
+                    e["why_order"] = f"la duración no cuadra ({m:.0f} min, TheMovieDB dice {t['runtime']} min)"
 
 
 def _targets(g: dict, show: dict) -> None:
@@ -223,10 +309,12 @@ def _targets(g: dict, show: dict) -> None:
     seen: dict[str, list[dict]] = {}
     for e in g["episodes"]:
         titles = g["titles"].get(e["season"], {})
-        name = episode_name(show, e["season"], e["episode"], e["last"], titles)
+        name = episode_name(show, e["season"], e["episode"], e["last"], titles, e.get("part"))
         dest = Path(g["dest_dir"]) / _season_folder(e["season"]) / (name + Path(e["path"]).suffix)
         e.update(target=str(dest.relative_to(Path(g["dest_dir"]).parent)), dest=str(dest), why=None)
-        if seasons and (e["last"] or e["episode"]) > seasons.get(e["season"], 0):
+        if e.get("why_order"):
+            e["why"] = e["why_order"]
+        elif seasons and (e["last"] or e["episode"]) > seasons.get(e["season"], 0):
             e["why"] = "TheMovieDB no tiene este capítulo"
         elif dest.exists() and str(dest) != e["path"]:
             e["why"] = "ya hay un archivo con ese nombre"

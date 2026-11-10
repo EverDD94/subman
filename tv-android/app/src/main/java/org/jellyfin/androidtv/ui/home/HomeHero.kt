@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -60,7 +61,7 @@ fun HomeHero(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun HeroDetails(item: BaseItemDto, preview: Boolean = false) {
+fun HeroDetails(item: BaseItemDto, preview: Boolean = false, centered: Boolean = false) {
 	val isEpisode = item.type == BaseItemKind.EPISODE
 	val title = if (isEpisode) item.seriesName ?: item.name else item.name
 	val runTicks = item.runTimeTicks ?: 0L
@@ -83,9 +84,11 @@ fun HeroDetails(item: BaseItemDto, preview: Boolean = false) {
 		item.name,
 	).joinToString(" · ") else null
 
+	val align = if (centered) androidx.compose.ui.text.style.TextAlign.Center else null
 	Column(
 		verticalArrangement = Arrangement.spacedBy(8.dp),
-		modifier = Modifier.fillMaxWidth(0.55f),
+		horizontalAlignment = if (centered) Alignment.CenterHorizontally else Alignment.Start,
+		modifier = if (centered) Modifier.fillMaxWidth() else Modifier.fillMaxWidth(0.55f),
 	) {
 		if (preview) Text(
 			text = "● Avance",
@@ -121,6 +124,7 @@ fun HeroDetails(item: BaseItemDto, preview: Boolean = false) {
 			fontWeight = FontWeight.W800,
 			maxLines = 2,
 			overflow = TextOverflow.Ellipsis,
+			textAlign = align,
 		)
 
 		Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -144,8 +148,9 @@ fun HeroDetails(item: BaseItemDto, preview: Boolean = false) {
 			color = Ink.copy(alpha = 0.8f),
 			fontSize = 14.sp,
 			lineHeight = 20.sp,
-			maxLines = 3,
+			maxLines = if (centered) 2 else 3,
 			overflow = TextOverflow.Ellipsis,
+			textAlign = align,
 		)
 	}
 }

@@ -31,6 +31,12 @@ sub init()
     m.task.observeField("result", "onLoaded")
     m.episodeTask = CreateObject("roSGNode", "EfTask")
     m.episodeTask.observeField("result", "onEpisodes")
+    m.rateTask = CreateObject("roSGNode", "EfTask")
+    m.rateTask.observeField("result", "onRating")
+    m.rating = invalid
+    m.rateRef = invalid
+    m.cameBack = false
+    m.asked = {}
     m.userDataTask = CreateObject("roSGNode", "EfTask")
     m.userDataTask.observeField("result", "onUserData")
 
@@ -70,6 +76,7 @@ sub onLoaded()
     m.audioLang = invalid
     m.seasons = r.seasons.count() > 0
     m.seasonId = r.seasonId
+    loadRating()
     buildLangs()
     buildButtons()
 
@@ -152,6 +159,12 @@ sub buildButtons()
     list.push({ key: "favorite", icon: favorite ? "heart-full" : "heart-line", text: "Mi lista", selected: favorite })
     m.played = played
     m.favorite = favorite
+    if isValid(m.rateRef)
+        names = { "2": "Me encanta", "1": "Me gusta", "-1": "No me gusta" }
+        rateText = "Calificar"
+        if isValid(m.rating) and names.DoesExist(m.rating.ToStr()) then rateText = names[m.rating.ToStr()]
+        list.push({ key: "rate", icon: "star", text: rateText, selected: rateText <> "Calificar" })
+    end if
     lang = langText()
     if lang <> "" then list.push({ key: "langs", icon: "globe", text: "Idioma" })
     if m.seasons and isValid(m.data.seasons) and m.data.seasons.count() > 0
@@ -181,6 +194,7 @@ sub updateHint()
     if key = "play" then m.hint.text = ""
     if key = "played" then m.hint.text = m.played ? "Visto · pulsa para desmarcar" : "Marcar como visto"
     if key = "favorite" then m.hint.text = m.favorite ? "En mi lista · pulsa para quitar" : "Añadir a mi lista"
+    if key = "rate" then m.hint.text = "Califica para mejorar tus recomendaciones"
     if key = "langs" then m.hint.text = "Audio y subtítulos · " + langText()
     if key = "season" and isValid(m.episodeList) then m.hint.text = `${m.episodeList.count()} episodios · elige temporada`
 end sub
@@ -355,6 +369,8 @@ sub onButton()
         openLangPicker()
     else if key = "season"
         openSeasonPicker()
+    else if key = "rate"
+        openRatePicker()
     else if key = "restart"
         play(playTarget(), true)
     else if key = "played" or key = "favorite"
@@ -430,6 +446,19 @@ sub onPicked()
             layout()
             loadEpisodes(key)
         end if
+    else if m.pickerMode = "rate"
+        closePicker()
+        value = invalid
+        if key <> "x" then value = key.ToInt()
+        m.rating = value
+        body = { kind: m.rateRef.kind, tmdb: m.rateRef.tmdb, rating: value, title: m.rateRef.title }
+        if isValid(m.rateRef.year) then body.year = m.rateRef.year
+        m.rateTask.job = "vt"
+        m.rateTask.args = { path: "/api/pedir/rate", body: body }
+        m.rateTask.control = "STOP"
+        m.rateTask.control = "RUN"
+        buildButtons()
+        layout()
     else if m.pickerMode = "langs"
         if Left(key, 2) = "a:" then m.audioLang = Mid(key, 3)
         if Left(key, 2) = "s:" then m.subLang = Mid(key, 3)
@@ -460,8 +489,11 @@ sub OnScreenShown()
     overhang = scene.findNode("overhang")
     if isValid(overhang) then overhang.visible = false
     applyFocus()
-    ' Coming back from the player: refresh progress and the next episode
-    if isValid(m.data) then load()
+    ' Coming back from the player: refresh progress and the next episode, then offer to rate
+    if isValid(m.data)
+        m.cameBack = true
+        load()
+    end if
 end sub
 
 function onKeyEvent(key as string, press as boolean) as boolean
@@ -509,3 +541,62 @@ function seasonShort(name as string) as string
     if Left(LCase(name), 10) = "temporada " then return "Temp. " + Mid(name, 11)
     return name
 end function
+
+' Rating as on the Videotecario web (me encanta / me gusta / no me gusta). Only the admin rates:
+' the ratings are his taste profile. Episodes rate their series.
+sub loadRating()
+    m.rateRef = invalid
+    m.rating = invalid
+    if not ef.isAdmin() then return
+    item = m.data.item
+    kind = ""
+    src = item
+    if item.Type = "Movie" then kind = "movie"
+    if item.Type = "Series" then kind = "tv"
+    if item.Type = "Episode" and isValid(m.data.series)
+        kind = "tv"
+        src = m.data.series
+    end if
+    if kind = "" or not isValid(src.ProviderIds) then return
+    tmdb = src.ProviderIds.LookupCI("Tmdb")
+    if not isValidAndNotEmpty(tmdb) then return
+    m.rateRef = { kind: kind, tmdb: tmdb.ToInt(), title: src.Name ?? "", year: src.ProductionYear }
+    m.rateTask.job = "vt"
+    m.rateTask.args = { path: `/api/pedir/rating?kind=${kind}&tmdb=${tmdb}` }
+    m.rateTask.control = "STOP"
+    m.rateTask.control = "RUN"
+end sub
+
+sub onRating()
+    r = m.rateTask.result
+    if not isValid(r) or not isValid(m.rateRef) then return
+    if m.rateTask.args.path.Left(18) <> "/api/pedir/rating?" then return
+    if r.ok <> true or not isValid(r.data) or r.data.ok <> true
+        ' Videotecario not reachable: no rating card
+        m.rateRef = invalid
+    else
+        m.rating = r.data.rating
+    end if
+    buildButtons()
+    layout()
+    ' Just watched something not rated yet: ask once
+    if m.cameBack and isValid(m.rateRef)
+        m.cameBack = false
+        id = m.rateRef.kind + m.rateRef.tmdb.ToStr()
+        if (not isValid(m.rating) or m.rating = 0) and not m.asked.DoesExist(id)
+            m.asked[id] = true
+            openRatePicker()
+        end if
+    end if
+end sub
+
+sub openRatePicker()
+    cur = ""
+    if isValid(m.rating) then cur = m.rating.ToStr()
+    openPicker("rate", "¿Qué te pareció?", [
+        { key: "2", text: "Me encanta", selected: cur = "2" },
+        { key: "1", text: "Me gusta", selected: cur = "1" },
+        { key: "-1", text: "No me gusta", selected: cur = "-1" },
+        { key: "x", text: "Quitar calificación" }
+    ])
+end sub

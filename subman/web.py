@@ -2183,6 +2183,24 @@ class App:
             self.friends_ask(friend, {"item": b["item"]})
         return {"ok": True}
 
+    # calificar desde la tele (sólo el administrador: las calificaciones son su perfil de gustos)
+    def tv_rating(self, u: dict, kind: str, tmdb: str) -> dict:
+        if not u.get("admin"):
+            return {"ok": False, "error": "sólo para el administrador"}
+        def get(d):
+            m = d.marks().get((kind, int(tmdb or 0)))
+            return {"rating": m["rating"] if m else None}
+        return self._dsc(get)
+
+    def tv_rate(self, u: dict, b: dict) -> dict:
+        if not u.get("admin"):
+            return {"ok": False, "error": "sólo para el administrador"}
+        item = {"kind": b["kind"], "tmdb": int(b["tmdb"])}
+        for k in ("title", "year"):
+            if b.get(k):
+                item[k] = b[k]
+        return self._dsc(lambda d: (d.mark(item, rating=b.get("rating")), {"rating": b.get("rating")})[1])
+
     def _dsc(self, fn) -> dict:
         try:
             return {"ok": True, **fn(self._discover())}
@@ -2370,6 +2388,7 @@ def make_handler(app: App):
         "/api/pedir/notices": lambda u, q: app.friend_notices(u),
         "/api/pedir/browse": lambda u, q: app._dsc(lambda d: {"items": app._friends().browse(
             u, q.get("section", ["novedades"])[0], int(q.get("page", ["1"])[0]), q.get("q", [""])[0].strip())}),
+        "/api/pedir/rating": lambda u, q: app.tv_rating(u, q.get("kind", [""])[0], q.get("tmdb", ["0"])[0]),
         "/api/pedir/mine": lambda u, q: app._dsc(lambda d: {"items": app._friends().mine(u)}),
         "/api/pedir/admin": lambda u, q: app.tv_admin(u),
         "/api/pedir/home": lambda u, q: app._dsc(lambda d: {"rows": app._friends().tv_home(u)}),
@@ -2379,6 +2398,7 @@ def make_handler(app: App):
         "/api/pedir/push": lambda u, b: (app._notices().subscribe(u["id"], b["sub"]), {"ok": True})[1],
         "/api/pedir/push/off": lambda u, b: (app._notices().unsubscribe(u["id"], b.get("endpoint", "")), {"ok": True})[1],
         "/api/pedir/follow": lambda u, b: (app._notices().follow(u["id"], b["item"], bool(b.get("on", True))), {"ok": True})[1],
+        "/api/pedir/rate": lambda u, b: app.tv_rate(u, b),
         "/api/pedir/ask": lambda u, b: app.friends_ask(u, b),
         "/api/pedir/decide": lambda u, b: app.friends_decide(b) if u.get("admin") else {"ok": False, "error": "sólo para el administrador"},
         "/api/pedir/cancel": lambda u, b: app._dsc(lambda d: (app._friends().cancel(u, b["kind"], int(b["tmdb"])), {})[1]),

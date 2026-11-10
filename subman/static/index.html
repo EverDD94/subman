@@ -2883,12 +2883,28 @@ function renderPortada() {
   const mood = MOODS[dsc.mood];
   const pick = c => (!dsc.kind || c.kind === dsc.kind) && (!mood || mood(c));
   const [a, b] = shelfList();
-  const top = [...(dsc.rows[a[0]] || []), ...(dsc.rows[b[0]] || [])].filter(c => pick(c) && c.backdrop && c.rating == null).slice(0, 5);
+  const top = bbPick([dsc.rows[a[0]] || [], dsc.rows[b[0]] || []].map(r => r.filter(c => pick(c) && c.backdrop && c.rating == null)));
   const pos = [...document.querySelectorAll("#dscBox .rail")].map(r => r.scrollLeft);  // al calificar no vuelve cada fila al principio
   const shelves = renderShelves(pick);
   $("#dscBox").innerHTML = billboard(top) + (shelves || `<p class="empty">Nada con ese ánimo. Prueba otro o quítalo.</p>`);
   document.querySelectorAll("#dscBox .rail").forEach((r, i) => { if (pos[i]) r.scrollLeft = pos[i]; });
   peekSync(top[0] || dsc.items.find(pick));
+}
+// el cartel cambia en cada visita: sorteo ponderado (los primeros de cada fila tienen más papeletas) entre lo mejor
+// de «Para ti» y de «Novedades», alternando una y otra, y sin abrir con el mismo que la última vez.
+// El sorteo se hace una vez por visita (dsc.luck), así calificar o cambiar de ánimo no lo baraja de nuevo.
+function bbPick(lists) {
+  const luck = dsc.luck ||= new Map(), roll = c => { const k = c.kind + c.tmdb; if (!luck.has(k)) luck.set(k, Math.random()); return luck.get(k); };
+  const drawn = lists.map(l => l.slice(0, 12).map((c, i) => [c, Math.pow(roll(c), i + 1)]).sort((x, y) => y[1] - x[1]).map(x => x[0]));
+  if ((dsc.bbFlip ??= Math.random() < .5)) drawn.reverse();  // unas veces abre «Para ti» y otras «Novedades»
+  const out = [], seen = new Set();
+  for (let i = 0; out.length < 5 && drawn.some(d => d.length > i); i++)
+    for (const d of drawn) { const c = d[i]; if (c && !seen.has(c.kind + c.tmdb) && out.length < 5) { seen.add(c.kind + c.tmdb); out.push(c); } }
+  if (dsc.bbPrev == null) try { dsc.bbPrev = localStorage.getItem("bbLast") || ""; } catch { dsc.bbPrev = ""; }
+  const last = dsc.bbPrev;
+  if (out.length > 1 && out[0].kind + out[0].tmdb === last) out.push(out.shift());
+  if (out[0] && !dsc.bbSaved) { dsc.bbSaved = true; try { localStorage.setItem("bbLast", out[0].kind + out[0].tmdb); } catch {} }
+  return out;
 }
 function renderShelves(pick) {
   return shelfList().map(([s, name]) => {

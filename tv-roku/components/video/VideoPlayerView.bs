@@ -201,6 +201,10 @@ sub init()
     m.seekSpeedIndex = 0 ' Index to track the current seek speed level
     m.seekSpeeds = [-160, -80, -40, -20, -10, 10, 20, 40, 80, 160] ' seconds per timer tick; shown as 2×, 4×, 8×, 16× and 32×
     m.seekSpeedLabels = ["2×", "4×", "8×", "16×", "32×"]
+    ' Everflix: arrows jump 10 s, and pressing the same arrow again doubles it (20, 40, 80...)
+    m.arrowStep = 0
+    m.arrowLastKey = ""
+    m.arrowClock = CreateObject("roTimespan")
 
     m.scrubber = m.osd.findNode("scrubber")
     m.scrubberOldPosition = m.osd.findNode("scrubberOldPosition")
@@ -2317,6 +2321,9 @@ sub startSeek(key as string)
         checkPause()
     end if
 
+    m.arrowLastKey = ""
+    if key = KeyCode.LEFT or key = KeyCode.RIGHT then nextArrowStep(key)
+
     ' Set seek speed index based on initial key press
     if key = KeyCode.REWIND or key = KeyCode.LEFT
         m.seekSpeedIndex = (m.seekSpeeds.count() / 2) - 1
@@ -2344,6 +2351,7 @@ sub processSeek(key as string)
 
         ' Hide all FF/Rewind icons
         stopFastforwardOrRewind()
+        nextArrowStep(key)
         updateDisplayForSeek(key)
     else if key = KeyCode.FASTFORWRD
         checkPause()
@@ -2419,6 +2427,10 @@ sub updateDisplayForSeek(key as string)
     end if
     ' Define the delta for the seek based on the current seek speed index
     delta = m.seekSpeeds[m.seekSpeedIndex]
+    if key = KeyCode.LEFT or key = KeyCode.RIGHT
+        delta = 10 * (2 ^ m.arrowStep)
+        if key = KeyCode.LEFT then delta = -delta
+    end if
     m.previewPos = m.osd.callFunc("clampSeek", m.previewPos + delta)
     if m.top.content.live then updateLiveTvTrackers()
     m.osd.callFunc("updateProgressBar", m.top.content.live, m.previewPos)
@@ -2439,8 +2451,23 @@ sub updateDisplayForSeek(key as string)
         else if key = KeyCode.RIGHT
             m.rightTenSecondSkipTimer.control = "start"
         end if
+        if m.arrowStep > 0
+            m.osd.seekForward = key = KeyCode.RIGHT
+            m.osd.seekSpeedLabel = m.seekSpeedLabels[m.arrowStep - 1]
+        end if
     end if
     if not m.LoadMetaDataTask.isIntro then checkSegmentSkipButton(m.previewPos)
+end sub
+
+' nextArrowStep: the same arrow pressed again within 2.5 s doubles the jump, up to 32× (320 s)
+sub nextArrowStep(key as string)
+    if key = m.arrowLastKey and m.arrowClock.TotalMilliseconds() < 2500
+        if m.arrowStep < m.seekSpeedLabels.count() then m.arrowStep++
+    else
+        m.arrowStep = 0
+    end if
+    m.arrowLastKey = key
+    m.arrowClock.Mark()
 end sub
 
 ' commitSeek: Finalizes the seek operation by setting the video to the new position and resuming playback.

@@ -6,7 +6,7 @@
 
     <Clock id="clock" translation="[96, 56]" />
 
-    <ButtonGroup id="optionControls" itemSpacings="[16]" layoutDirection="horiz" horizAlignment="right" translation="[1848,52]">
+    <ButtonGroup id="optionControls" itemSpacings="[10]" layoutDirection="horiz" horizAlignment="right" translation="[1848,48]">
       <EfPillButton id="showVideoInfoPopup" icon="pkg:/images/icons/ef-details.png" text="Detalles" />
       <EfPillButton id="showVideoOverviewPopup" icon="pkg:/images/icons/ef-info.png" text="Sinopsis" />
       <EfPillButton id="showCastCrewPopup" icon="pkg:/images/icons/ef-cast.png" text="Reparto" />

@@ -1,3 +1,4 @@
+' Everflix: minimal player button. Just the icon; when focused it becomes a white pill with its name
 sub init()
     m.bg = m.top.findNode("bg")
     m.icon = m.top.findNode("icon")
@@ -6,55 +7,54 @@ sub init()
     m.top.observeField("icon", "layout")
     m.top.observeField("height", "layout")
     m.top.observeField("padding", "layout")
-    m.top.observeField("focus", "paint")
-    m.top.observeField("enabled", "paint")
+    m.top.observeField("focus", "layout")
+    m.top.observeField("enabled", "layout")
     layout()
-    paint()
 end sub
 
 sub layout()
+    focused = m.top.focus = true and m.top.enabled
     h = m.top.height
     pad = m.top.padding
-    iconSize = Int(h * 0.44)
-    x = pad
+    iconSize = Int(h * 0.5)
     m.icon.uri = m.top.icon
-    if m.top.icon <> ""
-        m.icon.visible = true
-        m.icon.width = iconSize
-        m.icon.height = iconSize
-        m.icon.translation = [x, Int((h - iconSize) / 2)]
-        x += iconSize
-        if m.top.text <> "" then x += 12
-    else
-        m.icon.visible = false
+    m.icon.width = iconSize
+    m.icon.height = iconSize
+
+    if not focused
+        m.label.visible = false
+        m.bg.visible = false
+        m.icon.translation = [Int((h - iconSize) / 2), Int((h - iconSize) / 2)]
+        m.icon.blendColor = "0xF4F2EEFF"
+        m.bg.width = h
+        m.bg.height = h
+        m.top.opacity = m.top.enabled ? 0.9 : 0.35
+        return
     end if
+
+    x = pad
+    m.icon.translation = [x, Int((h - iconSize) / 2)]
+    x += iconSize
     m.label.text = m.top.text
     ' A label keeps its last width, and boundingRect never measures past it
     m.label.width = 0
     textWidth = 0
-    if m.top.text <> "" then textWidth = m.label.boundingRect().width
+    if m.top.text <> ""
+        x += 12
+        textWidth = m.label.boundingRect().width
+    end if
     m.label.height = h
     m.label.translation = [x, 0]
     m.label.width = textWidth + 2
+    m.label.visible = true
     x += textWidth
-    width = x + pad
-    if width < h then width = h
-    if m.top.text = "" then m.icon.translation = [Int((width - iconSize) / 2), Int((h - iconSize) / 2)]
-    m.bg.width = width
+    m.bg.width = x + pad
     m.bg.height = h
-end sub
-
-sub paint()
-    if m.top.focus = true and m.top.enabled
-        m.bg.blendColor = "0xFFFFFFFF"
-        m.icon.blendColor = "0x0B0D12FF"
-        m.label.color = "0x0B0D12FF"
-    else
-        m.bg.blendColor = "0xFFFFFF29"
-        m.icon.blendColor = "0xF4F2EEFF"
-        m.label.color = "0xF4F2EEFF"
-    end if
-    m.top.opacity = m.top.enabled ? 1.0 : 0.35
+    m.bg.blendColor = "0xFFFFFFFF"
+    m.bg.visible = true
+    m.icon.blendColor = "0x0B0D12FF"
+    m.label.color = "0x0B0D12FF"
+    m.top.opacity = 1.0
 end sub
 
 function onKeyEvent(key as string, press as boolean) as boolean

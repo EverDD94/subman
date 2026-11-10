@@ -5,8 +5,9 @@
     <EfBackdrop id="backdrop" fadeTop="360" />
     <EfHero id="hero" translation="[120, 56]" textWidth="1100" overviewLines="2" />
     <EfPillRow id="buttons" translation="[120, 500]" />
-    <EfPillRow id="langs" translation="[120, 584]" small="true" />
-    <EfPillRow id="seasons" translation="[120, 652]" small="true" spacing="12" />
+    <Label id="hint" translation="[120, 580]" width="600" />
+    <EfPillRow id="seasons" translation="[120, 652]" small="true" />
+    <Label id="epCount" translation="[400, 652]" height="50" vertAlign="center" />
     <Label id="section" translation="[120, 650]" width="1600" color="0xFFFFFFCC" />
     <RowList
       id="episodes"
@@ -32,6 +33,7 @@
       rowFocusAnimationStyle="floatingFocus"
       drawFocusFeedback="false"
       visible="false" />
+    <EfDropdown id="picker" />
     <Label id="loading" translation="[120, 500]" text="Cargando…" color="0x9AA0ADFF" />
   </children>
   <interface>

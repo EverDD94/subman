@@ -4,6 +4,7 @@ sub init()
     m.bg = m.top.findNode("bg")
     m.label = m.top.findNode("label")
     m.icon = m.top.findNode("icon")
+    m.trail = m.top.findNode("trail")
     m.label.font = ef.font(ef.FONT_BOLD, 28)
     m.top.scaleRotateCenter = [0, 32]
 end sub
@@ -43,20 +44,30 @@ sub paint()
     m.label.translation = [textX, 0]
     w = m.label.boundingRect().width + textX + pad
     if m.top.text = "" then w = pad * 2 + iconW - 8
+    ' Small arrow after the text, for pills that open a list
+    m.trail.visible = m.top.trail <> ""
+    if m.trail.visible
+        m.trail.uri = "pkg:/images/everflix/" + m.top.trail + ".png"
+        m.trail.translation = [w - pad + 6, (h - 26) / 2]
+        w += 32
+    end if
     m.bg.width = w
     m.top.pillWidth = w
     if m.top.highlighted
         m.bg.blendColor = "0xFFFFFFFF"
         m.label.color = "0x000000FF"
         m.icon.blendColor = "0x000000FF"
+        m.trail.blendColor = "0x000000FF"
     else if m.top.primary or m.top.selected
         m.bg.blendColor = ef.ACCENT
         m.label.color = "0xFFFFFFFF"
         m.icon.blendColor = "0xFFFFFFFF"
+        m.trail.blendColor = "0xFFFFFFFF"
     else
         m.bg.blendColor = "0xFFFFFF26"
         m.label.color = ef.INK
         m.icon.blendColor = ef.INK
+        m.trail.blendColor = ef.INK
     end if
     s = m.top.highlighted ? 1.05 : 1.0
     m.top.scale = [s, s]

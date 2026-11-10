@@ -4,6 +4,7 @@
   <children>
     <Poster id="bg" uri="pkg:/images/everflix/pill.9.png" height="64" />
     <Poster id="icon" width="30" height="30" visible="false" />
+    <Poster id="trail" width="26" height="26" visible="false" />
     <Label id="label" height="64" vertAlign="center" translation="[32, 0]" />
   </children>
   <interface>
@@ -13,6 +14,7 @@
     <field id="selected" type="boolean" value="false" onChange="paint" />
     <field id="highlighted" type="boolean" value="false" onChange="paint" />
     <field id="small" type="boolean" value="false" onChange="onSmall" />
+    <field id="trail" type="string" onChange="paint" />
     <field id="key" type="string" />
     <field id="pillWidth" type="float" />
   </interface>

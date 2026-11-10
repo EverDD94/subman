@@ -15,6 +15,7 @@ sub build()
         p.primary = it.LookupCI("primary") = true
         p.selected = it.LookupCI("selected") = true
         if isValid(it.LookupCI("icon")) then p.icon = it.icon
+        if isValid(it.LookupCI("trail")) then p.trail = it.trail
         p.text = it.text
         p.translation = [x, 0]
         x += p.pillWidth + m.top.spacing

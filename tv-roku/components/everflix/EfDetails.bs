@@ -7,7 +7,14 @@ sub init()
     m.backdrop = m.top.findNode("backdrop")
     m.hero = m.top.findNode("hero")
     m.buttons = m.top.findNode("buttons")
-    m.langs = m.top.findNode("langs")
+    m.hint = m.top.findNode("hint")
+    m.epCount = m.top.findNode("epCount")
+    m.picker = m.top.findNode("picker")
+    m.pickerMode = ""
+    m.hint.font = ef.font(ef.FONT_SEMI, 22)
+    m.hint.color = ef.MUTED
+    m.epCount.font = ef.font(ef.FONT_SEMI, 23)
+    m.epCount.color = ef.MUTED
     m.seasons = m.top.findNode("seasons")
     m.section = m.top.findNode("section")
     m.episodes = m.top.findNode("episodes")
@@ -17,7 +24,9 @@ sub init()
     m.loading.font = ef.font(ef.FONT_REGULAR, 28)
 
     m.buttons.observeField("pressed", "onButton")
-    m.langs.observeField("pressed", "onLang")
+    m.buttons.observeField("index", "updateHint")
+    m.buttons.observeField("active", "updateHint")
+    m.picker.observeField("pressed", "onPicked")
     m.seasons.observeField("pressed", "onSeason")
     m.episodes.observeField("rowItemSelected", "onEpisodeSelected")
     m.similar.observeField("rowItemSelected", "onSimilarSelected")
@@ -62,19 +71,13 @@ sub onLoaded()
 
     m.subLang = invalid
     m.audioLang = invalid
-    buildButtons()
     buildLangs()
+    buildButtons()
 
     ' Seasons and episodes for series, otherwise a row of related titles
     if r.seasons.count() > 0
-        seasonItems = []
-        for each s in r.seasons
-            seasonItems.push({ key: s.Id, text: s.Name, selected: s.Id = r.seasonId })
-        end for
-        m.seasons.items = seasonItems
-        for i = 0 to r.seasons.count() - 1
-            if r.seasons[i].Id = r.seasonId then m.seasons.index = i
-        end for
+        m.seasonId = r.seasonId
+        buildSeasonPill()
         m.seasons.visible = true
         m.section.visible = false
         m.similar.visible = false
@@ -148,12 +151,51 @@ sub buildButtons()
         favorite = item.UserData.IsFavorite = true
     end if
     list = [{ key: "play", icon: "play", text: label, primary: true }]
-    if canResume then list.push({ key: "restart", icon: "restart", text: "Desde el principio" })
-    list.push({ key: "played", icon: played ? "check" : "", text: played ? "Visto" : "Marcar como visto" })
-    list.push({ key: "favorite", icon: favorite ? "heart-full" : "heart-line", text: favorite ? "En mi lista" : "Mi lista" })
+    if canResume then list.push({ key: "restart", icon: "restart", text: "" })
+    list.push({ key: "played", icon: "check", text: "", selected: played })
+    list.push({ key: "favorite", icon: favorite ? "heart-full" : "heart-line", text: "", selected: favorite })
+    m.played = played
+    m.favorite = favorite
+    lang = langText()
+    if lang <> "" then list.push({ key: "langs", icon: "globe", text: lang, trail: "chevron-down" })
     index = m.buttons.index
     m.buttons.items = list
     if index < list.count() then m.buttons.index = index
+    updateHint()
+end sub
+
+' Names the focused round button, since those show only an icon
+sub updateHint()
+    m.hint.text = ""
+    if not m.buttons.active or not isValid(m.buttons.items) then return
+    if m.buttons.index >= m.buttons.items.count() then return
+    key = m.buttons.items[m.buttons.index].key
+    if key = "restart" then m.hint.text = "Ver desde el principio"
+    if key = "played" then m.hint.text = m.played ? "Visto · pulsa para desmarcar" : "Marcar como visto"
+    if key = "favorite" then m.hint.text = m.favorite ? "En mi lista · pulsa para quitar" : "Añadir a mi lista"
+    if key = "langs" then m.hint.text = "Audio y subtítulos"
+end sub
+
+function langText() as string
+    if not isValid(m.audios) then return ""
+    parts = []
+    if m.audios.count() > 1 then parts.push(ef.langName(m.audioLang))
+    if m.subs.count() > 0
+        if m.subLang <> "" then parts.push("Sub. " + ef.langName(m.subLang)) else parts.push("Sin subtítulos")
+    end if
+    return parts.join(" · ")
+end function
+
+sub buildSeasonPill()
+    name = "Temporada"
+    for each s in m.data.seasons
+        if s.Id = m.seasonId then name = s.Name
+    end for
+    if m.data.seasons.count() > 1
+        m.seasons.items = [{ key: "pick", text: name, trail: "chevron-down" }]
+    else
+        m.seasons.items = [{ key: "", text: name }]
+    end if
 end sub
 
 function streamsOf(item as dynamic) as object
@@ -194,17 +236,6 @@ sub buildLangs()
     end if
     if not isValid(m.audioLang) and m.audios.count() > 0 then m.audioLang = m.audios[0]
 
-    list = []
-    if m.audios.count() > 1 then list.push({ key: "audio", icon: "swap", text: "Audio: " + ef.langName(m.audioLang) })
-    if m.subs.count() > 0
-        subText = "No"
-        if m.subLang <> "" then subText = ef.langName(m.subLang)
-        list.push({ key: "subs", icon: "swap", text: "Subtítulos: " + subText })
-    end if
-    index = m.langs.index
-    m.langs.items = list
-    if index < list.count() then m.langs.index = index
-    m.langs.visible = list.count() > 0
 end sub
 
 ' Stacks the rows under the buttons so nothing leaves a gap
@@ -213,27 +244,31 @@ sub layout()
     y = heroBottom + 30
     if y < 420 then y = 420
     m.buttons.translation = [120, y]
-    if m.buttons.visible then y += 84
-    m.langs.translation = [120, y]
-    if m.langs.visible then y += 68
+    m.hint.translation = [124, y + 72]
+    if m.buttons.visible then y += 118
     m.seasons.translation = [120, y]
     m.section.translation = [120, y]
+    seasonW = 0
+    if m.seasons.visible and m.seasons.callFunc("count") > 0
+        seasonW = m.seasons.boundingRect().width
+    end if
+    m.epCount.translation = [120 + seasonW + 24, y]
+    m.epCount.visible = m.seasons.visible
     if m.seasons.visible
-        m.episodes.translation = [120, y + 70]
+        m.episodes.translation = [120, y + 76]
     end if
     m.similar.translation = [120, y + 44]
 
     m.zones = []
     if m.buttons.visible then m.zones.push(m.buttons)
-    if m.langs.visible then m.zones.push(m.langs)
-    if m.seasons.visible then m.zones.push(m.seasons)
+    if m.seasons.visible and m.data.seasons.count() > 1 then m.zones.push(m.seasons)
     if m.episodes.visible then m.zones.push(m.episodes)
     if m.similar.visible then m.zones.push(m.similar)
     if m.zone >= m.zones.count() then m.zone = 0
 end sub
 
 sub applyFocus()
-    for each z in [m.buttons, m.langs, m.seasons]
+    for each z in [m.buttons, m.seasons]
         z.active = false
     end for
     if m.zones.count() = 0
@@ -273,11 +308,13 @@ sub onEpisodes()
     end for
     m.episodes.content = content
     m.episodes.visible = r.items.count() > 0
+    n = r.items.count()
+    m.epCount.text = n = 1 ? "1 episodio" : `${n} episodios`
     if r.items.count() > 0 then m.episodes.jumpToRowItem = [0, focusIndex]
     ' A series without next-up plays its first episode
     if m.data.item.Type = "Series" and not isValid(m.data.nextUp)
-        buildButtons()
         buildLangs()
+        buildButtons()
     end if
     hadFocus = m.zones.count() > m.zone and m.zones[m.zone].isSameNode(m.episodes)
     layout()
@@ -320,6 +357,8 @@ sub onButton()
     item = m.data.item
     if key = "play"
         play(playTarget())
+    else if key = "langs"
+        openLangPicker()
     else if key = "restart"
         play(playTarget(), true)
     else if key = "played" or key = "favorite"
@@ -347,36 +386,65 @@ sub onUserData()
     buildButtons()
 end sub
 
-sub onLang()
-    if m.langs.pressed = "audio" and m.audios.count() > 1
-        i = 0
-        for j = 0 to m.audios.count() - 1
-            if m.audios[j] = m.audioLang then i = j
-        end for
-        m.audioLang = m.audios[(i + 1) mod m.audios.count()]
-    else if m.langs.pressed = "subs"
-        options = []
-        options.Append(m.subs)
-        options.push("")
-        i = options.count() - 1
-        for j = 0 to options.count() - 1
-            if options[j] = m.subLang then i = j
-        end for
-        m.subLang = options[(i + 1) mod options.count()]
-    end if
-    buildLangs()
-end sub
-
 sub onSeason()
-    seasonId = m.seasons.pressed
+    if m.seasons.pressed <> "pick" then return
     list = []
     for each s in m.data.seasons
-        list.push({ key: s.Id, text: s.Name, selected: s.Id = seasonId })
+        list.push({ key: s.Id, text: s.Name, selected: s.Id = m.seasonId })
     end for
-    index = m.seasons.index
-    m.seasons.items = list
-    m.seasons.index = index
-    loadEpisodes(seasonId)
+    openPicker("season", m.data.item.Name ?? "Temporadas", list)
+end sub
+
+sub openLangPicker()
+    list = []
+    if m.audios.count() > 1
+        list.push({ key: "", text: "AUDIO", header: true })
+        for each code in m.audios
+            list.push({ key: "a:" + code, text: ef.langName(code), selected: code = m.audioLang })
+        end for
+    end if
+    if m.subs.count() > 0
+        list.push({ key: "", text: "SUBTÍTULOS", header: true })
+        for each code in m.subs
+            list.push({ key: "s:" + code, text: ef.langName(code), selected: code = m.subLang })
+        end for
+        list.push({ key: "s:", text: "Sin subtítulos", selected: m.subLang = "" })
+    end if
+    openPicker("langs", "Audio y subtítulos", list)
+end sub
+
+sub openPicker(mode as string, title as string, list as object)
+    m.pickerMode = mode
+    m.picker.title = title
+    m.picker.items = list
+    m.picker.visible = true
+end sub
+
+sub closePicker()
+    m.picker.visible = false
+    m.pickerMode = ""
+end sub
+
+sub onPicked()
+    key = m.picker.pressed
+    if m.pickerMode = "season"
+        closePicker()
+        if key <> m.seasonId
+            m.seasonId = key
+            buildSeasonPill()
+            layout()
+            loadEpisodes(key)
+        end if
+    else if m.pickerMode = "langs"
+        if Left(key, 2) = "a:" then m.audioLang = Mid(key, 3)
+        if Left(key, 2) = "s:" then m.subLang = Mid(key, 3)
+        index = m.picker.index
+        buildLangs()
+        buildButtons()
+        layout()
+        openLangPicker()
+        m.picker.index = index
+    end if
 end sub
 
 sub onEpisodeSelected()
@@ -402,7 +470,18 @@ sub OnScreenShown()
 end sub
 
 function onKeyEvent(key as string, press as boolean) as boolean
-    if not press or m.zones.count() = 0 then return false
+    if not press then return false
+    if m.picker.visible
+        if key = "up" or key = "down"
+            m.picker.callFunc("move", key = "up" ? -1 : 1)
+        else if key = "OK"
+            m.picker.callFunc("press")
+        else if key = "back" or key = "left"
+            closePicker()
+        end if
+        return true
+    end if
+    if m.zones.count() = 0 then return false
     z = m.zones[m.zone]
     isPills = z.subtype() = "EfPillRow"
     if key = "up"

@@ -1039,9 +1039,8 @@ dialog.sheet .foot{display:none}
 
 <section id="nombres" hidden>
   <div class="ph"><h2 class="mg-h">Nombres</h2><p class="ph-sub">Que Jellyfin reconozca cada película y cada capítulo a la primera.</p></div>
-  <div class="row" id="nmKind" style="gap:8px;margin-bottom:12px"><button class="btn" data-kind="pelis">Películas</button><button class="btn sec" data-kind="series">Series</button></div>
-  <div id="nmPelis">
   <div class="scope" id="scNames" hidden></div>
+  <div id="nmPelis">
     <div class="card">
     <div class="row" style="justify-content:space-between"><h2 style="margin:0">Nombres y carpetas</h2>
       <div class="row"><button class="btn sec" id="nmScan">Revisar nombres</button><button class="btn" id="nmAuto">Identificar todo</button>
@@ -1067,8 +1066,7 @@ dialog.sheet .foot{display:none}
       <button class="btn" id="nmOrganize">Ordenar las marcadas en carpetas</button></div>
     <table><thead><tr><th></th><th>Ahora</th><th>Quedará en</th></tr></thead><tbody id="nmLoose"></tbody></table></div>
   </div>
-  <div id="nmSeries" hidden>
-  <div class="scope" id="scSeries" hidden></div>
+  <div id="nmSeries">
     <div class="card" id="srCard">
     <div class="row" style="justify-content:space-between"><h2 style="margin:0">Series</h2>
       <div class="row"><button class="btn sec" id="srAll" hidden>Renombrar todo lo marcado</button>
@@ -2162,7 +2160,8 @@ document.addEventListener("click", e => document.querySelectorAll(".scope detail
 
 async function loadNames() {
   nm = await api("/api/names");
-  scopeBar("#scNames", "names", nm, () => { nmShown = null; loadNames(); });
+  scopeBar("#scNames", "names", nm, () => { nmShown = null; srShown = null; loadNames(); loadSeries(); });
+  nmKind();
   const fresh = nm.at !== nmShown;  // mientras revisa, no volver a pintar la lista (se borraría lo que escribes)
   $("#nmScan").disabled = nm.running || !nm.jellyfin;
   $("#nmAuto").disabled = $("#nmRecheck").disabled = nm.running || !nm.jellyfin || !nm.tmdb;
@@ -2377,18 +2376,16 @@ function zoomImg(src) {  // carátula en grande; se cierra tocando en cualquier 
   document.body.appendChild(d);
 }
 // Nombres: Películas y Series por separado (cada una con sus botones); se recuerda la última
-function nmKind(k) {
-  $("#nmPelis").hidden = k !== "pelis"; $("#nmSeries").hidden = k !== "series";
-  document.querySelectorAll("#nmKind [data-kind]").forEach(b => b.className = "btn" + (b.dataset.kind === k ? "" : " sec"));
-  try { localStorage.setItem("nmKind", k); } catch (e) {}
+function nmKind() {  // sin botón: según lo que haya en las carpetas elegidas (películas, capítulos o las dos cosas)
+  const k = nm && nm.kinds;
+  $("#nmPelis").hidden = !!k && !k.movie && !!k.episode;
+  $("#nmSeries").hidden = !!k && !k.episode && !!k.movie;
 }
-document.querySelectorAll("#nmKind [data-kind]").forEach(b => b.onclick = () => nmKind(b.dataset.kind));
-try { nmKind(localStorage.getItem("nmKind") || "pelis"); } catch (e) { nmKind("pelis"); }
+
 let sr = null, srShown = null;
 const srClosed = new Set();  // series plegadas (por su clave), se mantienen al volver a pintar
 async function loadSeries() {
   sr = await api("/api/series");
-  scopeBar("#scSeries", "series", sr, () => { srShown = null; loadSeries(); });
   $("#srScan").disabled = sr.running || !sr.tmdb;
   const res = sr.result, n = res ? res.series.reduce((a, g) => a + g.episodes.length, 0) : 0;
   $("#srState").innerHTML = !sr.tmdb ? `<span class="pill revisar">falta la clave</span> Necesita la clave de TheMovieDB guardada en Ajustes.`

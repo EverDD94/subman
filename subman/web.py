@@ -414,7 +414,8 @@ class App:
             return {"ok": False, "error": "sección desconocida"}
         with self.lock:
             cfg = self.cfg()
-            cfg.setdefault("scope", {})[section] = [r for r in cfg["library"] if r in roots]
+            for sec in (("names", "series") if section in ("names", "series") else (section,)):  # Nombres: una sola elección
+                cfg.setdefault("scope", {})[sec] = [r for r in cfg["library"] if r in roots]
             config.save(self.config_path, cfg)
         if section == "formats":
             self.conv_wake.set()
@@ -1124,7 +1125,8 @@ class App:
         res = self.names["result"]
         if roots and res:
             res = {**res, **{k: [e for e in res.get(k, []) if self.in_scope(e["path"], roots)] for k in ("todo", "loose")}}
-        return {**self.names, "result": res, **self._scope_info("names", cfg), "history": identify.history(self.library(cfg)),
+        kinds = collections.Counter(m.kind for m in self.library(cfg).media() if self.in_scope(m.path, roots))
+        return {**self.names, "result": res, **self._scope_info("names", cfg), "kinds": kinds, "history": identify.history(self.library(cfg)),
                 "jellyfin": bool(jf.get("url") and jf.get("api_key")),
                 "tmdb": bool(cfg.get("tmdb", {}).get("api_key")), "gemini": bool(cfg.get("gemini", {}).get("api_key"))}
 

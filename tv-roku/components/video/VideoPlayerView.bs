@@ -199,12 +199,16 @@ sub init()
 
     m.previewPos = 0 ' Track the seeking position in the video when the user starts seeking
     m.seekSpeedIndex = 0 ' Index to track the current seek speed level
-    m.seekSpeeds = [-180, -60, -30, -10, 10, 30, 60, 180] ' seconds per press for the different seek speed levels
+    m.seekSpeeds = [-160, -80, -40, -20, -10, 10, 20, 40, 80, 160] ' seconds per timer tick; shown as 2×, 4×, 8×, 16× and 32×
+    m.seekSpeedLabels = ["2×", "4×", "8×", "16×", "32×"]
+    ' Everflix: arrows jump 10 s, and pressing the same arrow again doubles it (20, 40, 80...)
+    m.arrowStep = 0
+    m.arrowLastKey = ""
+    m.arrowClock = CreateObject("roTimespan")
 
     m.scrubber = m.osd.findNode("scrubber")
     m.scrubberOldPosition = m.osd.findNode("scrubberOldPosition")
 
-    m.fastForwardRewindIcons = m.osd.findNode("fastForwardRewindIcons")
     m.fastForwardOrRewindTimer = m.top.findNode("fastForwardOrRewindTimer")
     m.fastForwardOrRewindTimer.observeField("fire", "onFastforwardOrRewindTick")
 
@@ -1114,7 +1118,7 @@ sub displaySingleTrickplayImage(trickPosition as integer, whichImage as integer)
     else
         offsetHoriz = m.progressBarGroup.translation[0] + m.progressBarBackground.width / 2 - (m.trickplayDataFinal.Width * largeTileSizeFactor) / 2 + (tileBuffer + m.trickplayDataFinal.Width * smallTileSizeFactor) * whichImage + (whichImage < 1 ? 0 : m.trickplayDataFinal.Width * largeTileSizeFactor - m.trickplayDataFinal.Width * smallTileSizeFactor)
     end if
-    offsetVert = m.progressBarGroup.translation[1] - 25 - m.trickplayDataFinal.Height * tileSizeFactor
+    offsetVert = m.progressBarGroup.translation[1] - 84 - m.trickplayDataFinal.Height * tileSizeFactor
 
     if offsetHoriz < 0 then offsetHoriz = 0
 
@@ -1135,7 +1139,7 @@ sub displaySingleTrickplayImage(trickPosition as integer, whichImage as integer)
         newTrickplayImage.id = `trickplayImage` + str(whichImage)
         newTrickplayImage.loadDisplayMode = "noScale"
         ' Insert trickplay image at top of OSD so video ending time node is visible over trickplay image
-        m.osd.insertChild(newTrickplayImage, 0)
+        m.osd.insertChild(newTrickplayImage, 2)
         trickplayImage = newTrickplayImage
     end if
 
@@ -2317,6 +2321,9 @@ sub startSeek(key as string)
         checkPause()
     end if
 
+    m.arrowLastKey = ""
+    if key = KeyCode.LEFT or key = KeyCode.RIGHT then nextArrowStep(key)
+
     ' Set seek speed index based on initial key press
     if key = KeyCode.REWIND or key = KeyCode.LEFT
         m.seekSpeedIndex = (m.seekSpeeds.count() / 2) - 1
@@ -2344,6 +2351,7 @@ sub processSeek(key as string)
 
         ' Hide all FF/Rewind icons
         stopFastforwardOrRewind()
+        nextArrowStep(key)
         updateDisplayForSeek(key)
     else if key = KeyCode.FASTFORWRD
         checkPause()
@@ -2359,9 +2367,6 @@ sub processSeek(key as string)
             m.seekSpeedIndex++
         end if
         ' Clear Rewind icons
-        for count = 0 to (m.seekSpeeds.count() / 2) - 1
-            m.fastForwardRewindIcons.getChild(count).visible = false
-        end for
         updateDisplayForSeek(key)
     else if key = KeyCode.REWIND
         checkPause()
@@ -2377,9 +2382,6 @@ sub processSeek(key as string)
             m.seekSpeedIndex--
         end if
         ' Clear FF icons
-        for count = (m.seekSpeeds.count() / 2) to m.seekSpeeds.count() - 1
-            m.fastForwardRewindIcons.getChild(count).visible = false
-        end for
         updateDisplayForSeek(key)
     else if key = KeyCode.OK or key = KeyCode.PLAY
         commitSeek()
@@ -2415,10 +2417,20 @@ end sub
 sub updateDisplayForSeek(key as string)
     ' Show the appropriate number of fast forward or rewind icons based on the current seek speed
     if key = KeyCode.FASTFORWRD or key = KeyCode.REWIND
-        m.fastForwardRewindIcons.getChild(m.seekSpeedIndex).visible = true
+        middle = m.seekSpeeds.count() / 2
+        m.osd.seekForward = m.seekSpeedIndex >= middle
+        if m.seekSpeedIndex >= middle
+            m.osd.seekSpeedLabel = m.seekSpeedLabels[m.seekSpeedIndex - middle]
+        else
+            m.osd.seekSpeedLabel = m.seekSpeedLabels[middle - 1 - m.seekSpeedIndex]
+        end if
     end if
     ' Define the delta for the seek based on the current seek speed index
     delta = m.seekSpeeds[m.seekSpeedIndex]
+    if key = KeyCode.LEFT or key = KeyCode.RIGHT
+        delta = 10 * (2 ^ m.arrowStep)
+        if key = KeyCode.LEFT then delta = -delta
+    end if
     m.previewPos = m.osd.callFunc("clampSeek", m.previewPos + delta)
     if m.top.content.live then updateLiveTvTrackers()
     m.osd.callFunc("updateProgressBar", m.top.content.live, m.previewPos)
@@ -2439,8 +2451,23 @@ sub updateDisplayForSeek(key as string)
         else if key = KeyCode.RIGHT
             m.rightTenSecondSkipTimer.control = "start"
         end if
+        if m.arrowStep > 0
+            m.osd.seekForward = key = KeyCode.RIGHT
+            m.osd.seekSpeedLabel = m.seekSpeedLabels[m.arrowStep - 1]
+        end if
     end if
     if not m.LoadMetaDataTask.isIntro then checkSegmentSkipButton(m.previewPos)
+end sub
+
+' nextArrowStep: the same arrow pressed again within 2.5 s doubles the jump, up to 32× (320 s)
+sub nextArrowStep(key as string)
+    if key = m.arrowLastKey and m.arrowClock.TotalMilliseconds() < 2500
+        if m.arrowStep < m.seekSpeedLabels.count() then m.arrowStep++
+    else
+        m.arrowStep = 0
+    end if
+    m.arrowLastKey = key
+    m.arrowClock.Mark()
 end sub
 
 ' commitSeek: Finalizes the seek operation by setting the video to the new position and resuming playback.
@@ -2469,9 +2496,7 @@ end sub
 ' stopFastforwardOrRewind: Stops the fast-forward or rewind operation and removes the fast-forward/rewind icons.
 '
 sub stopFastforwardOrRewind()
-    for count = 0 to m.seekSpeeds.count() - 1
-        m.fastForwardRewindIcons.getChild(count).visible = false
-    end for
+    m.osd.seekSpeedLabel = ""
     m.fastForwardOrRewindTimer.control = "stop"
 end sub
 

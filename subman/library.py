@@ -256,7 +256,8 @@ class Library:
             self.db.execute("ALTER TABLE subtitle ADD COLUMN attempts INTEGER DEFAULT 0")
             self.db.commit()
 
-    def scan(self, roots: list[str | Path], hash_files: bool = True, progress=None, exclude=()) -> dict:
+    def scan(self, roots: list[str | Path], hash_files: bool = True, progress=None, exclude=(), partial: bool = False) -> dict:
+        """partial: sólo esas carpetas de la biblioteca; lo que falta se quita sólo dentro de ellas."""
         now = time.time()
         skip = {os.path.normpath(str(e)) for e in exclude if e}
         stats = {"nuevos": 0, "cambiados": 0, "borrados": 0, "total": 0, "por_carpeta": {}, "ignorados": {}}
@@ -297,6 +298,15 @@ class Library:
                          st.st_size, st.st_mtime, oshash, now))
                     stats["cambiados" if row else "nuevos"] += 1
             stats["por_carpeta"][Path(root).name] = stats["total"] - before
+        if partial:
+            cur = None
+            stats["borrados"] = 0
+            for root in roots:
+                r = str(root).rstrip("/") + "/"
+                c = self.db.execute("DELETE FROM media WHERE seen < ? AND substr(path, 1, ?) = ?", (now, len(r), r))
+                stats["borrados"] += c.rowcount
+            self.db.commit()
+            return stats
         cur = self.db.execute("DELETE FROM media WHERE seen < ?", (now,))
         stats["borrados"] = cur.rowcount
         self.db.commit()

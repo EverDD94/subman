@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
     tags: ["v*"]
+    # Los cambios solo de las apps de tele (Roku, Google TV) no rehacen la imagen
+    paths-ignore:
+      - "tv-roku/**"
+      - "tv-android/**"
+      - ".github/workflows/tv-android.yml"
   workflow_dispatch:
 
 # Dos fusiones seguidas: una construcción detrás de otra (sin cancelar ninguna)

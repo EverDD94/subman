@@ -268,6 +268,12 @@ def _reorder(db: TMDb, g: dict, show: dict) -> None:
         tm_deb = [t for t in tm if _DEBATE.search(t["name"])]
         tm_main = [t for t in tm if not _DEBATE.search(t["name"])]
         if not tm_deb:
+            # TheMovieDB no tiene los debates en esta temporada: no se mezclan con los capítulos
+            # numerados («Debate 01» no es el capítulo 1). Se quedan como están y sin marcar.
+            for e in eps:
+                if _SPECIAL.search(Path(e["path"]).stem) and not _CODE.search(Path(e["path"]).stem):
+                    e["keep"] = True
+                    e["why_order"] = "es un debate/especial y TheMovieDB no lo tiene: se deja con su nombre"
             continue
         units: dict[tuple, list[dict]] = {}
         for e in eps:
@@ -320,7 +326,13 @@ def _targets(g: dict, show: dict) -> None:
             titles = {**titles, e["episode"]: om.group(3).strip()}  # TheMovieDB no lo titula: se queda el que tenía
         name = episode_name(show, e["season"], e["episode"], e["last"], titles, e.get("part"))
         dest = Path(g["dest_dir"]) / _season_folder(e["season"]) / (name + Path(e["path"]).suffix)
-        e.update(target=str(dest.relative_to(Path(g["dest_dir"]).parent)), dest=str(dest), why=None)
+        if e.get("keep"):  # debate que TheMovieDB no tiene: no se toca
+            dest = Path(e["path"])
+        try:
+            target = str(dest.relative_to(Path(g["dest_dir"]).parent))
+        except ValueError:
+            target = str(dest)
+        e.update(target=target, dest=str(dest), why=None)
         if e.get("why_order"):
             e["why"] = e["why_order"]
         elif seasons and (e["last"] or e["episode"]) > seasons.get(e["season"], 0):

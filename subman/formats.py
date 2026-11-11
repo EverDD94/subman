@@ -234,12 +234,15 @@ class Formats:
         self.lib.db.commit()
         return {"mirados": looked, "total": len(media)}
 
-    def summary(self, allow_hevc: bool = True) -> dict:
+    def summary(self, allow_hevc: bool = True, keep=None) -> dict:
+        """keep(path): sólo los videos de las carpetas elegidas (None = todos)."""
         rows = self.lib.db.execute(
             "SELECT f.path, f.grp, f.info, m.id, m.size, m.kind, m.title, m.season, m.episode, m.year "
             "FROM formats f JOIN media m ON m.path = f.path ORDER BY m.title, m.season, m.episode").fetchall()
         groups = {g: {"count": 0, "size": 0, "seconds": 0.0, "duration": 0.0} for g in GROUPS}
         items = []
+        if keep:
+            rows = [r for r in rows if keep(r["path"])]
         for r in rows:
             info = json.loads(r["info"])
             info.setdefault("grp", r["grp"])

@@ -400,6 +400,29 @@ class App:
                 "problems": config.problems(cfg), "media": total, "counts": counts,
                 "missing": diagnose.summary(reasons), "auto": {**self.auto, "settings": cfg["auto"]}}
 
+    # --- carpetas elegidas en cada sección (vacío = todas) ---------------------------
+    def scope(self, section: str, cfg: dict | None = None) -> list[str]:
+        cfg = cfg or self.cfg()
+        return [r for r in cfg.get("scope", {}).get(section, []) if r in cfg["library"]]
+
+    @staticmethod
+    def in_scope(path: str, roots: list[str]) -> bool:
+        return not roots or any(path == r or path.startswith(r.rstrip("/") + "/") for r in roots)
+
+    def scope_set(self, section: str, roots: list) -> dict:
+        if section not in ("names", "series", "dupes", "formats"):
+            return {"ok": False, "error": "sección desconocida"}
+        with self.lock:
+            cfg = self.cfg()
+            cfg.setdefault("scope", {})[section] = [r for r in cfg["library"] if r in roots]
+            config.save(self.config_path, cfg)
+        if section == "formats":
+            self.conv_wake.set()
+        return {"ok": True}
+
+    def _scope_info(self, section: str, cfg: dict) -> dict:
+        return {"scope": self.scope(section, cfg), "roots": list(cfg["library"])}
+
     # --- formatos (qué reproduce Jellyfin directo) ----------------------------------
     def formats_scan(self) -> dict:
         if self.fmt["running"]:
@@ -432,7 +455,10 @@ class App:
         formats.Formats(lib)
         lib.db.executescript(convert.SCHEMA)
         failed = {r["path"]: r["error"] for r in lib.db.execute("SELECT path, error FROM convert_failed")}
-        out = {**self.fmt, **formats.Formats(lib).summary(cfg["convert"]["allow_hevc"])}
+        roots = self.scope("formats", cfg)
+        out = {**self.fmt, **formats.Formats(lib).summary(cfg["convert"]["allow_hevc"],
+                                                          (lambda p: self.in_scope(p, roots)) if roots else None),
+               **self._scope_info("formats", cfg)}
         for i in out["items"]:
             if i["path"] in failed:
                 i["failed"] = failed[i["path"]]
@@ -572,10 +598,11 @@ class App:
 
     def _next_to_convert(self, lib, c: dict) -> dict | None:
         failed = {r[0] for r in lib.db.execute("SELECT path FROM convert_failed")}
+        roots = self.scope("formats")
         best = None
         for r in lib.db.execute("SELECT f.path, f.info, m.size, m.kind, m.title, m.season, m.episode, m.year "
                                 "FROM formats f JOIN media m ON m.path = f.path"):
-            if r["path"] in failed:
+            if r["path"] in failed or not self.in_scope(r["path"], roots):
                 continue
             info = json.loads(r["info"])
             grp = formats.group(info, c["allow_hevc"])
@@ -882,7 +909,7 @@ class App:
         keep = [cfg.get("duplicates_dir"), cfg.get("discard_dir"), cfg.get("trash_dir"),
                 cfg.get("convert", {}).get("originals_dir"), MEDIA_ROOT]
         try:
-            gone = duplicates.empty_dirs(cfg["library"], [k for k in keep if isinstance(k, str)])
+            gone = duplicates.empty_dirs(self.scope("dupes", cfg) or cfg["library"], [k for k in keep if isinstance(k, str)])
         except OSError as e:
             return {"ok": False, "error": str(e), "removed": 0}
         log.info("carpetas vacías: %d borradas", len(gone))
@@ -917,7 +944,11 @@ class App:
 
     def dupes_state(self) -> dict:
         cfg = self.cfg()
-        return {**self.dupes, "dest": cfg["duplicates_dir"], "moved": duplicates.moved_list(self.library(cfg)),
+        roots = self.scope("dupes", cfg)
+        groups = self.dupes["groups"]
+        if roots and groups is not None:
+            groups = [g for g in groups if any(self.in_scope(f["path"], roots) for f in g["files"])]
+        return {**self.dupes, "groups": groups, **self._scope_info("dupes", cfg), "dest": cfg["duplicates_dir"], "moved": duplicates.moved_list(self.library(cfg)),
                 "jellyfin": bool(cfg.get("jellyfin", {}).get("url") and cfg.get("jellyfin", {}).get("api_key"))}
 
     def dupes_move(self, ids: list[int], everything: bool = False) -> dict:
@@ -931,6 +962,7 @@ class App:
         if any(d == Path(r).resolve() or Path(r).resolve() in d.parents for r in cfg["library"]):
             return {"ok": False, "error": "la carpeta de duplicados no puede estar dentro de una carpeta de la biblioteca"}
         want = set(ids)
+        roots = self.scope("dupes", cfg)
         lib = self.library(cfg)
         moved, errors = set(), []
         for g in self.dupes["groups"] or []:
@@ -941,6 +973,8 @@ class App:
                 errors.append(f"{g['title']}: hay que dejar al menos una copia")
                 continue
             for f in pick:
+                if not self.in_scope(f["path"], roots):  # fuera de las carpetas elegidas: no se toca
+                    continue
                 m = lib.media("id=?", (f["id"],))
                 if not m or m[0].path != f["path"] or not Path(f["path"]).exists():
                     errors.append(f"{f['name']}: ya no está donde estaba")
@@ -996,10 +1030,11 @@ class App:
         if not cfg.get("tmdb", {}).get("api_key"):
             return {"ok": False, "error": "pon la clave de TheMovieDB en Ajustes"}
         self.names.update(running=True, message="empezando", error=None, stop=False, counts=None)
-        threading.Thread(target=self._identify_all, kwargs={"fresh": fresh}, name="identificar", daemon=True).start()
+        threading.Thread(target=self._identify_all, kwargs={"fresh": fresh, "roots": self.scope("names", cfg)}, name="identificar", daemon=True).start()
         return {"ok": True}
 
-    def _identify_all(self, only: set | None = None, skip: set = frozenset(), fresh: bool = False) -> dict | None:
+    def _identify_all(self, only: set | None = None, skip: set = frozenset(), fresh: bool = False,
+                      roots: list | None = None) -> dict | None:
         """«Identificar todo» (con self.names["running"] ya puesto). only: sólo esos videos (los recién llegados);
         skip: rutas que no se tocan solas (las deshiciste a mano)."""
         try:
@@ -1012,6 +1047,8 @@ class App:
             if only is None:  # lo ya ordenado que no cuadra vuelve a identificarse
                 rev["todo"] += autoid.verify(lib, cfg, lambda msg: self.names.update(message=msg), skip,
                                              stop=lambda: self.names["stop"], fresh=fresh)
+            if roots:  # sólo las carpetas elegidas arriba
+                rev = {k: [e for e in rev.get(k, []) if self.in_scope(e["path"], roots)] for k in ("todo", "loose")}
             held = []
             if only is not None or skip:
                 held = [e for k in ("todo", "loose") for e in rev.get(k, []) if e["path"] in skip
@@ -1083,7 +1120,11 @@ class App:
     def names_state(self) -> dict:
         cfg = self.cfg()
         jf = cfg.get("jellyfin", {})
-        return {**self.names, "history": identify.history(self.library(cfg)),
+        roots = self.scope("names", cfg)
+        res = self.names["result"]
+        if roots and res:
+            res = {**res, **{k: [e for e in res.get(k, []) if self.in_scope(e["path"], roots)] for k in ("todo", "loose")}}
+        return {**self.names, "result": res, **self._scope_info("names", cfg), "history": identify.history(self.library(cfg)),
                 "jellyfin": bool(jf.get("url") and jf.get("api_key")),
                 "tmdb": bool(cfg.get("tmdb", {}).get("api_key")), "gemini": bool(cfg.get("gemini", {}).get("api_key"))}
 
@@ -1103,6 +1144,8 @@ class App:
         m = lib.media("id=?", (media_id,))
         if not m or m[0].path != entry["path"]:
             raise ValueError(f"{entry['name']}: ya no está donde estaba")
+        if not self.in_scope(m[0].path, self.scope("names", cfg)):
+            raise ValueError(f"{entry['name']}: está fuera de las carpetas elegidas")
         if self.state["running"] and self.state["current"] == m[0].label:
             raise ValueError(f"{entry['name']}: se está procesando ahora mismo; prueba en un momento")
         identify.apply(lib, cfg, m[0], title.strip(), int(year) if year else None, tmdb or None, imdb or None)
@@ -1216,7 +1259,14 @@ class App:
             self.series.update(running=False)
 
     def series_state(self) -> dict:
-        return {**self.series, "tmdb": bool(self.cfg().get("tmdb", {}).get("api_key"))}
+        cfg = self.cfg()
+        roots = self.scope("series", cfg)
+        res = self.series["result"]
+        if roots and res:
+            gs = [{**g, "episodes": [e for e in g["episodes"] if self.in_scope(e["path"], roots)]} for g in res["series"]]
+            res = {**res, "series": [g for g in gs if g["episodes"]]}
+        return {**self.series, "result": res, **self._scope_info("series", cfg),
+                "tmdb": bool(cfg.get("tmdb", {}).get("api_key"))}
 
     def _series_group(self, key: str) -> dict:
         g = next((g for g in (self.series["result"] or {}).get("series", []) if g["key"] == key), None)
@@ -1255,6 +1305,8 @@ class App:
         lib = self.library(cfg)
         try:
             g = self._series_group(key)
+            roots = self.scope("series", cfg)
+            ids = [e["id"] for e in g["episodes"] if e["id"] in ids and self.in_scope(e["path"], roots)]
             for e in g["episodes"]:
                 if e["id"] in ids:
                     m = lib.media("id=?", (e["id"],))
@@ -2331,6 +2383,7 @@ def make_handler(app: App):
         "/api/accept": lambda b: app.accept(int(b["id"]), b["lang"]),
         "/api/reject": lambda b: app.reject(int(b["id"]), b["lang"]),
         "/api/restore": lambda b: app.restore(b["path"]),
+        "/api/scope": lambda b: app.scope_set(b["section"], list(b.get("roots") or [])),
         "/api/dupes/scan": lambda b: app.dupes_scan(),
         "/api/formats/scan": lambda b: app.formats_scan(),
         "/api/formats/stop": lambda b: (app.fmt.update(stop=True), {"ok": True})[1],

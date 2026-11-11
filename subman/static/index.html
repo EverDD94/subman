@@ -113,6 +113,14 @@ main > section{animation:enter .28s var(--ease-out)}
 .card h2{font-size:28px;margin:0 0 14px;line-height:1.05}
 .muted{color:var(--muted)}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.scope{margin-bottom:12px}
+.scope details{display:inline-block;position:relative}
+.scope summary{list-style:none;cursor:pointer;background:var(--chip);border-radius:999px;padding:8px 14px;font-size:14px}
+.scope summary::-webkit-details-marker{display:none}
+.scope .sc-menu{position:absolute;z-index:20;top:calc(100% + 6px);left:0;min-width:260px;max-width:calc(100vw - 32px);background:var(--card);border:1px solid var(--chip);border-radius:12px;padding:8px;box-shadow:0 8px 24px rgb(0 0 0/.3)}
+.scope label{display:flex;gap:8px;align-items:center;padding:6px 8px;cursor:pointer;border-radius:8px}
+.scope label:hover{background:var(--chip)}
+.scope label small{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
 .stat{background:var(--accent-soft);border-radius:18px;padding:16px 18px}
 .stat span{font-size:13px}
@@ -1033,7 +1041,8 @@ dialog.sheet .foot{display:none}
   <div class="ph"><h2 class="mg-h">Nombres</h2><p class="ph-sub">Que Jellyfin reconozca cada película y cada capítulo a la primera.</p></div>
   <div class="row" id="nmKind" style="gap:8px;margin-bottom:12px"><button class="btn" data-kind="pelis">Películas</button><button class="btn sec" data-kind="series">Series</button></div>
   <div id="nmPelis">
-  <div class="card">
+  <div class="scope" id="scNames" hidden></div>
+    <div class="card">
     <div class="row" style="justify-content:space-between"><h2 style="margin:0">Nombres y carpetas</h2>
       <div class="row"><button class="btn sec" id="nmScan">Revisar nombres</button><button class="btn" id="nmAuto">Identificar todo</button>
         <button class="btn sec" id="nmRecheck" title="Vuelve a comprobar desde cero todas las ya ordenadas (duración, nombre original y año) y reidentifica las que no cuadran">Rechequear todo</button>
@@ -1059,7 +1068,8 @@ dialog.sheet .foot{display:none}
     <table><thead><tr><th></th><th>Ahora</th><th>Quedará en</th></tr></thead><tbody id="nmLoose"></tbody></table></div>
   </div>
   <div id="nmSeries" hidden>
-  <div class="card" id="srCard">
+  <div class="scope" id="scSeries" hidden></div>
+    <div class="card" id="srCard">
     <div class="row" style="justify-content:space-between"><h2 style="margin:0">Series</h2>
       <div class="row"><button class="btn sec" id="srAll" hidden>Renombrar todo lo marcado</button>
         <button class="btn" id="srScan">Revisar series</button></div></div>
@@ -1078,7 +1088,8 @@ dialog.sheet .foot{display:none}
 
 <section id="duplicados" hidden>
   <div class="ph"><h2 class="mg-h">Duplicados</h2><p class="ph-sub">Las que tienes dos veces, y cuál conviene quedarse.</p></div>
-  <div class="card">
+  <div class="scope" id="scDupes" hidden></div>
+    <div class="card">
     <div class="row" style="justify-content:space-between"><h2 style="margin:0">Películas duplicadas</h2>
       <span class="row"><button class="btn sec" id="dupEmpty">Borrar carpetas vacías</button>
       <button class="btn sec" id="dupRecheck" title="Mira las apartadas y devuelve a la biblioteca las que no eran duplicadas">Rechequear apartadas</button>
@@ -1110,7 +1121,8 @@ dialog.sheet .foot{display:none}
 
 <section id="formatos" hidden>
   <div class="ph"><h2 class="mg-h">Formatos</h2><p class="ph-sub">Lo que Jellyfin no puede reproducir directo, convertido para que vaya fino.</p></div>
-  <div class="card">
+  <div class="scope" id="scFormats" hidden></div>
+    <div class="card">
     <div class="row" style="justify-content:space-between"><h2 style="margin:0">Formatos para Jellyfin</h2>
       <div class="row"><button class="btn sec" id="fmtStop" hidden>Parar</button><button class="btn" id="fmtScan">Analizar videos</button></div></div>
     <p class="muted">Mira cada video y dice si móvil, Roku, Fire TV, Google TV y el navegador lo reproducen directo, o si el NAS tendría que convertirlo mientras lo ves (eso es lo que hace que se trabe).
@@ -2125,8 +2137,32 @@ function nmBar(c) {
       ${c.ai_off ? "Ya no se le pregunta más en esta pasada: las que la necesitaban te quedan para revisar. Puedes volver a pulsar «Identificar todo» más tarde." : "Se vuelve a intentar con la siguiente tanda."}</div>` : ""}`;
 }
 let nm = null, nmPick = {}, nmShown = null;
+// Carpetas elegidas arriba (Nombres, Series, Duplicados, Formatos): vacío = todas. Se guarda en el NAS.
+function scopeBar(id, section, st, reload) {
+  const el = $(id);
+  if (!el || !st.roots || el.querySelector("details[open]")) return;  // abierto: no repintar mientras eliges
+  el.hidden = st.roots.length < 2;
+  const sel = new Set(st.scope || []), name = r => r.split("/").filter(Boolean).pop() || r;
+  const label = !sel.size ? "Todas" : [...sel].map(name).join(", ");
+  el.innerHTML = `<details><summary>📁 Carpetas: <b>${esc(label)}</b> ▾</summary><div class="sc-menu">
+    <label><input type="checkbox" data-r="" ${sel.size ? "" : "checked"}><span>Todas</span></label>
+    ${st.roots.map(r => `<label title="${esc(r)}"><input type="checkbox" data-r="${esc(r)}" ${sel.has(r) ? "checked" : ""}><span>${esc(name(r))}</span><small>${esc(r)}</small></label>`).join("")}
+  </div></details>`;
+  el.querySelectorAll("input").forEach(c => c.onchange = async () => {
+    const r = c.dataset.r;
+    if (!r) sel.clear(); else c.checked ? sel.add(r) : sel.delete(r);
+    if (sel.size === st.roots.length) sel.clear();
+    el.querySelectorAll("input").forEach(x => x.checked = x.dataset.r ? sel.has(x.dataset.r) : !sel.size);
+    el.querySelector("summary b").textContent = !sel.size ? "Todas" : [...sel].map(name).join(", ");
+    await api("/api/scope", {section, roots: [...sel]});
+    reload();
+  });
+}
+document.addEventListener("click", e => document.querySelectorAll(".scope details[open]").forEach(d => { if (!d.contains(e.target)) d.open = false; }));
+
 async function loadNames() {
   nm = await api("/api/names");
+  scopeBar("#scNames", "names", nm, () => { nmShown = null; loadNames(); });
   const fresh = nm.at !== nmShown;  // mientras revisa, no volver a pintar la lista (se borraría lo que escribes)
   $("#nmScan").disabled = nm.running || !nm.jellyfin;
   $("#nmAuto").disabled = $("#nmRecheck").disabled = nm.running || !nm.jellyfin || !nm.tmdb;
@@ -2352,6 +2388,7 @@ let sr = null, srShown = null;
 const srClosed = new Set();  // series plegadas (por su clave), se mantienen al volver a pintar
 async function loadSeries() {
   sr = await api("/api/series");
+  scopeBar("#scSeries", "series", sr, () => { srShown = null; loadSeries(); });
   $("#srScan").disabled = sr.running || !sr.tmdb;
   const res = sr.result, n = res ? res.series.reduce((a, g) => a + g.episodes.length, 0) : 0;
   $("#srState").innerHTML = !sr.tmdb ? `<span class="pill revisar">falta la clave</span> Necesita la clave de TheMovieDB guardada en Ajustes.`
@@ -2489,6 +2526,7 @@ function size(b) { return b >= 1e9 ? (b / 1e9).toFixed(1) + " GB" : Math.round(b
 function hms(t) { t = Math.round(t || 0); return t ? `${Math.floor(t / 3600)}:${String(Math.floor(t / 60) % 60).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}` : "?"; }
 async function loadDupes() {
   dup = await api("/api/dupes");
+  scopeBar("#scDupes", "dupes", dup, loadDupes);
   $("#dupIntro").innerHTML = (dup.jellyfin ? "Usa las fichas de Jellyfin para saber qué archivos son la misma película, y el nombre y la duración para el resto."
     : "Compara el nombre y la duración. Si pones Jellyfin en Ajustes, también usa sus fichas (más fiable con nombres raros).")
     + ` Lo que apartes se mueve a <span class="path">${esc(dup.dest)}</span>; no se borra nada.`;
@@ -2648,6 +2686,7 @@ function dur(s) { s = Math.round(s || 0); if (s < 60) return s ? s + " s" : "—
   if (h >= 48) return `${Math.round(h / 24)} días`; return h ? `${h} h ${m} min` : `${m} min`; }
 async function loadFormats() {
   fmt = await api("/api/formats");
+  scopeBar("#scFormats", "formats", fmt, loadFormats);
   $("#fmtScan").disabled = fmt.running; $("#fmtStop").hidden = !fmt.running;
   $("#fmtScan").textContent = fmt.analyzed ? "Analizar otra vez" : "Analizar videos";
   $("#fmtState").innerHTML = fmt.running

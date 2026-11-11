@@ -339,11 +339,12 @@ def _targets(g: dict, show: dict) -> None:
 
 
 def review(lib: Library, cfg: dict, progress=lambda msg: None, only: set | None = None,
-           frames: Path | None = None) -> dict:
+           frames: Path | None = None, roots: list | None = None) -> dict:
     """Las series con capítulos que no tienen todavía el nombre correcto. only: sólo esos ids.
     frames: carpeta de las fotos; con ella (y la clave de Gemini) la IA ayuda en las dudosas."""
     db = _db(cfg)
-    prune(list(cfg["library"]))
+    progress("quitando carpetas de series vacías")
+    prune(list(roots or cfg["library"]))
     gkey = cfg.get("gemini", {}).get("api_key")
     ai = None
     if gkey:
@@ -356,8 +357,13 @@ def review(lib: Library, cfg: dict, progress=lambda msg: None, only: set | None 
         memo = {}
     roots = list(cfg["library"])
     groups: dict[str, dict] = {}
-    for m in lib.media("kind='episode'"):
+    eps = lib.media("kind='episode'")
+    for i, m in enumerate(eps):
+        if i % 200 == 0:
+            progress(f"leyendo capítulos: {i} de {len(eps)}")
         if only is not None and m.id not in only:
+            continue
+        if roots and not any(m.path.startswith(r.rstrip("/") + "/") for r in roots):
             continue
         p = Path(m.path)
         if not p.exists():

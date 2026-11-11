@@ -1241,12 +1241,17 @@ class App:
         try:
             cfg = self.cfg()
             lib = self.library(cfg)
+            roots = self.scope("series", cfg) if only is None else []
             if not self.state["running"] and cfg["library"] and only is None:
-                lib.scan(cfg["library"], exclude=config.excluded(cfg), progress=lambda n: self.series.update(
-                    message=f"buscando videos: {n} encontrados"))
-            res = series.review(lib, cfg, lambda msg: self.series.update(message=msg), only, self.frames_dir)
-            if only is not None and self.series["result"]:  # se suman a la lista que ya había
+                self.series.update(message="buscando videos")
+                lib.scan(roots or cfg["library"], exclude=config.excluded(cfg), partial=bool(roots),
+                         progress=lambda n: self.series.update(message=f"buscando videos: {n} encontrados"))
+            res = series.review(lib, cfg, lambda msg: self.series.update(message=msg), only, self.frames_dir, roots)
+            if (only is not None or roots) and self.series["result"]:  # se suman a la lista que ya había
                 keys = {g["key"] for g in res["series"]}
+                if roots:  # las de otras carpetas se quedan como estaban
+                    keys |= {g["key"] for g in self.series["result"]["series"]
+                             if any(self.in_scope(e["path"], roots) for e in g["episodes"])}
                 res = {"series": [g for g in self.series["result"]["series"] if g["key"] not in keys] + res["series"]}
             self.series.update(result=res, at=time.time(), message="")
             log.info("series: %d con capítulos por renombrar", len(res["series"]))

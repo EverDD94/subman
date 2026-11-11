@@ -1,0 +1,46 @@
+' Everflix: minimal player button. Just the icon; when focused it becomes a white pill with its name
+sub init()
+    m.bg = m.top.findNode("bg")
+    m.icon = m.top.findNode("icon")
+    m.label = m.top.findNode("label")
+    m.top.observeField("text", "layout")
+    m.top.observeField("icon", "layout")
+    m.top.observeField("height", "layout")
+    m.top.observeField("padding", "layout")
+    m.top.observeField("focus", "layout")
+    m.top.observeField("enabled", "layout")
+    layout()
+end sub
+
+sub layout()
+    ' Fixed size, so the row never spreads apart. Focus = white circle; the OSD shows the name below
+    focused = m.top.focus = true and m.top.enabled
+    h = m.top.height
+    iconSize = Int(h * 0.5)
+    m.icon.uri = m.top.icon
+    m.icon.width = iconSize
+    m.icon.height = iconSize
+    m.icon.translation = [Int((h - iconSize) / 2), Int((h - iconSize) / 2)]
+    m.label.visible = false
+    m.bg.width = h
+    m.bg.height = h
+    if focused
+        m.bg.blendColor = "0xFFFFFFFF"
+        m.bg.opacity = 1.0
+        m.icon.blendColor = "0x0B0D12FF"
+        m.top.opacity = 1.0
+    else
+        m.bg.blendColor = "0xFFFFFFFF"
+        m.bg.opacity = 0.0
+        m.icon.blendColor = "0xF4F2EEFF"
+        m.top.opacity = m.top.enabled ? 0.9 : 0.35
+    end if
+end sub
+
+function onKeyEvent(key as string, press as boolean) as boolean
+    if not press or not m.top.enabled then return false
+    if m.top.focus = true and (key = "left" or key = "right" or key = "up" or key = "down")
+        m.top.escape = key
+    end if
+    return false
+end function

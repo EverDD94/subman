@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Everflix: pill with icon + text inside, same fields as IconButton so the player menu can use either -->
+<component name="EfPillButton" extends="Group">
+  <children>
+    <Poster id="bg" uri="pkg:/images/everflix/pill.9.png" />
+    <Poster id="icon" />
+    <Label id="label" vertAlign="center"><Font role="font" uri="pkg:/fonts/archivo_semibold.ttf" size="25" /></Label>
+  </children>
+  <interface>
+    <field id="background" type="color" value="" />
+    <field id="focusBackground" type="color" value="" />
+    <field id="text" type="string" value="" />
+    <field id="padding" type="integer" value="26" />
+    <field id="height" type="integer" value="64" />
+    <field id="width" type="integer" value="0" />
+    <field id="icon" type="string" value="" />
+    <field id="selected" type="boolean" value="false" />
+    <field id="focus" type="boolean" />
+    <field id="enabled" type="boolean" value="true" />
+    <field id="escape" type="string" value="" />
+  </interface>
+</component>

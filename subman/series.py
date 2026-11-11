@@ -357,14 +357,11 @@ def review(lib: Library, cfg: dict, progress=lambda msg: None, only: set | None 
         memo = {}
     roots = list(cfg["library"])
     groups: dict[str, dict] = {}
-    eps = lib.media("kind='episode'")
+    eps = [m for m in lib.media("kind='episode'") if (only is None or m.id in only)
+           and (not roots or any(m.path.startswith(r.rstrip("/") + "/") for r in roots))]
     for i, m in enumerate(eps):
         if i % 200 == 0:
             progress(f"leyendo capítulos: {i} de {len(eps)}")
-        if only is not None and m.id not in only:
-            continue
-        if roots and not any(m.path.startswith(r.rstrip("/") + "/") for r in roots):
-            continue
         p = Path(m.path)
         if not p.exists():
             continue

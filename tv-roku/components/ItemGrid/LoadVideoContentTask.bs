@@ -652,7 +652,8 @@ function sortSubtitles(MediaStreams)
             end if
 
             stream = {
-                "Track": { "Language": stream.language, "Description": stream.displaytitle, "TrackName": url },
+                "Track": { "Language": stream.language, "Description": stream.displaytitle, "Title": stream.LookupCI("Title") ?? "", "TrackName": url },
+                "IsHearingImpaired": stream.LookupCI("IsHearingImpaired") = true,
                 "IsTextSubtitleStream": stream.IsTextSubtitleStream,
                 "Index": stream.index,
                 "IsDefault": stream.IsDefault,

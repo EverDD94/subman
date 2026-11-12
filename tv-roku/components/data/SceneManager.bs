@@ -401,32 +401,65 @@ end sub
 '
 ' Display dialog to user with an OK button
 sub radioDialog(title, message, buttons = [tr("OK")], id = "OKDialog")
+    ' Everflix: side panel instead of the old Jellyfin radio dialog
     m.itemID = string.EMPTY
     m.userselection = false
+    closeEfPicker()
 
-    if not isValidAndNotEmpty(buttons)
-        buttons = [tr("OK")]
+    m.efPickerReturnFocus = deepestFocus(m.scene)
+    picker = createObject("roSGNode", "EfPicker")
+    picker.id = "efPicker"
+    picker.title = title
+    picker.contentData = message
+    if isValidAndNotEmpty(buttons) then picker.buttons = buttons
+    picker.dialogId = id
+    picker.observeField("result", "onEfPickerResult")
+    m.scene.appendChild(picker)
+    m.efPicker = picker
+    picker.callFunc("open")
+    stopLoadingSpinner()
+end sub
+
+function deepestFocus(node as object) as object
+    n = node
+    while isValid(n) and isValid(n.focusedChild) and not n.focusedChild.isSameNode(n)
+        n = n.focusedChild
+    end while
+    return n
+end function
+
+sub closeEfPicker()
+    if not isValid(m.efPicker) then return
+    m.efPicker.unobserveField("result")
+    m.scene.removeChild(m.efPicker)
+    m.efPicker = invalid
+    if isValid(m.efPickerReturnFocus) then m.efPickerReturnFocus.setFocus(true)
+end sub
+
+sub onEfPickerResult()
+    picker = m.efPicker
+    if not isValid(picker) then return
+    r = picker.result
+    id = picker.dialogId
+    closeEfPicker()
+    if r.kind = "item"
+        m.userselection = true
+        data = r.data
+        data.id = id
+        m.top.returnData = data
+    else if r.kind = "button"
+        m.userselection = true
+        if isStringEqual(picker.buttons[r.index], tr("Adjust Subtitle Timing"))
+            activeScene = getActiveScene()
+            if isValid(activeScene)
+                osd = activeScene.findNode("osd")
+                if isValid(osd) then osd.action = "showsyncmenu"
+            end if
+        end if
+    else
+        m.top.returnData = { id: id, itemID: m.itemID, params: m.params, indexSelected: -1, buttonSelected: "", text: "" }
+        m.top.dataReturned = true
     end if
-
-    dialog = createObject("roSGNode", "RadioDialog")
-    dlgPalette = createObject("roSGNode", "RSGPalette")
-    dlgPalette.colors = {
-        DialogBackgroundColor: chainLookupReturn(m.global.session, "user.settings.colorDialogBackground", ColorPalette.ELEMENTBACKGROUND),
-        DialogFocusColor: chainLookupReturn(m.global.session, "user.settings.colorCursor", ColorPalette.HIGHLIGHT),
-        DialogFocusItemColor: chainLookupReturn(m.global.session, "user.settings.colorDialogSelectedText", ColorPalette.WHITE),
-        DialogSecondaryTextColor: ColorPalette.RED,
-        DialogSecondaryItemColor: chainLookupReturn(m.global.session, "user.settings.colorDialogBorderLine", ColorPalette.LIGHTBLUE),
-        DialogTextColor: chainLookupReturn(m.global.session, "user.settings.colorDialogText", ColorPalette.WHITE)
-    }
-    dialog.palette = dlgPalette
-    dialog.observeField("buttonSelected", "radioButtonSelected")
-    dialog.observeField("wasClosed", "optionClosed")
-    dialog.title = title
-    dialog.contentData = message
-    dialog.buttons = buttons
-    dialog.id = id
-
-    m.scene.dialog = dialog
 end sub
 
 sub checkboxButtonSelected()

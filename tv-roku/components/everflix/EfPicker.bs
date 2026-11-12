@@ -1,0 +1,61 @@
+import "pkg:/components/everflix/EfCommon.bs"
+
+sub init()
+    m.dd = m.top.findNode("dd")
+    m.dd.observeField("pressed", "onPressed")
+    m.top.focusable = true
+end sub
+
+sub open()
+    data = []
+    if isValid(m.top.contentData) and isValid(m.top.contentData.data) then data = m.top.contentData.data
+    items = []
+    for i = 0 to data.count() - 1
+        it = data[i]
+        text = it.LookupCI("efText")
+        if not isValidAndNotEmpty(text)
+            desc = chainLookup(it, "track.description")
+            if isValid(desc) then text = desc.toStr() else text = ""
+        end if
+        items.push({ key: "i:" + i.toStr(), text: text, selected: it.LookupCI("selected") = true })
+    end for
+    ' Extra buttons (OK is implicit: picking a row is the OK)
+    buttons = m.top.buttons
+    if isValid(buttons)
+        first = true
+        for b = 1 to buttons.count() - 1
+            if first then items.push({ key: "h", text: "MÁS", header: true })
+            first = false
+            items.push({ key: "b:" + b.toStr(), text: buttons[b] })
+        end for
+    end if
+    m.dd.title = m.top.title
+    m.dd.items = items
+    m.dd.visible = true
+    m.top.setFocus(true)
+end sub
+
+sub onPressed()
+    k = m.dd.pressed
+    if not isValidAndNotEmpty(k) then return
+    if Left(k, 2) = "i:"
+        m.top.result = { kind: "item", data: m.top.contentData.data[Mid(k, 3).toInt()] }
+    else if Left(k, 2) = "b:"
+        m.top.result = { kind: "button", index: Mid(k, 3).toInt() }
+    end if
+end sub
+
+function onKeyEvent(key as string, press as boolean) as boolean
+    if not press then return true
+    if key = "up"
+        m.dd.callFunc("move", -1)
+    else if key = "down"
+        m.dd.callFunc("move", 1)
+    else if key = "OK"
+        m.dd.callFunc("press")
+    else if key = "back" or key = "left"
+        m.top.result = { kind: "closed" }
+    end if
+    ' Swallow everything so the player under us doesn't react
+    return true
+end function

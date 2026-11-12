@@ -1,11 +1,10 @@
 package org.jellyfin.androidtv.ui.playback.overlay.action
 
 import android.content.Context
-import android.view.Gravity
 import android.view.View
-import android.widget.PopupMenu
 import android.widget.Toast
 import org.jellyfin.androidtv.R
+import org.jellyfin.androidtv.ui.everflix.EfPicker
 import org.jellyfin.androidtv.ui.playback.PlaybackController
 import org.jellyfin.androidtv.ui.playback.overlay.CustomPlaybackTransportControlGlue
 import org.jellyfin.androidtv.ui.playback.overlay.VideoPlayerAdapter
@@ -17,7 +16,7 @@ class ClosedCaptionsAction(
 	context: Context,
 	customPlaybackTransportControlGlue: CustomPlaybackTransportControlGlue,
 ) : CustomAction(context, customPlaybackTransportControlGlue) {
-	private var popup: PopupMenu? = null
+	private var popup: EfPicker? = null
 
 	init {
 		initializeWithIcon(R.drawable.ic_select_subtitle)
@@ -37,32 +36,27 @@ class ClosedCaptionsAction(
 
 		videoPlayerAdapter.leanbackOverlayFragment.setFading(false)
 		removePopup()
-		popup = PopupMenu(context, view, Gravity.END).apply {
-			with(menu) {
-				var order = 0
-				add(0, -1, order++, context.getString(R.string.lbl_none)).apply {
-					isChecked = playbackController.subtitleStreamIndex == -1
-				}
-
-				for (sub in playbackController.currentMediaSource.mediaStreams.orEmpty()) {
-					if (sub.type != MediaStreamType.SUBTITLE) continue
-
-					add(0, sub.index, order++, sub.displayTitle).apply {
-						isChecked = sub.index == playbackController.subtitleStreamIndex
-					}
-				}
-
-				setGroupCheckable(0, true, false)
+		val subs = playbackController.currentMediaSource.mediaStreams.orEmpty().filter { it.type == MediaStreamType.SUBTITLE }
+		val names = subs.map { sub ->
+			val text = "${sub.title.orEmpty()} ${sub.displayTitle.orEmpty()}".lowercase()
+			val tags = buildList {
+				if (sub.isForced || "forced" in text || "forzad" in text) add("Forzados")
+				if (sub.isHearingImpaired == true || "sdh" in text) add("SDH")
 			}
-			setOnDismissListener {
+			val lang = EfPicker.langName(sub.language).ifBlank { if (tags.isEmpty()) "Sin idioma" else "Desconocido" }
+			(listOf(lang) + tags).joinToString(" · ")
+		}
+		val labels = EfPicker.disambiguate(names, names.map { "" })
+		val options = listOf(EfPicker.Option("Desactivados", playbackController.subtitleStreamIndex == -1)) +
+			subs.mapIndexed { i, sub -> EfPicker.Option(labels[i], sub.index == playbackController.subtitleStreamIndex) }
+		popup = EfPicker(
+			context, "Subtítulos", options,
+			onPick = { i -> playbackController.setSubtitleIndex(if (i == 0) -1 else subs[i - 1].index) },
+			onDismiss = {
 				videoPlayerAdapter.leanbackOverlayFragment.setFading(true)
 				popup = null
-			}
-			setOnMenuItemClickListener { item ->
-				playbackController.setSubtitleIndex(item.itemId)
-				true
-			}
-		}
+			},
+		)
 		popup?.show()
 	}
 

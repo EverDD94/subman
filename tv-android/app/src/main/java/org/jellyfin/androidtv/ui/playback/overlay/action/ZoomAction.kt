@@ -1,21 +1,19 @@
 package org.jellyfin.androidtv.ui.playback.overlay.action
 
 import android.content.Context
-import android.view.Gravity
 import android.view.View
-import android.widget.PopupMenu
 import org.jellyfin.androidtv.R
+import org.jellyfin.androidtv.ui.everflix.EfPicker
 import org.jellyfin.androidtv.preference.constant.ZoomMode
 import org.jellyfin.androidtv.ui.playback.PlaybackController
 import org.jellyfin.androidtv.ui.playback.overlay.CustomPlaybackTransportControlGlue
 import org.jellyfin.androidtv.ui.playback.overlay.VideoPlayerAdapter
-import org.jellyfin.androidtv.util.popupMenu
 
 class ZoomAction(
 	context: Context,
 	customPlaybackTransportControlGlue: CustomPlaybackTransportControlGlue,
 ) : CustomAction(context, customPlaybackTransportControlGlue) {
-	private var popup: PopupMenu? = null
+	private var popup: EfPicker? = null
 
 	init {
 		initializeWithIcon(R.drawable.ic_aspect_ratio)
@@ -29,30 +27,16 @@ class ZoomAction(
 	) {
 		videoPlayerAdapter.leanbackOverlayFragment.setFading(false)
 		dismissPopup()
-		popup = popupMenu(context, view, Gravity.END) {
-			item(context.getString(R.string.lbl_fit)) {
-				playbackController.setZoom(ZoomMode.FIT)
-			}.apply {
-				isChecked = playbackController.zoomMode == ZoomMode.FIT
-			}
-
-			item(context.getString(R.string.lbl_auto_crop)) {
-				playbackController.setZoom(ZoomMode.AUTO_CROP)
-			}.apply {
-				isChecked = playbackController.zoomMode == ZoomMode.AUTO_CROP
-			}
-
-			item(context.getString(R.string.lbl_stretch)) {
-				playbackController.setZoom(ZoomMode.STRETCH)
-			}.apply {
-				isChecked = playbackController.zoomMode == ZoomMode.STRETCH
-			}
-		}
-		popup?.menu?.setGroupCheckable(0, true, true)
-		popup?.setOnDismissListener {
-			videoPlayerAdapter.leanbackOverlayFragment.setFading(true)
-			popup = null
-		}
+		val modes = listOf(ZoomMode.FIT to R.string.lbl_fit, ZoomMode.AUTO_CROP to R.string.lbl_auto_crop, ZoomMode.STRETCH to R.string.lbl_stretch)
+		popup = EfPicker(
+			context, "Imagen",
+			modes.map { (mode, label) -> EfPicker.Option(context.getString(label), playbackController.zoomMode == mode) },
+			onPick = { i -> playbackController.setZoom(modes[i].first) },
+			onDismiss = {
+				videoPlayerAdapter.leanbackOverlayFragment.setFading(true)
+				popup = null
+			},
+		)
 		popup?.show()
 	}
 

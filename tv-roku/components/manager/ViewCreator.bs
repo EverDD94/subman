@@ -1,3 +1,4 @@
+import "pkg:/components/everflix/EfCommon.bs"
 import "pkg:/source/enums/ItemType.bs"
 import "pkg:/source/enums/MediaPlaybackState.bs"
 import "pkg:/source/enums/String.bs"
@@ -116,8 +117,28 @@ sub onSelectAudioPressed()
         data: []
     }
 
+    ' Everflix: show only the language, in Spanish. Repeated languages get the channels, then a number.
+    names = []
+    counts = {}
     for each item in m.view.fullAudioData
+        n = ef.langName(item.LookupCI("Language"))
+        if n = "Desconocido" then n = "Pista " + (names.count() + 1).toStr()
+        names.push(n)
+        if counts.DoesExist(n) then counts[n] = counts[n] + 1 else counts[n] = 1
+    end for
+    seen = {}
+    trackPos = 0
+    for each item in m.view.fullAudioData
+        label = names[trackPos]
+        if counts[label] > 1
+            if seen.DoesExist(label) then seen[label] = seen[label] + 1 else seen[label] = 1
+            extra = audioChannelsName(item.LookupCI("Channels"))
+            if extra = "" then extra = seen[label].toStr()
+            label = label + " · " + extra
+        end if
+        trackPos++
         audioStreamItem = {
+            "efText": label,
             "Index": item.Index,
             "RokuTrackName": item.RokuTrackName,
             "IsExternal": item.IsExternal,
@@ -140,7 +161,18 @@ sub onSelectAudioPressed()
         audioData.data.push(audioStreamItem)
     end for
 
-    m.global.sceneManager.callFunc("radioDialog", tr("Select Audio"), audioData)
+    seenAudio = {}
+    for each at in audioData.data
+        t = at.efText
+        if seenAudio.DoesExist(t)
+            seenAudio[t] = seenAudio[t] + 1
+            at.efText = t + " (" + seenAudio[t].toStr() + ")"
+        else
+            seenAudio[t] = 1
+        end if
+    end for
+
+    m.global.sceneManager.callFunc("radioDialog", "Audio", audioData)
     m.global.sceneManager.observeField("returnData", "onSelectionMade")
 end sub
 
@@ -159,6 +191,7 @@ sub onSelectSpeedPressed()
             "Speed": speed,
             "IsExternal": false,
             "Type": "speedselection",
+            "efText": speedName(speed),
             "Track": {
                 "description": speed
             }
@@ -170,7 +203,7 @@ sub onSelectSpeedPressed()
         speedData.data.push(speedItem)
     end for
 
-    m.global.sceneManager.callFunc("radioDialog", tr("Select Speed"), speedData)
+    m.global.sceneManager.callFunc("radioDialog", "Velocidad", speedData)
     m.global.sceneManager.observeField("returnData", "onSelectionMade")
 end sub
 
@@ -207,6 +240,7 @@ sub onSelectSubtitlePressed()
         end if
 
         item.StreamIndex = item.index
+        item.efText = subtitleName(item)
 
         ' Put the selected item at the top of the option list
         if isValid(item.selected) and item.selected
@@ -221,11 +255,24 @@ sub onSelectSubtitlePressed()
         "Index": SubtitleSelection.NONE,
         "StreamIndex": SubtitleSelection.NONE,
         "IsExternal": false,
+        "efText": "Desactivados",
         "Track": {
             "description": "None"
         },
         "Type": "subtitleselection"
     })
+
+    ' Same name twice (two Spanish tracks): number them
+    seenSubs = {}
+    for each st in subtitleData.data
+        t = st.efText
+        if seenSubs.DoesExist(t)
+            seenSubs[t] = seenSubs[t] + 1
+            st.efText = t + " (" + seenSubs[t].toStr() + ")"
+        else
+            seenSubs[t] = 1
+        end if
+    end for
 
     buttons = [tr("OK")]
 
@@ -235,7 +282,7 @@ sub onSelectSubtitlePressed()
         end if
     end if
 
-    m.global.sceneManager.callFunc("radioDialog", tr("Select Subtitles"), subtitleData, buttons)
+    m.global.sceneManager.callFunc("radioDialog", "Subtítulos", subtitleData, buttons)
     m.global.sceneManager.observeField("returnData", "onSelectionMade")
 end sub
 
@@ -675,4 +722,33 @@ function handleTransportCommand(data as object) as object
     end if
 
     return ret
+end function
+
+' Everflix helpers for the player panels
+function audioChannelsName(ch as dynamic) as string
+    if not isValid(ch) then return ""
+    if ch = 1 then return "Mono"
+    if ch = 2 then return "Estéreo"
+    if ch = 6 then return "5.1"
+    if ch = 8 then return "7.1"
+    return ""
+end function
+
+function speedName(speed as dynamic) as string
+    if speed = 1 then return "Normal"
+    t = speed.toStr()
+    return t.Replace(".", ",") + "×"
+end function
+
+function subtitleName(item as object) as string
+    name = ef.langName(chainLookup(item, "Track.Language"))
+    desc = LCase(chainLookupReturn(item, "Track.Description", "") + " " + chainLookupReturn(item, "Track.Title", ""))
+    tags = []
+    if item.LookupCI("IsForced") = true or Instr(1, desc, "forced") > 0 or Instr(1, desc, "forzad") > 0 then tags.push("Forzados")
+    if item.LookupCI("IsHearingImpaired") = true or Instr(1, desc, "sdh") > 0 then tags.push("SDH")
+    if name = "Desconocido" and tags.count() = 0 then name = "Sin idioma"
+    for each t in tags
+        name = name + " · " + t
+    end for
+    return name
 end function

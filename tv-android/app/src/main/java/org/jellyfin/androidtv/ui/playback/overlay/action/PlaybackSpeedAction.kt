@@ -1,10 +1,9 @@
 package org.jellyfin.androidtv.ui.playback.overlay.action
 
 import android.content.Context
-import android.view.Gravity
 import android.view.View
-import android.widget.PopupMenu
 import org.jellyfin.androidtv.R
+import org.jellyfin.androidtv.ui.everflix.EfPicker
 import org.jellyfin.androidtv.ui.playback.PlaybackController
 import org.jellyfin.androidtv.ui.playback.VideoSpeedController
 import org.jellyfin.androidtv.ui.playback.overlay.CustomPlaybackTransportControlGlue
@@ -18,7 +17,7 @@ class PlaybackSpeedAction(
 ) : CustomAction(context, customPlaybackTransportControlGlue) {
 	private val speedController = VideoSpeedController(playbackController)
 	private val speeds = VideoSpeedController.SpeedSteps.entries.toTypedArray()
-	private var popup: PopupMenu? = null
+	private var popup: EfPicker? = null
 
 	init {
 		initializeWithIcon(R.drawable.ic_playback_speed)
@@ -32,33 +31,19 @@ class PlaybackSpeedAction(
 	) {
 		videoPlayerAdapter.leanbackOverlayFragment.setFading(false)
 		dismissPopup()
-		popup = populateMenu(context, view, speedController)
-
-		popup?.setOnDismissListener {
-			videoPlayerAdapter.leanbackOverlayFragment.setFading(true)
-			popup = null
-		}
-
-		popup?.setOnMenuItemClickListener { menuItem ->
-			speedController.currentSpeed = speeds[menuItem.itemId]
-			true
-		}
-
+		popup = EfPicker(
+			context, "Velocidad",
+			speeds.map { step ->
+				val label = if (step.speed == 1f) "Normal" else String.format(Locale("es"), "%s×", step.speed.toString().removeSuffix(".0").replace('.', ','))
+				EfPicker.Option(label, step == speedController.currentSpeed)
+			},
+			onPick = { i -> speedController.currentSpeed = speeds[i] },
+			onDismiss = {
+				videoPlayerAdapter.leanbackOverlayFragment.setFading(true)
+				popup = null
+			},
+		)
 		popup?.show()
-	}
-
-	private fun populateMenu(
-		context: Context,
-		view: View,
-		speedController: VideoSpeedController
-	) = PopupMenu(context, view, Gravity.END).apply {
-		speeds.forEachIndexed { i, selected ->
-			// Since this is purely numeric data, coerce to en_us to keep the linter happy
-			menu.add(0, i, i, String.format(Locale.US, "%.2fx", selected.speed))
-		}
-
-		menu.setGroupCheckable(0, true, true)
-		menu.getItem(speeds.indexOf(speedController.currentSpeed)).isChecked = true
 	}
 
 	fun dismissPopup() {

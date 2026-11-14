@@ -23,7 +23,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, auth, autoid, bot, channels, config, convert, diagnose, discover, downloads, duplicates, friends, notices, formats, gemini, identify, jellyfin, manager, notify, peek, phono, providers, series, tmdb, updater
+from . import __version__, auth, autoid, bot, channels, config, convert, diagnose, discover, downloads, duplicates, friends, notices, formats, gemini, identify, jellyfin, manager, notify, peek, phono, providers, series, tmdb, updater, vigia
 from .library import Library
 
 log = logging.getLogger(__name__)
@@ -2741,6 +2741,7 @@ def serve(config_path: str, port: int | None = None) -> None:
     cfg = app.cfg()
     updater.apply_timezone(cfg.get("timezone", ""))
     port = port or cfg["web_port"]
+    vigia.Vigia(Path(config_path).parent, notify=lambda text: app._notify(app.cfg(), text)).start()
     threading.Thread(target=app.worker, name="trabajador", daemon=True).start()
     threading.Thread(target=app.converter, name="conversión", daemon=True).start()
     threading.Thread(target=app.automatic, name="automático", daemon=True).start()
@@ -2750,6 +2751,7 @@ def serve(config_path: str, port: int | None = None) -> None:
     threading.Thread(target=app.notice_watch, name="avisos", daemon=True).start()
     threading.Thread(target=bot.Bot(app).run, name="bot", daemon=True).start()
     def warm():  # la portada de la tele ya preparada para la primera vez que se abre
+        time.sleep(30)  # sin prisa: que antes arranque lo demás (no todo de golpe)
         try:
             app._dsc(lambda d: (d.tv_home(), {})[1])
         except Exception as e:

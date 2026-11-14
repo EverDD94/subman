@@ -12,6 +12,7 @@ import time
 import unicodedata
 
 import requests
+import requests.adapters
 
 log = logging.getLogger(__name__)
 API = "https://api.themoviedb.org/3"
@@ -21,6 +22,7 @@ IMG = "https://image.tmdb.org/t/p/w185"
 class TMDb:
     def __init__(self, key: str, language: str = "es-ES", timeout: float = 20):
         self.http = requests.Session()
+        self.http.mount("https://", requests.adapters.HTTPAdapter(pool_connections=4, pool_maxsize=16))
         self.params = {"language": language}
         if key.startswith("eyJ"):
             self.http.headers["Authorization"] = f"Bearer {key}"

@@ -824,7 +824,7 @@ class Discover:
                 total += int(res.get("total_results") or 0)
                 posters += [IMG + d["poster_path"] for d in res.get("results", [])[:3] if d.get("poster_path")]
             return {"id": pid, "name": PLATFORMS[pid]["name"], "region": PLATFORMS[pid].get("region", "ES"), "new": total, "posters": posters[:5]}
-        with ThreadPoolExecutor(10) as ex:
+        with ThreadPoolExecutor(6) as ex:
             return list(ex.map(one, PLATFORMS))
 
     HOME_PLATFORMS = ("netflix", "prime", "apple", "hbo", "disney", "hulu", "paramount", "peacock", "starz",
@@ -876,7 +876,7 @@ class Discover:
                     out += a[i:i + 1] + b[i:i + 1]
                 return out
 
-            with ThreadPoolExecutor(16) as ex:
+            with ThreadPoolExecutor(6) as ex:
                 rel = [ex.submit(releases, k) for k in KINDS]
                 plats = {pid: [ex.submit(platform, pid, k) for k in KINDS] for pid in self.HOME_PLATFORMS}
 

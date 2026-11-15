@@ -10,8 +10,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    ports:
-      - "8787:8787"                        # la interfaz web: http://IP-DEL-NAS:8787
+    network_mode: host                     # en la red del NAS: la interfaz web queda en http://IP-DEL-NAS:8787
+                                           # (la red propia de Docker se rompió en el Synology y lo cortaba cada minuto)
     volumes:
       - /volume1/docker/subman:/config     # aquí va subman.toml y la base de datos
       - /volume1/MEDIOS:/media             # la carpeta compartida de medios que usa Jellyfin
@@ -24,6 +24,8 @@ services:
     container_name: subman-actualizar
     restart: unless-stopped
     command: subman                        # el único contenedor que vigila
+    ports:
+      - "127.0.0.1:8789:8080"              # sólo dentro del NAS, para que Videotecario le hable
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:

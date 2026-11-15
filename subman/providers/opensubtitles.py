@@ -3,8 +3,11 @@ https://www.opensubtitles.com/consumers y el usuario/contraseña de la cuenta (V
 límite de descargas diarias)."""
 from __future__ import annotations
 
+import difflib
 import logging
+import re
 import time
+import unicodedata
 
 import requests
 
@@ -85,17 +88,35 @@ class OpenSubtitles(Provider):
         tries.append(first)
         tries.append({**base, "query": media.title})
         out: list[Candidate] = []
+        tid_cache: list = []
+
+        def tid():
+            if not tid_cache:  # -1: TheMovieDB no conoce el título (grabación propia, etc.)
+                t = self._tmdb_id(media)
+                tid_cache.append(t if t or not self.tmdb_key else -1)
+            return tid_cache[0]
         for params in tries:
-            out = self._search(params)
+            out = self._keep_ours(media, self._search(params), tid)
             if out:
                 return out
-        tid = self._tmdb_id(media)
-        if tid:
+        if tid() and tid() > 0:
             key = "parent_tmdb_id" if media.kind == "episode" else "tmdb_id"
-            out = self._search({**base, key: tid})
+            out = self._keep_ours(media, self._search({**base, key: tid()}), tid)
             if out:
-                log.info("OpenSubtitles: %s encontrado por ID de TheMovieDB (%s)", media.label, tid)
+                log.info("OpenSubtitles: %s encontrado por ID de TheMovieDB (%s)", media.label, tid())
         return out
+
+    def _keep_ours(self, media: Media, found: list[Candidate], tid) -> list[Candidate]:
+        """Quita los subtítulos que OpenSubtitles devuelve de OTRA película o serie (pasa con títulos
+        poco conocidos: da lo más parecido que tiene). Así no se gastan descargas ni procesador en ellos."""
+        keep, drop = [], []
+        for c in found:
+            (keep if c.hash_match or _same(media, c.extra.get("feature") or {}, tid) else drop).append(c)
+        if drop:
+            names = sorted({_feature_name(c.extra.get("feature") or {}) or c.release for c in drop})
+            log.info("OpenSubtitles: %s: descartados %d de otras películas/series (%s)",
+                     media.label, len(drop), ", ".join(names[:4]) + ("…" if len(names) > 4 else ""))
+        return keep
 
     def _tmdb_id(self, media: Media) -> int | None:
         if not self.tmdb_key:
@@ -122,6 +143,7 @@ class OpenSubtitles(Provider):
                     trusted=bool(a.get("from_trusted")),
                     machine_translated=bool(a.get("machine_translated") or a.get("ai_translated")),
                     hearing_impaired=bool(a.get("hearing_impaired")), fps=a.get("fps"),
+                    extra={"feature": a.get("feature_details") or {}},
                 ))
         return sorted(out, key=Candidate.rank, reverse=True)
 
@@ -139,3 +161,34 @@ class OpenSubtitles(Provider):
         r = requests.get(data["link"], timeout=self.timeout)
         r.raise_for_status()
         return r.content
+
+
+def _norm(t: str) -> str:
+    t = unicodedata.normalize("NFKD", t or "").encode("ascii", "ignore").decode().lower()
+    t = re.sub(r"\(\d{4}\)|[^a-z0-9 ]", " ", t)
+    t = re.sub(r"^(the|el|la|los|las|le|les|a|an) ", "", t.strip())
+    return " ".join(t.split())
+
+
+def _feature_name(fd: dict) -> str:
+    return fd.get("parent_title") or fd.get("title") or fd.get("movie_name") or ""
+
+
+def _same(media: Media, fd: dict, tid) -> bool:
+    """¿Es de la misma película/serie? Sin datos para decidirlo, se da por buena (como antes)."""
+    if not fd:
+        return True
+    ep = media.kind == "episode"
+    their_id = fd.get("parent_tmdb_id") if ep else fd.get("tmdb_id")
+    names = [fd.get(k) for k in (("parent_title", "movie_name") if ep else ("title", "movie_name", "original_title")) if fd.get(k)]
+    mine = _norm(media.title)
+    for n in names:
+        n = _norm(n)
+        if n and mine and (n == mine or mine in n or n in mine or difflib.SequenceMatcher(None, n, mine).ratio() >= 0.75):
+            return True
+    t = tid()
+    if t == -1:  # TheMovieDB no lo conoce: lo que trae OpenSubtitles con otro nombre es otra cosa
+        return False
+    if their_id and t:
+        return int(their_id) == int(t)
+    return True  # nombre distinto pero sin ID para comprobarlo: puede ser el título en otro idioma

@@ -15,25 +15,41 @@ from urllib.parse import urlparse
 import requests
 
 log = logging.getLogger(__name__)
-URL = os.environ.get("WATCHTOWER_URL", "http://subman-actualizar:8080")
+# En la red del compose se llama por su nombre; con «network_mode: host» (subman en la red del NAS)
+# ese nombre no existe y se usa el puerto 8789 que el compose le abre a Watchtower sólo en el NAS.
+URLS = [os.environ["WATCHTOWER_URL"]] if os.environ.get("WATCHTOWER_URL") else ["http://subman-actualizar:8080", "http://127.0.0.1:8789"]
+URL = URLS[0]
 TOKEN = os.environ.get("WATCHTOWER_TOKEN", "videotecario")
 BUILD = os.environ.get("SUBMAN_BUILD", "dev")
 BUILT = os.environ.get("SUBMAN_BUILT", "")
 
 
-def available() -> bool:
-    """¿Está Watchtower en el proyecto? (su nombre se resuelve dentro de la red del compose)."""
+def _reachable(url: str) -> bool:
+    u = urlparse(url)
     try:
-        socket.getaddrinfo(urlparse(URL).hostname, None)
+        socket.getaddrinfo(u.hostname, None)
+        if u.hostname in ("127.0.0.1", "localhost"):
+            socket.create_connection((u.hostname, u.port or 80), timeout=2).close()
         return True
     except OSError:
         return False
+
+
+def available() -> bool:
+    """¿Está Watchtower en el proyecto? Deja en URL la dirección por la que se le llega."""
+    global URL
+    for url in URLS:
+        if _reachable(url):
+            URL = url
+            return True
+    return False
 
 
 def update() -> bool:
     """Pide la actualización. Si hay imagen nueva, Watchtower para este contenedor (esta llamada
     se corta: devuelve False) y arranca el nuevo con la misma configuración."""
     log.info("actualización: preguntando a Watchtower si hay versión nueva")
+    available()
     try:
         r = requests.get(f"{URL}/v1/update", headers={"Authorization": f"Bearer {TOKEN}"}, timeout=600)
         r.raise_for_status()

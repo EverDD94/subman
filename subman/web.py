@@ -87,6 +87,16 @@ class App:
         except OSError as e:
             log.warning("no se puede escribir el registro en disco: %s", e)
 
+    def full_log(self) -> str:
+        """subman.log con sus trozos viejos (.3 … .1) y subman-fallo.log, del más viejo al más nuevo."""
+        d = Path(self.config_path).parent
+        parts = [f"Videotecario {updater.BUILD} · {time.strftime('%Y-%m-%d %H:%M:%S')}\n"]
+        for name in ("subman.log.3", "subman.log.2", "subman.log.1", "subman.log", "subman-fallo.log"):
+            p = d / name
+            if p.exists():
+                parts.append(f"\n===== {name} =====\n" + p.read_text(encoding="utf-8", errors="replace"))
+        return "".join(parts)
+
     def _load_log_tail(self, path: Path) -> None:
         if path.exists():
             lines = path.read_text(encoding="utf-8", errors="replace").splitlines()[-300:]
@@ -2572,6 +2582,11 @@ def make_handler(app: App):
                 return self._send(302, b"", "text/plain", {"Location": "/"})
             if u.path in routes_get:
                 return self._json(routes_get[u.path], parse_qs(u.query))
+            if u.path == "/api/log/full":  # todo el registro (también los trozos viejos) para mandarlo
+                body = app.full_log().encode("utf-8")
+                name = time.strftime("videotecario-registro-%Y%m%d-%H%M.txt")
+                return self._send(200, body, "text/plain; charset=utf-8",
+                                  {"Content-Disposition": f'attachment; filename="{name}"'})
             if u.path in ("/api/names/frame", "/api/series/frame"):
                 q = parse_qs(u.query)
                 get = app.names_frame if u.path == "/api/names/frame" else app.series_frame

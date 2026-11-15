@@ -10,6 +10,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    mem_limit: 1536m                       # tope de memoria (1,5 GB) para no ahogar al NAS; el de procesador está en Ajustes
     network_mode: host                     # en la red del NAS: la interfaz web queda en http://IP-DEL-NAS:8787
                                            # (la red propia de Docker se rompió en el Synology y lo cortaba cada minuto)
     volumes:

@@ -23,7 +23,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, auth, autoid, bot, channels, config, convert, diagnose, discover, downloads, duplicates, friends, notices, formats, gemini, identify, jellyfin, manager, notify, peek, phono, providers, series, tmdb, updater, vigia
+from . import __version__, auth, autoid, bot, channels, config, convert, diagnose, discover, downloads, duplicates, friends, notices, formats, gemini, identify, jellyfin, manager, notify, peek, phono, providers, series, freno, tmdb, updater, vigia
 from .library import Library
 
 log = logging.getLogger(__name__)
@@ -143,6 +143,7 @@ class App:
             for n, m in enumerate(items):
                 self.state.update(current=m.label, done=n)
                 try:
+                    freno.wait()  # nadie viendo nada en Jellyfin y por debajo del tope de procesador
                     res = manager.process(m, lib, provs, settings)
                     if res:
                         log.info("%s: %s", m.label, res)
@@ -583,6 +584,7 @@ class App:
                 self.conv_wake.wait(1800)
                 self.conv_wake.clear()
                 continue
+            freno.wait()
             self.conv.update(current=item["label"], what=item["grp"], progress=0.0, started=time.time(),
                              message="convirtiendo", path=item["path"])
             try:
@@ -699,6 +701,18 @@ class App:
             log.info("actualización: terminada en %d s", took)
         else:
             self._auto_save(update_pending=None)
+
+    def performance_settings(self, b: dict) -> dict:
+        """Tope de procesador y pausa mientras alguien ve algo en Jellyfin (Ajustes › Rendimiento)."""
+        with self.lock:
+            cfg = self.cfg()
+            p = cfg.setdefault("performance", {})
+            if "cpu_max" in b:
+                p["cpu_max"] = max(10, min(100, int(b["cpu_max"])))
+            if "pause_when_watching" in b:
+                p["pause_when_watching"] = bool(b["pause_when_watching"])
+            config.save(self.config_path, cfg)
+        return {"ok": True, **cfg["performance"]}
 
     def update_settings(self, b: dict) -> dict:
         with self.lock:
@@ -2363,6 +2377,7 @@ def make_handler(app: App):
         "/api/library": lambda q: app.library_list(),
         "/api/item": lambda q: app.item(int(q["id"][0])),
         "/api/log": lambda q: {"lines": list(app.logs.lines)},
+        "/api/performance": lambda q: {"ok": True, **app.cfg().get("performance", {})},
         "/api/trash": lambda q: app.trash(),
         "/api/dupes": lambda q: app.dupes_state(),
         "/api/formats": lambda q: app.formats_state(),
@@ -2429,6 +2444,7 @@ def make_handler(app: App):
         "/api/unknown/empty": lambda b: app.unknown_empty(),
         "/api/update/now": lambda b: app.update_now(),
         "/api/update/settings": lambda b: app.update_settings(b),
+        "/api/performance": lambda b: app.performance_settings(b),
         "/api/names/stop": lambda b: app.names_stop(),
         "/api/test-tmdb": lambda b: app.test_tmdb(b),
         "/api/test-gemini": lambda b: app.test_gemini(b),
@@ -2756,6 +2772,7 @@ def serve(config_path: str, port: int | None = None) -> None:
     cfg = app.cfg()
     updater.apply_timezone(cfg.get("timezone", ""))
     port = port or cfg["web_port"]
+    freno.start(app.cfg)
     vigia.Vigia(Path(config_path).parent, notify=lambda text: app._notify(app.cfg(), text)).start()
     threading.Thread(target=app.worker, name="trabajador", daemon=True).start()
     threading.Thread(target=app.converter, name="conversión", daemon=True).start()

@@ -43,14 +43,41 @@ def pick_audio_stream(info: dict, language: str | None = None) -> int:
     return 0
 
 
-def load_audio(path: str | Path, stream: int = 0) -> np.ndarray:
-    """Audio completo en mono, 16 kHz, float32 en [-1, 1]."""
-    proc = subprocess.run(
-        ["ffmpeg", "-nostdin", "-v", "error", "-i", str(path), "-map", f"0:a:{stream}",
-         "-ac", "1", "-ar", str(SAMPLE_RATE), "-f", "s16le", "-"],
-        check=True, capture_output=True,
-    )
-    return np.frombuffer(proc.stdout, dtype=np.int16).astype(np.float32) / 32768.0
+def load_audio(path: str | Path, stream: int = 0, duration: float | None = None) -> np.ndarray:
+    """Audio completo en mono, 16 kHz, float32 en [-1, 1].
+
+    Se lee a trozos y se va guardando ya convertido (antes había 3 copias a la vez en memoria:
+    unos 900 MB en una película de 2 h; así, unos 460 MB). El ffmpeg es congelable (freno)."""
+    from . import freno
+    cmd = ["nice", "-n", "19", "ffmpeg", "-nostdin", "-v", "error", "-i", str(path), "-map", f"0:a:{stream}",
+           "-ac", "1", "-ar", str(SAMPLE_RATE), "-f", "s16le", "-"]
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    freno.child(proc)
+    size = int((duration or 0) * SAMPLE_RATE) + SAMPLE_RATE
+    out = np.empty(size, dtype=np.float32)
+    n = 0
+    try:
+        while True:
+            buf = proc.stdout.read(1 << 20)  # 0,5 M muestras
+            if not buf:
+                break
+            if len(buf) % 2:
+                buf += proc.stdout.read(1)
+            chunk = np.frombuffer(buf, dtype=np.int16)
+            if n + len(chunk) > len(out):
+                out = np.resize(out, max(len(out) * 2, n + len(chunk)))
+            out[n:n + len(chunk)] = chunk
+            n += len(chunk)
+        err = proc.stderr.read()
+        if proc.wait() != 0:
+            raise subprocess.CalledProcessError(proc.returncode, cmd, None, err)
+    finally:
+        freno.done(proc)
+        if proc.poll() is None:
+            proc.kill()
+    out = out[:n]
+    out *= 1 / 32768.0
+    return out
 
 
 def embedded_text_subtitles(path: str | Path, info: dict | None = None) -> list[tuple[dict, list[subtitles.Cue]]]:

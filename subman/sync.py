@@ -39,7 +39,7 @@ def build_reference(video: str | Path, mode: str = "auto", audio_language: str |
             raise ValueError("el video no trae subtítulos de texto incrustados")
     stream = audio.pick_audio_stream(info, audio_language)
     log.info("analizando voz en la pista de audio %d", stream)
-    pcm = audio.load_audio(video, stream)
+    pcm = audio.load_audio(video, stream, duration)
     return Reference(vad.speech_probability(pcm), "audio")
 
 

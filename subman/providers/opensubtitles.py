@@ -91,14 +91,15 @@ class OpenSubtitles(Provider):
         tid_cache: list = []
 
         def tid():
-            if not tid_cache:
-                tid_cache.append(self._tmdb_id(media))
+            if not tid_cache:  # -1: TheMovieDB no conoce el título (grabación propia, etc.)
+                t = self._tmdb_id(media)
+                tid_cache.append(t if t or not self.tmdb_key else -1)
             return tid_cache[0]
         for params in tries:
             out = self._keep_ours(media, self._search(params), tid)
             if out:
                 return out
-        if tid():
+        if tid() and tid() > 0:
             key = "parent_tmdb_id" if media.kind == "episode" else "tmdb_id"
             out = self._keep_ours(media, self._search({**base, key: tid()}), tid)
             if out:
@@ -185,8 +186,9 @@ def _same(media: Media, fd: dict, tid) -> bool:
         n = _norm(n)
         if n and mine and (n == mine or mine in n or n in mine or difflib.SequenceMatcher(None, n, mine).ratio() >= 0.75):
             return True
-    if their_id:
-        t = tid()
-        if t:
-            return int(their_id) == int(t)
+    t = tid()
+    if t == -1:  # TheMovieDB no lo conoce: lo que trae OpenSubtitles con otro nombre es otra cosa
+        return False
+    if their_id and t:
+        return int(their_id) == int(t)
     return True  # nombre distinto pero sin ID para comprobarlo: puede ser el título en otro idioma

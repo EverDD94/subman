@@ -964,6 +964,18 @@ dialog.sheet .foot{display:none}
   </div>
 
   <div class="card">
+    <h2>Rendimiento</h2>
+    <div class="row" style="gap:10px">
+      <span>Uso máximo del procesador del NAS</span>
+      <select id="perfCpu"><option value="25">25 %</option><option value="35">35 %</option><option value="50">50 %</option><option value="75">75 %</option><option value="100">Sin tope</option></select>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <label class="switch"><input type="checkbox" id="perfPause"><span>Pausar mientras alguien ve algo en Jellyfin</span></label>
+    </div>
+    <div class="hint">Para que Jellyfin vaya siempre fluido: Videotecario trabaja con la prioridad más baja, descansa si se pasa del tope y, si está marcada la pausa, espera a que nadie esté viendo nada (los subtítulos, conversiones y análisis siguen después solos).</div>
+  </div>
+
+  <div class="card">
     <h2>Actualizaciones</h2>
     <div id="updVersion" class="muted"></div>
     <div class="row" style="margin-top:12px;gap:10px">
@@ -1451,6 +1463,15 @@ async function loadUpdate() {
     : upd.message ? `<span class="muted">${esc(upd.message)}${upd.asked ? " · " + when(upd.asked) : ""}</span>` : "";
 }
 async function updSave(body) { try { await api("/api/update/settings", body); toast("Guardado"); } catch (e) { toast(e.message); } loadUpdate(); }
+async function loadPerf() {
+  const p = await api("/api/performance");
+  const sel = $("#perfCpu"), v = String(p.cpu_max ?? 50);
+  if (![...sel.options].some(o => o.value === v)) sel.add(new Option(v + " %", v));
+  sel.value = v; $("#perfPause").checked = p.pause_when_watching !== false;
+}
+async function perfSave(body) { try { await api("/api/performance", body); toast("Guardado"); } catch (e) { toast(e.message); } loadPerf(); }
+$("#perfCpu").onchange = e => perfSave({cpu_max: +e.target.value});
+$("#perfPause").onchange = e => perfSave({pause_when_watching: e.target.checked});
 $("#updAuto").onchange = e => updSave({auto: e.target.checked});
 $("#updHour").onchange = e => updSave({hour: +e.target.value});
 // la barra de arriba: avanza con el tiempo que se calcula que tardará (bajar los MB nuevos + reiniciar)
@@ -1477,7 +1498,7 @@ function updStop(msg) {
   clearInterval(updWatch); clearInterval(updRun && updRun.tick); updRun = null; updDraw();
   $("#updBtn").classList.remove("spin");
   if (msg) toast(msg);
-  if (tab === "ajustes") loadUpdate();
+  if (tab === "ajustes") { loadUpdate(); loadPerf(); }
 }
 function watchUpdate(before) {
   clearInterval(updWatch); if (updRun) clearInterval(updRun.tick);

@@ -23,6 +23,7 @@ import subprocess
 import time
 from pathlib import Path
 
+from . import freno
 from . import audio, formats
 from .duplicates import _relative, _unique
 from .library import Library, opensubtitles_hash, sidecars
@@ -143,6 +144,7 @@ def _nice(cmd: list[str]) -> list[str]:
 
 def run_ffmpeg(cmd: list[str], duration: float, progress, stop) -> None:
     proc = subprocess.Popen(_nice(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    freno.child(proc)  # se congela si alguien ve algo en Jellyfin o se pasa del tope
     try:
         for line in proc.stdout:
             if stop():
@@ -158,6 +160,7 @@ def run_ffmpeg(cmd: list[str], duration: float, progress, stop) -> None:
         if proc.wait() != 0:
             raise RuntimeError(err.strip().splitlines()[-1] if err.strip() else f"ffmpeg salió con {proc.returncode}")
     finally:
+        freno.done(proc)
         if proc.poll() is None:
             proc.kill()
 

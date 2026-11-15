@@ -33,7 +33,8 @@ DEFAULTS: dict = {
     "access": {"user": "", "password_hash": "", "secret": ""},
     # Nombres y Duplicados solos: al llegar videos nuevos y/o una vez cada noche dentro del horario
     "timezone": "",  # la del navegador; se pone sola al abrir Ajustes (para los horarios de noche)
-    "update": {"auto": True, "hour": 5},  # actualizarse sola cada día a esa hora (con Watchtower)
+    "update": {"auto": True, "hour": 5},
+    "performance": {"cpu_max": 50, "pause_when_watching": True},  # que no sature el NAS (ver freno.py)  # actualizarse sola cada día a esa hora (con Watchtower)
     # carpetas elegidas arriba en Nombres, Series, Duplicados y Formatos (vacío = todas)
     "scope": {"names": [], "series": [], "dupes": [], "formats": []},
     "auto": {"names": False, "dupes": False, "empty_dirs": False, "on_new": True, "nightly": True, "night_start": 1, "night_end": 8},

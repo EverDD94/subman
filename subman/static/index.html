@@ -2303,7 +2303,7 @@ function jfMsg(id) {
     <textarea id="jfMsgT" rows="3" style="width:100%" maxlength="300" placeholder="Escribe el mensaje"></textarea>
     <h3 style="margin:14px 0 6px">Quién lo manda</h3>
     <div class="filters row" id="jfMsgAs" style="gap:6px">
-      <button data-as="anon">Anónimo</button><button data-as="me">Con mi nombre</button><button data-as="name">Otro nombre</button></div>
+      <button data-as="anon">Anónimo</button><button data-as="me">Mi nombre</button><button data-as="everflix">Everflix</button><button data-as="name">Otro nombre</button></div>
     <input type="text" id="jfMsgName" maxlength="40" placeholder="Nombre que saldrá (p. ej. «Netflix»)" style="width:100%;margin-top:10px" value="${esc(fake)}">
     <p class="muted" id="jfMsgPrev" style="margin:10px 0 0"></p>
     <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn" id="jfMsgGo">Mandar</button></div>`;
@@ -2311,7 +2311,7 @@ function jfMsg(id) {
     document.querySelectorAll("#jfMsgAs button").forEach(b => b.classList.toggle("on", b.dataset.as === who));
     $("#jfMsgName").hidden = who !== "name";
     const n = $("#jfMsgName").value.trim();
-    $("#jfMsgPrev").textContent = "Saldrá como: " + (who === "anon" ? "Everflix" : who === "me" ? "Mensaje de (tu nombre de Jellyfin)" : (n || "…"));
+    $("#jfMsgPrev").textContent = who === "anon" ? "Saldrá sólo el mensaje, sin nombre." : "Saldrá encima del mensaje: " + (who === "me" ? "tu nombre de Jellyfin" : who === "everflix" ? "Everflix" : (n || "…"));
   };
   document.querySelectorAll("#jfMsgAs button").forEach(b => b.onclick = () => { who = b.dataset.as; paint(); if (who === "name") $("#jfMsgName").focus(); });
   $("#jfMsgName").oninput = paint;

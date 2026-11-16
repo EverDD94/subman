@@ -13,8 +13,11 @@ sub onMessage()
     msg = m.top.message
     if msg = invalid then return
     header = msg.LookupCI("header")
-    if header = invalid or header = "" then header = "Everflix"
+    ' sin logo; si no hay nombre (anónimo) sale sólo el mensaje
+    if header = invalid then header = ""
     m.header.text = header
+    m.header.visible = header <> ""
+    if header = "" then m.text.translation = [40, 40] else m.text.translation = [40, 74]
     m.text.text = msg.LookupCI("text") ?? ""
     m.top.findNode("fadeOut").control = "stop"
     m.top.findNode("fadeIn").control = "start"

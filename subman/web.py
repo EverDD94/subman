@@ -2447,7 +2447,8 @@ def make_handler(app: App):
         "/api/jf/user/delete": lambda b: jfadmin.Jellyfin(app.cfg()).user_delete(b["id"]),
         "/api/jf/session/stop": lambda b: jfadmin.Jellyfin(app.cfg()).session_stop(b["id"]),
         "/api/jf/session/message": lambda b: jfadmin.Jellyfin(app.cfg()).session_message(b["id"], b.get("text", ""),
-                                                                                         None if b.get("as") == "me" else b.get("name", "") if b.get("as") == "name" else ""),
+                                                                                         None if b.get("as") == "me" else "Everflix" if b.get("as") == "everflix"
+                                                                                         else b.get("name", "") if b.get("as") == "name" else ""),
         "/api/jf/device/delete": lambda b: jfadmin.Jellyfin(app.cfg()).device_delete(b["id"]),
         "/api/run": lambda b: (app.wake.set(), {"ok": True})[1],
         "/api/retry": lambda b: app.retry(int(b["id"])),

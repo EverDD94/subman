@@ -158,7 +158,7 @@ class Jellyfin:
             admins = [u["name"] for u in self.users() if u["admin"] and not u["disabled"]]
         except Exception:
             admins = []
-        return f"Mensaje de {admins[0]}" if admins else "Mensaje"
+        return admins[0] if admins else ""
 
     def session_stop(self, session_id: str) -> dict:
         s = self._session(session_id)
@@ -171,13 +171,16 @@ class Jellyfin:
         return {"ok": True}
 
     def session_message(self, session_id: str, text: str, sender: str | None = "") -> dict:
-        """``sender``: "" = anónimo (sale «Everflix»), None = «Mensaje de» tu nombre, otro texto = sale tal cual (para bromas)."""
+        """``sender``: "" = anónimo (sólo el mensaje), None = tu nombre, otro texto = sale tal cual («Everflix», bromas...)."""
         sender = sender.strip()[:40] if isinstance(sender, str) else sender
-        header = self._sender() if sender is None else sender or "Everflix"
+        header = self._sender() if sender is None else sender
         s = self._session(session_id)
         _queue(s, {"kind": "message", "header": header, "text": text})
+        body = {"Text": text, "TimeoutMs": 12000}
+        if header:
+            body["Header"] = header
         try:
-            self.post(f"/Sessions/{session_id}/Message", {"Header": header, "Text": text, "TimeoutMs": 12000})
+            self.post(f"/Sessions/{session_id}/Message", body)
         except RuntimeError:
             if not s:
                 raise

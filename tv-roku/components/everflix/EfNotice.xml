@@ -4,9 +4,8 @@
   <children>
     <Group id="box" translation="[460, 56]" opacity="0">
       <Poster id="bg" uri="pkg:/images/everflix/round20.9.png" blendColor="0x12151CEE" width="1000" height="150" />
-      <Poster id="logo" uri="pkg:/images/everflix/logo-e.png" width="72" height="72" translation="[40, 39]" />
-      <Label id="header" translation="[140, 28]" width="820" color="0xF4F2EEFF" />
-      <Label id="text" translation="[140, 74]" width="820" wrap="true" maxLines="2" color="0xD6DAE3FF" />
+      <Label id="header" translation="[40, 28]" width="920" color="0xF4F2EEFF" />
+      <Label id="text" translation="[40, 74]" width="920" wrap="true" maxLines="2" color="0xD6DAE3FF" />
     </Group>
     <Animation id="fadeIn" duration="0.25" easeFunction="outQuad">
       <FloatFieldInterpolator key="[0.0, 1.0]" keyValue="[0.0, 1.0]" fieldToInterp="box.opacity" />

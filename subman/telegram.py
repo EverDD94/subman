@@ -169,6 +169,16 @@ class Telegram:
         from telethon.tl.functions.messages import CheckChatInviteRequest, ImportChatInviteRequest
         from telethon.tl.types import ChatInviteAlready
         tail = link.split("/", 1)[1]
+        if tail.startswith("c/"):  # privado sin enlace: ya tienes que estar dentro
+            from telethon.tl.types import PeerChannel
+            cid = int(tail.split("/")[1])
+            try:
+                return await self.client.get_entity(PeerChannel(cid))
+            except Exception:
+                async for d in self.client.iter_dialogs():
+                    if getattr(d.entity, "id", None) == cid:
+                        return d.entity
+            raise ValueError("tu Telegram no está dentro de ese grupo o canal")
         if tail.startswith("+") or tail.startswith("joinchat/"):
             code = tail.split("/")[-1].lstrip("+")
             r = await self.client(CheckChatInviteRequest(code))
@@ -185,11 +195,30 @@ class Telegram:
                 log.info("Telegram: no se pudo entrar en %s (%s)", link, e)
         return ent
 
+    @staticmethod
+    def _topic(link: str, ent=None) -> int | None:
+        """El tema de un foro en ``t.me/c/ID/TEMA`` (o None; si no es foro, ese número era un mensaje)."""
+        p = link.split("/")
+        if ent is not None and not getattr(ent, "forum", False):
+            return None
+        return int(p[3]) if len(p) > 3 and p[1] == "c" and p[3].isdigit() else None
+
     def chat_title(self, link: str) -> str:
         """Comprueba el enlace (entrando si es una invitación) y devuelve su nombre."""
         async def go():
             ent = await self._chat(link, join=True)
-            return getattr(ent, "title", None) or getattr(ent, "username", None) or link
+            title = getattr(ent, "title", None) or getattr(ent, "username", None) or link
+            topic = self._topic(link, ent)
+            if topic:
+                name = f"tema {topic}"
+                try:
+                    from telethon.tl.functions.channels import GetForumTopicsByIDRequest
+                    r = await self.client(GetForumTopicsByIDRequest(channel=ent, topics=[topic]))
+                    name = r.topics[0].title or name
+                except Exception:
+                    pass
+                title += " › " + name
+            return title
         return self._run(go())
 
     @staticmethod
@@ -209,7 +238,8 @@ class Telegram:
         async def go():
             ent = await self._chat(link)
             out = []
-            async for m in self.client.iter_messages(ent, search=query or None, min_id=min_id, limit=limit):
+            async for m in self.client.iter_messages(ent, search=query or None, min_id=min_id, limit=limit,
+                                                     reply_to=self._topic(link, ent)):
                 v = self._video(m)
                 if v:
                     out.append(v)
@@ -218,7 +248,8 @@ class Telegram:
 
     def last_id(self, link: str) -> int:
         async def go():
-            msgs = await self.client.get_messages(await self._chat(link), limit=1)
+            ent = await self._chat(link)
+            msgs = await self.client.get_messages(ent, limit=1, reply_to=self._topic(link, ent))
             return msgs[0].id if msgs else 0
         return self._run(go())
 

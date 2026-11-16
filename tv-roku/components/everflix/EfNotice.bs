@@ -1,0 +1,27 @@
+import "pkg:/components/everflix/EfCommon.bs"
+
+sub init()
+    m.header = m.top.findNode("header")
+    m.text = m.top.findNode("text")
+    m.header.font = ef.font(ef.FONT_BOLD, 36)
+    m.text.font = ef.font(ef.FONT_REGULAR, 32)
+    m.hide = m.top.findNode("hide")
+    m.hide.observeField("fire", "onHide")
+end sub
+
+sub onMessage()
+    msg = m.top.message
+    if msg = invalid then return
+    header = msg.LookupCI("header")
+    if header = invalid or header = "" then header = "Everflix"
+    m.header.text = header
+    m.text.text = msg.LookupCI("text") ?? ""
+    m.top.findNode("fadeOut").control = "stop"
+    m.top.findNode("fadeIn").control = "start"
+    m.hide.control = "stop"
+    m.hide.control = "start"
+end sub
+
+sub onHide()
+    m.top.findNode("fadeOut").control = "start"
+end sub

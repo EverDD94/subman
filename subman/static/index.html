@@ -2259,10 +2259,32 @@ $("#jfRestart").onclick = async () => { if (await askOk("¿Reiniciar Jellyfin? Q
 function jfTask(id, stop) { jfDo("/api/jf/task", {id, stop: !!stop}, stop ? "Parada" : "En marcha"); }
 async function jfStop(id) { if (await askOk("¿Parar lo que está viendo?", "Parar")) jfDo("/api/jf/session/stop", {id}, "Parado"); }
 function jfMsg(id) {
-  $("#dlgBody").innerHTML = `<h2>Mandar un mensaje</h2><p class="muted">Sale en su pantalla unos segundos.</p>
-    <textarea id="jfMsgT" rows="3" style="width:100%"></textarea><div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn" id="jfMsgGo">Mandar</button></div>`;
-  dlg.showModal(); $("#jfMsgT").focus();
-  $("#jfMsgGo").onclick = () => { const text = $("#jfMsgT").value.trim(); if (!text) return; dlg.close(); jfDo("/api/jf/session/message", {id, text}, "Mandado"); };
+  let who = localStorage.getItem("jfMsgAs") || "anon";
+  const fake = localStorage.getItem("jfMsgName") || "";
+  $("#dlgBody").innerHTML = `<h2>Mandar un mensaje</h2><p class="muted">Sale arriba en su pantalla unos segundos, también si está viendo algo.</p>
+    <textarea id="jfMsgT" rows="3" style="width:100%" maxlength="300" placeholder="Escribe el mensaje"></textarea>
+    <h3 style="margin:14px 0 6px">Quién lo manda</h3>
+    <div class="filters row" id="jfMsgAs" style="gap:6px">
+      <button data-as="anon">Anónimo</button><button data-as="me">Con mi nombre</button><button data-as="name">Otro nombre</button></div>
+    <input type="text" id="jfMsgName" maxlength="40" placeholder="Nombre que saldrá (p. ej. «Netflix»)" style="width:100%;margin-top:10px" value="${esc(fake)}">
+    <p class="muted" id="jfMsgPrev" style="margin:10px 0 0"></p>
+    <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn" id="jfMsgGo">Mandar</button></div>`;
+  const paint = () => {
+    document.querySelectorAll("#jfMsgAs button").forEach(b => b.classList.toggle("on", b.dataset.as === who));
+    $("#jfMsgName").hidden = who !== "name";
+    const n = $("#jfMsgName").value.trim();
+    $("#jfMsgPrev").textContent = "Saldrá como: " + (who === "anon" ? "Everflix" : who === "me" ? "Mensaje de (tu nombre de Jellyfin)" : (n || "…"));
+  };
+  document.querySelectorAll("#jfMsgAs button").forEach(b => b.onclick = () => { who = b.dataset.as; paint(); if (who === "name") $("#jfMsgName").focus(); });
+  $("#jfMsgName").oninput = paint;
+  paint(); dlg.showModal(); $("#jfMsgT").focus();
+  $("#jfMsgGo").onclick = () => {
+    const text = $("#jfMsgT").value.trim(), name = $("#jfMsgName").value.trim();
+    if (!text) return toast("Escribe el mensaje");
+    if (who === "name" && !name) return toast("Pon el nombre que saldrá");
+    try { localStorage.setItem("jfMsgAs", who); localStorage.setItem("jfMsgName", name); } catch (e) {}
+    dlg.close(); jfDo("/api/jf/session/message", {id, text, as: who, name}, "Mandado");
+  };
 }
 async function jfDevDel(id) { if (await askOk("¿Quitar este dispositivo? Tendrá que volver a entrar.", "Quitar")) jfDo("/api/jf/device/delete", {id}, "Quitado"); }
 async function jfUserDel(id) {

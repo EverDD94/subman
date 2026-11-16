@@ -1830,8 +1830,12 @@ class App:
         db = tmdb.TMDb(cfg["tmdb"]["api_key"], cfg["tmdb"].get("language") or "es-MX")
         api = phono.Phono()
         card = dl.find(row, api, db)
-        if not card:
-            return {"ok": False, "error": "Phono aún no tiene esta serie"}
+        if not card:  # no está en Phono: se ofrecen las de TheMovieDB y se buscan en tus canales
+            if channels.Channels(dl.db).for_kind("tv"):
+                seasons = [n for n in (db.tv(row["tmdb"]).get("seasons") or {}) if n > 0]
+                if seasons:
+                    return {"ok": True, "seasons": sorted(seasons), "have": sorted(dl.seasons_in(row["tmdb"]))}
+            return {"ok": False, "error": "Phono aún no tiene esta serie (ni la encuentro en tus canales)"}
         seasons = phono.seasons(api.buttons(card["content_id"]))
         return {"ok": True, "seasons": sorted(seasons), "have": sorted(dl.seasons_in(row["tmdb"]))}
 
@@ -2001,8 +2005,8 @@ class App:
             msgs: dict[int, dict] = {}
             try:
                 for t in titles:
-                    for m in tg.videos(c["link"], query=t, limit=200):
-                        msgs[m["id"]] = m
+                    for m in tg.videos(c["link"], query=t, limit=200 if row["kind"] == "movie" else 3000):
+                        msgs[m["id"]] = channels.absolute(m, info.get("seasons") or {}) if row["kind"] == "tv" else m
             except Exception as e:
                 log.info("canales: %s: %s", c["link"], e)
                 continue

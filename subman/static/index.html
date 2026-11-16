@@ -182,6 +182,13 @@ dialog[open]{animation:pop .24s var(--ease-out)}
 @keyframes pop{from{opacity:0;transform:translateY(10px) scale(.985)}}
 dialog::backdrop{background:rgb(22 18 43/.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(3px)}
 dialog.ask{max-width:420px}
+dialog.dl-src{max-width:560px}
+.dl-opts{display:grid;gap:10px;max-height:65vh;overflow:auto}
+.dl-opt{display:grid;gap:4px;text-align:left;font:inherit;color:var(--text);background:var(--card);border:2px solid var(--line);border-radius:var(--r-sm);padding:12px 14px;cursor:pointer}
+.dl-opt:hover,.dl-opt:focus-visible{border-color:var(--accent,#5b3df5)}
+.dl-opt.best{border-color:var(--accent,#5b3df5)}
+.dl-opt .pill{font-size:12px;padding:2px 8px;border-radius:99px;background:var(--accent,#5b3df5);color:#fff}
+.dl-file{font-size:12px;word-break:break-all}
 dialog.ask textarea{width:100%;min-height:96px;font:inherit;padding:10px 12px;border-radius:var(--r-sm);border:2px solid var(--line);background:var(--card);color:var(--text);resize:vertical}
 .notice{border-top:1px solid var(--line);padding:10px 0 2px}
 .notice b{display:block}
@@ -961,6 +968,7 @@ dialog.sheet .foot{display:none}
       <div><label class="f">Carpeta para lo que se está bajando</label><input type="text" id="dl_tmp_dir">
         <div class="hint">Dentro de /media (así mover al final es instantáneo) y fuera de las carpetas de la biblioteca.</div></div>
       <div><label class="f">Audio preferido</label><select id="dl_audio"><option value="es,en">Español; si no hay, inglés</option><option value="en,es">Inglés; si no hay, español</option><option value="es">Sólo español</option><option value="en">Sólo inglés</option></select></div>
+      <div><label class="f">Al elegir entre canales, recomendar</label><select id="dl_prefer"><option value="original">Audio original con subtítulos en español</option><option value="es">Audio en español</option><option value="en">Audio en inglés</option></select></div>
       <div><label class="f">Minutos entre un pedido y otro</label><input type="number" id="dl_gap_minutes" min="1"></div>
       <div><label class="f">Pedidos como mucho al día</label><input type="number" id="dl_daily" min="1"></div>
     </div>
@@ -1760,6 +1768,7 @@ async function loadDlSettings() {
   if (tg.user) $("#tgOut").onclick = async () => { const r = await api("/api/telegram/logout", {}); if (r.ok === false) toast(r.error); loadDlSettings(); };
   for (const k of ["movies_dir", "series_dir", "tmp_dir", "gap_minutes", "daily", "realitys_dir", "es_movies_dir", "es_series_dir"]) $("#dl_" + k).value = st[k] ?? "";
   $("#dl_audio").value = st.audio.join(",");
+  $("#dl_prefer").value = st.prefer || "original";
   if ($("#dl_summary_hour").options.length < 2) for (let h = 0; h < 24; h++) $("#dl_summary_hour").add(new Option(`A las ${h}:00`, h));
   $("#dl_summary_hour").value = st.summary_hour ?? 22;
   $("#dl_auto").checked = st.auto; $("#dl_enabled").checked = st.enabled; $("#dl_remind").checked = st.remind !== false;
@@ -1794,7 +1803,7 @@ $("#tgLogin").onclick = async () => {
 $("#dlSave").onclick = async () => {
   const body = {movies_dir: $("#dl_movies_dir").value, series_dir: $("#dl_series_dir").value, tmp_dir: $("#dl_tmp_dir").value,
     realitys_dir: $("#dl_realitys_dir").value, es_movies_dir: $("#dl_es_movies_dir").value, es_series_dir: $("#dl_es_series_dir").value,
-    gap_minutes: +$("#dl_gap_minutes").value || 2, daily: +$("#dl_daily").value || 20, audio: $("#dl_audio").value.split(","),
+    gap_minutes: +$("#dl_gap_minutes").value || 2, daily: +$("#dl_daily").value || 20, audio: $("#dl_audio").value.split(","), prefer: $("#dl_prefer").value,
     auto: $("#dl_auto").checked, enabled: $("#dl_enabled").checked, remind: $("#dl_remind").checked,
     summary_hour: +$("#dl_summary_hour").value};
   if (body.enabled && (!body.movies_dir || !body.series_dir)) return toast("Pon las carpetas de películas y de series");
@@ -1804,6 +1813,8 @@ $("#dlSave").onclick = async () => {
 
 
 // ---------- Proveedores (Ajustes) ----------
+const PROV_AUDIO = [["", "audio: no sé"], ["es", "audio español"], ["lat", "audio latino"], ["ja", "audio japonés"], ["en", "audio inglés"], ["ko", "audio coreano"], ["orig", "audio original"], ["lat,ja", "latino + japonés"], ["es,en", "español + inglés"]];
+const PROV_SUBS = [["", "subs: no sé"], ["es", "subs en español"], ["en", "subs en inglés"], ["-", "sin subtítulos"]];
 const PROV_KINDS = {"movie,tv": "películas y series", movie: "películas", tv: "series"};
 async function loadProviders() {
   let r; try { r = await api("/api/providers"); } catch (e) { return; }
@@ -1812,13 +1823,20 @@ async function loadProviders() {
   $("#provMsg").textContent = r.telegram ? "" : "Conecta tu Telegram en Descargas para poder añadir canales.";
   $("#provList").innerHTML = r.channels.length ? r.channels.map(c => `<div class="row" style="justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--line,#8883)">
       <div><b>${esc(c.title || c.link)}</b> <span class="muted">${esc(c.link)}</span><br>
-        <span class="muted">${esc(PROV_KINDS[c.kinds] || c.kinds)} · ${c.mode === "auto" ? `automático: sigue <b>${esc(c.follow_title || "?")}</b>` : "bajo pedido"}${c.note ? " · " + esc(c.note) : ""}</span></div>
+        <span class="muted">${esc(PROV_KINDS[c.kinds] || c.kinds)} · ${c.mode === "auto" ? `automático: sigue <b>${esc(c.follow_title || "?")}</b>` : "bajo pedido"}${c.note ? " · " + esc(c.note) : ""}</span>
+        <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap"><span class="muted">Suele traer:</span>
+          <select data-prov-audio="${c.id}" title="Audio habitual">${PROV_AUDIO.map(([v, t]) => `<option value="${v}" ${(c.audio || "") === v ? "selected" : ""}>${t}</option>`).join("")}</select>
+          <select data-prov-subs="${c.id}" title="Subtítulos habituales">${PROV_SUBS.map(([v, t]) => `<option value="${v}" ${(c.subs || "") === v ? "selected" : ""}>${t}</option>`).join("")}</select></div></div>
       <div class="row" style="gap:6px"><label class="switch"><input type="checkbox" data-prov-on="${c.id}" ${c.enabled ? "checked" : ""}><span>Activo</span></label>
         <button class="btn sec" data-prov-del="${c.id}">Quitar</button></div></div>`).join("")
     : `<p class="muted">Todavía no hay ninguno.</p>`;
   for (const el of document.querySelectorAll("[data-prov-on]")) el.onchange = () => {
     const c = r.channels.find(x => x.id == el.dataset.provOn);
     provSave({channel: {id: c.id, kinds: c.kinds.split(","), mode: c.mode, enabled: el.checked}});
+  };
+  for (const el of document.querySelectorAll("[data-prov-audio],[data-prov-subs]")) el.onchange = () => {
+    const id = el.dataset.provAudio || el.dataset.provSubs;
+    provSave({tag: {id, audio: $(`[data-prov-audio="${id}"]`).value, subs: $(`[data-prov-subs="${id}"]`).value}});
   };
   for (const el of document.querySelectorAll("[data-prov-del]")) el.onclick = () => { if (confirm("¿Quitar este canal?")) provSave({delete: +el.dataset.provDel}); };
 }
@@ -1938,6 +1956,9 @@ async function dlAdd(k) {
     if (!seasons) return;
     body.seasons = seasons;
   }
+  const choice = await dlChooseSource(c, body.seasons);
+  if (choice === null) return;
+  if (choice) body.choice = choice;
   try { const r = await api("/api/downloads/add", body); toast(r.ok === false ? r.error : "En la cola de descargas"); } catch (e) { toast(e.message); }
 }
 // ---------- Peticiones de los amigos (página /pedir) ----------
@@ -2152,6 +2173,44 @@ async function reqForget(k) {
   loadRequests();
 }
 // series: qué temporadas pedir (las que ya están en Descargas salen marcadas y sin poder tocarlas)
+// Elegir de dónde bajarlo (Phono o un canal, y la calidad) cuando hay más de una opción
+const LANG_FLAG = {es: "🇪🇸", lat: "🇲🇽", ja: "🇯🇵", en: "🇺🇸", ko: "🇰🇷", fr: "🇫🇷", it: "🇮🇹", de: "🇩🇪", pt: "🇧🇷", zh: "🇨🇳"};
+function dlLangs(list, names, orig) {
+  return list.map(x => x === "dual" ? "Dual" : x === "orig" ? `Original${orig && names[orig] ? " (" + names[orig] + ")" : ""}` : x === "" ? "sí (idioma sin indicar)"
+    : `${LANG_FLAG[x] || ""} ${names[x] || x}`).join(" · ");
+}
+async function dlChooseSource(c, seasons) {
+  toast("Buscando en Phono y en tus canales…");
+  let r;
+  try { r = await api("/api/downloads/options", {kind: c.kind, tmdb: c.tmdb, title: c.title, year: c.year, seasons}); } catch (e) { return undefined; }
+  if (r.ok === false || r.options.length < 2) return r.options && r.options[0] ? r.options[0].choice : undefined;
+  return new Promise(done => {
+    const d = document.createElement("dialog");
+    d.className = "ask dl-src";
+    const gb = n => n ? (n / 2 ** 30 >= 1 ? (n / 2 ** 30).toFixed(1) + " GB" : Math.round(n / 2 ** 20) + " MB") : "";
+    const card = (o, i) => {
+      const q = o.quality ? `<b>${esc(o.quality)}</b>${o.quality_guess ? ` <span class="muted">(por el tamaño)</span>` : ""}` : `<span class="muted">calidad sin indicar</span>`;
+      const tech = [o.format, o.codec, o.hdr ? "HDR" : "", o.cam ? "⚠️ copia de cine" : ""].filter(Boolean).map(esc).join(" · ");
+      const audio = o.audio && o.audio.length ? esc(dlLangs(o.audio, r.langs, r.original)) + (o.guess && o.guess.audio ? ` <span class="muted">(lo habitual del canal)</span>` : "") : `<span class="muted">no lo dice</span>`;
+      const subs = o.subs && o.subs.length ? esc(dlLangs(o.subs, r.langs, r.original)) + (o.guess && o.guess.subs ? ` <span class="muted">(lo habitual del canal)</span>` : "")
+        : o.guess && o.guess.subs ? "no trae" : `<span class="muted">no lo dice</span>`;
+      const eps = o.episodes ? `${o.episodes} capítulos${o.seasons && o.seasons.length ? " · temp. " + o.seasons.join(", ") : ""} · ` : "";
+      return `<button class="dl-opt${o.best ? " best" : ""}" value="${i}">
+        <div class="row" style="justify-content:space-between;gap:8px"><b>${o.source === "phono" ? "Phono" : "📢 " + esc(o.name)}</b>${o.best ? `<span class="pill">Recomendada</span>` : ""}</div>
+        <div>${q}${tech ? " · " + tech : ""}</div>
+        <div>🔊 Audio: ${audio}</div><div>💬 Subtítulos: ${subs}</div>
+        <div class="muted">${eps}${gb(o.size)}</div>
+        <div class="muted dl-file">${esc(o.file || "")}</div></button>`;
+    };
+    d.innerHTML = `<p style="margin-top:0"><b>${esc(c.title)}</b> está en ${r.options.length} sitios. ¿Cuál quieres?</p>
+      <div class="dl-opts">${r.options.map(card).join("")}</div>
+      <div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn sec" value="no">Cancelar</button></div>`;
+    d.querySelector('[value="no"]').onclick = () => d.close("no");
+    for (const b of d.querySelectorAll(".dl-opt")) b.onclick = () => d.close(b.value);
+    d.onclose = () => { const v = d.returnValue; done(v === "no" || v === "" ? null : r.options[+v].choice); d.remove(); };
+    document.body.appendChild(d); d.showModal();
+  });
+}
 async function dlPickSeasons(c) {
   toast("Mirando qué temporadas tiene Phono…");
   let r;

@@ -31,7 +31,9 @@ CREATE TABLE IF NOT EXISTS channels (
     last_id INTEGER,               -- auto: último mensaje mirado
     checked REAL,
     note TEXT,                     -- en palabras: qué pasó la última vez
-    created REAL
+    created REAL,
+    audio TEXT,                    -- lo que suele traer el canal: es,ja,en… (si los archivos no lo dicen)
+    subs TEXT                      -- idem para subtítulos; «-» = sin subtítulos
 );
 """
 CHECK_EVERY = 30 * 60  # cada cuánto se miran los canales automáticos
@@ -153,10 +155,86 @@ def pick(msgs: list[dict], titles: list[str], year: int | None, kind: str, seaso
     return [by_ep[e] for e in sorted(by_ep)]
 
 
+# --- Qué trae cada archivo: formato, calidad, audio y subtítulos (por el nombre y el texto) ---------
+LANGS = {"es": "Español", "lat": "Latino", "ja": "Japonés", "en": "Inglés", "ko": "Coreano", "fr": "Francés",
+         "it": "Italiano", "de": "Alemán", "pt": "Portugués", "zh": "Chino"}
+_AUDIO_WORDS = [
+    ("lat", r"latino|lat|espanol latino|audio latino"),
+    ("es", r"castellano|espanol|spanish|esp|spa|cast"),
+    ("ja", r"japones|japanese|jap|jpn|japo"),
+    ("en", r"ingles|english|eng|ing"),
+    ("ko", r"coreano|korean|kor"),
+    ("fr", r"frances|french"),
+    ("it", r"italiano|italian|ita"),
+    ("de", r"aleman|german|ger|deu"),
+    ("pt", r"portugues|portuguese"),
+    ("zh", r"chino|chinese|mandarin"),
+]
+_SUB = re.compile(r"\b(?:sub(?:s|titulos?|titulado|bed|titles?)?|vose|vosi|multisub|multi-sub|hardsub|softsub)\b")
+_SUBLANG = re.compile(r"\b(?:sub(?:s|titulos?|titulado|titles?)?)\s*(?:en\s+|in\s+|:\s*)?([a-z]+(?:\s*(?:\+|/|,|y|e)\s*[a-z]+)*)")
+_RES = re.compile(r"\b(2160|1080|720|576|480|360)p\b|\b(4k|uhd)\b")
+_CODEC = re.compile(r"\b(x265|h\.?265|hevc|x264|h\.?264|avc|av1)\b")
+
+
+def _lang(word: str) -> str | None:
+    return next((c for c, rx in _AUDIO_WORDS if re.fullmatch(rx, word)), None)
+
+
+def media(name: str, text: str = "", channel: dict | None = None) -> dict:
+    """{format, quality, codec, hdr, audio: [códigos], subs: [códigos] | [""] (sí, sin saber cuál) | [],
+    guess: {audio, subs} (True = viene de la marca del canal, no del archivo)}."""
+    head = "\n".join((text or "").splitlines()[:4])  # la ficha del mensaje, no la sinopsis entera
+    raw = unicodedata.normalize("NFKD", f"{name or ''} {head}").encode("ascii", "ignore").decode().lower()
+    t = re.sub(r"[\[\](){}._|\-]+", " ", raw)
+    ext = Path(name or "").suffix.lstrip(".").upper()
+    r = _RES.search(t)
+    quality = (r.group(1) + "p") if r and r.group(1) else ("2160p" if r else "")
+    c = _CODEC.search(t)
+    codec = {"hevc": "x265", "h265": "x265", "h.265": "x265", "h264": "x264", "h.264": "x264", "avc": "x264"}.get(c.group(1), c.group(1)) if c else ""
+    # subtítulos primero, para no contar «sub español» como audio en español
+    subs: list[str] = []
+    for m in _SUBLANG.finditer(t):
+        for w in re.split(r"\s*(?:\+|/|,|\by\b|\be\b)\s*", m.group(1)):
+            code = _lang(w.strip())
+            if code and code not in subs:
+                subs.append("es" if code == "lat" else code)
+    no_subs = re.sub(_SUBLANG, " ", t)
+    if re.search(r"\bvose\b", t):
+        subs = subs or ["es"]
+    if re.search(r"\bvosi\b", t):
+        subs = subs or ["en"]
+    if not subs and _SUB.search(t):
+        subs = [""]
+    audio: list[str] = []
+    if re.search(r"\bdual\b", no_subs):
+        audio.append("dual")
+    for w in no_subs.split():
+        code = _lang(w)
+        if code and code not in audio:
+            audio.append(code)
+    if re.search(r"\bvos[ei]?\b|\bv\s?o\b|\boriginal\b", no_subs) and not [a for a in audio if a != "dual"]:
+        audio.append("orig")
+    guess = {"audio": False, "subs": False}
+    ch = channel or {}
+    if not [a for a in audio if a != "dual"] and ch.get("audio"):
+        audio += [x for x in ch["audio"].split(",") if x and x not in audio]
+        guess["audio"] = True
+    if not subs and ch.get("subs"):
+        subs = [] if ch["subs"] == "-" else [x for x in ch["subs"].split(",") if x]
+        guess["subs"] = True
+    return {"format": ext, "quality": quality, "codec": codec, "hdr": bool(re.search(r"\bhdr(?:10)?\b|dolby vision|\bdv\b", t)),
+            "audio": audio, "subs": subs, "guess": guess}
+
+
 class Channels:
     def __init__(self, db):
         self.db = db
         self.db.executescript(SCHEMA)
+        have = {r[1] for r in self.db.execute("PRAGMA table_info(channels)")}
+        for col in ("audio", "subs"):
+            if col not in have:
+                self.db.execute(f"ALTER TABLE channels ADD COLUMN {col} TEXT")
+        self.db.commit()
 
     def rows(self, enabled: bool = False) -> list[dict]:
         q = "SELECT * FROM channels" + (" WHERE enabled=1" if enabled else "") + " ORDER BY created"

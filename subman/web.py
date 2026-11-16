@@ -1545,6 +1545,8 @@ class App:
                     d[k] = max(lo, min(hi, int(b[k])))
             if "audio" in b:
                 d["audio"] = [x for x in b["audio"] if x in phono.LANG] or ["es", "en"]
+            if b.get("prefer") in ("original", "es", "en"):
+                d["prefer"] = b["prefer"]
             config.save(self.config_path, cfg)
         self.dl_wake.set()
         return {"ok": True, **self.downloads_state()}
@@ -1581,6 +1583,13 @@ class App:
                 config.save(self.config_path, cfg)
         if b.get("delete"):
             chs.delete(int(b["delete"]))
+        tag = b.get("tag")  # lo que suele traer el canal: {id, audio: "ja,es", subs: "es" | "-" | ""}
+        if tag:
+            ok = set(channels.LANGS) | {"orig"}
+            audio = ",".join(x for x in str(tag.get("audio") or "").split(",") if x in ok)
+            subs = str(tag.get("subs") or "")
+            subs = "-" if subs == "-" else ",".join(x for x in subs.split(",") if x in ok)
+            chs.set(int(tag["id"]), audio=audio or None, subs=subs or None)
         ch = b.get("channel")
         if ch:
             kinds = ",".join(k for k in ("movie", "tv") if k in (ch.get("kinds") or [])) or "movie,tv"
@@ -1749,13 +1758,24 @@ class App:
         cfg = self.cfg()
         dl = downloads.Downloads(self.library(cfg), cfg)
         tid, title, year = int(b["tmdb"]), b.get("title") or "", b.get("year")
+        choice = b.get("choice") if isinstance(b.get("choice"), dict) else None
+        if choice and choice.get("channel"):
+            choice = {k: choice[k] for k in ("channel", "ids", "file", "quality") if k in choice}
+            choice["channel"] = channels.norm_link(choice["channel"])
+            if "ids" in choice:
+                choice["ids"] = [int(x) for x in choice["ids"]][:50]
+        elif choice and choice.get("phono_file") is not None:
+            choice = {"phono_file": choice["phono_file"]}
+        else:
+            choice = None
+        mark = (lambda rid: dl.set(rid, source=json.dumps({"choice": choice}, ensure_ascii=False))) if choice else (lambda rid: None)
         if b["kind"] == "tv" and b.get("seasons"):  # sólo las temporadas que marcaste
             have = dl.seasons_in(tid)
             new = sorted({int(n) for n in b["seasons"]} - have)
             if not new:
                 return {"ok": False, "error": "esas temporadas ya están en Descargas"}
             for n in new:
-                dl.add("tv", tid, title, year, "manual", season=n)
+                mark(dl.add("tv", tid, title, year, "manual", season=n))
             self.dl_wake.set()
             return {"ok": True, "done": len(new)}
         if b["kind"] == "tv":  # sin elegir (desde la tele): se piden las temporadas que falten
@@ -1764,7 +1784,7 @@ class App:
                 return {"ok": False, "error": "ya está en Descargas"}
         elif dl.has(b["kind"], tid):
             return {"ok": False, "error": "ya está en Descargas"}
-        dl.add(b["kind"], tid, title, year, "manual")
+        mark(dl.add(b["kind"], tid, title, year, "manual"))
         self.dl_wake.set()
         return {"ok": True}
 
@@ -1966,7 +1986,10 @@ class App:
         cid = card["content_id"]
         if row["kind"] == "movie":
             swap = bool(json.loads(row.get("swap") or "null"))
-            f = phono.pick(api.files(cid), d["audio"], no_cam=swap)
+            want = (row.get("choice") or {}).get("phono_file")
+            files = api.files(cid)
+            f = next((x for x in files if want and x.get("id") == want and x.get("download_url")), None) \
+                or phono.pick(files, d["audio"], no_cam=swap)
             link = phono.bot_link(f["download_url"]) if f else None
             if not link:
                 return ("Phono sólo tiene copias de cine" if swap else
@@ -2001,15 +2024,16 @@ class App:
         info = db.tv(row["tmdb"]) if row["kind"] == "tv" else db.movie(row["tmdb"])
         titles = [t for t in dict.fromkeys([row["title"], info.get("original"), info.get("name")]) if t]
         year = row["year"] or info.get("year")
+        only = (row.get("choice") or {}).get("channel")
         for c in chans:
-            msgs: dict[int, dict] = {}
-            try:
-                for t in titles:
-                    for m in tg.videos(c["link"], query=t, limit=200 if row["kind"] == "movie" else 3000):
-                        msgs[m["id"]] = channels.absolute(m, info.get("seasons") or {}) if row["kind"] == "tv" else m
-            except Exception as e:
-                log.info("canales: %s: %s", c["link"], e)
+            if only and c["link"] != only:
                 continue
+            msgs = self._ch_msgs(tg, c, row["kind"], titles, info)
+            if msgs is None:
+                continue
+            q = (row.get("choice") or {}).get("quality")
+            if only and q is not None:  # la calidad que elegiste en ese canal
+                msgs = {k: m for k, m in msgs.items() if channels.media(m["name"], m["text"])["quality"] == q}
             if row["kind"] == "movie":
                 hit = channels.pick(list(msgs.values()), titles, year, "movie")
                 if hit:
@@ -2036,6 +2060,135 @@ class App:
                     eps = sorted(eps, key=lambda m: m["id"])
                 return {"channel": c["link"], "title": c["title"], "ids": [m["id"] for m in eps], "labels": labels}
         return None
+
+    @staticmethod
+    def _ch_msgs(tg, c: dict, kind: str, titles: list[str], info: dict) -> dict[int, dict] | None:
+        """Los videos del canal que Telegram encuentra con esos títulos ({id: mensaje}); None si falla."""
+        msgs: dict[int, dict] = {}
+        try:
+            for t in titles:
+                for m in tg.videos(c["link"], query=t, limit=200 if kind == "movie" else 3000):
+                    msgs[m["id"]] = channels.absolute(m, info.get("seasons") or {}) if kind == "tv" else m
+        except Exception as e:
+            log.info("canales: %s: %s", c["link"], e)
+            return None
+        return msgs
+
+    def downloads_options(self, b: dict) -> dict:
+        """Al pulsar Descargar: de dónde se puede bajar (Phono y cada canal) y qué trae cada opción."""
+        cfg = self.cfg()
+        if not cfg.get("tmdb", {}).get("api_key"):
+            return {"ok": False, "error": "falta la clave de TheMovieDB"}
+        d = cfg["downloads"]
+        dl = downloads.Downloads(self.library(cfg), cfg)
+        kind, tid = b["kind"], int(b["tmdb"])
+        db = tmdb.TMDb(cfg["tmdb"]["api_key"], cfg["tmdb"].get("language") or "es-MX")
+        info = db.tv(tid) if kind == "tv" else db.movie(tid)
+        row = {"kind": kind, "tmdb": tid, "title": b.get("title") or info.get("name") or "", "year": b.get("year") or info.get("year")}
+        titles = [t for t in dict.fromkeys([row["title"], info.get("original"), info.get("name")]) if t]
+        seasons = [int(n) for n in b.get("seasons") or []]
+        orig = info.get("lang") or ""
+        out: list[dict] = []
+        if d.get("phono", True):
+            try:
+                api = phono.Phono()
+                card = dl.find(row, api, db)
+                if card and kind == "movie":
+                    for f in api.files(card["content_id"]):
+                        if not f.get("download_url"):
+                            continue
+                        langs = [channels._lang(w) for x in f.get("languages") or []
+                                 for w in channels.words(x)]
+                        out.append({"source": "phono", "name": "Phono", "file": f.get("file_name") or "",
+                                    "choice": {"phono_file": f.get("id")}, "size": f.get("file_size_bytes") or 0,
+                                    **channels.media(f.get("file_name") or ""),
+                                    **{k: v for k, v in {
+                                        "quality": f.get("resolution_label") or "",
+                                        "hdr": bool(f.get("is_hdr")),
+                                        "audio": list(dict.fromkeys(x for x in langs if x)) or None,
+                                        "subs": ["en"] if f.get("eng_subtitle") else None,
+                                        "cam": phono.is_cam(f), "tv": bool(f.get("for_tv"))}.items() if v is not None}})
+                elif card:
+                    ss = phono.seasons(api.buttons(card["content_id"]))
+                    have = [n for n in (seasons or sorted(ss)) if n in ss]
+                    if have:
+                        txt = " ".join(ss[n]["text"] for n in have)
+                        out.append({"source": "phono", "name": "Phono", "file": txt, "choice": {"phono": True},
+                                    "episodes": None, "seasons": have, "size": 0, **channels.media("", txt)})
+            except Exception as e:
+                log.info("opciones: Phono: %s", e)
+        tg = self._telegram(cfg)
+        for c in channels.Channels(dl.db).for_kind(kind) if tg else []:
+            msgs = self._ch_msgs(tg, c, kind, titles, info)
+            if not msgs:
+                continue
+            name = c["title"] or c["link"]
+            if kind == "movie":
+                hits = [(channels.score(m, titles, row["year"], "movie"), m) for m in msgs.values()]
+                hits = sorted((h for h in hits if h[0] > 0), key=lambda h: (-h[0], -(h[1].get("size") or 0)))[:4]
+                for _, m in hits:  # cada versión distinta que haya en el canal
+                    out.append({"source": "channel", "name": name, "link": c["link"], "file": m["name"],
+                                "choice": {"channel": c["link"], "ids": [m["id"]], "file": m["name"]},
+                                "size": m.get("size") or 0, **channels.media(m["name"], m["text"], c)})
+                continue
+            buckets: dict[str, list[dict]] = {}  # el mismo canal puede tener 1080p y 720p: una opción por calidad
+            for m in msgs.values():
+                buckets.setdefault(channels.media(m["name"], m["text"])["quality"], []).append(m)
+            opts = []
+            for q, ms in buckets.items():
+                found = sorted({channels.describe(m["name"], m["text"])["season"] for m in ms} - {None})
+                want = [n for n in (seasons or found) if n in found]
+                eps = {n: channels.pick(ms, titles, row["year"], "tv", n) for n in want}
+                allm = [m for e in eps.values() for m in e]
+                if not allm:
+                    continue
+                sample = allm[0]
+                o = {"source": "channel", "name": name, "link": c["link"], "file": sample["name"] or sample["text"].splitlines()[0][:80],
+                     "choice": {"channel": c["link"], "quality": q}, "episodes": len(allm), "seasons": sorted(n for n in eps if eps[n]),
+                     "size": sum(m.get("size") or 0 for m in allm), **channels.media(sample["name"], sample["text"], c)}
+                o["per_ep"] = o["size"] / len(allm)
+                opts.append(o)
+            known = [o for o in opts if o["quality"]]
+            for o in opts:  # sin calidad escrita: se deduce por el peso comparado con las otras del canal
+                if not o["quality"] and known:
+                    ref = max(known, key=lambda k: k["per_ep"])
+                    if o["per_ep"] < ref["per_ep"] * 0.6 and ref["quality"] == "1080p":
+                        o["quality"], o["quality_guess"] = "720p", True
+                    elif o["per_ep"] > ref["per_ep"] * 1.6:
+                        o["quality"], o["quality_guess"] = "1080p", True
+            out += opts
+        prefer = d.get("prefer") or "original"
+        for o in out:
+            o["score"] = self._opt_score(o, prefer, orig)
+        out.sort(key=lambda o: -o["score"])
+        if out:
+            out[0]["best"] = True
+        return {"ok": True, "options": out, "original": orig, "prefer": prefer, "langs": channels.LANGS}
+
+    @staticmethod
+    def _opt_score(o: dict, prefer: str, orig: str) -> float:
+        audio = set(o.get("audio") or [])
+        if "lat" in audio:
+            audio.add("es")
+        if "orig" in audio and orig:
+            audio.add(orig)
+        if "dual" in audio and orig:
+            audio |= {orig, "es"}
+        subs = set(o.get("subs") or [])
+        want = orig if prefer == "original" else prefer
+        s = 0.0
+        if want and want in audio:
+            s += 4
+        elif not audio:
+            s += 1  # no se sabe
+        if want != "es" and "es" in subs:
+            s += 2
+        elif subs:
+            s += 0.5
+        s += {"1080p": 1, "720p": 0.6, "2160p": 0.8}.get(o.get("quality") or "", 0)
+        if o.get("cam"):
+            s -= 5
+        return s
 
     def _dl_follow(self, cfg: dict, dl) -> None:
         """Canales automáticos: lo nuevo que encaje con lo que siguen entra en la cola."""
@@ -2079,12 +2232,21 @@ class App:
             dl.set(rid, state="buscando", detail="buscando en Phono y en tus canales")
             db = tmdb.TMDb(cfg["tmdb"]["api_key"], cfg["tmdb"].get("language") or "es-MX")
             src = json.loads(row.get("source") or "null")
+            if src and "choice" in src:  # elegiste la opción al pulsar Descargar
+                row["choice"] = src["choice"]
+                src = None
+                if row["choice"].get("ids"):
+                    ch = row["choice"]
+                    c = next((x for x in channels.Channels(dl.db).rows() if x["link"] == ch["channel"]), {})
+                    src = {"channel": ch["channel"], "title": c.get("title"), "ids": ch["ids"], "file": ch.get("file")}
             seen = json.loads(row.get("seen") or "null")  # el bot ya lo mandó antes de un reinicio: no se vuelve a pedir
             link, what = None, ""
             if seen and not src:
                 what = row.get("file") or "lo que ya mandó el bot"
             elif not src:
-                got = self._dl_phono(cfg, dl, row, db) if d.get("phono", True) else "Phono está apagado en Proveedores"
+                choice = row.get("choice") or {}
+                got = ("elegiste un canal" if choice.get("channel") else
+                       self._dl_phono(cfg, dl, row, db) if d.get("phono", True) else "Phono está apagado en Proveedores")
                 if isinstance(got, tuple):
                     link, what = got
                 elif dl.get(rid)["state"] == "cancelado":  # no quedaba ninguna temporada por pedir
@@ -2092,7 +2254,9 @@ class App:
                 else:
                     src = self._dl_channels(cfg, dl, row, db)
                     if not src:
-                        dl.set(rid, state="no-esta", detail=f"{got}; tampoco está en tus canales. Se vuelve a mirar mañana",
+                        why = ("no lo encuentro en el canal que elegiste" if choice.get("channel")
+                               else f"{got}; tampoco está en tus canales")
+                        dl.set(rid, state="no-esta", detail=f"{why}. Se vuelve a mirar mañana",
                                retry=time.time() + downloads.RETRY_MISSING)
                         return
             if src:
@@ -2494,6 +2658,7 @@ def make_handler(app: App):
         "/api/avisos/followers": lambda b: (app._notices().set_followers(b["item"], list(b.get("users") or [])), {"ok": True})[1],
         "/api/requests/forget": lambda b: app._dsc(lambda d: (friends.Friends(d).forget(b["kind"], int(b["tmdb"])), {})[1]),
         "/api/downloads/add": lambda b: app.downloads_add(b),
+        "/api/downloads/options": lambda b: app.downloads_options(b),
         "/api/downloads/replace": lambda b: app.downloads_replace(b),
         "/api/downloads/cancel": lambda b: app.downloads_cancel(int(b["id"])),
         "/api/downloads/retry": lambda b: app.downloads_retry(int(b["id"])),

@@ -1254,7 +1254,7 @@ let cfg = null, chosen = [], libItems = [], filter = "", reasonF = "", reasonTit
 
 // un amigo (entró en /pedir con su usuario de Jellyfin): sólo Descubrir, con sus gustos y «Pedir» en vez de descargar
 const FRIEND = window.FRIEND || null;
-const DL = FRIEND ? "Pedir" : "Descargar de Phono";
+const DL = FRIEND ? "Pedir" : "Descargar";
 if (FRIEND) {
   document.querySelectorAll('#tabs button:not([data-tab="descubrir"]), #updBtn, #newsBtn').forEach(b => b.hidden = true);
   document.querySelectorAll('#dscTabs [data-s="descargas"], #dscTabs [data-s="peticiones"]').forEach(b => b.remove());
@@ -1956,7 +1956,7 @@ async function loadRequests() {
     const k = x.kind + x.tmdb, [cls, label] = REQ_STATE[x.status] || ["", x.status];
     const name = x.title + (x.year ? ` (${x.year})` : "");
     const btn = x.status === "pendiente" ? `<button class="btn" onclick="reqDecide('${k}',true)">Aceptar</button> <button class="btn sec" onclick="reqDecide('${k}',false)">Rechazar</button>`
-      : x.status === "aceptada" ? `<button class="btn sec" onclick="reqDownload('${k}')">Descargar de Phono</button> <button class="btn sec" onclick="reqForget('${k}')">Quitar</button>`
+      : x.status === "aceptada" ? `<button class="btn sec" onclick="reqDownload('${k}')">Descargar</button> <button class="btn sec" onclick="reqForget('${k}')">Quitar</button>`
       : `<button class="btn sec" onclick="reqForget('${k}')">Quitar de la lista</button>`;
     return `<div class="dl-i">${x.poster ? `<img src="${esc(x.poster)}" alt="">` : `<div class="noimg"></div>`}
       <div class="dl-txt"><span class="pill ${cls}">${esc(label)}</span> <span class="muted">· ${x.kind === "tv" ? "Serie" : "Película"}</span>
@@ -3037,9 +3037,9 @@ const DSC_HELP = {
   "novedades": "Lo que acaba de salir o sale pronto. Toca el póster para ver la ficha completa.",
   "clasicos": "Lo más visto esta semana y lo mejor valorado de siempre.",
   "para-ti": "Aprende de lo que calificas y de «Mis gustos». No salen las que ya tienes ni las que ya calificaste.",
-  "por-conseguir": "Lo que agregaste a tu lista. Se pide a Phono desde Descargas.",
+  "por-conseguir": "Lo que agregaste a tu lista. Se descarga desde Descargas (Phono o tus canales de Telegram).",
   "calificadas": "Todo lo que has calificado. Puedes cambiarlo cuando quieras.",
-  "descargas": "Lo que se está pidiendo a Phono. Cuando salga «pulsa el anuncio en Telegram», abre el chat del bot y pulsa sus dos botones.",
+  "descargas": "Lo que se está descargando (de Phono o de tus canales). Si es de Phono y salga «pulsa el anuncio en Telegram», abre el chat del bot y pulsa sus dos botones.",
   "mias": "Lo que has pedido y cómo va. Cuando salga «ya está en Jellyfin», búscalo allí para verlo.",
   "peticiones": "Lo que piden tu familia y amigos desde la página «Pedir». «Aceptar» lo pone en tu lista y en Descargas.",
   "gustos": "",

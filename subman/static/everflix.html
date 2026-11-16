@@ -251,7 +251,6 @@ main{margin-left:var(--rail);min-height:100vh;position:relative}
 #mobileTop{display:none;position:absolute;top:0;left:0;right:0;z-index:5;padding:14px 18px;align-items:center;justify-content:space-between}
 #mobileTop img{height:30px}
 .notice{position:fixed;top:28px;left:50%;transform:translateX(-50%);z-index:95;width:min(560px,calc(100% - 32px));background:rgba(18,21,28,.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:20px;padding:18px 22px;box-shadow:0 20px 60px rgba(0,0,0,.6);display:flex;gap:14px;align-items:flex-start;animation:drop .3s ease}
-.notice img{width:40px;flex:none}
 .notice b{display:block;font:800 18px var(--font)}
 .notice p{margin:4px 0 0;color:#d6dae3;font-size:17px;white-space:pre-wrap}
 @keyframes drop{from{opacity:0;transform:translate(-50%,-14px)}}
@@ -1209,7 +1208,7 @@ function showNotice(header, text, ms) {
   document.querySelectorAll(".notice").forEach(n => n.remove());
   const n = document.createElement("div");
   n.className = "notice"; n.setAttribute("role", "alert");
-  n.innerHTML = `<img src="/everflix/logo-e.png" alt=""><div><b>${esc(header || "Everflix")}</b><p>${esc(text || "")}</p></div>`;
+  n.innerHTML = `<div>${header ? `<b>${esc(header)}</b>` : ""}<p${header ? "" : ' style="margin:0"'}>${esc(text || "")}</p></div>`;
   n.onclick = () => n.remove();
   (document.fullscreenElement || document.body).appendChild(n);
   setTimeout(() => n.remove(), Math.max(4000, +ms || 10000));

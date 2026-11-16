@@ -4,7 +4,6 @@ import android.content.Context
 import android.graphics.drawable.GradientDrawable
 import android.util.TypedValue
 import android.view.Gravity
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -24,21 +23,17 @@ object EverflixNotice {
 		val row = LinearLayout(context).apply {
 			orientation = LinearLayout.HORIZONTAL
 			gravity = Gravity.CENTER_VERTICAL
-			setPadding(dp(22), dp(16), dp(28), dp(16))
+			setPadding(dp(28), dp(16), dp(28), dp(16))
 			background = GradientDrawable().apply {
 				cornerRadius = dp(18).toFloat()
 				setColor(0xEE12151C.toInt())
 			}
 			elevation = dp(8).toFloat()
 		}
-		row.addView(ImageView(context).apply {
-			setImageResource(R.drawable.everflix_e)
-			adjustViewBounds = true
-		}, LinearLayout.LayoutParams(dp(40), dp(40)).apply { marginEnd = dp(18) })
-
 		val column = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
-		column.addView(TextView(context).apply {
-			this.text = header?.takeIf { it.isNotBlank() } ?: "Everflix"
+		// sin logo; si no hay nombre (anónimo) sale sólo el mensaje
+		if (!header.isNullOrBlank()) column.addView(TextView(context).apply {
+			this.text = header
 			setTextColor(0xFFF4F2EE.toInt())
 			setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
 			typeface = ResourcesCompat.getFont(context, R.font.archivo_extrabold)

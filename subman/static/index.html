@@ -731,6 +731,7 @@ dialog.sheet .foot{display:none}
   <div class="brand"><img src="/icon.svg" alt=""><h1>Videotecario</h1></div>
   <nav id="tabs">
     <button data-tab="descubrir" data-ico="compass" class="on pri">Descubrir</button>
+    <button data-tab="descargas" data-ico="download">Descargas</button>
     <button data-tab="inicio" data-ico="subs" class="pri">Subtítulos</button>
     <button data-tab="biblioteca" data-ico="library" class="pri">Biblioteca</button>
     <button data-tab="nombres" data-ico="tag">Nombres</button>
@@ -1030,7 +1031,6 @@ dialog.sheet .foot{display:none}
       <button data-s="plataformas">Plataformas</button>
       <button data-s="para-ti">Para ti</button>
       <button data-s="clasicos">Populares y clásicos</button>
-      <button data-s="descargas">Descargas</button>
       <button data-s="peticiones">Peticiones<span class="pill revisar" id="reqN" hidden style="margin-left:6px"></span></button>
       <button data-s="gustos">Mis gustos</button>
     </div>
@@ -1208,7 +1208,7 @@ const FRIEND = window.FRIEND || null;
 const DL = FRIEND ? "Pedir" : "Descargar de Phono";
 if (FRIEND) {
   document.querySelectorAll('#tabs button:not([data-tab="descubrir"]), #updBtn, #newsBtn').forEach(b => b.hidden = true);
-  document.querySelectorAll('#dscTabs [data-s="descargas"], #dscTabs [data-s="peticiones"]').forEach(b => b.remove());
+  document.querySelectorAll('#dscTabs [data-s="peticiones"]').forEach(b => b.remove());
   $("#dscTabs").insertAdjacentHTML("beforeend", '<button data-s="mias">Mis peticiones</button>');
   $(".tools").insertAdjacentHTML("afterbegin", `<span class="muted" style="font-size:14px;align-self:center">${esc(FRIEND.name)}</span><button id="outBtn" class="tool" type="button" title="Salir" aria-label="Salir" style="width:auto;padding:0 10px;font-weight:600">Salir</button>`);
   $("#outBtn").onclick = async () => { await fetch("/api/pedir/logout", {method: "POST"}); location.href = "/pedir"; };
@@ -1295,6 +1295,10 @@ dlg.addEventListener("close", () => dlg.classList.remove("sheet"));
 dlg.addEventListener("click", e => { if (e.target === dlg) dlg.close(); });  // tocar fuera cierra
 
 function show(name) {
+  // Descargas tiene botón propio arriba, pero se ve dentro de la pantalla de Descubrir
+  const DLS = ["descargas", "por-conseguir"];
+  if (name === "descargas") { if (!DLS.includes(dsc.section)) dsc.section = "descargas"; name = "descubrir"; }
+  else if (name === "descubrir" && tab === "descubrir" && DLS.includes(dsc.section)) dsc.section = "portada";
   tab = name;
   document.querySelectorAll("main > section").forEach(s => s.hidden = s.id !== name);
   document.querySelectorAll("#tabs button[data-tab], #moreSheet button").forEach(b => b.classList.toggle("on", b.dataset.tab === name));
@@ -2890,6 +2894,11 @@ async function loadDiscover() {
   // las secciones sin pestaña propia se ven dentro de otra
   const tab = {estrenos: "novedades", calificadas: "gustos", "por-conseguir": FRIEND ? "mias" : "descargas"}[dsc.section] || dsc.section;
   document.querySelectorAll("#dscTabs button").forEach(x => x.classList.toggle("on", x.dataset.s === tab));
+  const inDl = tab === "descargas";  // el botón de arriba se enciende en Descargas, Descubrir en lo demás
+  document.querySelectorAll('#tabs [data-tab="descubrir"], #moreSheet [data-tab="descubrir"]').forEach(b => b.classList.toggle("on", !inDl));
+  document.querySelectorAll('#tabs [data-tab="descargas"], #moreSheet [data-tab="descargas"]').forEach(b => b.classList.toggle("on", inDl));
+  $("#moreBtn").classList.toggle("on", inDl && !!sheet.querySelector('[data-tab="descargas"]') && getComputedStyle($("#moreBtn")).display !== "none");
+  $("#dscTabs").hidden = inDl;
   const onb = document.querySelector(`#dscTabs button[data-s="${tab}"]`);
   if (onb) onb.scrollIntoView({block: "nearest", inline: "nearest"});
   $("#dscMoods").hidden = dsc.section !== "portada";

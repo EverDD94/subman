@@ -16,4 +16,4 @@ subman = "subman.cli:main"
 include = ["subman*"]
 
 [tool.setuptools.package-data]
-subman = ["models/*.onnx", "static/*"]
+subman = ["models/*.onnx", "static/*", "static/everflix/*"]

@@ -15,6 +15,8 @@ import logging.handlers
 import os
 import re
 import shutil
+import socket
+import ssl
 import sqlite3
 import threading
 import time
@@ -2592,6 +2594,8 @@ def make_handler(app: App):
             if u.path.startswith("/everflix/") and re.fullmatch(r"[\w.-]+", u.path[10:]) and (STATIC / "everflix" / u.path[10:]).is_file():
                 ext = u.path.rsplit(".", 1)[-1]
                 return self._static("everflix/" + u.path[10:], {"mp4": "video/mp4", "png": "image/png", "jpg": "image/jpeg", "js": "text/javascript; charset=utf-8"}.get(ext, "application/octet-stream"), cache=True)
+            if u.path == "/ef/socket":
+                return self._ef_socket()
             if u.path.startswith("/ef/jf/"):
                 return self._ef_proxy("GET")
             if u.path == "/api/ef/me":
@@ -2786,6 +2790,50 @@ def make_handler(app: App):
                 return self._send(502, json.dumps({"ok": False, "error": str(e)}).encode(), "application/json")
             self._send(200, json.dumps({"ok": ok, "user": user}, ensure_ascii=False).encode(), "application/json",
                        None if ok else {"Set-Cookie": efweb.cookie("", 0)})
+
+        def _ef_socket(self) -> None:
+            """El canal de Jellyfin (WebSocket) para que lleguen los mensajes y «Parar» desde el panel."""
+            tok, dev = efweb.token_from(self.headers.get("Cookie"))
+            key = self.headers.get("Sec-WebSocket-Key")
+            if not tok or not key or "websocket" not in (self.headers.get("Upgrade") or "").lower():
+                return self._send(400, b"", "text/plain")
+            try:
+                b = urlparse(efweb.base(app.cfg()))
+                tls = b.scheme == "https"
+                up = socket.create_connection((b.hostname, b.port or (443 if tls else 80)), timeout=10)
+                if tls:
+                    up = ssl.create_default_context().wrap_socket(up, server_hostname=b.hostname)
+                path = b.path.rstrip("/") + "/socket?" + "&".join(f"{k}={v}" for k, v in (("api_key", tok), ("deviceId", dev)))
+                up.sendall((f"GET {path} HTTP/1.1\r\nHost: {b.netloc}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+                            f"Sec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n\r\n").encode())
+                up.settimeout(None)
+            except Exception as e:
+                log.info("everflix web: sin canal de Jellyfin (%s)", e)
+                return self._send(502, b"", "text/plain")
+            self.close_connection = True
+            client = self.connection
+            client.settimeout(None)
+
+            def pipe(src, dst):
+                try:
+                    while True:
+                        data = src.recv(65536)
+                        if not data:
+                            break
+                        dst.sendall(data)
+                except OSError:
+                    pass
+                for s_ in (src, dst):
+                    try:
+                        s_.shutdown(socket.SHUT_RDWR)
+                    except OSError:
+                        pass
+
+            t = threading.Thread(target=pipe, args=(up, client), daemon=True)
+            t.start()
+            pipe(client, up)
+            t.join(5)
+            up.close()
 
         def _ef_proxy(self, method: str, body: bytes | None = None) -> None:
             tok, dev = efweb.token_from(self.headers.get("Cookie"))

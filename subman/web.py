@@ -2249,9 +2249,9 @@ class App:
         except ValueError as e:
             return {"ok": False, "error": str(e)}
 
-    def discover_search(self, query: str) -> dict:
+    def discover_search(self, query: str, suggest: bool = False) -> dict:
         try:
-            return {"ok": True, "items": self._discover().search(query)}
+            return {"ok": True, "items": self._discover().search(query, suggest)}
         except ValueError as e:
             return {"ok": False, "error": str(e)}
 
@@ -2388,7 +2388,7 @@ def make_handler(app: App):
         "/api/update": lambda q: app.update_state(),
         "/api/update/news": lambda q: updater.news(force=bool(q.get("force"))),
         "/api/discover": lambda q: app.discover_list(q.get("section", ["novedades"])[0], int(q.get("page", ["1"])[0])),
-        "/api/discover/search": lambda q: app.discover_search(q.get("q", [""])[0]),
+        "/api/discover/search": lambda q: app.discover_search(q.get("q", [""])[0], q.get("suggest", [""])[0] == "1"),
         "/api/discover/detail": lambda q: app._dsc(lambda d: {"item": d.detail(q["kind"][0], int(q["tmdb"][0]))}),
         "/api/discover/taste": lambda q: app.discover_taste(),
         "/api/discover/people": lambda q: app._dsc(lambda d: {"people": d.people(q.get("q", [""])[0])}),

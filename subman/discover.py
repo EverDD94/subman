@@ -535,11 +535,26 @@ class Discover:
                 **marks[(r["kind"], r["tmdb"])]["info"]} for r in rows]
         return self._decorate(out, self.owned_index(), marks)
 
-    def search(self, query: str) -> list[dict]:
-        res = self.api._get("/search/multi", query=query, include_adult="false")
-        cards = [card(d["media_type"], d, self.genres()) for d in res.get("results", [])
-                 if d.get("media_type") in KINDS and d.get("id")]
-        return self._decorate(cards, self.owned_index(), self.marks())
+    def search(self, query: str, suggest: bool = False) -> list[dict]:
+        def tmdb(q):
+            res = self.api._get("/search/multi", query=q, include_adult="false")
+            return [card(d["media_type"], d, self.genres()) for d in res.get("results", [])
+                    if d.get("media_type") in KINDS and d.get("id")]
+        cards = tmdb(query)
+        if len(cards) < 4 and len(query) >= 3:  # quizá mal escrito: se prueba con títulos parecidos de la biblioteca
+            import difflib
+            titles = {r["title"] for r in self.db.execute("SELECT DISTINCT title FROM media WHERE title != ''")}
+            low = {t.lower(): t for t in titles}
+            seen = {c["kind"] + str(c["tmdb"]) for c in cards}
+            for t in difflib.get_close_matches(query.lower(), list(low), n=2, cutoff=0.6):
+                for c in tmdb(low[t])[:4]:
+                    if c["kind"] + str(c["tmdb"]) not in seen:
+                        seen.add(c["kind"] + str(c["tmdb"]))
+                        cards.append(c)
+        out = self._decorate(cards, self.owned_index(), self.marks())
+        if suggest:  # lo que ya tienes primero, y sólo con cartel
+            out = sorted([c for c in out if c.get("poster")], key=lambda c: not c.get("have"))[:8]
+        return out
 
     # --- Mis gustos -----------------------------------------------------------------------
     def profile(self) -> dict:

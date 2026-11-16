@@ -234,6 +234,13 @@ dialog .x:active{transform:scale(.92)}
 .search{position:relative;flex:1;min-width:220px}
 .search svg.i{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)}
 .search input{padding-left:38px;border-radius:999px;background:var(--card)}
+.sug{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:60;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,.25);overflow:hidden;max-height:70vh;overflow-y:auto}
+.sug[hidden]{display:none}
+.sug button{display:flex;gap:12px;align-items:center;width:100%;padding:8px 12px;border:0;background:none;color:var(--text);text-align:left;cursor:pointer;font:inherit}
+.sug button:hover,.sug button.cur{background:var(--line)}
+.sug img{width:36px;height:54px;object-fit:cover;border-radius:6px;flex:none;background:var(--line)}
+.sug b{display:block;font-weight:600}.sug small{color:var(--muted)}
+.sug .own{margin-left:auto;font-size:12px;color:var(--accent,#5b3df5);font-weight:600;white-space:nowrap}
 #dscHelp{margin:0;max-width:70ch}
   background:rgb(15 10 5/.55);color:#fbf6ee;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .ov{font-size:14.5px;line-height:1.6;color:color-mix(in srgb,var(--text) 86%,var(--muted));margin:0}
@@ -1029,7 +1036,7 @@ dialog.sheet .foot{display:none}
     </div>
     <div class="dbar" id="dscBar">
       <label class="search"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-        <input type="search" id="dscQ" placeholder="Busca una película o serie para calificarla" enterkeyhint="search" aria-label="Buscar"></label>
+        <input type="search" id="dscQ" placeholder="Busca una película o serie para calificarla" enterkeyhint="search" aria-label="Buscar" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="dscSug"><div class="sug" id="dscSug" role="listbox" hidden></div></label>
       <div class="filters" id="dscKind">
         <button data-k="" class="on">Todo</button><button data-k="movie">Películas</button><button data-k="tv">Series</button>
       </div>
@@ -2818,8 +2825,45 @@ document.querySelectorAll("#dscTabs button").forEach(b => b.onclick = () => { ds
 document.querySelectorAll("#dscKind button").forEach(b => b.onclick = () => {
   dsc.kind = b.dataset.k; document.querySelectorAll("#dscKind button").forEach(x => x.classList.toggle("on", x === b));
   document.querySelectorAll("#dscMoods .kinds button").forEach(x => x.classList.toggle("on", x.dataset.k === dsc.kind)); renderDiscover(); });
+const sug = {items: [], i: -1, t: 0, n: 0};
+function sugHide() { $("#dscSug").hidden = true; $("#dscQ").setAttribute("aria-expanded", "false"); sug.i = -1; }
+function sugRender() {
+  const box = $("#dscSug");
+  if (!sug.items.length) return sugHide();
+  box.innerHTML = sug.items.map((c, i) => `<button type="button" role="option" class="${i === sug.i ? "cur" : ""}" data-i="${i}">
+    <img src="${esc(c.poster)}" alt="" loading="lazy"><span><b>${esc(c.title)}</b><small>${c.kind === "tv" ? "Serie" : "Película"}${c.year ? " · " + c.year : ""}</small></span>${c.have ? `<span class="own">La tengo</span>` : ""}</button>`).join("");
+  box.hidden = false; $("#dscQ").setAttribute("aria-expanded", "true");
+  box.querySelectorAll("button").forEach(b => b.onmousedown = e => { e.preventDefault(); sugPick(+b.dataset.i); });
+}
+function sugPick(i) {
+  const c = sug.items[i]; if (!c) return;
+  sugHide(); $("#dscQ").blur(); dsc.open = c; dscOpen(c.kind + c.tmdb);
+}
+$("#dscQ").oninput = () => {
+  clearTimeout(sug.t);
+  const q = $("#dscQ").value.trim();
+  if (q.length < 2) { sug.items = []; return sugHide(); }
+  sug.t = setTimeout(async () => {
+    const n = ++sug.n;
+    try {
+      const r = await api("/api/discover/search?suggest=1&q=" + encodeURIComponent(q));
+      if (n !== sug.n || $("#dscQ").value.trim() !== q) return;  // ya escribiste otra cosa
+      sug.items = r.ok ? r.items : []; sug.i = -1; sugRender();
+    } catch (e) {}
+  }, 250);
+};
+$("#dscQ").onblur = () => setTimeout(sugHide, 150);
+$("#dscQ").onfocus = () => { if (sug.items.length && $("#dscQ").value.trim().length >= 2) sugRender(); };
 $("#dscQ").onkeydown = e => {
+  const open = !$("#dscSug").hidden;
+  if (open && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+    e.preventDefault(); const n = sug.items.length;
+    sug.i += e.key === "ArrowDown" ? 1 : -1; if (sug.i >= n) sug.i = -1; if (sug.i < -1) sug.i = n - 1; return sugRender();
+  }
+  if (e.key === "Escape") return sugHide();
   if (e.key !== "Enter") return;
+  if (open && sug.i >= 0) { e.preventDefault(); return sugPick(sug.i); }
+  clearTimeout(sug.t); sug.n++; sugHide();
   const q = $("#dscQ").value.trim();
   if (q) { dsc.q = q; dsc.section = "buscar"; $("#dscQ").blur(); loadDiscover(); }
 };

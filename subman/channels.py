@@ -58,6 +58,31 @@ def norm_link(text: str) -> str:
     return "t.me/" + m.group(1)
 
 
+_ABS = re.compile(r"\b(?:cap(?:itulo|ítulo)?|ep(?:isodio|isode)?|e|#)\s*\.?\s*(\d{1,4})\b", re.I)
+_BARE = re.compile(r"(?:^|\s)-?\s*(\d{1,4})(?=\s|\[|\(|$)")
+_SXE = re.compile(r"\bS\d{1,2}\s*E\d{1,3}\b|\b\d{1,2}x\d{1,3}\b", re.I)
+
+
+def absolute(msg: dict, seasons: dict[int, int]) -> dict:
+    """Animes numerados de corrido («One Piece Cap 1085»): pasa el número a temporada/capítulo
+    según las temporadas de TheMovieDB ({temporada: capítulos}). Devuelve el mensaje con el nombre cambiado."""
+    hay = f"{Path(msg.get('name') or '').stem} {(msg.get('text') or '').splitlines()[0] if msg.get('text') else ''}"
+    if _SXE.search(hay) or _TEMP.search(hay):
+        return msg
+    m = _ABS.search(hay) or next((x for x in _BARE.finditer(hay)
+                                  if x.group(1) not in ("480", "576", "720", "1080", "2160")
+                                  and not 1930 <= int(x.group(1)) <= 2049), None)
+    if not m:
+        return msg
+    n, left = int(m.group(1)), int(m.group(1))
+    for s in sorted(k for k in seasons if k > 0):
+        if left <= seasons[s]:
+            return {**msg, "name": f"{Path(msg.get('name') or 'x.mkv').stem.replace(m.group(0), ' ')} S{s:02d}E{left:02d}.mkv",
+                    "text": (msg.get("text") or "").replace(m.group(0), " ")}
+        left -= seasons[s]
+    return msg
+
+
 def words(text: str) -> list[str]:
     t = unicodedata.normalize("NFKD", text or "").encode("ascii", "ignore").decode().lower()
     t = re.sub(r"[\[\](){}._\-–—:,;!?'’\"|/]+", " ", t)

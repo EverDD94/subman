@@ -23,7 +23,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, auth, jfadmin, autoid, bot, channels, config, convert, diagnose, discover, downloads, duplicates, friends, notices, formats, gemini, identify, jellyfin, manager, notify, peek, phono, providers, series, freno, tmdb, updater, vigia
+from . import __version__, auth, efweb, jfadmin, autoid, bot, channels, config, convert, diagnose, discover, downloads, duplicates, friends, notices, formats, gemini, identify, jellyfin, manager, notify, peek, phono, providers, series, freno, tmdb, updater, vigia
 from .library import Library
 
 log = logging.getLogger(__name__)
@@ -2542,6 +2542,11 @@ def make_handler(app: App):
             token = self.headers.get("X-Emby-Token")  # la app de la tele (Everflix) entra con su usuario de Jellyfin
             if token:
                 return friends.jellyfin_user(cfg, token)
+            ef_token, _ = efweb.token_from(self.headers.get("Cookie"))  # Everflix en el navegador
+            if ef_token:
+                user = friends.jellyfin_user(cfg, ef_token)
+                if user:
+                    return user
             return friends.user_from(cfg, self.headers.get("Cookie"))
 
         def _locked(self) -> None:
@@ -2582,6 +2587,15 @@ def make_handler(app: App):
                 return self._static(*PUBLIC[u.path], cache=u.path != "/sw.js")
             if u.path == "/health":  # para el HEALTHCHECK de Docker (no dice nada de la biblioteca)
                 return self._send(200, b"ok", "text/plain")
+            if u.path in ("/everflix", "/everflix/"):
+                return self._static("everflix.html", "text/html; charset=utf-8")
+            if u.path.startswith("/everflix/") and re.fullmatch(r"[\w.-]+", u.path[10:]) and (STATIC / "everflix" / u.path[10:]).is_file():
+                ext = u.path.rsplit(".", 1)[-1]
+                return self._static("everflix/" + u.path[10:], {"mp4": "video/mp4", "png": "image/png", "jpg": "image/jpeg", "js": "text/javascript; charset=utf-8"}.get(ext, "application/octet-stream"), cache=True)
+            if u.path.startswith("/ef/jf/"):
+                return self._ef_proxy("GET")
+            if u.path == "/api/ef/me":
+                return self._ef_me()
             if u.path in ("/pedir", "/pedir/"):
                 return self._static("pedir.html", "text/html; charset=utf-8")
             if u.path == "/api/pedir/me":
@@ -2695,6 +2709,15 @@ def make_handler(app: App):
                 return self._send(200, b'{"ok": true}', "application/json", {"Set-Cookie": auth.cookie("", 0)})
             if u.path == "/api/pedir/login":
                 return self._friend_login(json.loads(raw or b"{}"))
+            if u.path == "/api/ef/login":
+                return self._ef_login(json.loads(raw or b"{}"))
+            if u.path == "/api/ef/logout":
+                tok, dev = efweb.token_from(self.headers.get("Cookie"))
+                if tok:
+                    efweb.logout(app.cfg(), tok, dev)
+                return self._send(200, b'{"ok": true}', "application/json", {"Set-Cookie": efweb.cookie("", 0)})
+            if u.path.startswith("/ef/jf/"):
+                return self._ef_proxy("POST", raw)
             if u.path == "/api/pedir/logout":
                 return self._send(200, b'{"ok": true}', "application/json", {"Set-Cookie": friends.cookie("", 0)})
             if u.path in friend_post:
@@ -2723,6 +2746,76 @@ def make_handler(app: App):
                     return out
                 return self._json(save, body, headers)
             self._json(routes_post[u.path], body)
+
+        def do_DELETE(self):
+            if urlparse(self.path).path.startswith("/ef/jf/"):
+                return self._ef_proxy("DELETE")
+            self._send(404, b"no encontrado", "text/plain")
+
+        # ---- Everflix en el navegador ----
+        def _ef_login(self, b: dict) -> None:
+            cfg, addr = app.cfg(), self._addr()
+            if auth.blocked(addr):
+                return self._send(429, json.dumps({"ok": False, "error": "Demasiados intentos. Espera unos minutos."},
+                                                  ensure_ascii=False).encode(), "application/json")
+            try:
+                got = efweb.login(cfg, (b.get("user") or "").strip(), b.get("password") or "")
+            except Exception as e:
+                log.warning("everflix web: Jellyfin no respondió al entrar (%s)", e)
+                return self._send(502, json.dumps({"ok": False, "error": "No se pudo hablar con Jellyfin. Prueba en un rato."},
+                                                  ensure_ascii=False).encode(), "application/json")
+            auth.note(addr, bool(got))
+            if not got:
+                time.sleep(1)
+                return self._send(401, json.dumps({"ok": False, "error": "Usuario o contraseña incorrectos"},
+                                                  ensure_ascii=False).encode(), "application/json")
+            value, user = got
+            log.info("everflix web: entró %s desde %s", user.get("Name"), addr)
+            self._send(200, json.dumps({"ok": True, "user": user}, ensure_ascii=False).encode(), "application/json",
+                       {"Set-Cookie": efweb.cookie(value)})
+
+        def _ef_me(self) -> None:
+            tok, dev = efweb.token_from(self.headers.get("Cookie"))
+            if not tok:
+                return self._send(200, b'{"ok": false}', "application/json")
+            try:
+                r = efweb.forward(app.cfg(), "GET", "/Users/Me", tok, dev, None, None, None)
+                ok = r.ok
+                user = r.json() if ok else None
+            except Exception as e:
+                return self._send(502, json.dumps({"ok": False, "error": str(e)}).encode(), "application/json")
+            self._send(200, json.dumps({"ok": ok, "user": user}, ensure_ascii=False).encode(), "application/json",
+                       None if ok else {"Set-Cookie": efweb.cookie("", 0)})
+
+        def _ef_proxy(self, method: str, body: bytes | None = None) -> None:
+            tok, dev = efweb.token_from(self.headers.get("Cookie"))
+            if not tok:
+                return self._send(401, b'{"ok": false, "error": "hay que entrar"}', "application/json")
+            if method == "DELETE":
+                n = int(self.headers.get("Content-Length") or 0)
+                body = self.rfile.read(n) if 0 < n < 1_000_000 else None
+            rest = self.path[len("/ef/jf"):]
+            try:
+                r = efweb.forward(app.cfg(), method, rest, tok, dev, body or None, self.headers.get("Content-Type"),
+                                  self.headers.get("Range"))
+            except Exception as e:
+                return self._send(502, json.dumps({"ok": False, "error": str(e)}).encode(), "application/json")
+            try:
+                self.send_response(r.status_code)
+                for k in efweb.PASS:
+                    if k in r.headers:
+                        self.send_header(k, r.headers[k])
+                if "Content-Length" not in r.headers:
+                    self.send_header("Connection", "close")
+                    self.close_connection = True
+                self.end_headers()
+                for chunk in r.raw.stream(256 * 1024, decode_content=False):
+                    if chunk:
+                        self.wfile.write(chunk)
+            except (BrokenPipeError, ConnectionResetError):
+                pass  # el navegador saltó a otro punto o cerró
+            finally:
+                r.close()
 
         def _login(self, b: dict) -> None:
             cfg, addr = app.cfg(), self._addr()

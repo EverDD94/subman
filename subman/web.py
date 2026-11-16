@@ -1922,7 +1922,7 @@ class App:
             log.warning("avisos: no se pudo avisar a los amigos (%s)", e)
 
     def _dl_enqueue(self, cfg: dict, dl) -> None:
-        # lo que cancelaste no vuelve solo a la cola; con «Descargar de Phono» sí se puede volver a pedir
+        # lo que cancelaste no vuelve solo a la cola; con «Descargar» sí se puede volver a pedir
         wanted = [w for w in dl.wanted() if not dl.has(w["kind"], w["tmdb"], cancelled=True)]
         if not wanted:
             return

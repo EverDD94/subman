@@ -5,6 +5,9 @@ quién está viendo ahora, dispositivos y la actividad reciente. Todo con la cla
 """
 from __future__ import annotations
 
+import threading
+import time
+
 import requests
 
 from .jellyfin import _headers
@@ -144,12 +147,40 @@ class Jellyfin:
         out.sort(key=lambda s: (not s["playing"], s["user"]))
         return out
 
+    def _session(self, session_id: str) -> dict:
+        for x in self.get("/Sessions") or []:
+            if x.get("Id") == session_id:
+                return x
+        return {}
+
+    def _sender(self) -> str:
+        try:
+            admins = [u["name"] for u in self.users() if u["admin"] and not u["disabled"]]
+        except Exception:
+            admins = []
+        return f"Mensaje de {admins[0]}" if admins else "Mensaje"
+
     def session_stop(self, session_id: str) -> dict:
-        self.post(f"/Sessions/{session_id}/Playing/Stop")
+        s = self._session(session_id)
+        _queue(s, {"kind": "stop"})  # la Roku no tiene el canal de Jellyfin: lo recoge de Videotecario
+        try:
+            self.post(f"/Sessions/{session_id}/Playing/Stop")
+        except RuntimeError:
+            if not s:
+                raise
         return {"ok": True}
 
-    def session_message(self, session_id: str, text: str) -> dict:
-        self.post(f"/Sessions/{session_id}/Message", {"Header": "Everflix", "Text": text, "TimeoutMs": 10000})
+    def session_message(self, session_id: str, text: str, sender: str | None = "") -> dict:
+        """``sender``: "" = anónimo (sale «Everflix»), None = «Mensaje de» tu nombre, otro texto = sale tal cual (para bromas)."""
+        sender = sender.strip()[:40] if isinstance(sender, str) else sender
+        header = self._sender() if sender is None else sender or "Everflix"
+        s = self._session(session_id)
+        _queue(s, {"kind": "message", "header": header, "text": text})
+        try:
+            self.post(f"/Sessions/{session_id}/Message", {"Header": header, "Text": text, "TimeoutMs": 12000})
+        except RuntimeError:
+            if not s:
+                raise
         return {"ok": True}
 
     def devices(self) -> list[dict]:
@@ -182,3 +213,34 @@ def state(cfg: dict) -> dict:
     except Exception as e:
         out["libraries"], out["counts"], out["errors"]["libraries"] = None, None, str(e)
     return out
+
+
+# --- buzón para la Roku -------------------------------------------------------------------------
+# La app de Roku no puede recibir órdenes de Jellyfin (no tiene su canal), así que pregunta a
+# Videotecario cada pocos segundos si hay algo para ella. Lo que no recoge en 2 minutos se olvida.
+_INBOX: dict[str, list[dict]] = {}
+_LOCK = threading.Lock()
+KEEP = 120
+
+
+def _queue(session: dict, item: dict) -> None:
+    device = session.get("DeviceId")
+    if not device:
+        return
+    item = {**item, "user": session.get("UserId", ""), "at": time.time()}
+    with _LOCK:
+        _INBOX.setdefault(device, []).append(item)
+
+
+def inbox(user_id: str, device: str) -> list[dict]:
+    """Lo pendiente para esa tele (sólo si es del mismo usuario que pregunta) y se borra al darlo."""
+    now = time.time()
+    with _LOCK:
+        for d in list(_INBOX):
+            _INBOX[d] = [x for x in _INBOX[d] if now - x["at"] < KEEP]
+            if not _INBOX[d]:
+                del _INBOX[d]
+        mine = [x for x in _INBOX.get(device, []) if x["user"].replace("-", "") == (user_id or "").replace("-", "")]
+        if mine:
+            _INBOX[device] = [x for x in _INBOX[device] if x not in mine]
+    return [{k: v for k, v in x.items() if k in ("kind", "header", "text")} for x in mine]

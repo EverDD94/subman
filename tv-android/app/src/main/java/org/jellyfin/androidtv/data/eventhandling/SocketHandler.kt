@@ -2,7 +2,6 @@ package org.jellyfin.androidtv.data.eventhandling
 
 import android.content.Context
 import android.media.AudioManager
-import android.widget.Toast
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.coroutineScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -14,6 +13,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.jellyfin.androidtv.data.model.DataRefreshService
+import org.jellyfin.androidtv.ui.everflix.EverflixNotice
 import org.jellyfin.androidtv.ui.itemhandling.ItemLauncher
 import org.jellyfin.androidtv.ui.navigation.Destinations
 import org.jellyfin.androidtv.ui.navigation.NavigationRepository
@@ -239,13 +239,9 @@ class SocketHandler(
 	}
 
 	private fun onDisplayMessage(header: String?, text: String?) {
-		val toastMessage = buildString {
-			if (!header.isNullOrBlank()) append(header, ": ")
-			append(text)
-		}
-
+		// Everflix: el cartel de Everflix (con quién lo manda arriba) en vez del aviso pequeño de Android
 		runBlocking(Dispatchers.Main) {
-			Toast.makeText(context, toastMessage, Toast.LENGTH_LONG).show()
+			EverflixNotice.show(context, header, text)
 		}
 	}
 }

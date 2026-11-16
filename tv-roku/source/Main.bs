@@ -65,6 +65,9 @@ sub Main (args as dynamic) as void
     stopLoadingSpinner()
     sceneManager.callFunc("pushScene", group)
 
+    ' Everflix: mensajes y «Parar» que mandas desde Videotecario (la Roku no tiene el canal de Jellyfin)
+    efInboxStart()
+
     m.scene.observeField("exit", m.port)
 
     ' Download and store the fallback font to tmp:/
@@ -217,6 +220,10 @@ sub Main (args as dynamic) as void
             onReturnDataEvent(msg)
         else if isNodeEvent(msg, "dataReturned")
             onDataReturnedEvent(msg)
+        else if isNodeEvent(msg, "fire")
+            efInboxCheck()
+        else if isNodeEvent(msg, "result")
+            efInboxResult(msg)
         else
             print "Unhandled " type(msg)
             print msg

@@ -2425,7 +2425,8 @@ def make_handler(app: App):
         "/api/jf/user/password": lambda b: jfadmin.Jellyfin(app.cfg()).user_password(b["id"], b.get("password", "")),
         "/api/jf/user/delete": lambda b: jfadmin.Jellyfin(app.cfg()).user_delete(b["id"]),
         "/api/jf/session/stop": lambda b: jfadmin.Jellyfin(app.cfg()).session_stop(b["id"]),
-        "/api/jf/session/message": lambda b: jfadmin.Jellyfin(app.cfg()).session_message(b["id"], b.get("text", "")),
+        "/api/jf/session/message": lambda b: jfadmin.Jellyfin(app.cfg()).session_message(b["id"], b.get("text", ""),
+                                                                                         None if b.get("as") == "me" else b.get("name", "") if b.get("as") == "name" else ""),
         "/api/jf/device/delete": lambda b: jfadmin.Jellyfin(app.cfg()).device_delete(b["id"]),
         "/api/run": lambda b: (app.wake.set(), {"ok": True})[1],
         "/api/retry": lambda b: app.retry(int(b["id"])),
@@ -2495,6 +2496,7 @@ def make_handler(app: App):
         "/api/pedir/mine": lambda u, q: app._dsc(lambda d: {"items": app._friends().mine(u)}),
         "/api/pedir/admin": lambda u, q: app.tv_admin(u),
         "/api/pedir/home": lambda u, q: app._dsc(lambda d: {"rows": app._friends().tv_home(u)}),
+        "/api/pedir/inbox": lambda u, q: {"ok": True, "items": jfadmin.inbox(u["id"], q.get("device", [""])[0])},
     }
     friend_post = {
         "/api/pedir/notices/read": lambda u, b: (app._notices().read_all(u["id"]), {"ok": True})[1],

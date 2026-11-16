@@ -95,3 +95,65 @@ sub everflixPlay(data as object)
     end if
     queue.callFunc("playQueue")
 end sub
+
+
+' ---- Mensajes desde Videotecario ----
+' La Roku no recibe las órdenes de Jellyfin (no tiene su canal), así que cada 5 s pregunta a Videotecario
+' si le has mandado un mensaje o «Parar» desde la pestaña Jellyfin, y lo enseña con el cartel de Everflix.
+sub efInboxStart()
+    if m.efInboxTimer <> invalid then return
+    m.efNotice = CreateObject("roSGNode", "EfNotice")
+    m.scene.appendChild(m.efNotice)
+    m.efInboxTimer = CreateObject("roSGNode", "Timer")
+    m.efInboxTimer.duration = 5
+    m.efInboxTimer.repeat = true
+    m.efInboxTimer.observeField("fire", m.port)
+    m.efInboxTimer.control = "start"
+    m.efInboxTask = invalid
+end sub
+
+sub efInboxCheck()
+    if m.efInboxTask <> invalid and m.efInboxTask.state = "run" then return
+    user = m.global.session.user
+    if not isValid(user) or not isValidAndNotEmpty(user.authToken) then return
+    device = m.global.device.serverDeviceName
+    if not isValidAndNotEmpty(device) then return
+    task = CreateObject("roSGNode", "EfTask")
+    task.job = "vt"
+    task.args = { path: "/api/pedir/inbox?device=" + CreateObject("roUrlTransfer").Escape(device) }
+    task.observeField("result", m.port)
+    task.control = "RUN"
+    m.efInboxTask = task
+end sub
+
+sub efInboxResult(msg as object)
+    r = msg.getData()
+    if not isValid(r) or not isValid(r.LookupCI("data")) then return
+    items = r.data.LookupCI("items")
+    if not isValid(items) then return
+    for each item in items
+        if item.LookupCI("kind") = "stop"
+            efStopPlayback()
+        else if item.LookupCI("kind") = "message"
+            efShowNotice(item.LookupCI("header") ?? "", item.LookupCI("text") ?? "")
+        end if
+    end for
+end sub
+
+sub efShowNotice(header as string, text as string)
+    if m.efNotice = invalid then return
+    ' siempre encima de todo (también del reproductor)
+    m.scene.removeChild(m.efNotice)
+    m.scene.appendChild(m.efNotice)
+    m.efNotice.message = { header: header, text: text }
+end sub
+
+sub efStopPlayback()
+    sceneManager = m.global.sceneManager
+    active = sceneManager.callFunc("getActiveScene")
+    if isValid(active) and active.isSubType("VideoPlayerView")
+        active.control = "stop"
+        sceneManager.callFunc("popScene")
+        efShowNotice("Everflix", "Han parado lo que estabas viendo.")
+    end if
+end sub

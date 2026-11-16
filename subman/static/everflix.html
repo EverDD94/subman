@@ -250,6 +250,11 @@ main{margin-left:var(--rail);min-height:100vh;position:relative}
 }
 #mobileTop{display:none;position:absolute;top:0;left:0;right:0;z-index:5;padding:14px 18px;align-items:center;justify-content:space-between}
 #mobileTop img{height:30px}
+.notice{position:fixed;top:28px;left:50%;transform:translateX(-50%);z-index:95;width:min(560px,calc(100% - 32px));background:rgba(18,21,28,.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:20px;padding:18px 22px;box-shadow:0 20px 60px rgba(0,0,0,.6);display:flex;gap:14px;align-items:flex-start;animation:drop .3s ease}
+.notice img{width:40px;flex:none}
+.notice b{display:block;font:800 18px var(--font)}
+.notice p{margin:4px 0 0;color:#d6dae3;font-size:17px;white-space:pre-wrap}
+@keyframes drop{from{opacity:0;transform:translate(-50%,-14px)}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
 </head>
@@ -1194,6 +1199,53 @@ document.addEventListener("keydown", e => {
   poke();
 });
 
+// ---------- el canal de Jellyfin: mensajes y órdenes desde el panel (Videotecario o Jellyfin) ----------
+let ws = null, wsKeep = 0, wsRetry = 1000;
+function showNotice(header, text, ms) {
+  document.querySelectorAll(".notice").forEach(n => n.remove());
+  const n = document.createElement("div");
+  n.className = "notice"; n.setAttribute("role", "alert");
+  n.innerHTML = `<img src="/everflix/logo-e.png" alt=""><div><b>${esc(header || "Everflix")}</b><p>${esc(text || "")}</p></div>`;
+  n.onclick = () => n.remove();
+  (document.fullscreenElement || document.body).appendChild(n);
+  setTimeout(() => n.remove(), Math.max(4000, +ms || 10000));
+}
+function wsCommand(m) {
+  const d = m.Data || {};
+  if (m.MessageType === "ForceKeepAlive") { clearInterval(wsKeep); wsKeep = setInterval(() => wsSend("KeepAlive"), Math.max(10, (+d || 60) / 2) * 1000); return; }
+  if (m.MessageType === "GeneralCommand") {
+    const a = d.Arguments || {}, v = P && P.video;
+    if (d.Name === "DisplayMessage") return showNotice(a.Header, a.Text, a.TimeoutMs);
+    if (!v) return;
+    if (d.Name === "SetVolume") v.volume = Math.min(1, Math.max(0, (+a.Volume || 0) / 100));
+    else if (d.Name === "Mute") v.muted = true;
+    else if (d.Name === "Unmute") v.muted = false;
+    else if (d.Name === "ToggleMute") v.muted = !v.muted;
+    return;
+  }
+  if (m.MessageType === "Playstate" && P && P.video) {
+    const v = P.video, c = d.Command;
+    if (c === "Stop") { showNotice("Everflix", "Han parado lo que estabas viendo."); history.back(); }
+    else if (c === "Pause") v.pause();
+    else if (c === "Unpause") v.play();
+    else if (c === "PlayPause") v.paused ? v.play() : v.pause();
+    else if (c === "Seek") seekTo((+d.SeekPositionTicks || 0) / 1e7);
+    else if (c === "NextTrack" && P.next) playNext();
+  }
+}
+function wsSend(type, data) { try { ws && ws.readyState === 1 && ws.send(JSON.stringify({MessageType: type, Data: data})); } catch (e) {} }
+function wsConnect() {
+  if (!me || (ws && ws.readyState < 2)) return;
+  try { ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ef/socket"); } catch (e) { return; }
+  ws.onopen = () => {
+    wsRetry = 1000;
+    jf("/Sessions/Capabilities/Full", null, "POST", {PlayableMediaTypes: ["Video"], SupportsMediaControl: true,
+      SupportedCommands: ["DisplayMessage", "SetVolume", "Mute", "Unmute", "ToggleMute"]}).catch(() => {});
+  };
+  ws.onmessage = e => { try { wsCommand(JSON.parse(e.data)); } catch (x) {} };
+  ws.onclose = () => { clearInterval(wsKeep); ws = null; if (me) setTimeout(wsConnect, wsRetry = Math.min(wsRetry * 2, 60000)); };
+}
+
 // ---------- entrar y arrancar ----------
 function showLogin() {
   $("#app").hidden = true; $("#login").hidden = false; closePlayer(true);
@@ -1233,6 +1285,7 @@ async function boot(user) {
   views = v.Items || [];
   courseCache = null;
   paintRail();
+  wsConnect();
   $("#login").hidden = true; $("#app").hidden = false;
   route();
 }

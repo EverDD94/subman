@@ -1201,7 +1201,11 @@ document.addEventListener("keydown", e => {
 
 // ---------- el canal de Jellyfin: mensajes y órdenes desde el panel (Videotecario o Jellyfin) ----------
 let ws = null, wsKeep = 0, wsRetry = 1000;
+let lastNotice = {k: "", t: 0};
 function showNotice(header, text, ms) {
+  const k = (header || "") + "|" + (text || "");
+  if (k === lastNotice.k && Date.now() - lastNotice.t < 60000) return;  // llegó por los dos caminos
+  lastNotice = {k, t: Date.now()};
   document.querySelectorAll(".notice").forEach(n => n.remove());
   const n = document.createElement("div");
   n.className = "notice"; n.setAttribute("role", "alert");
@@ -1225,7 +1229,7 @@ function wsCommand(m) {
   }
   if (m.MessageType === "Playstate" && P && P.video) {
     const v = P.video, c = d.Command;
-    if (c === "Stop") { showNotice("Everflix", "Han parado lo que estabas viendo."); history.back(); }
+    if (c === "Stop") efStop();
     else if (c === "Pause") v.pause();
     else if (c === "Unpause") v.play();
     else if (c === "PlayPause") v.paused ? v.play() : v.pause();
@@ -1233,6 +1237,21 @@ function wsCommand(m) {
     else if (c === "NextTrack" && P.next) playNext();
   }
 }
+function efStop() {
+  if (!P || P.stopping) return;
+  P.stopping = true;
+  showNotice("Everflix", "Han parado lo que estabas viendo.");
+  history.back();
+}
+// el buzón de Videotecario (como la Roku): llega aunque el canal de Jellyfin no se abra
+async function inboxCheck() {
+  if (!me || document.hidden) return;
+  try {
+    const r = await (await fetch("/api/ef/inbox")).json();
+    (r.items || []).forEach(x => x.kind === "stop" ? efStop() : showNotice(x.header, x.text));
+  } catch (e) {}
+}
+setInterval(inboxCheck, 5000);
 function wsSend(type, data) { try { ws && ws.readyState === 1 && ws.send(JSON.stringify({MessageType: type, Data: data})); } catch (e) {} }
 function wsConnect() {
   if (!me || (ws && ws.readyState < 2)) return;

@@ -2602,6 +2602,12 @@ def make_handler(app: App):
                 return self._ef_proxy("GET")
             if u.path == "/api/ef/me":
                 return self._ef_me()
+            if u.path == "/api/ef/inbox":  # por si el canal de Jellyfin no llega: lo mismo que pregunta la Roku
+                tok, dev = efweb.token_from(self.headers.get("Cookie"))
+                user = friends.jellyfin_user(app.cfg(), tok) if tok else None
+                if not user:
+                    return self._send(401, b'{"ok": false}', "application/json")
+                return self._json(lambda q: {"ok": True, "items": jfadmin.inbox(user["id"], dev)}, None)
             if u.path in ("/pedir", "/pedir/"):
                 return self._static("pedir.html", "text/html; charset=utf-8")
             if u.path == "/api/pedir/me":
@@ -2805,16 +2811,32 @@ def make_handler(app: App):
                 up = socket.create_connection((b.hostname, b.port or (443 if tls else 80)), timeout=10)
                 if tls:
                     up = ssl.create_default_context().wrap_socket(up, server_hostname=b.hostname)
-                path = b.path.rstrip("/") + "/socket?" + "&".join(f"{k}={v}" for k, v in (("api_key", tok), ("deviceId", dev)))
+                # Jellyfin 10.11+ ya no acepta «api_key» (autorización antigua): ApiKey y la cabecera Authorization
+                path = b.path.rstrip("/") + "/socket?" + "&".join(f"{k}={v}" for k, v in (("ApiKey", tok), ("api_key", tok), ("deviceId", dev)))
+                auth_value = (f'MediaBrowser Client="Everflix Web", Device="Navegador", DeviceId="{dev}", '
+                              f'Version="1.0.0", Token="{tok}"')
                 up.sendall((f"GET {path} HTTP/1.1\r\nHost: {b.netloc}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
-                            f"Sec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n\r\n").encode())
+                            f"Sec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n"
+                            f"Authorization: {auth_value}\r\nX-Emby-Authorization: {auth_value}\r\n\r\n").encode())
+                head = b""
+                while b"\r\n\r\n" not in head and len(head) < 16384:
+                    chunk = up.recv(4096)
+                    if not chunk:
+                        break
+                    head += chunk
+                status = head.split(b"\r\n", 1)[0].decode("latin-1", "replace")
+                if " 101 " not in status + " ":
+                    log.warning("everflix web: Jellyfin no abrió el canal de mensajes (%s)", status or "sin respuesta")
+                    up.close()
+                    return self._send(502, b"", "text/plain")
                 up.settimeout(None)
             except Exception as e:
-                log.info("everflix web: sin canal de Jellyfin (%s)", e)
+                log.warning("everflix web: sin canal de Jellyfin (%s)", e)
                 return self._send(502, b"", "text/plain")
             self.close_connection = True
             client = self.connection
             client.settimeout(None)
+            client.sendall(head)  # el «101» de Jellyfin (y lo que viniera detrás) tal cual al navegador
 
             def pipe(src, dst):
                 try:

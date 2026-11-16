@@ -35,6 +35,15 @@ PIECE = 512 * 1024     # lo más que Telegram da por petición
 CONNECTIONS = 4        # conexiones propias a Telegram para un archivo (como tdl); una sola se queda en ~5 MB/s
 PER_CONNECTION = 3     # trozos pedidos a la vez por cada conexión
 _SAMPLE = re.compile(r"\bsample\b", re.I)
+_MENTION = re.compile(r"(?:(?<![\w/])@|(?:t\.me|telegram\.me|telegram\.dog)/(?:s/)?)([A-Za-z]\w{4,31})\b")
+_NOT_CHAT = {"joinchat", "addstickers", "share", "proxy", "socks", "addlist", "iv", "c", "s", "setlanguage", "boost"}
+
+
+def _mentioned(text: str) -> list[str]:
+    """Los @nombres de canal/grupo que salen en un texto (sin bots)."""
+    return [n for n in _MENTION.findall(text or "") if n.lower() not in _NOT_CHAT and not n.lower().endswith("bot")]
+
+
 _VIDEO_NAME = re.compile(r"\.(mkv|mp4|avi|m4v|mov|ts|webm)$", re.I)
 
 
@@ -220,6 +229,83 @@ class Telegram:
                 title += " › " + name
             return title
         return self._run(go())
+
+    # --- buscar canales y grupos públicos (Ajustes › Proveedores › Buscar) -------------------
+    @staticmethod
+    def _chat_info(ent, count=None) -> dict | None:
+        """{link, title, username, count, kind} de un canal o grupo (None si es un usuario o un bot)."""
+        if not hasattr(ent, "title"):
+            return None
+        user = getattr(ent, "username", None) or next((u.username for u in getattr(ent, "usernames", None) or []
+                                                       if getattr(u, "active", False)), None)
+        if not user:
+            return None
+        kind = "canal" if getattr(ent, "broadcast", False) else "grupo"
+        return {"link": "t.me/" + user, "title": ent.title, "username": user, "kind": kind,
+                "count": count if count is not None else getattr(ent, "participants_count", None)}
+
+    def search_public(self, queries: list[str], pause: float = 1.0) -> list[dict]:
+        """Lo que Telegram encuentra para cada búsqueda (con pausas, para no pasarse de su límite)."""
+        async def go():
+            from telethon.tl.functions.contacts import SearchRequest
+            out = []
+            for i, q in enumerate(queries):
+                if i:
+                    await asyncio.sleep(pause)
+                try:
+                    r = await self.client(SearchRequest(q=q, limit=50))
+                except Exception as e:
+                    log.info("Telegram: buscar «%s»: %s", q, e)
+                    continue
+                for ent in r.chats:
+                    c = self._chat_info(ent)
+                    if c:
+                        c["via"] = "telegram"
+                        out.append(c)
+            return out
+        return self._run(go(), timeout=300)
+
+    def resolve(self, names: list[str], pause: float = 0.7) -> list[dict]:
+        """Nombre y suscriptores de cada @nombre (los que no existen o son usuarios se quedan fuera)."""
+        async def go():
+            from telethon.tl.functions.channels import GetFullChannelRequest
+            out = []
+            for i, n in enumerate(names):
+                if i:
+                    await asyncio.sleep(pause)
+                try:
+                    ent = await self.client.get_entity(n)
+                    count = getattr(ent, "participants_count", None)
+                    if count is None and hasattr(ent, "broadcast"):
+                        count = (await self.client(GetFullChannelRequest(ent))).full_chat.participants_count
+                    c = self._chat_info(ent, count)
+                except Exception as e:
+                    log.info("Telegram: @%s: %s", n, e)
+                    c = None
+                out.append(c)
+            return out
+        return self._run(go(), timeout=300)
+
+    def mentions(self, links: list[str], limit: int = 300) -> list[str]:
+        """Los @nombres y enlaces t.me que aparecen en los últimos mensajes de esos canales (sus «aliados»)."""
+        async def go():
+            seen: dict[str, None] = {}
+            for link in links:
+                try:
+                    ent = await self._chat(link)
+                    mine = (getattr(ent, "username", None) or "").lower()
+                    async for m in self.client.iter_messages(ent, limit=limit):
+                        text = m.message or ""
+                        urls = [getattr(e, "url", "") or "" for e in (m.entities or [])]
+                        for b in (getattr(m, "buttons", None) or []):
+                            urls += [getattr(x, "url", "") or "" for x in b]
+                        for n in _mentioned(" ".join([text, *urls])):
+                            if n.lower() != mine:
+                                seen.setdefault(n, None)
+                except Exception as e:
+                    log.info("Telegram: aliados de %s: %s", link, e)
+            return list(seen)
+        return self._run(go(), timeout=300)
 
     @staticmethod
     def _video(m) -> dict | None:

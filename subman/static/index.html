@@ -978,6 +978,15 @@ dialog.sheet .foot{display:none}
     <label class="switch"><input type="checkbox" id="prov_phono"><span><b>Phono</b> (phono.cc, por su bot de Telegram)</span></label>
     <h3 style="margin:18px 0 6px">Canales y grupos de Telegram</h3>
     <div id="provList"></div>
+    <h3 style="margin:18px 0 6px">Buscar canales y grupos</h3>
+    <div class="row" style="gap:6px"><input type="text" id="provQ" placeholder="Qué buscas, p. ej. One Piece" autocomplete="off" style="flex:1">
+      <button class="btn sec" id="provFind">Buscar</button></div>
+    <div class="hint">Busca en Telegram con varias variantes, en los canales que mencionan los tuyos y, si pones la clave de Brave, también en la web.</div>
+    <div id="provFound"></div>
+    <details style="margin-top:8px"><summary class="muted">Buscar también en la web (Brave Search, gratis)</summary>
+      <div class="hint">Crea una clave gratis en <a href="https://api-dashboard.search.brave.com/" target="_blank" rel="noopener">api-dashboard.search.brave.com</a> (plan «Free», unas 2.000 búsquedas al mes) y pégala aquí.</div>
+      <div class="row" style="gap:6px;margin-top:6px"><input type="password" id="provBrave" placeholder="Clave de Brave Search" autocomplete="off" style="flex:1">
+        <button class="btn sec" id="provBraveSave">Guardar</button></div></details>
     <div class="two" style="margin-top:10px">
       <div><label class="f">Enlace del canal o grupo</label><input type="text" id="prov_link" placeholder="https://t.me/nombre o @nombre" autocomplete="off"></div>
       <div><label class="f">Qué bajar de él</label><select id="prov_kinds"><option value="movie,tv">Películas y series</option><option value="movie">Sólo películas</option><option value="tv">Sólo series</option></select></div>
@@ -1799,6 +1808,7 @@ const PROV_KINDS = {"movie,tv": "películas y series", movie: "películas", tv: 
 async function loadProviders() {
   let r; try { r = await api("/api/providers"); } catch (e) { return; }
   $("#prov_phono").checked = r.phono;
+  $("#provBrave").value = r.brave_key || "";
   $("#provMsg").textContent = r.telegram ? "" : "Conecta tu Telegram en Descargas para poder añadir canales.";
   $("#provList").innerHTML = r.channels.length ? r.channels.map(c => `<div class="row" style="justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--line,#8883)">
       <div><b>${esc(c.title || c.link)}</b> <span class="muted">${esc(c.link)}</span><br>
@@ -1812,6 +1822,34 @@ async function loadProviders() {
   };
   for (const el of document.querySelectorAll("[data-prov-del]")) el.onclick = () => { if (confirm("¿Quitar este canal?")) provSave({delete: +el.dataset.provDel}); };
 }
+const PROV_VIA = {telegram: "Telegram", web: "web", aliados: "lo mencionan tus canales"};
+const fmtN = n => n == null ? "" : n >= 1e6 ? (n / 1e6).toFixed(1).replace(".0", "") + " M" : n >= 1e3 ? Math.round(n / 1e3) + " mil" : String(n);
+async function provFind() {
+  const q = $("#provQ").value.trim();
+  if (q.length < 3) return toast("Escribe al menos 3 letras");
+  $("#provFind").disabled = true; $("#provFound").innerHTML = `<p class="muted">Buscando… (puede tardar medio minuto)</p>`;
+  let r; try { r = await api("/api/providers/search?q=" + encodeURIComponent(q)); } catch (e) { r = {ok: false, error: e.message}; }
+  $("#provFind").disabled = false;
+  if (r.ok === false) { $("#provFound").innerHTML = ""; return toast(r.error); }
+  const notes = (r.notes || []).map(n => `<p class="muted">${esc(n)}</p>`).join("");
+  $("#provFound").innerHTML = notes + (r.results.length ? r.results.map((c, i) => `<div class="row" style="justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--line,#8883)">
+      <div><b>${esc(c.title)}</b> <a class="muted" href="https://${esc(c.link)}" target="_blank" rel="noopener">@${esc(c.username)}</a><br>
+        <span class="muted">${c.kind}${c.count != null ? " · " + fmtN(c.count) + (c.kind === "canal" ? " suscriptores" : " miembros") : ""} · ${c.via.map(v => PROV_VIA[v] || v).join(", ")}</span></div>
+      <button class="btn sec" data-prov-pick="${i}">Añadir</button></div>`).join("")
+    : `<p class="muted">No he encontrado nada${r.web ? "" : ". Prueba a poner la clave de Brave para buscar también en la web"}.</p>`);
+  for (const el of document.querySelectorAll("[data-prov-pick]")) el.onclick = async () => {
+    const c = r.results[+el.dataset.provPick];
+    el.disabled = true; el.textContent = "Añadiendo…";
+    const ok = await provSave({channel: {link: c.link, kinds: $("#prov_kinds").value.split(","), mode: "pedido"}});
+    el.textContent = ok ? "Añadido" : "Añadir"; el.disabled = ok;
+    if (ok) toast(`«${c.title}» añadido (bajo pedido)`);
+  };
+}
+$("#provFind").onclick = provFind;
+$("#provQ").onkeydown = e => { if (e.key === "Enter") provFind(); };
+$("#provBraveSave").onclick = async () => {
+  if (await provSave({brave_key: $("#provBrave").value.trim()})) toast("Clave guardada");
+};
 async function provSave(body) {
   try { const r = await api("/api/providers", body); if (r.ok === false) { toast(r.error); return false; } } catch (e) { toast(e.message); return false; }
   loadProviders(); return true;

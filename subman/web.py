@@ -23,7 +23,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, auth, efweb, jfadmin, autoid, bot, channels, config, convert, diagnose, discover, downloads, duplicates, friends, notices, formats, gemini, identify, jellyfin, manager, notify, peek, phono, providers, series, freno, tmdb, updater, vigia
+from . import __version__, auth, efweb, jfadmin, autoid, bot, channels, chsearch, config, convert, diagnose, discover, downloads, duplicates, friends, notices, formats, gemini, identify, jellyfin, manager, notify, peek, phono, providers, series, freno, tmdb, updater, vigia
 from .library import Library
 
 log = logging.getLogger(__name__)
@@ -176,7 +176,7 @@ class App:
         cfg = self.cfg()
         pub = json.loads(json.dumps(cfg))
         for prov in [*pub.get("providers", {}).values(), pub.get("jellyfin", {}), pub.get("tmdb", {}),
-                     pub.get("gemini", {}), pub.get("telegram", {})]:
+                     pub.get("gemini", {}), pub.get("telegram", {}), pub.get("brave", {})]:
             for f in SECRET_FIELDS:
                 if f in prov:
                     prov[f] = MASK if prov.get(f) else ""
@@ -1551,7 +1551,18 @@ class App:
     def providers_state(self) -> dict:
         cfg = self.cfg()
         return {"phono": cfg["downloads"].get("phono", True),
-                "channels": channels.Channels(self.library(cfg).db).rows(), "telegram": bool(self._tg_user(cfg))}
+                "channels": channels.Channels(self.library(cfg).db).rows(), "telegram": bool(self._tg_user(cfg)),
+                "brave_key": MASK if cfg.get("brave", {}).get("api_key") else ""}
+
+    def providers_search(self, q: str) -> dict:
+        """Canales y grupos públicos para «q»: Telegram con variantes, los aliados de los tuyos y la web."""
+        cfg = self.cfg()
+        tg = self._telegram(cfg)
+        if not tg or not self._tg_user(cfg):
+            raise ValueError("conecta primero tu Telegram (más arriba, en Descargas)")
+        mine = [c["link"] for c in channels.Channels(self.library(cfg).db).rows()]
+        key = (cfg.get("brave", {}).get("api_key") or "").strip()
+        return {"ok": True, **chsearch.Finder(tg, key).search(q, mine)}
 
     def providers_save(self, b: dict) -> dict:
         cfg = self.cfg()
@@ -1560,6 +1571,11 @@ class App:
             with self.lock:
                 cfg = self.cfg()
                 cfg["downloads"]["phono"] = bool(b["phono"])
+                config.save(self.config_path, cfg)
+        if "brave_key" in b and b["brave_key"] != MASK:
+            with self.lock:
+                cfg = self.cfg()
+                cfg.setdefault("brave", {})["api_key"] = (b["brave_key"] or "").strip()
                 config.save(self.config_path, cfg)
         if b.get("delete"):
             chs.delete(int(b["delete"]))
@@ -2397,6 +2413,7 @@ def make_handler(app: App):
         "/api/discover/deck": lambda q: app._dsc(lambda d: {"items": d.deck()}),
         "/api/downloads": lambda q: app.downloads_state(),
         "/api/providers": lambda q: app.providers_state(),
+        "/api/providers/search": lambda q: app.providers_search(q.get("q", [""])[0]),
         "/api/discover/platforms": lambda q: app._dsc(lambda d: {"platforms": d.platforms_summary()}),
         "/api/discover/platform": lambda q: app._dsc(lambda d: {"items": d.platform(q.get("p", [""])[0], q.get("kind", ["movie"])[0],
                                                                                    q.get("new", ["1"])[0] == "1", int(q.get("page", ["1"])[0]))}),

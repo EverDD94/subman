@@ -521,6 +521,9 @@ dialog.sheet .foot{display:none}
 .person.pick{cursor:pointer;border:2px solid var(--line);border-radius:12px;padding:6px;transition:border-color .16s}
 .person img,.person .noimg{width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:10px;background:var(--chip);margin-bottom:4px}
 .person span{color:var(--muted)}
+.sagait .havebtn{margin-top:6px;width:100%;justify-content:center;font-size:12px;padding:6px 8px}
+.sagait .sagahave{display:flex;gap:4px;align-items:center;margin-top:6px;font-size:12px;color:var(--muted)}
+.sagait .sagahave svg{width:14px;height:14px}
 
 /* una tarjeta cada vez: Estrenos, Mis gustos y famosos */
 .stage{position:relative;border-radius:32px;overflow:hidden;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow)}
@@ -3366,7 +3369,7 @@ function bbShow(i) {
 }
 function dscWallShown() { dsc.wallShown = dsc.section; }
 function dscGo(section) { dsc.section = section; loadDiscover(); }
-function dscFind(k) { return dsc.items.find(x => x.kind + x.tmdb === k) || deck.items.find(x => x.kind + x.tmdb === k) || est.items.find(x => x.kind + x.tmdb === k) || (dsc.open && dsc.open.kind + dsc.open.tmdb === k ? dsc.open : null); }
+function dscFind(k) { return dsc.items.find(x => x.kind + x.tmdb === k) || deck.items.find(x => x.kind + x.tmdb === k) || est.items.find(x => x.kind + x.tmdb === k) || (dsc.open && dsc.open.kind + dsc.open.tmdb === k ? dsc.open : null) || (dsc.open && dsc.open.saga ? dsc.open.saga.items.find(x => x.kind + x.tmdb === k) : null); }
 function rateButtons(c, k, labels = true) {
   const r = (v, icon, tip) => `<button title="${tip}" aria-label="${tip}" aria-pressed="${c.rating === v}" class="${c.rating === v ? "on" : ""} ${v < 0 ? "down" : ""}" onclick="dscRate('${k}',${v})">${ico(icon)}${labels ? `<span>${tip}</span>` : ""}</button>`;
   return `<div class="rate">${r(2, "heart", "Me encanta")}${r(1, "up", "Me gusta")}${r(-1, "down", "No me gusta")}</div>`;
@@ -3522,6 +3525,9 @@ function renderDetail(partial) {
   const meta = [kindLabel(c), c.year, (c.genres || []).slice(0, 3).join(", ")].filter(Boolean).map(x => `<span>${esc(x)}</span>`).join("")
     + (c.vote ? `<span class="star">${ico("star", "fill")}${c.vote}</span>` : "");
   const cast = (c.cast || []).map(p => `<div class="person">${p.photo ? `<img loading="lazy" src="${esc(p.photo)}" alt="">` : `<div class="noimg"></div>`}<b>${esc(p.name)}</b><span>${esc(p.character)}</span></div>`).join("");
+  const saga = c.saga && c.saga.items.length ? c.saga.items.map(p => { const pk = p.kind + p.tmdb;
+    return `<div class="person sagait"><a href="#" onclick="event.preventDefault();dscOpen('${pk}')">${poster(p)}</a><b>${esc(p.title)}</b><span>${p.year || ""}</span>
+      ${p.have ? `<span class="sagahave">${ico("check")}Ya la tienes</span>` : dlButton(pk)}</div>`; }).join("") : "";
   const hero = c.backdrop || c.poster;
   $("#dlgBody").innerHTML = `<div class="hero">${hero ? `<img src="${esc(hero)}" alt="">` : ""}</div>
     <div class="dbody">
@@ -3535,6 +3541,7 @@ function renderDetail(partial) {
         ${c.trailer ? `<a class="trailer" href="${esc(c.trailer)}" target="_blank" rel="noopener">${ico("play", "fill")}Ver el tráiler</a>` : ""}
         <div class="dacts">${rateButtons(c, k)}${c.have && c.kind !== "tv" ? (FRIEND ? "" : swapButton(k)) : dlButton(k)}${followBtn(c)}</div>
       </div></div>
+    ${saga ? `<div class="castwrap"><h3>Otras partes de la saga${c.saga.name ? ` <span class="muted">· ${esc(c.saga.name)}</span>` : ""}</h3><div class="cast">${saga}</div></div>` : ""}
     ${cast ? `<div class="castwrap"><h3>Reparto</h3><div class="cast">${cast}</div></div>` : partial ? `<p class="empty">Cargando la ficha…</p>` : ""}`;
 }
 

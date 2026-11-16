@@ -764,7 +764,17 @@ class Discover:
         c["trailer"] = f"https://www.youtube.com/watch?v={vids[0]['key']}" if vids else ""
         if d.get("backdrop_path"):  # más grande para la ficha a pantalla completa
             c["backdrop"] = "https://image.tmdb.org/t/p/w1280" + d["backdrop_path"]
-        return self._decorate([c], self.owned_index(), self.marks())[0]
+        owned, marks = self.owned_index(), self.marks()
+        col = d.get("belongs_to_collection") if kind == "movie" else None
+        if col and col.get("id"):  # las demás partes de la saga (Mi pobre angelito 1, 3...)
+            try:
+                parts = self.api._get(f"/collection/{col['id']}").get("parts") or []
+                parts = sorted((p for p in parts if p.get("id") != tid), key=lambda p: p.get("release_date") or "9999")
+                c["saga"] = {"name": col.get("name", ""),
+                             "items": self._decorate([card("movie", p, self.genres()) for p in parts], owned, marks)}
+            except Exception:
+                pass
+        return self._decorate([c], owned, marks)[0]
 
     def releases(self, kind: str, page: int = 1) -> list[dict]:
         """Estrenos de los últimos 12 meses (películas o series nuevas) que todavía no has contestado."""

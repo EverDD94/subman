@@ -48,9 +48,13 @@ def norm_link(text: str) -> str:
     t = (text or "").strip()
     if re.fullmatch(r"@[A-Za-z]\w{3,}", t):
         return "t.me/" + t[1:]
+    m = re.fullmatch(r"(?:https?://)?(?:t\.me|telegram\.me|telegram\.dog)/c/(\d{5,})(?:/(\d+))?(?:/\d+)?/?", t) \
+        or re.fullmatch(r"-?(?:100)?(\d{5,})()", t)
+    if m:  # grupo/canal privado al que ya perteneces: t.me/c/ID[/tema] o su ID numérico
+        return "t.me/c/" + m.group(1) + ("/" + m.group(2) if m.group(2) else "")
     m = _LINK.match(t)
     if not m:
-        raise ValueError("pega el enlace del canal o grupo (t.me/…) o su @nombre")
+        raise ValueError("pega el enlace del canal o grupo (t.me/…, t.me/c/… de un mensaje) o su @nombre")
     return "t.me/" + m.group(1)
 
 

@@ -382,6 +382,25 @@ body:has(#descubrir.peekon:not([hidden])) > header{background:color-mix(in srgb,
 #dscGlow i.on{opacity:1}
 #dscGlow::after{content:"";position:absolute;inset:0;
   background:linear-gradient(90deg,color-mix(in srgb,var(--bg) 62%,transparent),color-mix(in srgb,var(--bg) 38%,transparent) 55%,color-mix(in srgb,var(--bg) 12%,transparent))}
+.jf-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 18px}
+.jf-tabs button{border:0;border-radius:999px;padding:9px 16px;font:600 14px var(--sans,inherit);background:var(--chip);color:var(--text);cursor:pointer}
+.jf-tabs button.on{background:var(--accent);color:var(--accent-ink)}
+.jf-tabs button b{margin-left:6px;opacity:.75}
+.jf-list{display:flex;flex-direction:column;gap:10px}
+.jf-item{display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:14px 16px;border-radius:18px;background:var(--card-2)}
+.jf-item .jf-main{flex:1;min-width:200px}
+.jf-item .jf-main b{font-size:16px}
+.jf-item .jf-sub{color:var(--muted);font-size:13px;margin-top:3px;overflow-wrap:anywhere}
+.jf-item .jf-acts{display:flex;gap:8px;flex-wrap:wrap}
+.jf-bar{height:6px;border-radius:9px;background:var(--line);margin-top:8px;overflow:hidden}
+.jf-bar i{display:block;height:100%;background:var(--accent)}
+.jf-stats{display:flex;gap:10px;flex-wrap:wrap}
+.jf-stats div{background:var(--card-2);border-radius:18px;padding:12px 18px}
+.jf-stats b{display:block;font:800 26px/1.1 var(--display)}
+.jf-stats span{color:var(--muted);font-size:13px}
+.jf-err{color:var(--bad)}
+.jf-folders{display:flex;flex-direction:column;gap:8px;margin:10px 0}
+.jf-folders label{display:flex;gap:10px;align-items:center}
 @media (prefers-reduced-motion:reduce){#dscGlow i{transition:none}}
 /* Estrenos: dos puertas enormes, películas y series */
 .esthelp{margin:-6px 0 18px;font-size:17px;max-width:60ch}
@@ -736,6 +755,7 @@ dialog.sheet .foot{display:none}
     <button data-tab="nombres" data-ico="tag">Nombres</button>
     <button data-tab="duplicados" data-ico="copy">Duplicados</button>
     <button data-tab="formatos" data-ico="film">Formatos</button>
+    <button data-tab="jellyfin" data-ico="server">Jellyfin</button>
     <button data-tab="registro" data-ico="list">Registro</button>
     <button data-tab="ajustes" data-ico="sliders" class="pri">Ajustes</button>
     <button data-tab="papelera" data-ico="trash" class="end" title="Papelera">Papelera</button>
@@ -1047,6 +1067,25 @@ dialog.sheet .foot{display:none}
   <div class="row" style="justify-content:center;margin-top:28px"><button class="btn sec" id="dscMore" hidden>Ver más</button></div>
   <aside class="peek" id="dscPeek" aria-live="polite"></aside>
 </section>
+<section id="jellyfin" hidden>
+  <div class="ph"><h2 class="mg-h">Jellyfin</h2><p class="ph-sub" id="jfSub">Lo principal del panel de control, sin salir de aquí.</p></div>
+  <div class="row" style="gap:8px;margin-bottom:14px;flex-wrap:wrap">
+    <button class="btn" id="jfScanAll">Escanear todas las bibliotecas</button>
+    <a class="btn line" id="jfOpen" target="_blank" rel="noopener" href="#">Abrir el panel completo</a>
+    <button class="btn sec" id="jfRestart" hidden>Reiniciar Jellyfin</button>
+  </div>
+  <div class="jf-stats" id="jfStats"></div>
+  <div class="jf-tabs" id="jfTabs">
+    <button data-j="ahora" class="on">Viendo ahora</button>
+    <button data-j="bibliotecas">Bibliotecas</button>
+    <button data-j="tareas">Tareas</button>
+    <button data-j="usuarios">Usuarios</button>
+    <button data-j="dispositivos">Dispositivos</button>
+    <button data-j="actividad">Actividad</button>
+  </div>
+  <div class="card" id="jfBody"><p class="muted">Cargando…</p></div>
+</section>
+
 <section id="registro" hidden>
   <div class="ph"><h2 class="mg-h">Registro</h2><p class="ph-sub">Lo que va haciendo, línea a línea.</p></div>
   <div class="card">
@@ -1281,6 +1320,7 @@ const ICO = {
   gift: '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7M7.5 8a2.5 2.5 0 0 1 0-5C10 3 12 8 12 8s2-5 4.5-5a2.5 2.5 0 0 1 0 5"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
   moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
+  server: '<rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 6.5h.01M7 17.5h.01"/>',
   folder: '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9l-.8-1.2A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/>',
 };
 function ico(name, cls = "") { return `<svg class="i ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICO[name] || ""}</svg>`; }
@@ -1300,7 +1340,7 @@ function show(name) {
   document.querySelectorAll("#tabs button[data-tab], #moreSheet button").forEach(b => b.classList.toggle("on", b.dataset.tab === name));
   $("#moreBtn").classList.toggle("on", !!sheet.querySelector(`[data-tab="${name}"]`));
   window.scrollTo({top: 0});
-  ({inicio:loadStatus, biblioteca:loadLibrary, ajustes:loadConfig, registro:loadLog, papelera:loadTrash, duplicados:loadDupes, formatos:loadFormats, nombres:loadNames, descubrir:loadDiscover})[name]();
+  ({inicio:loadStatus, biblioteca:loadLibrary, ajustes:loadConfig, registro:loadLog, papelera:loadTrash, duplicados:loadDupes, formatos:loadFormats, nombres:loadNames, jellyfin:loadJf, descubrir:loadDiscover})[name]();
 }
 document.querySelectorAll("#tabs button[data-tab]").forEach(b => b.onclick = () => show(b.dataset.tab));
 
@@ -2129,6 +2169,135 @@ async function loadTrash() {
     const x = await api("/api/restore", {path: b.dataset.p});
     toast(x.ok ? "Recuperado en " + x.dest : x.error); loadTrash();
   });
+}
+
+// ---------- Jellyfin (lo principal de su panel de control) ----------
+let jf = null, jfTab = "ahora", jfTimer = 0;
+const jfDate = d => d ? new Date(d).toLocaleString("es", {day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"}) : "nunca";
+const JF_TYPE = {movies: "Películas", tvshows: "Series", music: "Música", homevideos: "Videos caseros", boxsets: "Colecciones", mixta: "Mixta"};
+async function loadJf() {
+  try { jf = await api("/api/jf"); }
+  catch (e) { $("#jfBody").innerHTML = `<p class="jf-err">${esc(e.message)}</p><button class="btn sec" onclick="show('ajustes')">Ir a Ajustes</button>`; return; }
+  const sv = jf.server || {};
+  $("#jfSub").textContent = sv.name ? `${sv.name} · versión ${sv.version}${sv.update ? " · hay versión nueva" : ""}` : "Lo principal del panel de control, sin salir de aquí.";
+  $("#jfOpen").href = (sv.url || "") + "/web/#/dashboard";
+  $("#jfRestart").hidden = !sv.restart;
+  const c = jf.counts || {}, playing = (jf.sessions || []).filter(x => x.playing).length;
+  $("#jfStats").innerHTML = [[playing, "viendo ahora"], [c.movies, "películas"], [c.series, "series"], [c.episodes, "capítulos"], [(jf.users || []).length, "usuarios"]]
+    .map(([n, t]) => `<div><b>${n ?? "—"}</b><span>${t}</span></div>`).join("");
+  jfPaint();
+  jfTick();
+}
+function jfTick() {  // mientras estás en la pestaña: lo que se está viendo y el avance de escaneos y tareas
+  clearTimeout(jfTimer);
+  jfTimer = setTimeout(async () => {
+    if (tab !== "jellyfin" || document.hidden) return jfTick();
+    try { const l = await api("/api/jf/live"); Object.assign(jf, l); if (["ahora", "bibliotecas", "tareas"].includes(jfTab)) jfPaint(); } catch (e) {}
+    jfTick();
+  }, 5000);
+}
+document.querySelectorAll("#jfTabs button").forEach(b => b.onclick = () => { jfTab = b.dataset.j; jfPaint(); });
+function jfErr(key) { return jf.errors && jf.errors[key] ? `<p class="jf-err">${esc(jf.errors[key])}</p>` : ""; }
+function jfPaint() {
+  document.querySelectorAll("#jfTabs button").forEach(b => b.classList.toggle("on", b.dataset.j === jfTab));
+  const body = $("#jfBody"), f = {ahora: jfNow, bibliotecas: jfLibs, tareas: jfTasks, usuarios: jfUsers, dispositivos: jfDevices, actividad: jfActivity}[jfTab];
+  const html = f();
+  if (body._html !== html) { body.innerHTML = html; body._html = html; }
+}
+function jfNow() {
+  const ss = jf.sessions || [], on = ss.filter(s => s.playing), idle = ss.filter(s => !s.playing);
+  const row = s => `<div class="jf-item"><div class="jf-main"><b>${esc(s.user || "¿?")}</b> · ${esc(s.device)} <span class="muted">(${esc(s.client)})</span>
+      ${s.playing ? `<div class="jf-sub">${s.paused ? "En pausa: " : "Viendo: "}<b>${esc(s.playing)}</b>${s.method === "Transcode" ? " · convirtiendo" : ""}</div>
+      ${s.progress != null ? `<div class="jf-bar"><i style="width:${(s.progress * 100).toFixed(1)}%"></i></div>` : ""}`
+      : `<div class="jf-sub">Última vez: ${jfDate(s.last)}</div>`}</div>
+    <div class="jf-acts"><button class="btn sec" onclick="jfMsg('${s.id}')">Mandar mensaje</button>${s.playing ? `<button class="btn sec" onclick="jfStop('${s.id}')">Parar</button>` : ""}</div></div>`;
+  return jfErr("sessions") + (on.length ? `<h2>Viendo ahora</h2><div class="jf-list">${on.map(row).join("")}</div>` : `<p class="muted">Nadie está viendo nada ahora mismo.</p>`)
+    + (idle.length ? `<h2 style="margin-top:20px">Conectados</h2><div class="jf-list">${idle.map(row).join("")}</div>` : "");
+}
+function jfLibs() {
+  return jfErr("libraries") + `<div class="jf-list">${(jf.libraries || []).map(l => `<div class="jf-item"><div class="jf-main"><b>${esc(l.name)}</b> <span class="muted">· ${esc(JF_TYPE[l.type] || l.type)}</span>
+      <div class="jf-sub">${l.paths.map(esc).join("<br>")}</div>
+      ${l.progress != null && l.status !== "Idle" ? `<div class="jf-sub">Escaneando… ${Math.round(l.progress)} %</div><div class="jf-bar"><i style="width:${l.progress}%"></i></div>` : ""}</div>
+    <div class="jf-acts"><button class="btn" onclick="jfScan('${l.id}')">Escanear</button><button class="btn sec" onclick="jfScan('${l.id}', true)">Rehacer datos</button></div></div>`).join("")}</div>
+    <p class="muted" style="margin-bottom:0">«Escanear» busca lo nuevo. «Rehacer datos» vuelve a bajar carátulas y descripciones de todo (tarda más).</p>`;
+}
+function jfTasks() {
+  const cats = {};
+  (jf.tasks || []).forEach(t => (cats[t.category] = cats[t.category] || []).push(t));
+  const st = {Completed: "bien", Failed: "falló", Cancelled: "cancelada", Aborted: "cortada"};
+  return jfErr("tasks") + Object.entries(cats).map(([c, ts]) => `<h2>${esc(c)}</h2><div class="jf-list">${ts.map(t => {
+    const run = t.state === "Running";
+    return `<div class="jf-item"><div class="jf-main"><b>${esc(t.name)}</b><div class="jf-sub">${esc(t.about)}</div>
+      ${run ? `<div class="jf-sub">En marcha… ${Math.round(t.progress || 0)} %</div><div class="jf-bar"><i style="width:${t.progress || 0}%"></i></div>`
+        : `<div class="jf-sub">Última vez: ${jfDate(t.last_end)}${t.last_status ? ` · <span class="${t.last_status === "Failed" ? "jf-err" : ""}">${st[t.last_status] || esc(t.last_status)}</span>` : ""}</div>`}
+      ${t.last_error && !run ? `<div class="jf-sub jf-err">${esc(t.last_error)}</div>` : ""}</div>
+      <div class="jf-acts">${run ? `<button class="btn sec" onclick="jfTask('${t.id}', true)">Parar</button>` : `<button class="btn sec" onclick="jfTask('${t.id}')">Ejecutar</button>`}</div></div>`; }).join("")}</div>`).join("");
+}
+function jfFolderName(id) { const l = (jf.libraries || []).find(x => x.id === id); return l ? l.name : null; }
+function jfUsers() {
+  return jfErr("users") + `<div class="row" style="justify-content:flex-end;margin-bottom:12px"><button class="btn" onclick="jfUserForm()">Nuevo usuario</button></div>
+    <div class="jf-list">${(jf.users || []).map(u => `<div class="jf-item"><div class="jf-main"><b>${esc(u.name)}</b>
+      ${u.admin ? ` <span class="pill ok">administrador</span>` : ""}${u.disabled ? ` <span class="pill error">bloqueado</span>` : ""}${u.has_password ? "" : ` <span class="pill revisar">sin contraseña</span>`}
+      <div class="jf-sub">Ve: ${u.all ? "todas las bibliotecas" : (u.folders.map(jfFolderName).filter(Boolean).map(esc).join(", ") || "ninguna")} · Última vez: ${jfDate(u.last)}</div></div>
+    <div class="jf-acts"><button class="btn sec" onclick="jfUserForm('${u.id}')">Cambiar</button><button class="btn sec" onclick="jfUserDel('${u.id}')">Borrar</button></div></div>`).join("")}</div>`;
+}
+function jfDevices() {
+  return jfErr("devices") + `<p class="muted" style="margin-top:0">Cada tele, móvil o navegador que ha entrado. Quitar uno cierra su sesión: tendrá que volver a entrar.</p>
+    <div class="jf-list">${(jf.devices || []).slice().sort((a, b) => (b.last || "").localeCompare(a.last || "")).map(d => `<div class="jf-item"><div class="jf-main"><b>${esc(d.name)}</b>
+      <div class="jf-sub">${esc(d.app)} · ${esc(d.user)} · ${jfDate(d.last)}</div></div>
+      <div class="jf-acts"><button class="btn sec" onclick="jfDevDel('${esc(d.id)}')">Quitar</button></div></div>`).join("")}</div>`;
+}
+function jfActivity() {
+  return jfErr("activity") + `<div class="jf-list">${(jf.activity || []).map(a => `<div class="jf-item"><div class="jf-main">
+    <b class="${a.level === "Error" ? "jf-err" : ""}">${esc(a.name)}</b><div class="jf-sub">${jfDate(a.date)}${a.more ? " · " + esc(a.more) : ""}</div></div></div>`).join("")}</div>`;
+}
+async function jfDo(path, body, ok) { try { await api(path, body); toast(ok); } catch (e) { toast(e.message); } loadJf(); }
+function jfScan(id, full) { jfDo("/api/jf/scan", {id, full: !!full}, full ? "Rehaciendo los datos…" : "Escaneando…"); }
+$("#jfScanAll").onclick = () => jfDo("/api/jf/scan", {}, "Escaneando todas las bibliotecas…");
+$("#jfRestart").onclick = async () => { if (await askOk("¿Reiniciar Jellyfin? Quien esté viendo algo se cortará un momento.", "Reiniciar")) jfDo("/api/jf/restart", {}, "Reiniciando Jellyfin…"); };
+function jfTask(id, stop) { jfDo("/api/jf/task", {id, stop: !!stop}, stop ? "Parada" : "En marcha"); }
+async function jfStop(id) { if (await askOk("¿Parar lo que está viendo?", "Parar")) jfDo("/api/jf/session/stop", {id}, "Parado"); }
+function jfMsg(id) {
+  $("#dlgBody").innerHTML = `<h2>Mandar un mensaje</h2><p class="muted">Sale en su pantalla unos segundos.</p>
+    <textarea id="jfMsgT" rows="3" style="width:100%"></textarea><div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn" id="jfMsgGo">Mandar</button></div>`;
+  dlg.showModal(); $("#jfMsgT").focus();
+  $("#jfMsgGo").onclick = () => { const text = $("#jfMsgT").value.trim(); if (!text) return; dlg.close(); jfDo("/api/jf/session/message", {id, text}, "Mandado"); };
+}
+async function jfDevDel(id) { if (await askOk("¿Quitar este dispositivo? Tendrá que volver a entrar.", "Quitar")) jfDo("/api/jf/device/delete", {id}, "Quitado"); }
+async function jfUserDel(id) {
+  const u = jf.users.find(x => x.id === id);
+  if (await askOk(`¿Borrar el usuario ${u.name}? Se pierde lo que ha visto y sus favoritos.`, "Borrar")) jfDo("/api/jf/user/delete", {id}, "Borrado");
+}
+function jfUserForm(id) {
+  const u = id ? jf.users.find(x => x.id === id) : {name: "", all: true, folders: [], admin: false, disabled: false};
+  const libs = jf.libraries || [];
+  $("#dlgBody").innerHTML = `<h2>${id ? esc(u.name) : "Nuevo usuario"}</h2>
+    ${id ? "" : `<label>Nombre<input type="text" id="jfuName" style="width:100%"></label>`}
+    <label style="display:block;margin-top:10px">${id ? "Contraseña nueva (vacía = sin cambiar)" : "Contraseña"}<input type="text" id="jfuPw" autocomplete="off" style="width:100%"></label>
+    ${id ? `<label style="display:flex;gap:8px;margin-top:6px"><input type="checkbox" id="jfuNoPw"> Quitarle la contraseña</label>` : ""}
+    <h3 style="margin:16px 0 4px">Qué bibliotecas ve</h3>
+    <div class="jf-folders"><label><input type="checkbox" id="jfuAll"${u.all ? " checked" : ""}> Todas</label>
+      ${libs.map(l => `<label><input type="checkbox" class="jfuF" value="${esc(l.id)}"${u.all || u.folders.includes(l.id) ? " checked" : ""}> ${esc(l.name)}</label>`).join("")}</div>
+    <label style="display:flex;gap:8px"><input type="checkbox" id="jfuAdmin"${u.admin ? " checked" : ""}> Administrador (puede cambiar todo Jellyfin)</label>
+    ${id ? `<label style="display:flex;gap:8px;margin-top:6px"><input type="checkbox" id="jfuOff"${u.disabled ? " checked" : ""}> Bloqueado (no puede entrar)</label>` : ""}
+    <div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn" id="jfuGo">${id ? "Guardar" : "Crear"}</button></div>`;
+  dlg.showModal();
+  const sync = () => document.querySelectorAll(".jfuF").forEach(c => { c.disabled = $("#jfuAll").checked; if (c.disabled) c.checked = true; });
+  $("#jfuAll").onchange = sync; sync();
+  $("#jfuGo").onclick = async () => {
+    const folders = $("#jfuAll").checked ? ["*"] : [...document.querySelectorAll(".jfuF:checked")].map(c => c.value);
+    const pw = $("#jfuPw").value, admin = $("#jfuAdmin").checked;
+    try {
+      if (!id) {
+        const name = $("#jfuName").value.trim(); if (!name) return toast("Falta el nombre");
+        await api("/api/jf/user/new", {name, password: pw, folders, admin});
+      } else {
+        await api("/api/jf/user/policy", {id, folders, admin, disabled: $("#jfuOff").checked});
+        if (pw || $("#jfuNoPw").checked) await api("/api/jf/user/password", {id, password: $("#jfuNoPw").checked ? "" : pw});
+      }
+      dlg.close(); toast(id ? "Guardado" : "Creado"); loadJf();
+    } catch (e) { toast(e.message); }
+  };
 }
 
 // ---------- Nombres ----------

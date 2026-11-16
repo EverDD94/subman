@@ -23,7 +23,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, auth, autoid, bot, channels, config, convert, diagnose, discover, downloads, duplicates, friends, notices, formats, gemini, identify, jellyfin, manager, notify, peek, phono, providers, series, freno, tmdb, updater, vigia
+from . import __version__, auth, jfadmin, autoid, bot, channels, config, convert, diagnose, discover, downloads, duplicates, friends, notices, formats, gemini, identify, jellyfin, manager, notify, peek, phono, providers, series, freno, tmdb, updater, vigia
 from .library import Library
 
 log = logging.getLogger(__name__)
@@ -2402,6 +2402,10 @@ def make_handler(app: App):
                                                                                    q.get("new", ["1"])[0] == "1", int(q.get("page", ["1"])[0]))}),
         "/api/discover/releases/summary": lambda q: app._dsc(lambda d: {"summary": d.releases_summary()}),
         "/api/avisos": lambda q: app.notices_admin(),
+        "/api/jf": lambda q: jfadmin.state(app.cfg()),
+        "/api/jf/live": lambda q: {"sessions": jfadmin.Jellyfin(app.cfg()).sessions(),
+                                   "tasks": jfadmin.Jellyfin(app.cfg()).tasks(),
+                                   "libraries": jfadmin.Jellyfin(app.cfg()).libraries()[0]},
         "/api/requests": lambda q: app._dsc(lambda d: {"items": friends.Friends(d).all()}),
         "/api/discover/releases": lambda q: app._dsc(lambda d: {"items": d.releases(q.get("kind", ["movie"])[0], int(q.get("page", ["1"])[0]))}),
     }
@@ -2410,6 +2414,17 @@ def make_handler(app: App):
         "/api/test-opensubtitles": lambda b: app.test_opensubtitles(b),
         "/api/test-subdivx": lambda b: app.test_subdivx(b),
         "/api/test-jellyfin": lambda b: app.test_jellyfin(b),
+        "/api/jf/scan": lambda b: jfadmin.Jellyfin(app.cfg()).scan(b.get("id"), bool(b.get("full"))),
+        "/api/jf/task": lambda b: jfadmin.Jellyfin(app.cfg()).task_run(b["id"], bool(b.get("stop"))),
+        "/api/jf/restart": lambda b: jfadmin.Jellyfin(app.cfg()).restart(),
+        "/api/jf/user/new": lambda b: jfadmin.Jellyfin(app.cfg()).user_new(b.get("name", ""), b.get("password", ""),
+                                                                           b.get("folders"), bool(b.get("admin"))),
+        "/api/jf/user/policy": lambda b: jfadmin.Jellyfin(app.cfg()).user_policy(b["id"], b.get("folders"), b.get("admin"), b.get("disabled")),
+        "/api/jf/user/password": lambda b: jfadmin.Jellyfin(app.cfg()).user_password(b["id"], b.get("password", "")),
+        "/api/jf/user/delete": lambda b: jfadmin.Jellyfin(app.cfg()).user_delete(b["id"]),
+        "/api/jf/session/stop": lambda b: jfadmin.Jellyfin(app.cfg()).session_stop(b["id"]),
+        "/api/jf/session/message": lambda b: jfadmin.Jellyfin(app.cfg()).session_message(b["id"], b.get("text", "")),
+        "/api/jf/device/delete": lambda b: jfadmin.Jellyfin(app.cfg()).device_delete(b["id"]),
         "/api/run": lambda b: (app.wake.set(), {"ok": True})[1],
         "/api/retry": lambda b: app.retry(int(b["id"])),
         "/api/accept": lambda b: app.accept(int(b["id"]), b["lang"]),

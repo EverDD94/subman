@@ -305,6 +305,10 @@ def _reorder(db: TMDb, g: dict, show: dict) -> None:
         if main:
             tries = [(c, o) for o in range(0, 6) if (c := _cost(main, tm_main, o)) is not None]
             off = min(tries, key=lambda t: (t[0], t[1]))[1] if tries else None
+            # sin desfase salvo que la duración lo pida claramente (un capítulo de más no se adivina por poco)
+            zero = next((c for c, o in tries if o == 0), None)
+            if off and zero is not None and zero - min(c for c, _ in tries) < 0.15:
+                off = 0
             for f in main:
                 assign[f["key"]] = tm_main[f["n"] - 1 + off] if off is not None else None
         for k, items in units.items():

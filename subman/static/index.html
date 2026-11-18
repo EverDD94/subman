@@ -901,7 +901,7 @@ dialog.sheet .foot{display:none}
 
   <div class="card">
     <h2>Nombres y duplicados solos</h2>
-    <div class="hint" style="margin-top:0">Hace lo mismo que los botones «Identificar todo», «Revisar series» y «Buscar duplicados», sin que tengas que pulsarlos.
+    <div class="hint" style="margin-top:0">Hace lo mismo que los botones «Identificar todo», «Revisar» (series) y «Buscar duplicados», sin que tengas que pulsarlos.
       Sólo aplica lo que está claro: las películas y los capítulos dudosos te quedan en <i>Nombres</i> para revisar, y los duplicados dudosos (las copias no duran lo mismo) en <i>Duplicados</i>.
       Nada se borra: los duplicados se apartan a su carpeta con el botón Devolver y los nombres se pueden deshacer. Lo que deshagas o devuelvas a mano no lo vuelve a tocar solo.</div>
     <div class="row" style="margin-top:12px;gap:18px">
@@ -1149,9 +1149,9 @@ dialog.sheet .foot{display:none}
   </div>
   <div id="nmSeries">
     <div class="card" id="srCard">
-    <div class="row" style="justify-content:space-between"><h2 style="margin:0">Series</h2>
+    <div class="row" style="justify-content:space-between"><h2 style="margin:0" id="srTitle">Series</h2>
       <div class="row"><button class="btn sec" id="srAll" hidden>Renombrar todo lo marcado</button>
-        <button class="btn" id="srScan">Revisar series</button></div></div>
+        <button class="btn" id="srScan">Revisar</button></div></div>
     <p class="muted">Cada capítulo queda como lo entiende mejor Jellyfin:
       <span class="path">2 Broke Girls (2011) [tmdbid-39340]/Season 01/2 Broke Girls - S01E01 - Piloto.mkv</span>.
       La temporada y el capítulo salen del nombre del archivo (S01E01, 1x01, Capitulo 5, Cap 105...) o de la carpeta de la temporada;
@@ -2709,16 +2709,23 @@ function nmKind() {  // sin botón: según lo que haya en las carpetas elegidas 
 }
 
 let sr = null, srShown = null;
+// el rótulo sale de la carpeta elegida («Realitys», «Series»...), no se da por hecho que es una serie
+function srTitle() {
+  const sc = (nm && nm.scope) || (sr && sr.scope) || [], name = r => r.split("/").filter(Boolean).pop() || r;
+  const t = sc.length === 1 ? name(sc[0]) : "Series";
+  $("#srTitle").textContent = t.charAt(0).toUpperCase() + t.slice(1);
+}
 const srClosed = new Set();  // series plegadas (por su clave), se mantienen al volver a pintar
 async function loadSeries() {
   sr = await api("/api/series");
+  srTitle();
   $("#srScan").disabled = sr.running || !sr.tmdb;
   const res = sr.result, n = res ? res.series.reduce((a, g) => a + g.episodes.length, 0) : 0;
   $("#srState").innerHTML = !sr.tmdb ? `<span class="pill revisar">falta la clave</span> Necesita la clave de TheMovieDB guardada en Ajustes.`
     : sr.running ? `<b>${esc(sr.message || "revisando...")}</b>${stepBar(sr.message)}`
     : sr.error ? `<span class="pill falla">error</span> ${esc(sr.error)}`
-    : res ? `<span class="muted">Revisado ${when(sr.at)}.</span> ${sr.auto && sr.auto.at === sr.at ? `<span class="pill ok">automático</span> Renombrados solos: <b>${sr.auto.applied}</b>. ` : ""}${n ? `Por renombrar: <b>${n}</b> capítulos de <b>${res.series.length}</b> series.` : "Todos los capítulos tienen ya su nombre."}`
-    : `<span class="muted">Pulsa «Revisar series».</span>`;
+    : res ? `<span class="muted">Revisado ${when(sr.at)}.</span> ${sr.auto && sr.auto.at === sr.at ? `<span class="pill ok">automático</span> Renombrados solos: <b>${sr.auto.applied}</b>. ` : ""}${n ? `Por renombrar: <b>${n}</b> capítulos de <b>${res.series.length}</b> ${res.series.length === 1 ? "título" : "títulos"}.` : "Todos los capítulos tienen ya su nombre."}`
+    : `<span class="muted">Pulsa «Revisar».</span>`;
   if (sr.at !== srShown || !sr.running) renderSeries();
   srShown = sr.at;
   $("#srAll").hidden = sr.running || !n;
@@ -2750,12 +2757,12 @@ function srGroup(g, gi) {
   const closed = srClosed.has(g.key);
   return `<div class="card" data-g="${gi}">
     <div class="row" data-sh style="gap:12px;align-items:center;cursor:pointer" title="Toca para plegar o desplegar">${head}
-      <div class="row" style="margin-left:auto;gap:10px;align-items:center">${show && !g.why ? `<button class="btn sec" data-sc="${gi}">${g.change ? "Dejar esta" : "Cambiar serie"}</button>` : ""}
+      <div class="row" style="margin-left:auto;gap:10px;align-items:center">${show && !g.why ? `<button class="btn sec" data-sc="${gi}">${g.change ? "Dejar esta" : "Cambiar título"}</button>` : ""}
         <span class="muted" data-sn="${gi}"></span>
         <button class="btn" data-sa="${gi}" ${show ? "" : "disabled"}>Renombrar los marcados</button>
         <span class="muted" data-st style="font-size:20px">${closed ? "▸" : "▾"}</span></div></div>
     <div data-sb ${closed ? "hidden" : ""}>${pickBox}
-    <table style="margin-top:10px"><thead><tr><th><input type="checkbox" data-sall title="Marcar o desmarcar todos" ${show ? "" : "disabled"}></th><th>T · E</th><th>Ahora</th><th>Quedará como (dentro de la carpeta de la serie)</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+    <table style="margin-top:10px"><thead><tr><th><input type="checkbox" data-sall title="Marcar o desmarcar todos" ${show ? "" : "disabled"}></th><th>T · E</th><th>Ahora</th><th>Quedará como (dentro de su carpeta)</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
 function renderSeries() {
   const list = sr && sr.result ? sr.result.series : [];

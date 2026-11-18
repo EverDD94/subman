@@ -367,7 +367,7 @@ def _targets(g: dict, show: dict) -> None:
                 e["why"] = "hay otro archivo con el mismo capítulo (míralo en Duplicados)"
     for e in g["episodes"]:
         e["ok"] = e["why"] is None and not g.get("why")
-        e["same"] = e["dest"] == e["path"]
+        e["same"] = e["dest"] == e["path"] and not e.get("keep")  # los debates sin sitio se ven, sin marcar
     g["episodes"].sort(key=lambda e: (e["season"], e["episode"], e["name"]))
 
 

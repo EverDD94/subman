@@ -128,8 +128,10 @@ class TMDb:
 
     def episodes(self, tv_id: int, number: int) -> list[dict]:
         """[{number, name, runtime}] de la temporada, en el orden de TheMovieDB."""
-        self.season(tv_id, number)
-        return sorted(self._eps.get((tv_id, number)) or [], key=lambda e: e["number"])
+        names = self.season(tv_id, number)
+        # con el título bueno (el inglés si en español sólo pone «Episodio 4»): así se ven los «Debate #1»
+        eps = [{**e, "name": names.get(e["number"]) or e["name"]} for e in self._eps.get((tv_id, number)) or []]
+        return sorted(eps, key=lambda e: e["number"])
 
     def runtime(self, tv_id: int, number: int) -> float | None:
         """Lo que suele durar un capítulo de esa temporada (minutos), o None si TheMovieDB no lo sabe."""

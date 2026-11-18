@@ -226,6 +226,7 @@ def _plan_group(db: TMDb, g: dict, show: dict | None) -> dict:
 # «Debate 10 parte 1»), mientras TheMovieDB los mezcla con los capítulos en el orden en que se emitieron.
 _SPECIAL = re.compile(r"\b(debate|gala|final|parte|part|pt)\b", re.I)
 _PART = re.compile(r"\b(?:parte|part|pt)[ ._-]*(\d{1,2})\b", re.I)
+_INTRO = re.compile(r"\b(rumbo|casting)\b", re.I)
 _DEBATE = re.compile(r"\bdebate\b", re.I)
 _FINAL = re.compile(r"\bfinal\b[ ._-]*(\d{1,2})?", re.I)
 _CODE = re.compile(r"\bS\d{1,2}E\d{1,3}\b", re.I)
@@ -267,6 +268,9 @@ def _reorder(db: TMDb, g: dict, show: dict) -> None:
             continue
         tm_deb = [t for t in tm if _DEBATE.search(t["name"])]
         tm_main = [t for t in tm if not _DEBATE.search(t["name"])]
+        if not any(_INTRO.search(Path(e["path"]).stem) for e in eps):
+            # no tiene los «Rumbo a la isla»/«Casting»: se saltan, el capítulo 1 es el primer programa
+            tm_main = [t for t in tm_main if not _INTRO.search(t["name"])]
         if not tm_deb:
             # TheMovieDB no tiene los debates en esta temporada: no se mezclan con los capítulos
             # numerados («Debate 01» no es el capítulo 1). Se quedan como están y sin marcar.

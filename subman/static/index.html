@@ -2748,8 +2748,11 @@ function srGroup(g, gi) {
         ${o.image ? `<img loading="lazy" src="${esc(o.image)}" alt="">` : `<div class="noimg"></div>`}<b>${esc(o.name)}</b> ${o.year ? "(" + o.year + ")" : ""}</div>`).join("")}</div>
       <div class="row"><input type="text" style="max-width:320px" placeholder="Otro nombre, p. ej. Shameless 2011" data-sq="${gi}">
         <button class="btn sec" data-ss="${gi}">Buscar</button></div></div>` : "";
-  const rows = g.episodes.map(e => `<tr${e.why ? ' style="background:var(--chip)"' : ""}>
-      <td><input type="checkbox" data-se="${e.id}" ${e.ok ? "checked" : ""} ${!show ? "disabled" : ""}></td>
+  const nSeasons = new Set(g.episodes.map(e => e.season)).size;
+  const rows = g.episodes.map((e, i) => (nSeasons > 1 && (i === 0 || g.episodes[i - 1].season !== e.season)
+    ? `<tr><td><input type="checkbox" data-sseason="${e.season}" title="Marcar o desmarcar la temporada entera" ${!show ? "disabled" : ""}></td>
+      <td colspan="3"><b>Temporada ${e.season}</b></td></tr>` : "") + `<tr${e.why ? ' style="background:var(--chip)"' : ""}>
+      <td><input type="checkbox" data-se="${e.id}" data-ses="${e.season}" ${e.ok ? "checked" : ""} ${!show ? "disabled" : ""}></td>
       <td style="white-space:nowrap"><input type="number" min="0" max="99" value="${e.season}" data-rs="${e.id}" style="width:58px" title="Temporada">
         <input type="number" min="0" max="999" value="${e.episode}" data-re="${e.id}" style="width:64px" title="Capítulo"></td>
       <td>${esc(e.name)}${e.why ? `<div><span class="pill revisar">${esc(e.why)}</span></div>` : ""}</td>
@@ -2769,7 +2772,10 @@ function renderSeries() {
   $("#srGroups").innerHTML = sr && sr.running ? "" : list.map(srGroup).join("");
   const count = gi => { const c = document.querySelector(`[data-g="${gi}"]`); const k = c.querySelectorAll("[data-se]:checked").length;
     c.querySelector("[data-sn]").textContent = `${k} de ${list[gi].episodes.length} marcados`;
-    const all = c.querySelector("[data-sall]"); all.checked = k === list[gi].episodes.length; all.indeterminate = k > 0 && !all.checked; };
+    const all = c.querySelector("[data-sall]"); all.checked = k === list[gi].episodes.length; all.indeterminate = k > 0 && !all.checked;
+    c.querySelectorAll("[data-sseason]").forEach(b => {
+      const box = [...c.querySelectorAll(`[data-ses="${b.dataset.sseason}"]`)], on = box.filter(x => x.checked).length;
+      b.checked = on === box.length; b.indeterminate = on > 0 && on < box.length; }); };
   list.forEach((g, gi) => count(gi));
   document.querySelectorAll("#srGroups [data-sh]").forEach(h => h.onclick = ev => {
     if (ev.target.closest("button, input")) return;
@@ -2787,6 +2793,11 @@ function renderSeries() {
   document.querySelectorAll("#srGroups [data-sall]").forEach(a => a.onchange = () => {
     const card = a.closest("[data-g]");
     card.querySelectorAll("[data-se]:not(:disabled)").forEach(c => c.checked = a.checked);
+    count(+card.dataset.g);
+  });
+  document.querySelectorAll("#srGroups [data-sseason]").forEach(a => a.onchange = () => {
+    const card = a.closest("[data-g]");
+    card.querySelectorAll(`[data-ses="${a.dataset.sseason}"]:not(:disabled)`).forEach(c => c.checked = a.checked);
     count(+card.dataset.g);
   });
   document.querySelectorAll("#srGroups [data-se]").forEach(c => c.onchange = () => count(+c.closest("[data-g]").dataset.g));

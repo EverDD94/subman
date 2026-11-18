@@ -315,6 +315,8 @@ def _reorder(db: TMDb, g: dict, show: dict) -> None:
                     e["why_order"] = "no sé qué capítulo de TheMovieDB es"
                     continue
                 e["episode"], e["last"], e["part"], e["fixed"] = t["number"], None, x["part"], True
+                # el título como lo ordena Eber (y Jellyfin lo reconoce): «S08E04 - Capitulo 1», «Debate 3»
+                e["label"] = {"main": "Capitulo", "debate": "Debate", "final": "Debate Final"}[k[0]] + f" {k[1]}"
                 m = minutes(k)
                 if t["runtime"] and m and abs(m - t["runtime"]) > max(15, 0.35 * t["runtime"]):
                     e["why_order"] = f"la duración no cuadra ({m:.0f} min, TheMovieDB dice {t['runtime']} min)"
@@ -341,6 +343,8 @@ def _targets(g: dict, show: dict) -> None:
         om = _OLD_TITLE.search(Path(e["path"]).stem)
         if om and not titles.get(e["episode"]) and not e["last"] and (int(om.group(1)), int(om.group(2))) == (e["season"], e["episode"]):
             titles = {**titles, e["episode"]: om.group(3).strip()}  # TheMovieDB no lo titula: se queda el que tenía
+        if e.get("label"):
+            titles = {e["episode"]: e["label"]}
         name = episode_name(show, e["season"], e["episode"], e["last"], titles, e.get("part"))
         dest = Path(g["dest_dir"]) / _season_folder(e["season"]) / (name + Path(e["path"]).suffix)
         if e.get("keep"):  # debate que TheMovieDB no tiene: no se toca

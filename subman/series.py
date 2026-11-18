@@ -316,11 +316,24 @@ def _reorder(db: TMDb, g: dict, show: dict) -> None:
                     e["why_order"] = f"la duración no cuadra ({m:.0f} min, TheMovieDB dice {t['runtime']} min)"
 
 
+_GENERIC = re.compile(r"^(.*?)\s*#\s*\d+$")
+
+
+def _generic(titles: dict[int, str]) -> bool:
+    """Temporada de reality con títulos de relleno en TheMovieDB («Programa #3», «Debate #1», «Rumbo a la isla #1»)."""
+    vals = [t for t in titles.values() if t]
+    return len(vals) >= 4 and sum(1 for t in vals if _GENERIC.match(t)) >= 0.6 * len(vals)
+
+
 def _targets(g: dict, show: dict) -> None:
     seasons = show.get("seasons") or {}
     seen: dict[str, list[dict]] = {}
     for e in g["episodes"]:
         titles = g["titles"].get(e["season"], {})
+        if _generic(titles) and not e.get("fixed"):
+            # el archivo no dice qué es (programa, debate...) y la numeración de TheMovieDB no tiene por qué
+            # coincidir con la del disco: no se inventa el título, se queda «Serie - S08E01»
+            titles = {}
         om = _OLD_TITLE.search(Path(e["path"]).stem)
         if om and not titles.get(e["episode"]) and not e["last"] and (int(om.group(1)), int(om.group(2))) == (e["season"], e["episode"]):
             titles = {**titles, e["episode"]: om.group(3).strip()}  # TheMovieDB no lo titula: se queda el que tenía

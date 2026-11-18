@@ -1304,7 +1304,7 @@ class App:
     def _series_group(self, key: str) -> dict:
         g = next((g for g in (self.series["result"] or {}).get("series", []) if g["key"] == key), None)
         if not g:
-            raise ValueError("vuelve a pulsar «Revisar series»")
+            raise ValueError("vuelve a pulsar «Revisar»")
         return g
 
     def series_search(self, key: str, query: str) -> dict:
@@ -1344,7 +1344,7 @@ class App:
                 if e["id"] in ids:
                     m = lib.media("id=?", (e["id"],))
                     if not m or m[0].path != e["path"]:
-                        raise ValueError(f"{e['name']}: ya no está donde estaba; vuelve a pulsar «Revisar series»")
+                        raise ValueError(f"{e['name']}: ya no está donde estaba; vuelve a pulsar «Revisar»")
                     if self.state["running"] and self.state["current"] == m[0].label:
                         raise ValueError(f"{e['name']}: se está procesando ahora mismo; prueba en un momento")
             r = series.apply(lib, g, set(ids), list(cfg["library"]))

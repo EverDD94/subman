@@ -11,6 +11,9 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import http.cookiejar
+import re
+import urllib.request
 import json
 import logging
 import os
@@ -200,14 +203,53 @@ class YouTube:
             out += [dict(i, short=True) for i in self.search("#shorts", 30) if i["duration"] <= 60]
         return out[:40]
 
+    def _page(self, url: str) -> dict:
+        """ytInitialData de una página de youtube.com abierta con tu sesión (yt-dlp no sabe leer estas)."""
+        jar = http.cookiejar.MozillaCookieJar(str(self.cookies))
+        jar.load(ignore_discard=True, ignore_expires=True)
+        op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36",
+            "Accept-Language": "es-ES,es;q=0.9"})
+        html = op.open(req, timeout=40).read().decode("utf-8", "replace")
+        m = re.search(r"(?:var ytInitialData|window\[\"ytInitialData\"\])\s*=\s*(\{.*?\});\s*</script>", html, re.S)
+        if not m:
+            raise RuntimeError("YouTube no devolvió la página")
+        return json.loads(m.group(1))
+
+    @staticmethod
+    def _walk(o, key: str):
+        st = [o]
+        while st:
+            x = st.pop()
+            if isinstance(x, dict):
+                if key in x:
+                    yield x[key]
+                st.extend(reversed(list(x.values())))
+            elif isinstance(x, list):
+                st.extend(reversed(x))
+
+    @staticmethod
+    def _txt(t) -> str:
+        if not isinstance(t, dict):
+            return ""
+        return t.get("simpleText") or t.get("content") or "".join(r.get("text", "") for r in t.get("runs") or [])
+
     def playlists(self, uid: str) -> list[dict]:
         if not self.mine(uid):
             return []
         def go():
-            data = self._ytdlp(["--flat-playlist", "https://www.youtube.com/feed/playlists"], timeout=120, account=True)
-            return [{"id": e.get("id"), "title": e.get("title") or "", "count": e.get("playlist_count") or 0,
-                     "thumb": self._img(((e.get("thumbnails") or [{}])[-1] or {}).get("url") or "")}
-                    for e in data.get("entries") or [] if (e.get("id") or "").startswith(("PL", "OL", "FL"))]
+            out = []
+            for v in self._walk(self._page("https://www.youtube.com/feed/playlists"), "lockupViewModel"):
+                pid = v.get("contentId") or ""
+                if v.get("contentType") != "LOCKUP_CONTENT_TYPE_PLAYLIST" or not pid:
+                    continue
+                img = next(self._walk(v.get("contentImage") or {}, "sources"), None) or [{}]
+                badge = next(self._walk(v.get("contentImage") or {}, "thumbnailBadgeViewModel"), {}) or {}
+                n = re.sub(r"\D", "", badge.get("text") or "")
+                out.append({"id": pid, "title": self._txt((v.get("metadata") or {}).get("lockupMetadataViewModel", {}).get("title")),
+                            "count": int(n) if n else 0, "thumb": self._img((img[-1] or {}).get("url") or "")})
+            return out
         return self._cached("f:listas", 1800, go)
 
     def playlist(self, pid: str, uid: str, n: int = 100) -> dict:
@@ -287,13 +329,13 @@ class YouTube:
         if not self.mine(uid):
             return []
         def go():
-            data = self._ytdlp(["--flat-playlist", "https://www.youtube.com/feed/channels"], timeout=120, account=True)
-            out = []
-            for e in data.get("entries") or []:
-                cid = e.get("channel_id") or e.get("id") or ""
-                if cid.startswith("UC"):
-                    out.append({"id": cid, "title": e.get("channel") or e.get("title") or "",
-                                "avatar": self._pic(e.get("thumbnails"), "avatar")})
+            out, seen = [], set()
+            for c in self._walk(self._page("https://www.youtube.com/feed/channels"), "channelRenderer"):
+                cid = c.get("channelId") or ""
+                if cid.startswith("UC") and cid not in seen:
+                    seen.add(cid)
+                    th = (c.get("thumbnail") or {}).get("thumbnails") or [{}]
+                    out.append({"id": cid, "title": self._txt(c.get("title")), "avatar": self._img(th[-1].get("url") or "")})
             return out
         return self._cached("f:canales", 3600, go)
 

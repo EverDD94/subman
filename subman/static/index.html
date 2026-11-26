@@ -1961,7 +1961,8 @@ async function dlAdd(k) {
   if (c.kind === "tv") {
     const seasons = await dlPickSeasons(c);
     if (!seasons) return;
-    body.seasons = seasons;
+    body.seasons = [...seasons];
+    if (seasons.update.length) body.update = seasons.update;
   }
   const choice = await dlChooseSource(c, body.seasons);
   if (choice === null) return;
@@ -2229,13 +2230,13 @@ async function dlPickSeasons(c) {
     d.className = "ask";
     const box = r.seasons.map(n => {
       const had = r.have.includes(n);
-      return `<label class="switch"><input type="checkbox" value="${n}" ${had ? "checked disabled" : r.seasons.length - r.have.length === 1 ? "checked" : ""}><span>Temporada ${n}${had ? ` <span class="muted">· ya en Descargas</span>` : ""}</span></label>`;
+      return `<label class="switch"><input type="checkbox" value="${n}"${had ? ` data-had="1"` : ""} ${!had && r.seasons.length - r.have.length === 1 ? "checked" : ""}><span>Temporada ${n}${had ? ` <span class="muted">· ya en Descargas · márcala para buscar capítulos nuevos</span>` : ""}</span></label>`;
     }).join("");
     d.innerHTML = `<p style="margin-top:0"><b>${esc(c.title)}</b>: ¿qué temporadas quieres?</p>
       <div class="row" style="gap:8px;margin-bottom:8px"><button class="btn sec" value="all">Marcar todas</button><button class="btn sec" value="none">Ninguna</button></div>
       <div class="col" style="display:grid;gap:6px">${box}</div>
       <div class="row" style="justify-content:flex-end;gap:8px;margin-top:14px"><button class="btn sec" value="no">Cancelar</button><button class="btn" value="yes">Pedir</button></div>`;
-    const boxes = () => [...d.querySelectorAll("input:not(:disabled)")];
+    const boxes = () => [...d.querySelectorAll("input")];
     d.querySelector('[value="all"]').onclick = () => boxes().forEach(x => x.checked = true);
     d.querySelector('[value="none"]').onclick = () => boxes().forEach(x => x.checked = false);
     d.querySelector('[value="no"]').onclick = () => d.close("no");
@@ -2243,7 +2244,11 @@ async function dlPickSeasons(c) {
       if (!boxes().some(x => x.checked)) return toast("Marca al menos una temporada");
       d.close("yes");
     };
-    d.onclose = () => { done(d.returnValue === "yes" ? boxes().filter(x => x.checked).map(x => +x.value) : null); d.remove(); };
+    d.onclose = () => {
+      const on = boxes().filter(x => x.checked);
+      done(d.returnValue === "yes" ? Object.assign(on.map(x => +x.value), {update: on.filter(x => x.dataset.had).map(x => +x.value)}) : null);
+      d.remove();
+    };
     document.body.appendChild(d); d.showModal();
   });
 }

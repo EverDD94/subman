@@ -5,6 +5,8 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
@@ -35,7 +37,7 @@ class YtPlayerFragment : Fragment() {
 			}
 
 			override fun onPlaybackStateChanged(state: Int) {
-				if (state == Player.STATE_ENDED) activity?.onBackPressedDispatcher?.onBackPressed()
+				if (state == Player.STATE_ENDED) playNext()
 			}
 		})
 		exo.prepare()
@@ -45,6 +47,27 @@ class YtPlayerFragment : Fragment() {
 		view.requestFocus()
 		player = exo
 		return view
+	}
+
+	/** Like YouTube: when a video ends, the next one in the list starts. */
+	private fun playNext() {
+		val next = YtQueue.videos.getOrNull(YtQueue.index + 1)
+		val client = YtQueue.client
+		if (next == null || client == null) {
+			activity?.onBackPressedDispatcher?.onBackPressed()
+			return
+		}
+		YtQueue.index++
+		viewLifecycleOwner.lifecycleScope.launch {
+			val stream = client.ytPlay(next)
+			val exo = player ?: return@launch
+			if (stream == null) { activity?.onBackPressedDispatcher?.onBackPressed(); return@launch }
+			exo.setMediaItem(MediaItem.Builder().setUri(stream.url).apply {
+				if (stream.url.contains("m3u8") || stream.url.contains("/yt/")) setMimeType(MimeTypes.APPLICATION_M3U8)
+			}.build())
+			exo.prepare()
+			exo.playWhenReady = true
+		}
 	}
 
 	override fun onPause() {

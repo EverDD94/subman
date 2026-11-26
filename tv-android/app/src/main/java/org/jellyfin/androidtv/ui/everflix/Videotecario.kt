@@ -31,7 +31,7 @@ data class DiscoverTitle(
 )
 
 /** A YouTube video as Videotecario returns it (found with yt-dlp, no ads). */
-data class YtVideo(val id: String, val title: String, val channel: String, val duration: Int, val thumb: String, val live: Boolean)
+data class YtVideo(val id: String, val title: String, val channel: String, val duration: Int, val thumb: String, val live: Boolean, val channelId: String = "")
 
 data class YtRow(val title: String, val videos: List<YtVideo>)
 
@@ -283,7 +283,30 @@ class Videotecario(jellyfinUrl: String?, private val token: String?) {
 		duration = o["duration"]?.jsonPrimitive?.intOrNull ?: 0,
 		thumb = o["thumb"]?.jsonPrimitive?.contentOrNull ?: "",
 		live = o["live"]?.jsonPrimitive?.booleanOrNull == true,
+		channelId = o["channel_id"]?.jsonPrimitive?.contentOrNull ?: "",
 	)
+
+	/** Whether this person's own YouTube account is linked (only the owner's is). */
+	suspend fun ytLinked(): Boolean = withContext(Dispatchers.IO) {
+		val base = base ?: return@withContext false
+		runCatching {
+			val body = request(URL("$base/api/yt/status"), null, readTimeout = 20000) ?: return@runCatching false
+			Json.parseToJsonElement(body).jsonObject["linked"]?.jsonPrimitive?.booleanOrNull == true
+		}.getOrDefault(false)
+	}
+
+	/** A tab: inicio, suscripciones, historial or tarde. Null when it fails. */
+	suspend fun ytFeed(tab: String): List<YtVideo>? = ytList("/api/yt/feed?tab=$tab")
+
+	suspend fun ytChannel(channelId: String): List<YtVideo>? = ytList("/api/yt/channel?id=$channelId")
+
+	private suspend fun ytList(path: String): List<YtVideo>? = withContext(Dispatchers.IO) {
+		val base = base ?: return@withContext null
+		runCatching {
+			val body = request(URL("$base$path"), null, readTimeout = 90000) ?: return@runCatching null
+			Json.parseToJsonElement(body).jsonObject["items"]?.jsonArray?.map { ytVideo(it.jsonObject) }
+		}.onFailure { Timber.w(it, "YouTube") }.getOrNull()
+	}
 
 	/** YouTube home rows (recently watched, more from those channels, trending). Null when it fails. */
 	suspend fun ytHome(): List<YtRow>? = withContext(Dispatchers.IO) {
@@ -301,7 +324,7 @@ class Videotecario(jellyfinUrl: String?, private val token: String?) {
 		val base = base ?: return@withContext null
 		runCatching {
 			val q = URLEncoder.encode(query, "UTF-8")
-			val body = request(URL("$base/api/yt/search?q=$q"), null, readTimeout = 45000) ?: return@runCatching null
+			val body = request(URL("$base/api/yt/search?q=$q"), null, readTimeout = 90000) ?: return@runCatching null
 			Json.parseToJsonElement(body).jsonObject["items"]?.jsonArray?.map { ytVideo(it.jsonObject) }
 		}.onFailure { Timber.w(it, "YouTube") }.getOrNull()
 	}
@@ -315,7 +338,7 @@ class Videotecario(jellyfinUrl: String?, private val token: String?) {
 			val url = o["url"]?.jsonPrimitive?.contentOrNull ?: return@runCatching null
 			runCatching {
 				request(URL("$base/api/yt/watched"), buildJsonObject {
-					put("id", video.id); put("title", video.title); put("channel", video.channel)
+					put("id", video.id); put("title", video.title); put("channel", video.channel); put("channel_id", video.channelId)
 					put("duration", video.duration); put("thumb", video.thumb)
 				})
 			}

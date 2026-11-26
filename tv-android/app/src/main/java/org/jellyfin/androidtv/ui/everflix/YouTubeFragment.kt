@@ -8,6 +8,10 @@ import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -20,7 +24,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -62,6 +65,15 @@ class YouTubeFragment : Fragment() {
 	}
 }
 
+/** What is playing and what comes next, so the player can go on to the next video by itself. */
+object YtQueue {
+	var client: Videotecario? = null
+	var videos: List<YtVideo> = emptyList()
+	var index = 0
+}
+
+private val TABS = listOf("buscar" to "Buscar", "inicio" to "Inicio", "suscripciones" to "Suscripciones", "historial" to "Historial", "tarde" to "Ver más tarde")
+
 @Composable
 private fun YouTubeScreen() {
 	val api = koinInject<ApiClient>()
@@ -69,51 +81,80 @@ private fun YouTubeScreen() {
 	val client = remember(api.baseUrl, api.accessToken) { Videotecario(api.baseUrl, api.accessToken) }
 	val context = LocalContext.current
 	val scope = rememberCoroutineScope()
+	var linked by remember { mutableStateOf(false) }
+	var tab by remember { mutableStateOf("inicio") }
+	var channel by remember { mutableStateOf<YtVideo?>(null) }
 	var query by remember { mutableStateOf("") }
-	var home by remember { mutableStateOf<List<YtRow>?>(null) }
-	var found by remember { mutableStateOf<List<YtVideo>?>(null) }
-	var message by remember { mutableStateOf("Cargando…") }
+	var videos by remember { mutableStateOf<List<YtVideo>?>(null) }
+	var failed by remember { mutableStateOf(false) }
 
-	LaunchedEffect(client) {
-		home = client.ytHome()
-		if (home == null) message = "YouTube no responde ahora mismo. Prueba otra vez en un rato."
-	}
-	LaunchedEffect(query) {
-		if (query.trim().length < 2) { found = null; return@LaunchedEffect }
-		delay(900)
-		message = "Buscando en YouTube…"
-		found = client.ytSearch(query.trim())
-		if (found == null) message = "YouTube no responde ahora mismo."
+	LaunchedEffect(client) { linked = client.ytLinked() }
+	LaunchedEffect(tab, channel, query) {
+		videos = null
+		failed = false
+		val got = when {
+			channel != null -> client.ytChannel(channel!!.channelId)
+			tab == "buscar" -> if (query.trim().length < 2) emptyList() else { delay(900); client.ytSearch(query.trim()) }
+			else -> client.ytFeed(tab)
+		}
+		failed = got == null
+		videos = got ?: emptyList()
 	}
 
-	fun open(video: YtVideo) {
-		Toast.makeText(context, "Abriendo: ${video.title}", Toast.LENGTH_SHORT).show()
+	fun open(list: List<YtVideo>, i: Int) {
+		Toast.makeText(context, "Abriendo: ${list[i].title}", Toast.LENGTH_SHORT).show()
 		scope.launch {
-			val stream = client.ytPlay(video)
+			val stream = client.ytPlay(list[i])
 			if (stream == null) Toast.makeText(context, "No se pudo abrir el vídeo", Toast.LENGTH_LONG).show()
-			else navigation.navigate(Destinations.everflixYtPlayer(stream.url, stream.title))
+			else {
+				YtQueue.client = client
+				YtQueue.videos = list
+				YtQueue.index = i
+				navigation.navigate(Destinations.everflixYtPlayer(stream.url, stream.title))
+			}
 		}
 	}
 
-	val rows = found?.let { listOf(YtRow("Resultados", it)) } ?: home.orEmpty()
+	val tabs = TABS.filter { linked || it.first in listOf("buscar", "inicio", "historial") }
 	Row(Modifier.fillMaxSize().background(Color(0xFF0B0D12))) {
 		MainRail(MainToolbarActiveButton.YouTube)
-		Column(Modifier.fillMaxSize().padding(start = 24.dp, top = 32.dp, end = 32.dp)) {
-			Text("YOUTUBE", color = Color(0xFFF4F2EE), fontSize = 30.sp, fontWeight = FontWeight.W800)
-			SearchTextInput(query = query, onQueryChange = { query = it }, onQuerySubmit = {}, modifier = Modifier.padding(vertical = 12.dp).width(480.dp))
-			if (rows.isEmpty()) Text(if (found != null) "No encontré nada." else message, color = Color(0xFF9AA0AD), fontSize = 16.sp)
-			LazyColumn(verticalArrangement = Arrangement.spacedBy(18.dp), contentPadding = PaddingValues(bottom = 40.dp)) {
-				items(rows) { row ->
-					Column {
-						Text(row.title.uppercase(), color = Color(0xFFF4F2EE), fontSize = 16.sp, fontWeight = FontWeight.W700, modifier = Modifier.padding(bottom = 8.dp))
-						LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp), contentPadding = PaddingValues(end = 40.dp)) {
-							items(row.videos) { v -> VideoCard(v) { open(v) } }
-						}
-					}
+		Column(Modifier.fillMaxSize().padding(start = 24.dp, top = 28.dp, end = 32.dp)) {
+			LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+				items(tabs) { (key, label) -> TabPill(label, key == tab && channel == null) { channel = null; tab = key } }
+			}
+			channel?.let { Text(it.channel, color = Color(0xFFF4F2EE), fontSize = 24.sp, fontWeight = FontWeight.W800, modifier = Modifier.padding(top = 14.dp)) }
+			if (tab == "buscar" && channel == null)
+				SearchTextInput(query = query, onQueryChange = { query = it }, onQuerySubmit = {}, modifier = Modifier.padding(top = 14.dp).width(480.dp))
+			val list = videos
+			when {
+				list == null -> Text("Cargando…", color = Color(0xFF9AA0AD), fontSize = 16.sp, modifier = Modifier.padding(top = 20.dp))
+				failed -> Text("YouTube no responde ahora mismo. Prueba otra vez en un rato.", color = Color(0xFF9AA0AD), fontSize = 16.sp, modifier = Modifier.padding(top = 20.dp))
+				list.isEmpty() -> Text(if (tab == "buscar") "Escribe lo que quieras ver." else "Aquí no hay nada todavía.", color = Color(0xFF9AA0AD), fontSize = 16.sp, modifier = Modifier.padding(top = 20.dp))
+				else -> LazyVerticalGrid(
+					columns = GridCells.Fixed(4),
+					horizontalArrangement = Arrangement.spacedBy(16.dp),
+					verticalArrangement = Arrangement.spacedBy(18.dp),
+					contentPadding = PaddingValues(top = 18.dp, bottom = 40.dp),
+				) {
+					itemsIndexed(list) { i, v -> VideoCard(v, onLongClick = { if (v.channelId.isNotBlank()) channel = v }) { open(list, i) } }
 				}
 			}
 		}
 	}
+}
+
+@Composable
+private fun TabPill(label: String, selected: Boolean, onClick: () -> Unit) {
+	val interaction = remember { MutableInteractionSource() }
+	val focused by interaction.collectIsFocusedAsState()
+	val bg = when { focused -> Color(0xFFF4F2EE); selected -> Color(0xFF3D63E0); else -> Color(0xFF161A22) }
+	Text(
+		label,
+		color = if (focused) Color.Black else Color(0xFFF4F2EE),
+		fontSize = 15.sp,
+		fontWeight = FontWeight.W600,
+		modifier = Modifier.clip(RoundedCornerShape(50)).background(bg).clickable(interactionSource = interaction, indication = null, onClick = onClick).padding(horizontal = 18.dp, vertical = 8.dp),
+	)
 }
 
 private fun duration(v: YtVideo): String {
@@ -126,10 +167,10 @@ private fun duration(v: YtVideo): String {
 }
 
 @Composable
-private fun VideoCard(video: YtVideo, onClick: () -> Unit) {
+private fun VideoCard(video: YtVideo, onLongClick: () -> Unit, onClick: () -> Unit) {
 	val interaction = remember { MutableInteractionSource() }
 	val focused by interaction.collectIsFocusedAsState()
-	Column(Modifier.width(240.dp).scale(if (focused) 1.05f else 1f).clickable(interactionSource = interaction, indication = null, onClick = onClick)) {
+	Column(Modifier.fillMaxWidth().scale(if (focused) 1.05f else 1f).combinedClickable(interactionSource = interaction, indication = null, onLongClick = onLongClick, onClick = onClick)) {
 		Box(
 			Modifier
 				.fillMaxWidth()

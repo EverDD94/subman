@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "Videotecario · YouTube",
+  "version": "1.0",
+  "description": "Mantiene tu cuenta de YouTube conectada a Everflix (Videotecario, en tu casa).",
+  "permissions": ["cookies", "alarms", "storage"],
+  "host_permissions": ["*://*.youtube.com/*", "http://*/*", "https://*/*"],
+  "background": {"service_worker": "background.js"},
+  "action": {"default_popup": "popup.html", "default_title": "Videotecario · YouTube"}
+}

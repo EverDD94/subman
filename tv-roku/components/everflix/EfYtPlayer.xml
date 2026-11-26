@@ -3,9 +3,15 @@
 <component name="EfYtPlayer" extends="JFScreen">
   <interface>
     <field id="video" type="assocarray" onChange="onVideo" />
+    <field id="ended" type="boolean" alwaysNotify="true" />
+    <field id="closed" type="boolean" alwaysNotify="true" />
   </interface>
   <children>
     <Rectangle width="1920" height="1080" color="0x000000FF" />
     <Video id="player" width="1920" height="1080" enableUI="true" />
+    <Group id="next" translation="[1300, 900]" visible="false">
+      <Poster uri="pkg:/images/everflix/round8.9.png" blendColor="0x000000CC" width="560" height="110" />
+      <Label id="nextLabel" translation="[24, 10]" width="512" height="90" wrap="true" maxLines="3" color="0xFFFFFFFF" />
+    </Group>
   </children>
 </component>

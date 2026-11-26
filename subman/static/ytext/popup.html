@@ -1,0 +1,19 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+body{font:14px system-ui,sans-serif;background:#0b0d12;color:#f4f2ee;width:300px;margin:0;padding:16px}
+h1{font-size:16px;margin:0 0 12px}
+label{display:block;color:#9aa0ad;font-size:12px;margin-top:10px}
+input{width:100%;box-sizing:border-box;background:#161a22;border:1px solid #2a2f3a;color:#f4f2ee;border-radius:8px;padding:8px}
+button{margin-top:14px;width:100%;background:#3d63e0;color:#fff;border:0;border-radius:8px;padding:10px;font-weight:600;cursor:pointer}
+#st{margin-top:12px;display:flex;gap:8px;align-items:center}
+#dot{width:10px;height:10px;border-radius:50%;background:#666;flex:none}
+</style>
+<h1>YouTube en Everflix</h1>
+<label>Código (sale en Everflix › YouTube › Conectar)</label>
+<input id="code" placeholder="A1B2C3D4">
+<label>Dirección de Videotecario</label>
+<input id="url">
+<button id="go">Guardar y conectar</button>
+<div id="st"><span id="dot"></span><span id="msg">Sin conectar</span></div>
+<script src="popup.js"></script>

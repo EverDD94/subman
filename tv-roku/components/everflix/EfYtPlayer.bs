@@ -1,3 +1,4 @@
+import "pkg:/components/everflix/EfCommon.bs"
 import "pkg:/source/utils/misc.bs"
 
 sub init()
@@ -5,6 +6,10 @@ sub init()
     m.top.optionsAvailable = false
     m.player = m.top.findNode("player")
     m.player.observeField("state", "onState")
+    m.player.observeField("position", "onPosition")
+    m.next = m.top.findNode("next")
+    m.nextLabel = m.top.findNode("nextLabel")
+    m.nextLabel.font = ef.font(ef.FONT_SEMI, 24)
 end sub
 
 sub onVideo()
@@ -15,16 +20,34 @@ sub onVideo()
     content.streamFormat = v.format ?? "hls"
     content.HttpCertificatesFile = "common:/certs/ca-bundle.crt"
     content.HttpHeaders = ["User-Agent: Mozilla/5.0"]
+    m.next.visible = false
+    m.nextLabel.text = "A continuación: " + (v.nextTitle ?? "")
+    m.hasNext = isValidAndNotEmpty(v.nextTitle)
+    m.player.control = "stop"
     m.player.content = content
     m.player.control = "play"
     m.player.setFocus(true)
 end sub
 
 sub onState()
-    if m.player.state = "finished" or m.player.state = "error"
-        if m.player.state = "error" then print "YouTube: "; m.player.errorMsg; " "; m.player.errorStr
-        m.global.sceneManager.callFunc("popScene")
+    if m.player.state = "finished"
+        m.top.ended = true
+    else if m.player.state = "error"
+        print "YouTube: "; m.player.errorMsg; " "; m.player.errorStr
+        close()
     end if
+end sub
+
+' Los últimos 10 segundos avisa de lo que viene después
+sub onPosition()
+    d = m.player.duration
+    m.next.visible = m.hasNext and d > 30 and d - m.player.position < 10
+end sub
+
+sub close()
+    m.player.control = "stop"
+    m.global.sceneManager.callFunc("popScene")
+    m.top.closed = true
 end sub
 
 sub OnScreenShown()
@@ -37,8 +60,7 @@ end sub
 
 function onKeyEvent(key as string, press as boolean) as boolean
     if press and key = "back"
-        m.player.control = "stop"
-        m.global.sceneManager.callFunc("popScene")
+        close()
         return true
     end if
     return false

@@ -127,6 +127,9 @@ main{margin-left:var(--rail);min-height:100vh;position:relative}
 .ytplay{position:fixed;inset:0;z-index:90;background:#000;display:flex;align-items:center;justify-content:center}
 .ytplay video{width:100%;height:100%;background:#000}
 .ytplay .btn{position:absolute;top:20px;right:20px}
+.yttabs{display:flex;gap:10px;flex-wrap:wrap;margin:0 56px 18px}
+.ytlink{margin:0 56px 24px;background:var(--card);border-radius:14px;padding:18px 22px;max-width:760px}
+.ytlink ol{padding-left:20px;line-height:1.7}.ytlink code.big{font-size:20px;letter-spacing:2px}
 .grid.yt{grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
 .search{margin:0 56px 26px;position:relative;max-width:760px}
 .search input{width:100%;background:rgba(255,255,255,.08);border:2px solid transparent;border-radius:16px;padding:18px 20px 18px 54px;color:var(--ink);font:600 20px var(--font);outline:none}
@@ -907,37 +910,63 @@ function ytCard(v) {
   const d = v.duration || 0, t = d >= 3600 ? `${Math.floor(d / 3600)}:${String(Math.floor(d % 3600 / 60)).padStart(2, "0")}:${String(d % 60).padStart(2, "0")}` : `${Math.floor(d / 60)}:${String(d % 60).padStart(2, "0")}`;
   return {Id: "yt-" + v.id, Name: v.title, Type: "YouTube", efThumb: v.thumb, efNote: [v.live ? "EN DIRECTO" : d ? t : "", v.channel].filter(Boolean).join(" · "), yt: v};
 }
+const YT_TABS = [["inicio", "Inicio"], ["suscripciones", "Suscripciones"], ["historial", "Historial"], ["tarde", "Ver más tarde"]];
 async function pageYouTube(main) {
   setStage("");
-  main.innerHTML = `<div class="page"><h1>YouTube</h1><p class="sub">Sin anuncios. Busca lo que quieras ver.</p>
-    <div class="search">${ico("search")}<input id="q" type="search" placeholder="Buscar en YouTube" autocomplete="off"></div><div id="res"><div class="loading" style="padding-top:20px"><div class="spin"></div>Cargando…</div></div></div>`;
+  const st = await vt("/api/yt/status");
+  const linked = st.ok && st.linked && st.admin;
+  const tabs = linked ? YT_TABS : YT_TABS.filter(t => t[0] === "inicio" || t[0] === "historial");
+  main.innerHTML = `<div class="page"><h1>YouTube</h1>
+    <div class="yttabs">${tabs.map(([k, t]) => `<button class="btn" data-t="${k}">${t}</button>`).join("")}
+      ${st.admin ? `<button class="btn" id="ytLink">${ico("user")}${linked ? "Tu cuenta" : "Conectar tu cuenta"}</button>` : ""}</div>
+    <div class="search">${ico("search")}<input id="q" type="search" placeholder="Buscar en YouTube" autocomplete="off"></div>
+    <div id="ytPanel" hidden></div><h2 class="sec" id="ytTitle" hidden></h2><div id="res"></div></div>`;
   const input = $("#q"), res = $("#res");
-  let h, seq = 0, homeHtml = "";
-  const paint = html => {
-    res.innerHTML = html;
-    wireCards(res);
-    res.querySelectorAll(".card").forEach(c => { const it = store.get(c.dataset.k); c.onclick = () => playYouTube(it.yt); });
+  let h, seq = 0, list = [];
+  const paint = (items, empty) => {
+    list = items;
+    res.innerHTML = items.length ? `<div class="grid yt">${items.map(v => card(ytCard(v))).join("")}</div>` : `<p class="empty">${esc(empty)}</p>`;
+    res.querySelectorAll(".card").forEach((c, i) => {
+      c.onclick = () => playYouTube(list, i);
+      c.oncontextmenu = e => { e.preventDefault(); const v = list[i]; if (v.channel_id) load("/api/yt/channel?id=" + v.channel_id, true); };
+    });
   };
-  const run = async () => {
-    const q = input.value.trim(), my = ++seq;
-    if (q.length < 2) { paint(homeHtml); return; }
-    res.innerHTML = `<div class="loading" style="padding-top:20px"><div class="spin"></div>Buscando en YouTube…</div>`;
-    const r = await vt("/api/yt/search?q=" + encodeURIComponent(q));
+  const load = async (path, channel) => {
+    const my = ++seq;
+    main.querySelectorAll("[data-t]").forEach(b => b.classList.toggle("pri", path.endsWith("tab=" + b.dataset.t)));
+    $("#ytTitle").hidden = true;
+    res.innerHTML = `<div class="loading" style="padding-top:20px"><div class="spin"></div>Cargando…</div>`;
+    const r = await vt(path);
     if (my !== seq) return;
-    const items = (r.ok && r.items) || [];
-    paint(items.length ? `<div class="grid yt">${items.map(v => card(ytCard(v))).join("")}</div>` : `<p class="empty">${r.ok ? `Nada con «${esc(q)}».` : "YouTube no responde ahora mismo."}</p>`);
+    if (channel && r.ok) { $("#ytTitle").hidden = false; $("#ytTitle").textContent = r.title || "Canal"; }
+    paint((r.ok && r.items) || [], r.ok ? "Aquí no hay nada todavía." : "YouTube no responde ahora mismo.");
   };
-  input.oninput = () => { clearTimeout(h); h = setTimeout(run, 500); };
+  main.querySelectorAll("[data-t]").forEach(b => b.onclick = () => { input.value = ""; load("/api/yt/feed?tab=" + b.dataset.t); });
+  input.oninput = () => {
+    clearTimeout(h);
+    h = setTimeout(() => input.value.trim().length < 2 ? load("/api/yt/feed?tab=inicio") : load("/api/yt/search?q=" + encodeURIComponent(input.value.trim())), 500);
+  };
+  if ($("#ytLink")) $("#ytLink").onclick = () => {
+    const p = $("#ytPanel");
+    p.hidden = !p.hidden;
+    p.innerHTML = `<div class="ytlink"><b>${linked ? "Tu cuenta de YouTube está conectada." : "Conecta tu cuenta de YouTube"}</b>
+      <ol><li><a href="/everflix/youtube-extension.zip">Descarga la extensión</a> y descomprímela.</li>
+      <li>En Chrome o Edge abre <code>chrome://extensions</code>, activa «Modo de desarrollador» y pulsa «Cargar descomprimida» con esa carpeta.</li>
+      <li>Abre la extensión y pon este código: <code class="big">${esc(st.code || "")}</code></li>
+      <li>Entra en youtube.com con tu cuenta en ese navegador. Listo: se mantiene conectada sola.</li></ol>
+      ${st.pushed ? `<p class="sub" style="margin:0">Última vez que llegó tu sesión: ${new Date(st.pushed * 1000).toLocaleString()}</p>` : ""}
+      ${linked ? `<button class="btn" id="ytUnlink">Desconectar mi cuenta</button>` : ""}</div>`;
+    if ($("#ytUnlink")) $("#ytUnlink").onclick = async () => { await vt("/api/yt/unlink", {}); toast("Cuenta desconectada"); pageYouTube(main); };
+  };
   input.focus();
-  const r = await vt("/api/yt/home");
-  homeHtml = ((r.ok && r.rows) || []).map(row => rowHtml(row.title, row.items.map(ytCard))).join("") || `<p class="empty">${r.ok ? "" : "YouTube no responde ahora mismo."}</p>`;
-  if (input.value.trim().length < 2) paint(homeHtml);
+  load("/api/yt/feed?tab=" + (linked ? "inicio" : "inicio"));
 }
-async function playYouTube(v) {
+async function playYouTube(list, i) {
+  const v = list[i];
   toast("Abriendo: " + v.title);
   const r = await vt("/api/yt/play?mode=nas&id=" + encodeURIComponent(v.id));
   if (!r.ok || !r.url) { toast("No se pudo abrir: " + (r.error || "YouTube no respondió")); return; }
-  vt("/api/yt/watched", {id: v.id, title: v.title, channel: v.channel, duration: v.duration, thumb: v.thumb});
+  vt("/api/yt/watched", {id: v.id, title: v.title, channel: v.channel, channel_id: v.channel_id, duration: v.duration, thumb: v.thumb});
   const box = document.createElement("div");
   box.className = "ytplay";
   box.innerHTML = `<video controls autoplay playsinline></video><button class="btn" type="button">${ico("close")}Cerrar</button>`;
@@ -948,7 +977,7 @@ async function playYouTube(v) {
   const esc_ = e => { if (e.key === "Escape" || e.key === "Backspace") close(); };
   document.addEventListener("keydown", esc_);
   $("button", box).onclick = close;
-  video.onended = close;
+  video.onended = () => { close(); if (i + 1 < list.length) playYouTube(list, i + 1); };
   if (r.format === "hls" && !video.canPlayType("application/vnd.apple.mpegurl")) {
     await loadHls();
     hls = new Hls({maxBufferLength: 40});

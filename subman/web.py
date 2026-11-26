@@ -1754,6 +1754,11 @@ class App:
                            link=(f"👉 Ir a Watch Ads (@{bot_name})", f"https://t.me/{bot_name}"))
         threading.Thread(target=go, name="recordatorio", daemon=True).start()
 
+    @staticmethod
+    def _dl_owned_files(dl, row: dict, db) -> list:
+        folder = dl.show_folder(row, db)
+        return [f for f in folder.rglob("*") if f.suffix.lower() in downloads.VIDEO_EXT] if folder.is_dir() else []
+
     def downloads_add(self, b: dict) -> dict:
         cfg = self.cfg()
         dl = downloads.Downloads(self.library(cfg), cfg)
@@ -1771,8 +1776,14 @@ class App:
         mark = (lambda rid: dl.set(rid, source=json.dumps({"choice": choice}, ensure_ascii=False))) if choice else (lambda rid: None)
         if b["kind"] == "tv" and b.get("seasons"):  # sólo las temporadas que marcaste
             have = dl.seasons_in(tid)
-            new = sorted({int(n) for n in b["seasons"]} - have)
+            # «Buscar capítulos nuevos»: temporadas que ya pediste se vuelven a pedir (sólo baja lo que falte)
+            again = {int(n) for n in b.get("update") or []} & {int(n) for n in b["seasons"]}
+            busy = {r[0] for r in dl.db.execute("SELECT season FROM downloads WHERE kind='tv' AND tmdb=? AND season IS NOT NULL "
+                                                "AND state IN ('cola','pidiendo','descargando','manual')", (tid,))}
+            new = sorted(({int(n) for n in b["seasons"]} - have) | (again - busy))
             if not new:
+                if again:
+                    return {"ok": False, "error": "esa temporada ya se está descargando"}
                 return {"ok": False, "error": "esas temporadas ya están en Descargas"}
             for n in new:
                 mark(dl.add("tv", tid, title, year, "manual", season=n))
@@ -2283,6 +2294,25 @@ class App:
             # lo ya recibido (antes de un reinicio o un error) no se vuelve a bajar
             got_names = json.loads(row.get("got") or "[]")
             placed = json.loads(row.get("dest") or "[]")
+            owned = set()  # capítulos de la serie que ya tienes: no se vuelven a bajar (series en emisión)
+            if row["kind"] == "tv":
+                try:
+                    for f in self._dl_owned_files(dl, row, db):
+                        ep = downloads.episode_numbers(f)
+                        if ep:
+                            owned.add((ep[0], ep[1]))
+                except Exception as e:
+                    log.info("descargas: no pude mirar los capítulos que ya tienes: %s", e)
+
+            def skip(name, size):
+                if name in got_names:
+                    return True
+                ep = downloads.episode_numbers(Path(name)) if owned else None
+                if ep and (ep[0], ep[1]) in owned:
+                    log.info("descargas: %s ya lo tienes; no se baja", name)
+                    got_names.append(name)
+                    return True
+                return False
 
             def put(path: Path, _info=None):
                 """Cada video pasa a la biblioteca en cuanto termina, sin esperar al resto de la temporada."""
@@ -2375,15 +2405,15 @@ class App:
                     log.info("descargas: %s ya lo mandó @%s; lo retomo sin pedirlo otra vez", row["title"], seen["bot"])
                     self._telegram(cfg).take(f"t.me/{seen['bot']}", seen["ids"], tmp, progress=progress,
                                              stop=lambda: self.dl["stop"] == rid,
-                                             skip=lambda name, size: name in got_names, on_file=put_bg)
+                                             skip=skip, on_file=put_bg)
                 elif src:
                     self._telegram(cfg).take(src["channel"], src["ids"], tmp, progress=progress,
                                              stop=lambda: self.dl["stop"] == rid,
-                                             skip=lambda name, size: name in got_names, on_file=put_bg)
+                                             skip=skip, on_file=put_bg)
                 else:
                     self._telegram(cfg).fetch(link[1], tmp, bot=link[0], progress=progress,
                                               stop=lambda: self.dl["stop"] == rid, on_manual=manual,
-                                              skip=lambda name, size: name in got_names, on_file=put_bg, on_seen=seen_file, one=row["kind"] == "movie",
+                                              skip=skip, on_file=put_bg, on_seen=seen_file, one=row["kind"] == "movie",
                                               remind=label if d.get("remind", True) and not by_bot else "")
             finally:
                 placing.shutdown(wait=True)  # lo ya bajado se coloca aunque el bot falle
@@ -2397,6 +2427,11 @@ class App:
                     p.unlink()
             if tmp.exists():
                 tmp.rmdir()
+            if not placed and owned and got_names:  # sólo mandó capítulos que ya tenías
+                dl.set(rid, state="listo", detail="no hay capítulos nuevos todavía; ya tienes todos los que han salido")
+                status.show(f"✅ Sin capítulos nuevos\n\n{label}\nYa tienes todos los que han salido.", final=True)
+                self.dl.update(message=f"{row['title']}: sin capítulos nuevos", done=0, total=0, speed=0.0)
+                return
             if not placed:
                 raise ValueError("el bot no mandó ningún video")
             swapped = self._dl_swap(cfg, dl, row, placed)

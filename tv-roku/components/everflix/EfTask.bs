@@ -369,6 +369,7 @@ function videotecarioAt(base as string, path as string, body as dynamic) as obje
     if not started then return { ok: false, error: "Videotecario no responde" }
     timeout = 6000
     if path = "/api/pedir/home" then timeout = 30000
+    if path.left(8) = "/api/yt/" then timeout = 90000
     msg = wait(timeout, port)
     if type(msg) <> "roUrlEvent"
         req.AsyncCancel()

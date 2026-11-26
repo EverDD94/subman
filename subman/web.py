@@ -2955,7 +2955,8 @@ def make_handler(app: App):
         "/api/yt/status": lambda u, q: {"ok": True, "version": app.yt().version(), "linked": app.yt().mine(u["id"]), "admin": bool(u.get("admin")),
                                         **({"code": app.yt().pair_code(u["id"]), "pushed": app.yt().state.get("pushed", 0)} if u.get("admin") else {})},
         "/api/yt/feed": lambda u, q: {"ok": True, "items": app.yt().feed(q.get("tab", ["inicio"])[0], bool(u.get("admin")), u["id"])},
-        "/api/yt/channel": lambda u, q: {"ok": True, **app.yt().channel(q.get("id", [""])[0])},
+        "/api/yt/channel": lambda u, q: {"ok": True, **app.yt().channel(q.get("id", [""])[0], tab=q.get("tab", ["videos"])[0])},
+        "/api/yt/channels": lambda u, q: {"ok": True, "items": app.yt().channels(u["id"])},
         "/api/pedir/inbox": lambda u, q: {"ok": True, "items": jfadmin.inbox(u["id"], q.get("device", [""])[0])},
     }
     friend_post = {

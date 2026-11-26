@@ -127,7 +127,18 @@ main{margin-left:var(--rail);min-height:100vh;position:relative}
 .ytplay{position:fixed;inset:0;z-index:90;background:#000;display:flex;align-items:center;justify-content:center}
 .ytplay video{width:100%;height:100%;background:#000}
 .ytplay .btn{position:absolute;top:20px;right:20px}
-.yttabs{display:flex;gap:10px;flex-wrap:wrap;margin:0 56px 18px}
+.yttabs{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 56px 22px}
+.yttabs .ytq{margin:0 0 0 auto;flex:1;min-width:240px;max-width:420px}.yttabs .ytq input{padding:12px 16px 12px 48px;font-size:16px}
+.ythead{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-right:56px}
+.ytok i{width:10px;height:10px;border-radius:50%;background:#2e9e5b;display:inline-block}
+.card span.ytch{cursor:pointer}.card span.ytch:hover{color:var(--ink);text-decoration:underline}
+.ytchans{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:24px 16px;padding:0 56px}
+.ytchan{background:none;border:0;color:var(--ink);cursor:pointer;text-align:center;font:600 14px var(--font)}
+.ytchan img,.ytchan .noimg{width:110px;height:110px;border-radius:50%;object-fit:cover;display:block;margin:0 auto 10px;background:var(--card);transition:transform .15s}
+.ytchan:hover img,.ytchan:focus img{transform:scale(1.06);box-shadow:0 0 0 3px var(--ink)}
+.ytchead{margin:0 56px 24px}.ytchead .ban{height:170px;border-radius:14px;background:center/cover;margin-bottom:18px}
+.ytchead .who{display:flex;gap:18px;align-items:center}.ytchead .who img{width:84px;height:84px;border-radius:50%;object-fit:cover}
+.ytchead h2{margin:0;font:800 28px var(--font)}.ytchead span{color:var(--muted)}
 .ytlink{margin:0 56px 24px;background:var(--card);border-radius:14px;padding:18px 22px;max-width:760px}
 .ytlink ol{padding-left:20px;line-height:1.7}.ytlink code.big{font-size:20px;letter-spacing:2px}
 .grid.yt{grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
@@ -910,56 +921,107 @@ function ytCard(v) {
   const d = v.duration || 0, t = d >= 3600 ? `${Math.floor(d / 3600)}:${String(Math.floor(d % 3600 / 60)).padStart(2, "0")}:${String(d % 60).padStart(2, "0")}` : `${Math.floor(d / 60)}:${String(d % 60).padStart(2, "0")}`;
   return {Id: "yt-" + v.id, Name: v.title, Type: "YouTube", efThumb: v.thumb, efNote: [v.live ? "EN DIRECTO" : d ? t : "", v.channel].filter(Boolean).join(" · "), yt: v};
 }
-const YT_TABS = [["inicio", "Inicio"], ["suscripciones", "Suscripciones"], ["historial", "Historial"], ["tarde", "Ver más tarde"]];
+const YT_TABS = [["inicio", "Inicio"], ["suscripciones", "Suscripciones"], ["canales", "Canales"], ["tarde", "Ver más tarde"], ["historial", "Historial"]];
+const fmtSubs = n => n >= 1e6 ? (n / 1e6).toFixed(1).replace(".0", "") + " M de suscriptores" : n >= 1e3 ? Math.round(n / 1e3) + " K suscriptores" : n ? n + " suscriptores" : "";
 async function pageYouTube(main) {
   setStage("");
   const st = await vt("/api/yt/status");
-  const linked = st.ok && st.linked && st.admin;
+  const linked = st.ok && st.linked;
   const tabs = linked ? YT_TABS : YT_TABS.filter(t => t[0] === "inicio" || t[0] === "historial");
-  main.innerHTML = `<div class="page"><h1>YouTube</h1>
+  main.innerHTML = `<div class="page"><div class="ythead"><h1>YouTube</h1>
+      ${st.admin ? (linked ? `<button class="btn ytok" id="ytLink"><i></i>Conectado</button>` : `<button class="btn" id="ytLink">${ico("user")}Conectar tu cuenta</button>`) : ""}</div>
+    <div id="ytPanel" hidden></div>
     <div class="yttabs">${tabs.map(([k, t]) => `<button class="btn" data-t="${k}">${t}</button>`).join("")}
-      ${st.admin ? `<button class="btn" id="ytLink">${ico("user")}${linked ? "Tu cuenta" : "Conectar tu cuenta"}</button>` : ""}</div>
-    <div class="search">${ico("search")}<input id="q" type="search" placeholder="Buscar en YouTube" autocomplete="off"></div>
-    <div id="ytPanel" hidden></div><h2 class="sec" id="ytTitle" hidden></h2><div id="res"></div></div>`;
+      <div class="search ytq">${ico("search")}<input id="q" type="search" placeholder="Buscar en YouTube" autocomplete="off"></div></div>
+    <div id="res"></div></div>`;
   const input = $("#q"), res = $("#res");
-  let h, seq = 0, list = [];
-  const paint = (items, empty) => {
-    list = items;
-    res.innerHTML = items.length ? `<div class="grid yt">${items.map(v => card(ytCard(v))).join("")}</div>` : `<p class="empty">${esc(empty)}</p>`;
-    res.querySelectorAll(".card").forEach((c, i) => {
+  let h, seq = 0;
+  const wire = (root, lists) => {
+    wireCards(root);
+    root.querySelectorAll(".card").forEach(c => {
+      const it = store.get(c.dataset.k);
+      if (!it || !it.yt) return;
+      const list = lists[c.closest("[data-l]")?.dataset.l || 0] || [];
+      const i = list.indexOf(it.yt);
       c.onclick = () => playYouTube(list, i);
-      c.oncontextmenu = e => { e.preventDefault(); const v = list[i]; if (v.channel_id) load("/api/yt/channel?id=" + v.channel_id, true); };
+      const sub = c.querySelector("span");
+      if (sub && it.yt.channel_id) { sub.classList.add("ytch"); sub.onclick = e => { e.stopPropagation(); openChannel(it.yt.channel_id); }; }
     });
   };
-  const load = async (path, channel) => {
-    const my = ++seq;
-    main.querySelectorAll("[data-t]").forEach(b => b.classList.toggle("pri", path.endsWith("tab=" + b.dataset.t)));
-    $("#ytTitle").hidden = true;
-    res.innerHTML = `<div class="loading" style="padding-top:20px"><div class="spin"></div>Cargando…</div>`;
-    const r = await vt(path);
+  const grid = (items, empty) => items.length ? `<div class="grid yt" data-l="0">${items.map(v => card(ytCard(v))).join("")}</div>` : `<p class="empty">${esc(empty)}</p>`;
+  const loading = () => { res.innerHTML = `<div class="loading" style="padding-top:20px"><div class="spin"></div>Cargando…</div>`; };
+  const mark = t => main.querySelectorAll("[data-t]").forEach(b => b.classList.toggle("pri", b.dataset.t === t));
+  async function showTab(t) {
+    const my = ++seq; mark(t); loading();
+    if (t === "inicio") {
+      const r = await vt("/api/yt/home");
+      if (my !== seq) return;
+      const rows = (r.ok && r.rows) || [];
+      res.innerHTML = rows.map((row, n) => `<div data-l="${n}">${rowHtml(row.title, row.items.map(ytCard))}</div>`).join("") || `<p class="empty">YouTube no responde ahora mismo.</p>`;
+      wire(res, rows.map(r => r.items));
+    } else if (t === "canales") {
+      const r = await vt("/api/yt/channels");
+      if (my !== seq) return;
+      const chs = (r.ok && r.items) || [];
+      res.innerHTML = chs.length ? `<div class="ytchans">${chs.map(c => `<button class="ytchan" data-c="${esc(c.id)}" type="button">${c.avatar ? `<img src="${esc(c.avatar)}" alt="" loading="lazy">` : `<div class="noimg"></div>`}<b>${esc(c.title)}</b></button>`).join("")}</div>`
+        : `<p class="empty">${r.ok ? "No encontré tus canales." : "YouTube no responde ahora mismo."}</p>`;
+      res.querySelectorAll("[data-c]").forEach(b => b.onclick = () => openChannel(b.dataset.c));
+    } else {
+      const r = await vt("/api/yt/feed?tab=" + t);
+      if (my !== seq) return;
+      res.innerHTML = grid((r.ok && r.items) || [], r.ok ? "Aquí no hay nada todavía." : "YouTube no responde ahora mismo.");
+      wire(res, [(r.ok && r.items) || []]);
+    }
+  }
+  async function openChannel(cid, tab = "videos") {
+    const my = ++seq; mark(""); loading(); window.scrollTo({top: 0});
+    const r = await vt(`/api/yt/channel?id=${encodeURIComponent(cid)}&tab=${tab}`);
     if (my !== seq) return;
-    if (channel && r.ok) { $("#ytTitle").hidden = false; $("#ytTitle").textContent = r.title || "Canal"; }
-    paint((r.ok && r.items) || [], r.ok ? "Aquí no hay nada todavía." : "YouTube no responde ahora mismo.");
-  };
-  main.querySelectorAll("[data-t]").forEach(b => b.onclick = () => { input.value = ""; load("/api/yt/feed?tab=" + b.dataset.t); });
+    if (!r.ok) { res.innerHTML = `<p class="empty">No se pudo abrir el canal.</p>`; return; }
+    res.innerHTML = `<div class="ytchead">${r.banner ? `<div class="ban" style="background-image:url('${esc(r.banner)}')"></div>` : ""}
+      <div class="who">${r.avatar ? `<img src="${esc(r.avatar)}" alt="">` : ""}<div><h2>${esc(r.title)}</h2><span>${esc(fmtSubs(r.followers))}</span></div></div>
+      <div class="yttabs" style="margin:14px 0 0"><button class="btn ${tab === "videos" ? "pri" : ""}" data-ct="videos">Vídeos</button><button class="btn ${tab === "streams" ? "pri" : ""}" data-ct="streams">Directos</button></div></div>
+      ${grid(r.items || [], "Este canal no tiene nada aquí.")}`;
+    res.querySelectorAll("[data-ct]").forEach(b => b.onclick = () => openChannel(cid, b.dataset.ct));
+    wire(res, [r.items || []]);
+  }
+  main.querySelectorAll("[data-t]").forEach(b => b.onclick = () => { input.value = ""; showTab(b.dataset.t); });
   input.oninput = () => {
     clearTimeout(h);
-    h = setTimeout(() => input.value.trim().length < 2 ? load("/api/yt/feed?tab=inicio") : load("/api/yt/search?q=" + encodeURIComponent(input.value.trim())), 500);
+    h = setTimeout(async () => {
+      const q = input.value.trim();
+      if (q.length < 2) return showTab("inicio");
+      const my = ++seq; mark(""); loading();
+      const r = await vt("/api/yt/search?q=" + encodeURIComponent(q));
+      if (my !== seq) return;
+      res.innerHTML = grid((r.ok && r.items) || [], r.ok ? `Nada con «${q}».` : "YouTube no responde ahora mismo.");
+      wire(res, [(r.ok && r.items) || []]);
+    }, 500);
   };
   if ($("#ytLink")) $("#ytLink").onclick = () => {
     const p = $("#ytPanel");
     p.hidden = !p.hidden;
-    p.innerHTML = `<div class="ytlink"><b>${linked ? "Tu cuenta de YouTube está conectada." : "Conecta tu cuenta de YouTube"}</b>
-      <ol><li><a href="/everflix/youtube-extension.zip">Descarga la extensión</a> y descomprímela.</li>
-      <li>En Chrome o Edge abre <code>chrome://extensions</code>, activa «Modo de desarrollador» y pulsa «Cargar descomprimida» con esa carpeta.</li>
-      <li>Abre la extensión y pon este código: <code class="big">${esc(st.code || "")}</code></li>
-      <li>Entra en youtube.com con tu cuenta en ese navegador. Listo: se mantiene conectada sola.</li></ol>
-      ${st.pushed ? `<p class="sub" style="margin:0">Última vez que llegó tu sesión: ${new Date(st.pushed * 1000).toLocaleString()}</p>` : ""}
-      ${linked ? `<button class="btn" id="ytUnlink">Desconectar mi cuenta</button>` : ""}</div>`;
+    if (p.hidden) return;
+    p.innerHTML = linked
+      ? `<div class="ytlink"><b>Tu cuenta de YouTube está conectada.</b> Solo la ves tú.
+          ${st.pushed ? `<p class="sub" style="margin:6px 0 0">Última vez que llegó tu sesión: ${new Date(st.pushed * 1000).toLocaleString()}</p>` : ""}
+          <p class="sub" style="margin:6px 0 12px">Código de la extensión: <code>${esc(st.code || "")}</code></p><button class="btn" id="ytUnlink">Desconectar</button></div>`
+      : `<div class="ytlink"><b>Conecta tu cuenta de YouTube</b>
+          <ol><li><a href="/everflix/youtube-extension.zip">Descarga la extensión</a> y descomprímela.</li>
+          <li>En Chrome o Edge abre <code>chrome://extensions</code>, activa «Modo de desarrollador» y pulsa «Cargar descomprimida» con esa carpeta.</li>
+          <li>Abre la extensión y pon este código: <code class="big">${esc(st.code || "")}</code></li>
+          <li>Entra en youtube.com con tu cuenta en ese navegador. Esta página se actualiza sola cuando llegue.</li></ol></div>`;
     if ($("#ytUnlink")) $("#ytUnlink").onclick = async () => { await vt("/api/yt/unlink", {}); toast("Cuenta desconectada"); pageYouTube(main); };
+    if (!linked) {
+      const poll = setInterval(async () => {
+        if (!document.body.contains(p) || p.hidden) return clearInterval(poll);
+        const s2 = await vt("/api/yt/status");
+        if (s2.ok && s2.linked) { clearInterval(poll); toast("¡Cuenta conectada!"); pageYouTube(main); }
+      }, 4000);
+    }
   };
-  input.focus();
-  load("/api/yt/feed?tab=" + (linked ? "inicio" : "inicio"));
+  input.blur();
+  showTab("inicio");
 }
 async function playYouTube(list, i) {
   const v = list[i];

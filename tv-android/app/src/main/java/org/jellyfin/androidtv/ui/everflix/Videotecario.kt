@@ -298,6 +298,19 @@ class Videotecario(jellyfinUrl: String?, private val token: String?) {
 	/** A tab: inicio, suscripciones, historial or tarde. Null when it fails. */
 	suspend fun ytFeed(tab: String): List<YtVideo>? = ytList("/api/yt/feed?tab=$tab")
 
+	/** Your subscribed channels, as items with no video id (opening one opens the channel). */
+	suspend fun ytChannels(): List<YtVideo>? = withContext(Dispatchers.IO) {
+		val base = base ?: return@withContext null
+		runCatching {
+			val body = request(URL("$base/api/yt/channels"), null, readTimeout = 90000) ?: return@runCatching null
+			Json.parseToJsonElement(body).jsonObject["items"]?.jsonArray?.map {
+				val o = it.jsonObject
+				YtVideo("", o["title"]?.jsonPrimitive?.contentOrNull ?: "", "", 0, o["avatar"]?.jsonPrimitive?.contentOrNull ?: "", false,
+					o["id"]?.jsonPrimitive?.contentOrNull ?: "")
+			}
+		}.getOrNull()
+	}
+
 	suspend fun ytChannel(channelId: String): List<YtVideo>? = ytList("/api/yt/channel?id=$channelId")
 
 	private suspend fun ytList(path: String): List<YtVideo>? = withContext(Dispatchers.IO) {

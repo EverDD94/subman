@@ -198,13 +198,52 @@ class YouTube:
             return [i for i in map(self._item, data.get("entries") or []) if i]
         return self._cached("f:" + tab, 600 if tab != "historial" else 120, go)
 
-    def channel(self, cid: str, n: int = 40) -> dict:
+    @staticmethod
+    def _img(url: str) -> str:
+        return ("https:" + url) if url.startswith("//") else url
+
+    def _pic(self, thumbs: list, want: str) -> str:
+        """La foto (avatar) o el banner de un canal entre sus miniaturas."""
+        thumbs = thumbs or []
+        for t in thumbs:
+            if want in (t.get("id") or ""):
+                return self._img(t.get("url") or "")
+        if want == "avatar":  # en la lista de canales sólo vienen cuadradas
+            sq = [t for t in thumbs if t.get("width") and t.get("width") == t.get("height")]
+            if sq:
+                return self._img(max(sq, key=lambda t: t["width"])["url"])
+            if thumbs:
+                return self._img(thumbs[-1].get("url") or "")
+        return ""
+
+    def channel(self, cid: str, n: int = 40, tab: str = "videos") -> dict:
+        """Página de un canal: cabecera (foto, banner, suscriptores) y sus vídeos o directos."""
         if not cid.startswith("UC") or len(cid) != 24 or not all(c.isalnum() or c in "-_" for c in cid):
             raise ValueError("canal no válido")
+        tab = tab if tab in ("videos", "streams") else "videos"
         def go():
-            data = self._ytdlp(["--flat-playlist", "--playlist-end", str(n), f"https://www.youtube.com/channel/{cid}/videos"], timeout=90)
-            return {"title": data.get("channel") or data.get("title") or "", "items": [i for i in map(self._item, data.get("entries") or []) if i]}
-        return self._cached("c:" + cid, 3600, go)
+            data = self._ytdlp(["--flat-playlist", "--playlist-end", str(n), f"https://www.youtube.com/channel/{cid}/{tab}"], timeout=90)
+            return {"title": data.get("channel") or data.get("title") or "", "channel_id": cid,
+                    "avatar": self._pic(data.get("thumbnails"), "avatar"), "banner": self._pic(data.get("thumbnails"), "banner"),
+                    "followers": int(data.get("channel_follower_count") or 0),
+                    "description": (data.get("description") or "")[:300],
+                    "items": [i for i in map(self._item, data.get("entries") or []) if i]}
+        return self._cached(f"c:{cid}:{tab}", 3600, go)
+
+    def channels(self, uid: str) -> list[dict]:
+        """Los canales a los que estás suscrito (sólo con tu cuenta)."""
+        if not self.mine(uid):
+            return []
+        def go():
+            data = self._ytdlp(["--flat-playlist", "https://www.youtube.com/feed/channels"], timeout=120, account=True)
+            out = []
+            for e in data.get("entries") or []:
+                cid = e.get("channel_id") or e.get("id") or ""
+                if cid.startswith("UC"):
+                    out.append({"id": cid, "title": e.get("channel") or e.get("title") or "",
+                                "avatar": self._pic(e.get("thumbnails"), "avatar")})
+            return out
+        return self._cached("f:canales", 3600, go)
 
     def mark_watched(self, vid: str) -> None:
         """Lo apunta en tu historial de YouTube (sólo con cuenta ligada), sin esperar."""
@@ -237,7 +276,7 @@ class YouTube:
                and f.get("acodec") not in (None, "none") and (f.get("height") or 0) <= MAX_H
                and (f.get("vcodec") or "").startswith("avc")]
         hls.sort(key=lambda f: (f.get("height") or 0, f.get("tbr") or 0))
-        if info.get("live_status") == "is_live" and info.get("manifest_url"):
+        if info.get("live_status") == "is_live" and info.get("manifest_url") and mode != "nas":
             return {**item, "url": info["manifest_url"], "format": "hls", "height": 0}
         if hls and (hls[-1].get("height") or 0) >= 720 and mode != "nas":
             f = hls[-1]
@@ -251,11 +290,26 @@ class YouTube:
             v, a = video[-1], audio[-1]
             self._start_mux(vid, v["url"], a["url"])
             return {**item, "url": f"/yt/{self.sign(vid)}/{vid}/index.m3u8", "format": "hls", "height": v.get("height"), "nas": True}
+        if shutil.which("ffmpeg"):
+            # sólo hay HLS (pasa con la cuenta ligada): el NAS lo copia tal cual, sin recodificar
+            if hls:
+                self._start_mux(vid, hls[-1]["url"], None)
+                return {**item, "url": f"/yt/{self.sign(vid)}/{vid}/index.m3u8", "format": "hls", "height": hls[-1].get("height"), "nas": True}
+            hv = [f for f in fmts if "m3u8" in (f.get("protocol") or "") and (f.get("vcodec") or "").startswith("avc")
+                  and (f.get("height") or 0) <= MAX_H]
+            ha = [f for f in fmts if f.get("vcodec") == "none" and f.get("acodec") not in (None, "none")
+                  and ("m3u8" in (f.get("protocol") or "") or f.get("ext") == "m4a")]
+            hv.sort(key=lambda f: (f.get("height") or 0, f.get("tbr") or 0))
+            ha.sort(key=lambda f: f.get("abr") or f.get("tbr") or 0)
+            if hv:
+                self._start_mux(vid, hv[-1]["url"], ha[-1]["url"] if ha else None)
+                return {**item, "url": f"/yt/{self.sign(vid)}/{vid}/index.m3u8", "format": "hls", "height": hv[-1].get("height"), "nas": True}
         prog = [f for f in fmts if f.get("ext") == "mp4" and f.get("acodec") not in (None, "none")
                 and f.get("vcodec") not in (None, "none") and f.get("protocol", "").startswith("http")]
         prog.sort(key=lambda f: f.get("height") or 0)
         if prog:
             return {**item, "url": prog[-1]["url"], "format": "mp4", "height": prog[-1].get("height")}
+        log.warning("YouTube %s sin formato útil: %s", vid, [(f.get("format_id"), f.get("protocol"), f.get("vcodec"), f.get("acodec"), f.get("height")) for f in fmts][:40])
         raise RuntimeError("YouTube no dio un formato que la tele pueda abrir")
 
     def sign(self, vid: str) -> str:
@@ -264,7 +318,7 @@ class YouTube:
     def signed(self, sig: str, vid: str) -> bool:
         return hmac.compare_digest(sig, self.sign(vid))
 
-    def _start_mux(self, vid: str, vurl: str, aurl: str) -> None:
+    def _start_mux(self, vid: str, vurl: str, aurl: str | None) -> None:
         with self.lock:
             m = self.mux.get(vid)
             if m and m["proc"].poll() in (None, 0) and (m["dir"] / "index.m3u8").exists():
@@ -277,8 +331,9 @@ class YouTube:
             out.mkdir(parents=True, exist_ok=True)
             def src(url):
                 return (["-headers", "User-Agent: Mozilla/5.0\r\n"] if url.startswith("http") else []) + ["-i", url]
-            cmd = ["ffmpeg", "-nostdin", "-loglevel", "error", *src(vurl), *src(aurl),
-                   "-map", "0:v:0", "-map", "1:a:0", "-c", "copy",
+            maps = ["-map", "0:v:0", "-map", "1:a:0"] if aurl else ["-map", "0:v:0", "-map", "0:a:0?"]
+            cmd = ["ffmpeg", "-nostdin", "-loglevel", "error", *src(vurl), *(src(aurl) if aurl else []),
+                   *maps, "-c", "copy",
                    "-f", "hls", "-hls_time", "6", "-hls_list_size", "0", "-hls_playlist_type", "event",
                    "-hls_segment_filename", str(out / "s%05d.ts"), str(out / "index.m3u8")]
             proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -341,20 +396,17 @@ class YouTube:
         return list(self.state.get("history", {}).get(uid, []))
 
     def home(self, uid: str) -> list[dict]:
-        """Filas para la portada de YouTube: seguir viendo y lo que más se mira ahora."""
+        """Inicio por filas, como YouTube. Con tu cuenta: tus suscripciones y recomendados."""
         rows = []
         h = self.history(uid)
         if h:
             rows.append({"title": "Visto recientemente", "items": h[:20]})
-            seen = []
-            for x in h:  # más de los canales que ve
-                if x.get("channel") and x["channel"] not in seen:
-                    seen.append(x["channel"])
-            for ch in seen[:2]:
+        if self.mine(uid):
+            for title, tab in (("Nuevo de tus suscripciones", "suscripciones"), ("Recomendados para ti", "inicio"), ("Ver más tarde", "tarde")):
                 try:
-                    rows.append({"title": f"Más de {ch}", "items": [i for i in self.search(ch, 15) if i["channel"] == ch][:15]})
+                    rows.append({"title": title, "items": self.feed(tab, True, uid)[:24], "tab": tab})
                 except Exception as e:
-                    log.info("YouTube: %s", e)
+                    log.warning("YouTube: %s", e)
         for title, q in (("Tendencias", "tendencias"), ("Música", "música novedades")):
             try:
                 rows.append({"title": title, "items": self.search(q, 20)})

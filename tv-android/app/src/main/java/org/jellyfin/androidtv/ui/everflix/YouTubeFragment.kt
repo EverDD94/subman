@@ -72,7 +72,7 @@ object YtQueue {
 	var index = 0
 }
 
-private val TABS = listOf("buscar" to "Buscar", "inicio" to "Inicio", "suscripciones" to "Suscripciones", "historial" to "Historial", "tarde" to "Ver más tarde")
+private val TABS = listOf("buscar" to "Buscar", "inicio" to "Inicio", "suscripciones" to "Suscripciones", "canales" to "Canales", "historial" to "Historial", "tarde" to "Ver más tarde")
 
 @Composable
 private fun YouTubeScreen() {
@@ -94,6 +94,7 @@ private fun YouTubeScreen() {
 		failed = false
 		val got = when {
 			channel != null -> client.ytChannel(channel!!.channelId)
+			tab == "canales" -> client.ytChannels()
 			tab == "buscar" -> if (query.trim().length < 2) emptyList() else { delay(900); client.ytSearch(query.trim()) }
 			else -> client.ytFeed(tab)
 		}
@@ -102,6 +103,7 @@ private fun YouTubeScreen() {
 	}
 
 	fun open(list: List<YtVideo>, i: Int) {
+		if (list[i].id.isEmpty()) { channel = list[i].copy(channel = list[i].title); return }
 		Toast.makeText(context, "Abriendo: ${list[i].title}", Toast.LENGTH_SHORT).show()
 		scope.launch {
 			val stream = client.ytPlay(list[i])

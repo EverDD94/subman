@@ -71,6 +71,9 @@ def forward(cfg: dict, method: str, path_qs: str, token: str, device: str, body:
             ctype: str | None, rng: str | None) -> requests.Response:
     """La petición tal cual a Jellyfin, con el token del usuario. Respuesta en trozos (vídeo, imágenes)."""
     headers = _client(device, token)
+    # sólo gzip: con brotli/zstd instalados (los trae yt-dlp) requests pediría br/zstd, que Chrome no
+    # acepta en http sin cifrar (ERR_CONTENT_DECODING_FAILED) y la respuesta pasa comprimida tal cual
+    headers["Accept-Encoding"] = "gzip"
     if ctype:
         headers["Content-Type"] = ctype
     if rng:

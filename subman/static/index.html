@@ -2114,6 +2114,13 @@ function autoBtn(c) {
 async function autoToggle(b, k) {
   const c = dscFind(k); if (!c) return;
   if (!autoF) await autoLoad();
+  const on = !autoF.has(k);
+  try { const r = await api("/api/follow/set", {item: {kind: c.kind, tmdb: c.tmdb, title: c.title, year: c.year, poster: c.poster}, on}); if (r.ok === false) return toast(r.error); } catch (e) { return toast(e.message); }
+  on ? autoF.add(k) : autoF.delete(k);
+  b.outerHTML = autoBtn(c);
+  toast(on ? "Siguiendo. Miro ahora si hay algo nuevo y luego cada día." : "Ya no la sigues");
+}
+autoLoad();
 function dubBtn(c) {
   return FRIEND || c.kind !== "tv" || !c.have ? "" : `<button class="havebtn" onclick="dubAsk(this, '${c.kind + c.tmdb}')">${ico("subs")}Buscar audio en español</button>`;
 }
@@ -2126,13 +2133,6 @@ async function dubAsk(b, k) {
     toast(r.seasons.length ? `Buscando versión doblada de la temporada ${r.seasons.join(", ")}. Lo verás en Descargas.` : "Ya se está buscando");
   } catch (e) { toast(e.message); }
 }
-  const on = !autoF.has(k);
-  try { const r = await api("/api/follow/set", {item: {kind: c.kind, tmdb: c.tmdb, title: c.title, year: c.year, poster: c.poster}, on}); if (r.ok === false) return toast(r.error); } catch (e) { return toast(e.message); }
-  on ? autoF.add(k) : autoF.delete(k);
-  b.outerHTML = autoBtn(c);
-  toast(on ? "Siguiendo. Miro ahora si hay algo nuevo y luego cada día." : "Ya no la sigues");
-}
-autoLoad();
 // en la ficha de una serie: el amigo la sigue él mismo; tú eliges a quién avisar
 function followBtn(c) {
   if (c.kind !== "tv") return "";

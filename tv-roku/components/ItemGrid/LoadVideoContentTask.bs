@@ -192,6 +192,9 @@ sub LoadItems_AddVideoContent(video as object, mediaSourceId as dynamic, audio_s
         end if
     end if
 
+    ' Intro y créditos que marca Videotecario (más fiables que los de Intro Skipper): sustituyen a los de Jellyfin
+    if video.content.contenttype = 4 then mergeVideotecarioSegments(video)
+
     hasOutroSegment = false
     if isValidAndNotEmpty(video.mediaSegments)
         for i = 0 to video.mediaSegments.TotalRecordCount - 1
@@ -736,3 +739,41 @@ function FindPreferredAudioStream(streams as dynamic) as integer
     ' User doesn't care, play the first track :-)
     return firstAudioTrack
 end function
+
+' Asks Videotecario (address remembered by Everflix) for the intro and credits of this episode
+sub mergeVideotecarioSegments(video as object)
+    base = CreateObject("roRegistrySection", "everflix").Read("videotecario")
+    if base = "" then return
+    req = CreateObject("roUrlTransfer")
+    req.SetUrl(base + "/api/pedir/skip?id=" + video.id)
+    req.AddHeader("X-Emby-Token", m.global.session.user.authToken)
+    if base.left(5) = "https" then req.SetCertificatesFile("common:/certs/ca-bundle.crt")
+    port = CreateObject("roMessagePort")
+    req.SetMessagePort(port)
+    if not req.AsyncGetToString() then return
+    msg = wait(5000, port)
+    if type(msg) <> "roUrlEvent"
+        req.AsyncCancel()
+        return
+    end if
+    if msg.GetResponseCode() <> 200 then return
+    data = ParseJson(msg.GetString())
+    if not isValid(data) or data.ok <> true then return
+    items = []
+    if isValid(video.mediaSegments) and isValid(video.mediaSegments.LookupCI("items"))
+        for each seg in video.mediaSegments.items
+            t = seg.LookupCI("type")
+            keep = true
+            if isStringEqual(t, MediaSegmentType.INTRO) and isValid(data.intro) then keep = false
+            if isStringEqual(t, MediaSegmentType.OUTRO) and isValid(data.credits) then keep = false
+            if keep then items.push(seg)
+        end for
+    end if
+    if isValid(data.intro)
+        items.push({ Id: "", ItemId: video.id, Type: "Intro", StartTicks: data.intro[0] * 10000000&, EndTicks: data.intro[1] * 10000000& })
+    end if
+    if isValid(data.credits)
+        items.push({ Id: "", ItemId: video.id, Type: "Outro", StartTicks: data.credits[0] * 10000000&, EndTicks: data.credits[1] * 10000000& })
+    end if
+    video.mediaSegments = { Items: items, StartIndex: 0, TotalRecordCount: items.count() }
+end sub

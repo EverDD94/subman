@@ -253,6 +253,21 @@ class Videotecario(jellyfinUrl: String?, private val token: String?) {
 		}.getOrDefault(false)
 	}
 
+	/** Intro and credits Videotecario marked for this episode: "intro"/"credits" -> (start, end) in seconds. */
+	suspend fun skips(itemId: String): Map<String, Pair<Double, Double>> = withContext(Dispatchers.IO) {
+		val base = base ?: return@withContext emptyMap()
+		runCatching {
+			val body = request(URL("$base/api/pedir/skip?id=$itemId"), null, readTimeout = 5000) ?: return@runCatching emptyMap()
+			val root = Json.parseToJsonElement(body).jsonObject
+			listOf("intro", "credits").mapNotNull { k ->
+				val arr = runCatching { root[k]?.jsonArray }.getOrNull() ?: return@mapNotNull null
+				val a = arr.getOrNull(0)?.jsonPrimitive?.content?.toDoubleOrNull() ?: return@mapNotNull null
+				val b = arr.getOrNull(1)?.jsonPrimitive?.content?.toDoubleOrNull() ?: return@mapNotNull null
+				k to (a to b)
+			}.toMap()
+		}.getOrDefault(emptyMap())
+	}
+
 	private fun request(url: URL, payload: JsonObject?, readTimeout: Int = 8000): String? {
 		val conn = url.openConnection() as HttpURLConnection
 		conn.connectTimeout = 4000

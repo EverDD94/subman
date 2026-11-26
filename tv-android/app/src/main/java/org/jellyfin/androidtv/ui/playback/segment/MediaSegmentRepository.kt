@@ -3,12 +3,14 @@ package org.jellyfin.androidtv.ui.playback.segment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.jellyfin.androidtv.preference.UserPreferences
+import org.jellyfin.androidtv.ui.everflix.Videotecario
 import org.jellyfin.androidtv.util.sdk.duration
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.extensions.mediaSegmentsApi
 import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.MediaSegmentDto
 import org.jellyfin.sdk.model.api.MediaSegmentType
+import java.util.UUID
 import kotlin.time.Duration.Companion.seconds
 
 interface MediaSegmentRepository {
@@ -103,12 +105,27 @@ class MediaSegmentRepositoryImpl(
 		return action
 	}
 
-	override suspend fun getSegmentsForItem(item: BaseItemDto): List<MediaSegmentDto> = runCatching {
-		withContext(Dispatchers.IO) {
-			api.mediaSegmentsApi.getItemSegments(
-				itemId = item.id,
-				includeSegmentTypes = MediaSegmentRepository.SupportedTypes,
-			).content.items
+	override suspend fun getSegmentsForItem(item: BaseItemDto): List<MediaSegmentDto> {
+		val jellyfin = runCatching {
+			withContext(Dispatchers.IO) {
+				api.mediaSegmentsApi.getItemSegments(
+					itemId = item.id,
+					includeSegmentTypes = MediaSegmentRepository.SupportedTypes,
+				).content.items
+			}
+		}.getOrDefault(emptyList())
+		// Intro and credits marked by Videotecario replace Intro Skipper's (they are more reliable)
+		val ours = runCatching { Videotecario(api.baseUrl, api.accessToken).skips(item.id.toString()) }.getOrDefault(emptyMap())
+		if (ours.isEmpty()) return jellyfin
+		fun seg(type: MediaSegmentType, range: Pair<Double, Double>) = MediaSegmentDto(
+			id = UUID.randomUUID(), itemId = item.id, type = type,
+			startTicks = (range.first * 10_000_000).toLong(), endTicks = (range.second * 10_000_000).toLong(),
+		)
+		val replaced = buildSet {
+			if ("intro" in ours) add(MediaSegmentType.INTRO)
+			if ("credits" in ours) add(MediaSegmentType.OUTRO)
 		}
-	}.getOrDefault(emptyList())
+		return jellyfin.filter { it.type !in replaced } +
+			listOfNotNull(ours["intro"]?.let { seg(MediaSegmentType.INTRO, it) }, ours["credits"]?.let { seg(MediaSegmentType.OUTRO, it) })
+	}
 }

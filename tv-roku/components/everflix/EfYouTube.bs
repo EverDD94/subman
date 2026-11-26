@@ -107,7 +107,7 @@ sub onStatus()
     r = m.statusTask.result
     if not isValid(r) or not isValid(r.LookupCI("data")) then return
     if r.data.LookupCI("linked") = true and r.data.LookupCI("admin") = true
-        buildTabs([{ key: "buscar", label: "Buscar" }, { key: "inicio", label: "Inicio" }, { key: "suscripciones", label: "Suscripciones" }, { key: "historial", label: "Historial" }, { key: "tarde", label: "Ver más tarde" }])
+        buildTabs([{ key: "buscar", label: "Buscar" }, { key: "inicio", label: "Inicio" }, { key: "suscripciones", label: "Suscripciones" }, { key: "canales", label: "Canales" }, { key: "historial", label: "Historial" }, { key: "tarde", label: "Ver más tarde" }])
         if m.tab = "inicio" then loadTab()
     end if
     paintTabs()
@@ -140,6 +140,7 @@ sub loadTab()
     m.heading.text = ""
     path = "/api/yt/feed?tab=" + m.tab
     if m.tab = "canal" then path = "/api/yt/channel?id=" + m.cid
+    if m.tab = "canales" then path = "/api/yt/channels"
     fetch(path)
 end sub
 
@@ -176,6 +177,13 @@ sub show(data as object)
     if m.tab = "canal" then m.heading.text = data.LookupCI("title") ?? ""
     m.grid.translation = [m.grid.translation[0], m.heading.text = "" ? 150 : 210]
     content = CreateObject("roSGNode", "ContentNode")
+    if m.tab = "canales"
+        list = []
+        for each c in m.items
+            list.push({ id: "", title: c.title, channel: "", thumb: c.avatar, channel_id: c.id, isChannel: true })
+        end for
+        m.items = list
+    end if
     for each v in m.items
         node = content.createChild("ContentNode")
         node.addField("json", "assocarray", false)
@@ -304,6 +312,10 @@ end sub
 sub playAt(index as integer)
     if index < 0 or index >= m.items.count() then return
     v = m.items[index]
+    if v.LookupCI("isChannel") = true
+        openChannel(v.channel_id)
+        return
+    end if
     m.playIndex = index
     m.playing = v
     showToast("Abriendo: " + v.title)
@@ -351,6 +363,13 @@ end sub
 sub onClosed()
     m.player = invalid
     m.grid.jumpToItem = m.playIndex
+end sub
+
+sub openChannel(cid as string)
+    m.tab = "canal"
+    m.cid = cid
+    paintTabs()
+    loadTab()
 end sub
 
 ' ---- avisos ----
@@ -456,12 +475,7 @@ function onKeyEvent(key as string, press as boolean) as boolean
             return true
         else if key = "options"
             v = m.items[m.grid.itemFocused]
-            if isValidAndNotEmpty(v.LookupCI("channel_id"))
-                m.tab = "canal"
-                m.cid = v.channel_id
-                paintTabs()
-                loadTab()
-            end if
+            if isValidAndNotEmpty(v.LookupCI("channel_id")) then openChannel(v.channel_id)
             return true
         else if key = "back" and m.tab = "canal"
             selectTab("inicio")

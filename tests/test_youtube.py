@@ -51,3 +51,14 @@ def test_account_only_for_owner(tmp_path):
     assert y.feed("inicio", True, "amigo") == ["trend"]
     assert y.feed("suscripciones", True, "amigo") == []
     assert y.paired(code.lower()) and not y.paired("nope")
+
+
+def test_hls_only_goes_through_nas_for_web(tmp_path, monkeypatch):
+    monkeypatch.setattr(youtube.shutil, "which", lambda n: "/usr/bin/ffmpeg")
+    fmts = [{"protocol": "m3u8_native", "vcodec": "avc1", "acodec": "none", "height": 1080, "url": "v"},
+            {"protocol": "m3u8_native", "vcodec": "none", "acodec": "mp4a", "url": "a"}]
+    seen = []
+    y = _yt(tmp_path, {"id": "dQw4w9WgXcQ", "formats": fmts})
+    y._start_mux = lambda *a: seen.append(a)
+    r = y.play("dQw4w9WgXcQ", "nas")
+    assert r["nas"] and seen == [("dQw4w9WgXcQ", "v", "a")]

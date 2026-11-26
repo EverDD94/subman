@@ -35,6 +35,8 @@ sub onEverflixJump(data as object)
     group = invalid
     if target = "search"
         group = CreateObject("roSGNode", "EfSearch")
+    else if target = "youtube"
+        group = CreateObject("roSGNode", "EfYouTube")
     else if target = "movies" or target = "series"
         group = CreateObject("roSGNode", "EfLibrary")
         group.setup = { kind: target }

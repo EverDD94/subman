@@ -1,5 +1,7 @@
 FROM python:3.12-slim
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg tzdata && rm -rf /var/lib/apt/lists/*
+# deno: yt-dlp lo necesita para descifrar YouTube
+COPY --from=denoland/deno:bin-2.5.6 /deno /usr/local/bin/deno
 ENV PYTHONUNBUFFERED=1
 WORKDIR /app
 COPY pyproject.toml subman.example.toml ./

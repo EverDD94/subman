@@ -1,0 +1,45 @@
+import "pkg:/source/utils/misc.bs"
+
+sub init()
+    m.top.overhangVisible = false
+    m.top.optionsAvailable = false
+    m.player = m.top.findNode("player")
+    m.player.observeField("state", "onState")
+end sub
+
+sub onVideo()
+    v = m.top.video
+    content = CreateObject("roSGNode", "ContentNode")
+    content.url = v.url
+    content.title = v.title ?? ""
+    content.streamFormat = v.format ?? "hls"
+    content.HttpCertificatesFile = "common:/certs/ca-bundle.crt"
+    content.HttpHeaders = ["User-Agent: Mozilla/5.0"]
+    m.player.content = content
+    m.player.control = "play"
+    m.player.setFocus(true)
+end sub
+
+sub onState()
+    if m.player.state = "finished" or m.player.state = "error"
+        if m.player.state = "error" then print "YouTube: "; m.player.errorMsg; " "; m.player.errorStr
+        m.global.sceneManager.callFunc("popScene")
+    end if
+end sub
+
+sub OnScreenShown()
+    m.player.setFocus(true)
+end sub
+
+sub OnScreenHidden()
+    m.player.control = "stop"
+end sub
+
+function onKeyEvent(key as string, press as boolean) as boolean
+    if press and key = "back"
+        m.player.control = "stop"
+        m.global.sceneManager.callFunc("popScene")
+        return true
+    end if
+    return false
+end function

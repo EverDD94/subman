@@ -1,0 +1,346 @@
+import "pkg:/components/everflix/EfCommon.bs"
+import "pkg:/source/utils/misc.bs"
+
+const COLUMNS = 7
+const KEY_SIZE = 66
+
+sub init()
+    m.top.overhangVisible = false
+    m.top.optionsAvailable = false
+    m.query = m.top.findNode("query")
+    m.keysGroup = m.top.findNode("keys")
+    m.results = m.top.findNode("results")
+    m.hint = m.top.findNode("hint")
+    m.rail = m.top.findNode("rail")
+    m.toast = m.top.findNode("toast")
+    m.toastText = m.top.findNode("toastText")
+    m.toastBg = m.top.findNode("toastBg")
+    m.debounce = m.top.findNode("debounce")
+    m.toastTimer = m.top.findNode("toastTimer")
+
+    m.top.findNode("heading").font = ef.font(ef.FONT_BOLD, 44)
+    m.query.font = ef.font(ef.FONT_SEMI, 32)
+    m.hint.font = ef.font(ef.FONT_REGULAR, 28)
+    m.toastText.font = ef.font(ef.FONT_SEMI, 25)
+    m.results.rowLabelFont = ef.font(ef.FONT_BOLD, 26)
+
+    m.debounce.observeField("fire", "runSearch")
+    m.toastTimer.observeField("fire", "hideToast")
+    m.results.observeField("rowItemSelected", "onResult")
+    m.rail.observeField("selected", "onRailSelected")
+    m.rail.observeField("leave", "onRailLeave")
+
+    m.task = CreateObject("roSGNode", "EfTask")
+    m.task.observeField("result", "onResults")
+    m.playTask = CreateObject("roSGNode", "EfTask")
+    m.playTask.observeField("result", "onPlay")
+    m.watchTask = CreateObject("roSGNode", "EfTask")
+
+    ' The keyboard gets focus on its own node: giving it to the screen while the results
+    ' list held focus left the remote stuck on the last key
+    m.keysGroup.focusable = true
+
+    m.text = ""
+    m.keyIndex = 0
+    m.inKeys = true
+    m.searched = ""
+    buildKeys()
+    showQuery()
+    loadHome()
+end sub
+
+sub buildKeys()
+    letters = "abcdefghijklmnñopqrstuvwxyz1234567890"
+    m.keyList = []
+    for i = 0 to Len(letters) - 1
+        m.keyList.push({ key: Mid(letters, i + 1, 1), label: UCase(Mid(letters, i + 1, 1)), width: 1 })
+    end for
+    m.keyList.push({ key: "space", label: "Espacio", width: 3 })
+    m.keyList.push({ key: "delete", label: "Borrar", width: 2 })
+    m.keyList.push({ key: "clear", label: "Limpiar", width: 2 })
+
+    m.keyNodes = []
+    col = 0
+    row = 0
+    for each k in m.keyList
+        if col + k.width > COLUMNS
+            col = 0
+            row++
+        end if
+        g = m.keysGroup.createChild("Group")
+        g.translation = [col * KEY_SIZE, row * KEY_SIZE]
+        bg = g.createChild("Poster")
+        bg.uri = "pkg:/images/everflix/round8.9.png"
+        bg.width = k.width * KEY_SIZE - 8
+        bg.height = KEY_SIZE - 8
+        label = g.createChild("Label")
+        label.text = k.label
+        label.width = bg.width
+        label.height = bg.height
+        label.horizAlign = "center"
+        label.vertAlign = "center"
+        label.font = ef.font(ef.FONT_SEMI, k.width = 1 ? 28 : 22)
+        k.col = col
+        k.row = row
+        k.bg = bg
+        k.label = label
+        m.keyNodes.push(k)
+        col += k.width
+    end for
+    paintKeys()
+end sub
+
+sub paintKeys()
+    for i = 0 to m.keyNodes.count() - 1
+        k = m.keyNodes[i]
+        focused = m.inKeys and i = m.keyIndex and m.keysGroup.hasFocus()
+        if focused
+            k.bg.blendColor = "0xFFFFFFFF"
+            k.label.color = "0x000000FF"
+        else
+            k.bg.blendColor = "0x161A22FF"
+            k.label.color = ef.INK
+        end if
+    end for
+end sub
+
+' Finds the key closest to a column on another row
+function keyAt(row as integer, col as integer) as integer
+    best = -1
+    for i = 0 to m.keyNodes.count() - 1
+        k = m.keyNodes[i]
+        if k.row = row and col >= k.col and col < k.col + k.width then return i
+        if k.row = row then best = i
+    end for
+    return best
+end function
+
+sub showQuery()
+    if m.text = ""
+        m.query.text = "Buscar en YouTube…"
+        m.query.color = ef.MUTED
+    else
+        m.query.text = m.text + "_"
+        m.query.color = ef.INK
+    end if
+end sub
+
+sub typeKey(key as string)
+    if key = "space"
+        m.text += " "
+    else if key = "delete"
+        if Len(m.text) > 0 then m.text = Left(m.text, Len(m.text) - 1)
+    else if key = "clear"
+        m.text = ""
+    else
+        m.text += key
+    end if
+    showQuery()
+    m.debounce.control = "stop"
+    m.debounce.control = "start"
+end sub
+
+sub loadHome()
+    m.hint.text = "Cargando…"
+    m.task.job = "vt"
+    m.task.args = { path: "/api/yt/home" }
+    m.task.control = "STOP"
+    m.task.control = "RUN"
+end sub
+
+sub runSearch()
+    q = m.text.Trim()
+    if Len(q) < 2
+        m.searched = ""
+        if m.homeContent <> invalid
+            showRows(m.homeRows, m.homeContent)
+        else
+            loadHome()
+        end if
+        return
+    end if
+    m.searched = q
+    m.hint.visible = not m.results.visible
+    m.hint.text = "Buscando en YouTube…"
+    m.task.job = "vt"
+    m.task.args = { path: "/api/yt/search?q=" + CreateObject("roUrlTransfer").Escape(q) }
+    m.task.control = "STOP"
+    m.task.control = "RUN"
+end sub
+
+function ytItem(v as object) as object
+    note = v.LookupCI("channel") ?? ""
+    d = v.LookupCI("duration") ?? 0
+    if v.LookupCI("live") = true
+        note = "EN DIRECTO · " + note
+    else if d > 0
+        mins = Int(d / 60)
+        secs = d mod 60
+        t = mins.toStr() + ":" + Right("0" + secs.toStr(), 2)
+        if mins >= 60 then t = Int(mins / 60).toStr() + ":" + Right("0" + (mins mod 60).toStr(), 2) + ":" + Right("0" + secs.toStr(), 2)
+        note = t + " · " + note
+    end if
+    return { Id: "yt-" + v.id, Name: v.title, Type: "YouTube", efThumb: v.thumb, efNote: note }
+end function
+
+sub onResults()
+    r = m.task.result
+    if not isValid(r) or not isValid(r.LookupCI("data")) or r.data.LookupCI("ok") <> true
+        m.hint.visible = true
+        m.hint.text = "YouTube no responde ahora mismo. Prueba otra vez en un rato."
+        return
+    end if
+    rows = []
+    if isValid(r.data.LookupCI("rows"))
+        rows = r.data.rows
+    else
+        if m.searched = "" then return
+        rows = [{ title: "Resultados", items: r.data.items }]
+    end if
+    content = CreateObject("roSGNode", "ContentNode")
+    for each row in rows
+        rowNode = content.createChild("ContentNode")
+        rowNode.title = UCase(row.title)
+        for each v in row.items
+            rowNode.appendChild(ef.itemNode(ytItem(v)))
+        end for
+    end for
+    if isValid(r.data.LookupCI("rows"))
+        m.homeRows = rows
+        m.homeContent = content
+        if m.searched <> "" then return
+    end if
+    showRows(rows, content)
+end sub
+
+sub showRows(rows as object, content as object)
+    m.rows = rows
+    m.results.content = content
+    m.results.visible = content.getChildCount() > 0
+    m.hint.visible = not m.results.visible
+    m.hint.text = "No encontré nada. Escribe lo que quieras ver."
+end sub
+
+sub onResult()
+    f = m.results.rowItemFocused
+    if not isValid(f) or not isValid(m.rows) then return
+    v = m.rows[f[0]].items[f[1]]
+    m.playing = v
+    showToast("Abriendo: " + v.title)
+    m.playTask.job = "vt"
+    m.playTask.args = { path: "/api/yt/play?id=" + v.id }
+    m.playTask.control = "STOP"
+    m.playTask.control = "RUN"
+end sub
+
+sub onPlay()
+    r = m.playTask.result
+    if not isValid(r) or not isValid(r.LookupCI("data")) or r.data.LookupCI("ok") <> true
+        message = "No se pudo abrir el vídeo"
+        if isValid(r) and isValid(r.LookupCI("data")) and isValid(r.data.LookupCI("error")) then message = message + ": " + r.data.error
+        showToast(message)
+        return
+    end if
+    hideToast()
+    d = r.data
+    url = d.url
+    if url.left(1) = "/" then url = r.base + url
+    player = CreateObject("roSGNode", "EfYtPlayer")
+    m.global.sceneManager.callFunc("pushScene", player)
+    player.video = { url: url, title: d.title, format: d.format }
+    m.watchTask.job = "vt"
+    m.watchTask.args = { path: "/api/yt/watched", body: m.playing }
+    m.watchTask.control = "RUN"
+end sub
+
+sub showToast(text as string)
+    m.toastText.text = text
+    m.toastBg.width = m.toastText.boundingRect().width + 56
+    m.toast.visible = true
+    m.toastTimer.control = "stop"
+    m.toastTimer.control = "start"
+end sub
+
+sub hideToast()
+    m.toast.visible = false
+end sub
+
+sub onRailSelected()
+    if m.rail.selected = "youtube"
+        onRailLeave()
+        return
+    end if
+    ef.go({ target: m.rail.selected })
+end sub
+
+sub onRailLeave()
+    m.inKeys = true
+    m.keysGroup.setFocus(true)
+    paintKeys()
+end sub
+
+sub OnScreenShown()
+    scene = m.top.getScene()
+    overhang = scene.findNode("overhang")
+    if isValid(overhang) then overhang.visible = false
+    if m.inKeys
+        m.keysGroup.setFocus(true)
+    else
+        m.results.setFocus(true)
+    end if
+    paintKeys()
+end sub
+
+function onKeyEvent(key as string, press as boolean) as boolean
+    if not press then return false
+
+    if m.results.isInFocusChain()
+        if key = "left"
+            m.inKeys = true
+            m.keysGroup.setFocus(true)
+            paintKeys()
+            return true
+        end if
+        return false
+    end if
+
+    if not m.keysGroup.hasFocus() then return false
+    k = m.keyNodes[m.keyIndex]
+    if key = "OK"
+        typeKey(k.key)
+        return true
+    else if key = "left"
+        if k.col = 0
+            m.rail.callFunc("focusIn")
+            paintKeys()
+        else
+            m.keyIndex--
+            paintKeys()
+        end if
+        return true
+    else if key = "right"
+        last = m.keyIndex = m.keyNodes.count() - 1
+        if not last and m.keyNodes[m.keyIndex + 1].row = k.row
+            m.keyIndex++
+        else if m.results.visible
+            m.inKeys = false
+            m.results.setFocus(true)
+        end if
+        paintKeys()
+        return true
+    else if key = "up"
+        i = keyAt(k.row - 1, k.col)
+        if i >= 0 then m.keyIndex = i
+        paintKeys()
+        return true
+    else if key = "down"
+        i = keyAt(k.row + 1, k.col)
+        if i >= 0 then m.keyIndex = i
+        paintKeys()
+        return true
+    else if key = "replay" or key = "rewind"
+        typeKey("delete")
+        return true
+    end if
+    return false
+end function

@@ -51,6 +51,11 @@ object Destinations {
 	}
 
 	val everflixRequests = fragmentDestination<org.jellyfin.androidtv.ui.everflix.RequestsFragment>()
+	val everflixYouTube = fragmentDestination<org.jellyfin.androidtv.ui.everflix.YouTubeFragment>()
+	fun everflixYtPlayer(url: String, title: String) = fragmentDestination<org.jellyfin.androidtv.ui.everflix.YtPlayerFragment> {
+		putString(org.jellyfin.androidtv.ui.everflix.EXTRA_YT_URL, url)
+		putString(org.jellyfin.androidtv.ui.everflix.EXTRA_YT_TITLE, title)
+	}
 	val everflixProfile = fragmentDestination<org.jellyfin.androidtv.ui.everflix.ProfileFragment>()
 
 	fun everflixAll(series: Boolean) = fragmentDestination<org.jellyfin.androidtv.ui.everflix.LibraryFragment> {

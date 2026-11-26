@@ -158,6 +158,16 @@ fun MainRail(
 			if (activeButton != MainToolbarActiveButton.Series) navigationRepository.navigate(Destinations.everflixAll(series = true))
 		}
 
+		RailItem(
+			icon = R.drawable.ic_youtube,
+			label = "YouTube",
+			open = open,
+			active = activeButton == MainToolbarActiveButton.YouTube,
+			modifier = target(MainToolbarActiveButton.YouTube),
+		) {
+			if (activeButton != MainToolbarActiveButton.YouTube) navigationRepository.navigate(Destinations.everflixYouTube)
+		}
+
 		if (open) Box(Modifier.padding(horizontal = 12.dp, vertical = 8.dp).fillMaxWidth().height(1.dp).background(RailInk.copy(alpha = 0.15f)))
 
 		// Closed, the libraries would only repeat the movie and series icons above

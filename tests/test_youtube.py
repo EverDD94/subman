@@ -39,3 +39,15 @@ def test_rejects_bad_ids(tmp_path):
             assert False
         except ValueError:
             pass
+
+
+def test_account_only_for_owner(tmp_path):
+    y = youtube.YouTube(Path(tmp_path))
+    code = y.pair_code("eber")
+    assert code and y.pair_code("amigo") == ""
+    y.link("# Netscape HTTP Cookie File\n.youtube.com\tTRUE\t/\tTRUE\t0\tSAPISID\tx\n" + "x" * 100)
+    assert y.mine("eber") and not y.mine("amigo")
+    y.search = lambda q, n=30: ["trend"]
+    assert y.feed("inicio", True, "amigo") == ["trend"]
+    assert y.feed("suscripciones", True, "amigo") == []
+    assert y.paired(code.lower()) and not y.paired("nope")

@@ -2952,7 +2952,10 @@ def make_handler(app: App):
         "/api/yt/search": lambda u, q: {"ok": True, "items": app.yt().search(q.get("q", [""])[0])},
         "/api/yt/history": lambda u, q: {"ok": True, "items": app.yt().history(u["id"])},
         "/api/yt/play": lambda u, q: {"ok": True, **app.yt().play(q.get("id", [""])[0], q.get("mode", [""])[0])},
-        "/api/yt/status": lambda u, q: {"ok": True, "version": app.yt().version()},
+        "/api/yt/status": lambda u, q: {"ok": True, "version": app.yt().version(), "linked": app.yt().mine(u["id"]), "admin": bool(u.get("admin")),
+                                        **({"code": app.yt().pair_code(u["id"]), "pushed": app.yt().state.get("pushed", 0)} if u.get("admin") else {})},
+        "/api/yt/feed": lambda u, q: {"ok": True, "items": app.yt().feed(q.get("tab", ["inicio"])[0], bool(u.get("admin")), u["id"])},
+        "/api/yt/channel": lambda u, q: {"ok": True, **app.yt().channel(q.get("id", [""])[0])},
         "/api/pedir/inbox": lambda u, q: {"ok": True, "items": jfadmin.inbox(u["id"], q.get("device", [""])[0])},
     }
     friend_post = {
@@ -2960,7 +2963,9 @@ def make_handler(app: App):
         "/api/pedir/push": lambda u, b: (app._notices().subscribe(u["id"], b["sub"]), {"ok": True})[1],
         "/api/pedir/push/off": lambda u, b: (app._notices().unsubscribe(u["id"], b.get("endpoint", "")), {"ok": True})[1],
         "/api/pedir/follow": lambda u, b: (app._notices().follow(u["id"], b["item"], bool(b.get("on", True))), {"ok": True})[1],
-        "/api/yt/watched": lambda u, b: (app.yt().watched(u["id"], b), {"ok": True})[1],
+        "/api/yt/watched": lambda u, b: (app.yt().watched(u["id"], b), app.yt().mine(u["id"]) and app.yt().mark_watched(b.get("id", "")), {"ok": True})[2],
+        "/api/yt/link": lambda u, b: (app.yt().link(b.get("cookies", "")), {"ok": True})[1] if u.get("admin") and app.yt().pair_code(u["id"]) else {"ok": False, "error": "sólo para el administrador"},
+        "/api/yt/unlink": lambda u, b: (app.yt().unlink(), {"ok": True})[1] if app.yt().mine(u["id"]) else {"ok": False, "error": "sólo para el administrador"},
         "/api/yt/update": lambda u, b: (app.yt().update(), {"ok": True, "version": app.yt().version()})[1] if u.get("admin") else {"ok": False, "error": "sólo para el administrador"},
         "/api/pedir/rate": lambda u, b: app.tv_rate(u, b),
         "/api/pedir/autofollow": lambda u, b: app.follow_set(b) if u.get("admin") else {"ok": False, "error": "sólo para el administrador"},
@@ -3063,6 +3068,14 @@ def make_handler(app: App):
                     if got:
                         return self._send(200, got[0], got[1], {"Access-Control-Allow-Origin": "*"})
                 return self._send(404, b"", "text/plain")
+            if u.path == "/everflix/youtube-extension.zip":  # la extensión para conectar tu cuenta de YouTube
+                import io, zipfile
+                buf = io.BytesIO()
+                with zipfile.ZipFile(buf, "w") as z:
+                    for f in sorted((STATIC / "ytext").iterdir()):
+                        z.write(f, "videotecario-youtube/" + f.name)
+                return self._send(200, buf.getvalue(), "application/zip",
+                                  {"Content-Disposition": 'attachment; filename="videotecario-youtube.zip"'})
             if u.path == "/ef/socket":
                 return self._ef_socket()
             if u.path.startswith("/ef/jf/"):
@@ -3188,6 +3201,12 @@ def make_handler(app: App):
                 return self._send(200, b'{"ok": true}', "application/json", {"Set-Cookie": auth.cookie("", 0)})
             if u.path == "/api/pedir/login":
                 return self._friend_login(json.loads(raw or b"{}"))
+            if u.path == "/api/yt/push":  # la extensión del navegador manda tu sesión de YouTube (llave de emparejar)
+                ok = app.yt().paired(self.headers.get("X-Videotecario-Key", ""))
+                if not ok:
+                    return self._send(403, b'{"ok": false, "error": "codigo no valido"}', "application/json", {"Access-Control-Allow-Origin": "*"})
+                return self._json(lambda b: (app.yt().link(b.get("cookies", "")), {"ok": True})[1], json.loads(raw or b"{}"),
+                                  {"Access-Control-Allow-Origin": "*"})
             if u.path == "/api/ef/login":
                 return self._ef_login(json.loads(raw or b"{}"))
             if u.path == "/api/ef/logout":

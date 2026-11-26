@@ -49,8 +49,57 @@ class YouTube:
             env["PYTHONPATH"] = str(self.lib) + os.pathsep + env.get("PYTHONPATH", "")
         return env
 
-    def _ytdlp(self, args: list[str], timeout: int = 60) -> dict:
-        cmd = [sys.executable, "-m", "yt_dlp", "--no-warnings", "--ignore-config", "-J", *args]
+    @property
+    def cookies(self) -> Path:
+        return self.dir / "youtube-cookies.txt"
+
+    def linked(self) -> bool:
+        return self.cookies.is_file() and self.cookies.stat().st_size > 100
+
+    def link(self, text: str) -> None:
+        """Guarda la sesión de YouTube exportada del navegador (cookies.txt de Netscape)."""
+        text = (text or "").replace("\r\n", "\n")
+        if ".youtube.com" not in text or ("SAPISID" not in text and "__Secure-3PAPISID" not in text):
+            raise ValueError("ese archivo no tiene la sesión de YouTube (exporta las cookies estando dentro de youtube.com)")
+        if not text.startswith("# Netscape") and not text.startswith("# HTTP"):
+            text = "# Netscape HTTP Cookie File\n" + text
+        if self.cookies.is_file() and self.cookies.read_text(encoding="utf-8") == text:
+            return
+        self.cookies.write_text(text, encoding="utf-8")
+        os.chmod(self.cookies, 0o600)
+        self.state["pushed"] = time.time()
+        self._save()
+        self.cache = {k: v for k, v in self.cache.items() if not k.startswith("f:")}
+
+    def mine(self, uid: str) -> bool:
+        """¿Es esta persona la dueña de la cuenta ligada? (sólo a ella le sale)."""
+        return bool(uid) and self.state.get("owner") == uid and self.linked()
+
+    def pair_code(self, uid: str) -> str:
+        """El código para la extensión. La primera persona (administradora) que lo pide queda como dueña."""
+        if not self.state.get("owner"):
+            self.state["owner"] = uid
+            self._save()
+        if self.state["owner"] != uid:
+            return ""
+        if not self.state.get("pair"):
+            self.state["pair"] = secrets.token_hex(4).upper()
+            self._save()
+        return self.state["pair"]
+
+    def paired(self, key: str) -> bool:
+        return bool(self.state.get("pair")) and hmac.compare_digest(key.strip().upper(), self.state["pair"])
+
+    def unlink(self) -> None:
+        self.cookies.unlink(missing_ok=True)
+        self.state.pop("owner", None)
+        self.state.pop("pair", None)
+        self._save()
+        self.cache = {k: v for k, v in self.cache.items() if not k.startswith("f:")}
+
+    def _ytdlp(self, args: list[str], timeout: int = 60, account: bool = False) -> dict:
+        acct = ["--cookies", str(self.cookies)] if account and self.linked() else []
+        cmd = [sys.executable, "-m", "yt_dlp", "--no-warnings", "--ignore-config", "-J", *acct, *args]
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=self._env())
         if r.returncode != 0 or not r.stdout.strip():
             err = (r.stderr or "").strip().splitlines()
@@ -117,6 +166,7 @@ class YouTube:
             "id": vid,
             "title": e.get("title") or "",
             "channel": e.get("channel") or e.get("uploader") or "",
+            "channel_id": e.get("channel_id") or "",
             "duration": int(e.get("duration") or 0),
             "views": int(e.get("view_count") or 0),
             "live": e.get("live_status") == "is_live",
@@ -132,11 +182,43 @@ class YouTube:
             return [i for i in map(self._item, data.get("entries") or []) if i]
         return self._cached("s:" + q.lower(), 1800, go)
 
-    def channel(self, url: str, n: int = 30) -> list[dict]:
+    FEEDS = {"inicio": ":ytrec", "suscripciones": ":ytsubs", "historial": ":ythis", "tarde": ":ytwatchlater"}
+
+    def feed(self, tab: str, account: bool, uid: str = "", n: int = 48) -> list[dict]:
+        """Una pestaña de tu cuenta. Sin cuenta ligada, Inicio son las tendencias e Historial lo visto en Everflix."""
+        if not (account and self.mine(uid)):
+            if tab == "historial":
+                return self.history(uid)
+            return self.search("tendencias", n) if tab == "inicio" else []
+        url = self.FEEDS.get(tab)
+        if not url:
+            raise ValueError("pestaña desconocida")
         def go():
-            data = self._ytdlp(["--flat-playlist", "--playlist-end", str(n), url])
+            data = self._ytdlp(["--flat-playlist", "--playlist-end", str(n), url], timeout=120, account=True)
             return [i for i in map(self._item, data.get("entries") or []) if i]
-        return self._cached("c:" + url, 3600, go)
+        return self._cached("f:" + tab, 600 if tab != "historial" else 120, go)
+
+    def channel(self, cid: str, n: int = 40) -> dict:
+        if not cid.startswith("UC") or len(cid) != 24 or not all(c.isalnum() or c in "-_" for c in cid):
+            raise ValueError("canal no válido")
+        def go():
+            data = self._ytdlp(["--flat-playlist", "--playlist-end", str(n), f"https://www.youtube.com/channel/{cid}/videos"], timeout=90)
+            return {"title": data.get("channel") or data.get("title") or "", "items": [i for i in map(self._item, data.get("entries") or []) if i]}
+        return self._cached("c:" + cid, 3600, go)
+
+    def mark_watched(self, vid: str) -> None:
+        """Lo apunta en tu historial de YouTube (sólo con cuenta ligada), sin esperar."""
+        if not self.linked():
+            return
+        _check(vid)
+        def go():
+            try:
+                subprocess.run([sys.executable, "-m", "yt_dlp", "--ignore-config", "-q", "--simulate", "--mark-watched",
+                                "--cookies", str(self.cookies), f"https://www.youtube.com/watch?v={vid}"],
+                               capture_output=True, timeout=120, env=self._env())
+            except Exception as e:
+                log.info("YouTube: no se pudo marcar visto (%s)", e)
+        threading.Thread(target=go, daemon=True).start()
 
     # ---------- reproducir ----------
     def info(self, vid: str) -> dict:
@@ -248,7 +330,7 @@ class YouTube:
         tmp.replace(self.state_file)
 
     def watched(self, uid: str, item: dict) -> None:
-        keep = {k: item.get(k) for k in ("id", "title", "channel", "duration", "thumb")}
+        keep = {k: item.get(k) for k in ("id", "title", "channel", "channel_id", "duration", "thumb")}
         _check(keep["id"] or "")
         with self.lock:
             h = self.state.setdefault("history", {}).setdefault(uid, [])

@@ -7,9 +7,12 @@ const KEY_SIZE = 66
 sub init()
     m.top.overhangVisible = false
     m.top.optionsAvailable = false
+    m.tabsGroup = m.top.findNode("tabs")
+    m.heading = m.top.findNode("heading")
+    m.searchBox = m.top.findNode("searchBox")
     m.query = m.top.findNode("query")
     m.keysGroup = m.top.findNode("keys")
-    m.results = m.top.findNode("results")
+    m.grid = m.top.findNode("grid")
     m.hint = m.top.findNode("hint")
     m.rail = m.top.findNode("rail")
     m.toast = m.top.findNode("toast")
@@ -18,35 +21,188 @@ sub init()
     m.debounce = m.top.findNode("debounce")
     m.toastTimer = m.top.findNode("toastTimer")
 
-    m.top.findNode("heading").font = ef.font(ef.FONT_BOLD, 44)
-    m.query.font = ef.font(ef.FONT_SEMI, 32)
+    m.heading.font = ef.font(ef.FONT_BOLD, 40)
+    m.query.font = ef.font(ef.FONT_SEMI, 30)
     m.hint.font = ef.font(ef.FONT_REGULAR, 28)
     m.toastText.font = ef.font(ef.FONT_SEMI, 25)
-    m.results.rowLabelFont = ef.font(ef.FONT_BOLD, 26)
 
     m.debounce.observeField("fire", "runSearch")
     m.toastTimer.observeField("fire", "hideToast")
-    m.results.observeField("rowItemSelected", "onResult")
+    m.grid.observeField("itemSelected", "onPick")
     m.rail.observeField("selected", "onRailSelected")
     m.rail.observeField("leave", "onRailLeave")
 
     m.task = CreateObject("roSGNode", "EfTask")
-    m.task.observeField("result", "onResults")
+    m.task.observeField("result", "onItems")
+    m.statusTask = CreateObject("roSGNode", "EfTask")
+    m.statusTask.observeField("result", "onStatus")
     m.playTask = CreateObject("roSGNode", "EfTask")
     m.playTask.observeField("result", "onPlay")
     m.watchTask = CreateObject("roSGNode", "EfTask")
 
-    ' The keyboard gets focus on its own node: giving it to the screen while the results
-    ' list held focus left the remote stuck on the last key
     m.keysGroup.focusable = true
-
+    m.tabsGroup.focusable = true
     m.text = ""
     m.keyIndex = 0
-    m.inKeys = true
-    m.searched = ""
+    m.items = []
+    m.zone = "tabs"
+    m.cache = {}
     buildKeys()
     showQuery()
-    loadHome()
+    buildTabs([{ key: "buscar", label: "Buscar" }, { key: "inicio", label: "Inicio" }, { key: "historial", label: "Historial" }])
+    m.tab = "inicio"
+    m.tabIndex = 1
+    paintTabs()
+    loadTab()
+    m.statusTask.job = "vt"
+    m.statusTask.args = { path: "/api/yt/status" }
+    m.statusTask.control = "RUN"
+end sub
+
+' ---- pestañas ----
+sub buildTabs(list as object)
+    m.tabsGroup.removeChildrenIndex(m.tabsGroup.getChildCount(), 0)
+    m.tabs = []
+    x = 0
+    for each t in list
+        g = m.tabsGroup.createChild("Group")
+        g.translation = [x, 0]
+        label = CreateObject("roSGNode", "Label")
+        label.font = ef.font(ef.FONT_SEMI, 27)
+        label.text = t.label
+        label.height = 60
+        label.vertAlign = "center"
+        label.translation = [28, 0]
+        w = label.boundingRect().width + 56
+        bg = g.createChild("Poster")
+        bg.uri = "pkg:/images/everflix/pill.9.png"
+        bg.width = w
+        bg.height = 60
+        g.appendChild(label)
+        t.bg = bg
+        t.label = label
+        m.tabs.push(t)
+        x += w + 14
+    end for
+end sub
+
+sub paintTabs()
+    for i = 0 to m.tabs.count() - 1
+        t = m.tabs[i]
+        focused = m.zone = "tabs" and i = m.tabIndex and m.tabsGroup.hasFocus()
+        if focused
+            t.bg.blendColor = "0xFFFFFFFF"
+            t.label.color = "0x000000FF"
+        else if t.key = m.tab
+            t.bg.blendColor = "0x3D63E0FF"
+            t.label.color = "0xFFFFFFFF"
+        else
+            t.bg.blendColor = "0x161A22FF"
+            t.label.color = ef.INK
+        end if
+    end for
+end sub
+
+sub onStatus()
+    r = m.statusTask.result
+    if not isValid(r) or not isValid(r.LookupCI("data")) then return
+    if r.data.LookupCI("linked") = true and r.data.LookupCI("admin") = true
+        buildTabs([{ key: "buscar", label: "Buscar" }, { key: "inicio", label: "Inicio" }, { key: "suscripciones", label: "Suscripciones" }, { key: "historial", label: "Historial" }, { key: "tarde", label: "Ver más tarde" }])
+        if m.tab = "inicio" then loadTab()
+    end if
+    paintTabs()
+end sub
+
+sub selectTab(key as string)
+    m.tab = key
+    m.cid = ""
+    for i = 0 to m.tabs.count() - 1
+        if m.tabs[i].key = key then m.tabIndex = i
+    end for
+    paintTabs()
+    loadTab()
+end sub
+
+sub loadTab()
+    searching = m.tab = "buscar"
+    m.searchBox.visible = searching
+    if searching
+        m.grid.translation = [700, 210]
+        m.grid.numColumns = 3
+        m.heading.text = ""
+        m.hint.translation = [700, 220]
+        runSearch()
+        return
+    end if
+    m.grid.translation = [170, 210]
+    m.grid.numColumns = 4
+    m.hint.translation = [170, 220]
+    m.heading.text = ""
+    path = "/api/yt/feed?tab=" + m.tab
+    if m.tab = "canal" then path = "/api/yt/channel?id=" + m.cid
+    fetch(path)
+end sub
+
+sub fetch(path as string)
+    m.path = path
+    if m.cache.DoesExist(path)
+        show(m.cache[path])
+        return
+    end if
+    m.grid.visible = false
+    m.hint.visible = true
+    m.hint.text = "Cargando…"
+    m.task.job = "vt"
+    m.task.args = { path: path }
+    m.task.control = "STOP"
+    m.task.control = "RUN"
+end sub
+
+sub onItems()
+    r = m.task.result
+    if not isValid(r) or not isValid(r.LookupCI("data")) or r.data.LookupCI("ok") <> true
+        m.grid.visible = false
+        m.hint.visible = true
+        m.hint.text = "YouTube no responde ahora mismo. Prueba otra vez en un rato."
+        return
+    end if
+    data = r.data
+    m.cache[m.path] = data
+    show(data)
+end sub
+
+sub show(data as object)
+    m.items = data.items
+    if m.tab = "canal" then m.heading.text = data.LookupCI("title") ?? ""
+    m.grid.translation = [m.grid.translation[0], m.heading.text = "" ? 150 : 210]
+    content = CreateObject("roSGNode", "ContentNode")
+    for each v in m.items
+        node = content.createChild("ContentNode")
+        node.addField("json", "assocarray", false)
+        node.json = v
+    end for
+    m.grid.content = content
+    m.grid.visible = m.items.count() > 0
+    m.hint.visible = not m.grid.visible
+    if m.tab = "buscar"
+        m.hint.text = m.text.Trim() = "" ? "Escribe lo que quieras ver." : "No encontré nada."
+    else
+        m.hint.text = "Aquí no hay nada todavía."
+    end if
+    if m.zone = "grid" and not m.grid.visible then focusTabs()
+end sub
+
+' ---- buscar ----
+sub runSearch()
+    q = m.text.Trim()
+    if Len(q) < 2
+        m.items = []
+        m.grid.visible = false
+        m.hint.visible = true
+        m.hint.text = "Escribe lo que quieras ver."
+        return
+    end if
+    fetch("/api/yt/search?q=" + CreateObject("roUrlTransfer").Escape(q))
 end sub
 
 sub buildKeys()
@@ -93,7 +249,7 @@ end sub
 sub paintKeys()
     for i = 0 to m.keyNodes.count() - 1
         k = m.keyNodes[i]
-        focused = m.inKeys and i = m.keyIndex and m.keysGroup.hasFocus()
+        focused = m.zone = "keys" and i = m.keyIndex and m.keysGroup.hasFocus()
         if focused
             k.bg.blendColor = "0xFFFFFFFF"
             k.label.color = "0x000000FF"
@@ -140,91 +296,15 @@ sub typeKey(key as string)
     m.debounce.control = "start"
 end sub
 
-sub loadHome()
-    m.hint.text = "Cargando…"
-    m.task.job = "vt"
-    m.task.args = { path: "/api/yt/home" }
-    m.task.control = "STOP"
-    m.task.control = "RUN"
+' ---- reproducir ----
+sub onPick()
+    playAt(m.grid.itemSelected)
 end sub
 
-sub runSearch()
-    q = m.text.Trim()
-    if Len(q) < 2
-        m.searched = ""
-        if m.homeContent <> invalid
-            showRows(m.homeRows, m.homeContent)
-        else
-            loadHome()
-        end if
-        return
-    end if
-    m.searched = q
-    m.hint.visible = not m.results.visible
-    m.hint.text = "Buscando en YouTube…"
-    m.task.job = "vt"
-    m.task.args = { path: "/api/yt/search?q=" + CreateObject("roUrlTransfer").Escape(q) }
-    m.task.control = "STOP"
-    m.task.control = "RUN"
-end sub
-
-function ytItem(v as object) as object
-    note = v.LookupCI("channel") ?? ""
-    d = v.LookupCI("duration") ?? 0
-    if v.LookupCI("live") = true
-        note = "EN DIRECTO · " + note
-    else if d > 0
-        mins = Int(d / 60)
-        secs = d mod 60
-        t = mins.toStr() + ":" + Right("0" + secs.toStr(), 2)
-        if mins >= 60 then t = Int(mins / 60).toStr() + ":" + Right("0" + (mins mod 60).toStr(), 2) + ":" + Right("0" + secs.toStr(), 2)
-        note = t + " · " + note
-    end if
-    return { Id: "yt-" + v.id, Name: v.title, Type: "YouTube", efThumb: v.thumb, efNote: note }
-end function
-
-sub onResults()
-    r = m.task.result
-    if not isValid(r) or not isValid(r.LookupCI("data")) or r.data.LookupCI("ok") <> true
-        m.hint.visible = true
-        m.hint.text = "YouTube no responde ahora mismo. Prueba otra vez en un rato."
-        return
-    end if
-    rows = []
-    if isValid(r.data.LookupCI("rows"))
-        rows = r.data.rows
-    else
-        if m.searched = "" then return
-        rows = [{ title: "Resultados", items: r.data.items }]
-    end if
-    content = CreateObject("roSGNode", "ContentNode")
-    for each row in rows
-        rowNode = content.createChild("ContentNode")
-        rowNode.title = UCase(row.title)
-        for each v in row.items
-            rowNode.appendChild(ef.itemNode(ytItem(v)))
-        end for
-    end for
-    if isValid(r.data.LookupCI("rows"))
-        m.homeRows = rows
-        m.homeContent = content
-        if m.searched <> "" then return
-    end if
-    showRows(rows, content)
-end sub
-
-sub showRows(rows as object, content as object)
-    m.rows = rows
-    m.results.content = content
-    m.results.visible = content.getChildCount() > 0
-    m.hint.visible = not m.results.visible
-    m.hint.text = "No encontré nada. Escribe lo que quieras ver."
-end sub
-
-sub onResult()
-    f = m.results.rowItemFocused
-    if not isValid(f) or not isValid(m.rows) then return
-    v = m.rows[f[0]].items[f[1]]
+sub playAt(index as integer)
+    if index < 0 or index >= m.items.count() then return
+    v = m.items[index]
+    m.playIndex = index
     m.playing = v
     showToast("Abriendo: " + v.title)
     m.playTask.job = "vt"
@@ -245,14 +325,35 @@ sub onPlay()
     d = r.data
     url = d.url
     if url.left(1) = "/" then url = r.base + url
-    player = CreateObject("roSGNode", "EfYtPlayer")
-    m.global.sceneManager.callFunc("pushScene", player)
-    player.video = { url: url, title: d.title, format: d.format }
+    if not isValid(m.player)
+        m.player = CreateObject("roSGNode", "EfYtPlayer")
+        m.player.observeField("ended", "onEnded")
+        m.player.observeField("closed", "onClosed")
+        m.global.sceneManager.callFunc("pushScene", m.player)
+    end if
+    nextTitle = ""
+    if m.playIndex + 1 < m.items.count() then nextTitle = m.items[m.playIndex + 1].title
+    m.player.video = { url: url, title: d.title, format: d.format, nextTitle: nextTitle }
     m.watchTask.job = "vt"
     m.watchTask.args = { path: "/api/yt/watched", body: m.playing }
     m.watchTask.control = "RUN"
 end sub
 
+' Al terminar, el siguiente de la lista (como YouTube)
+sub onEnded()
+    if m.playIndex + 1 < m.items.count()
+        playAt(m.playIndex + 1)
+    else
+        m.global.sceneManager.callFunc("popScene")
+    end if
+end sub
+
+sub onClosed()
+    m.player = invalid
+    m.grid.jumpToItem = m.playIndex
+end sub
+
+' ---- avisos ----
 sub showToast(text as string)
     m.toastText.text = text
     m.toastBg.width = m.toastText.boundingRect().width + 56
@@ -265,6 +366,29 @@ sub hideToast()
     m.toast.visible = false
 end sub
 
+' ---- foco ----
+sub focusTabs()
+    m.zone = "tabs"
+    m.tabsGroup.setFocus(true)
+    paintTabs()
+    paintKeys()
+end sub
+
+sub focusGrid()
+    if not m.grid.visible then return
+    m.zone = "grid"
+    m.grid.setFocus(true)
+    paintTabs()
+    paintKeys()
+end sub
+
+sub focusKeys()
+    m.zone = "keys"
+    m.keysGroup.setFocus(true)
+    paintTabs()
+    paintKeys()
+end sub
+
 sub onRailSelected()
     if m.rail.selected = "youtube"
         onRailLeave()
@@ -274,73 +398,115 @@ sub onRailSelected()
 end sub
 
 sub onRailLeave()
-    m.inKeys = true
-    m.keysGroup.setFocus(true)
-    paintKeys()
+    focusTabs()
 end sub
 
 sub OnScreenShown()
     scene = m.top.getScene()
     overhang = scene.findNode("overhang")
     if isValid(overhang) then overhang.visible = false
-    if m.inKeys
+    if m.zone = "grid" and m.grid.visible
+        m.grid.setFocus(true)
+    else if m.zone = "keys"
         m.keysGroup.setFocus(true)
     else
-        m.results.setFocus(true)
+        focusTabs()
     end if
-    paintKeys()
 end sub
 
 function onKeyEvent(key as string, press as boolean) as boolean
     if not press then return false
 
-    if m.results.isInFocusChain()
+    if m.zone = "tabs"
         if key = "left"
-            m.inKeys = true
-            m.keysGroup.setFocus(true)
-            paintKeys()
+            if m.tabIndex > 0
+                m.tabIndex--
+                paintTabs()
+            else
+                m.rail.callFunc("focusIn")
+                paintTabs()
+            end if
+            return true
+        else if key = "right"
+            if m.tabIndex < m.tabs.count() - 1 then m.tabIndex++
+            paintTabs()
+            return true
+        else if key = "OK"
+            selectTab(m.tabs[m.tabIndex].key)
+            if m.tab = "buscar" then focusKeys()
+            return true
+        else if key = "down"
+            if m.tab = "buscar"
+                focusKeys()
+            else
+                focusGrid()
+            end if
             return true
         end if
         return false
     end if
 
-    if not m.keysGroup.hasFocus() then return false
-    k = m.keyNodes[m.keyIndex]
-    if key = "OK"
-        typeKey(k.key)
-        return true
-    else if key = "left"
-        if k.col = 0
-            m.rail.callFunc("focusIn")
-            paintKeys()
-        else
-            m.keyIndex--
-            paintKeys()
+    if m.zone = "grid"
+        cols = m.grid.numColumns
+        if key = "up" and m.grid.itemFocused < cols
+            focusTabs()
+            return true
+        else if key = "left" and m.grid.itemFocused mod cols = 0
+            if m.tab = "buscar" then focusKeys() else m.rail.callFunc("focusIn")
+            return true
+        else if key = "options"
+            v = m.items[m.grid.itemFocused]
+            if isValidAndNotEmpty(v.LookupCI("channel_id"))
+                m.tab = "canal"
+                m.cid = v.channel_id
+                paintTabs()
+                loadTab()
+            end if
+            return true
+        else if key = "back" and m.tab = "canal"
+            selectTab("inicio")
+            focusTabs()
+            return true
         end if
-        return true
-    else if key = "right"
-        last = m.keyIndex = m.keyNodes.count() - 1
-        if not last and m.keyNodes[m.keyIndex + 1].row = k.row
-            m.keyIndex++
-        else if m.results.visible
-            m.inKeys = false
-            m.results.setFocus(true)
+        return false
+    end if
+
+    if m.zone = "keys"
+        k = m.keyNodes[m.keyIndex]
+        if key = "OK"
+            typeKey(k.key)
+            return true
+        else if key = "left"
+            if k.col = 0 then m.rail.callFunc("focusIn") else m.keyIndex--
+            paintKeys()
+            return true
+        else if key = "right"
+            last = m.keyIndex = m.keyNodes.count() - 1
+            if not last and m.keyNodes[m.keyIndex + 1].row = k.row
+                m.keyIndex++
+                paintKeys()
+            else
+                focusGrid()
+            end if
+            return true
+        else if key = "up"
+            i = keyAt(k.row - 1, k.col)
+            if i >= 0
+                m.keyIndex = i
+                paintKeys()
+            else
+                focusTabs()
+            end if
+            return true
+        else if key = "down"
+            i = keyAt(k.row + 1, k.col)
+            if i >= 0 then m.keyIndex = i
+            paintKeys()
+            return true
+        else if key = "replay" or key = "rewind"
+            typeKey("delete")
+            return true
         end if
-        paintKeys()
-        return true
-    else if key = "up"
-        i = keyAt(k.row - 1, k.col)
-        if i >= 0 then m.keyIndex = i
-        paintKeys()
-        return true
-    else if key = "down"
-        i = keyAt(k.row + 1, k.col)
-        if i >= 0 then m.keyIndex = i
-        paintKeys()
-        return true
-    else if key = "replay" or key = "rewind"
-        typeKey("delete")
-        return true
     end if
     return false
 end function

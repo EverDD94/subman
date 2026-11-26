@@ -1,0 +1,49 @@
+import "pkg:/components/everflix/EfCommon.bs"
+import "pkg:/source/utils/misc.bs"
+
+sub init()
+    m.image = m.top.findNode("image")
+    m.title = m.top.findNode("title")
+    m.subtitle = m.top.findNode("subtitle")
+    m.dur = m.top.findNode("dur")
+    m.durBg = m.top.findNode("durBg")
+    m.title.font = ef.font(ef.FONT_SEMI, 23)
+    m.subtitle.font = ef.font(ef.FONT_REGULAR, 19)
+    m.dur.font = ef.font(ef.FONT_BOLD, 19)
+    m.top.scaleRotateCenter = [185, 104]
+end sub
+
+sub onContent()
+    node = m.top.itemContent
+    if not isValid(node) or not isValid(node.json) then return
+    v = node.json
+    m.image.uri = v.LookupCI("thumb") ?? ""
+    m.title.text = v.LookupCI("title") ?? ""
+    m.subtitle.text = v.LookupCI("channel") ?? ""
+    t = ""
+    d = v.LookupCI("duration") ?? 0
+    if v.LookupCI("live") = true
+        t = "EN DIRECTO"
+    else if d > 0
+        mins = Int(d / 60)
+        secs = d mod 60
+        t = mins.toStr() + ":" + Right("0" + secs.toStr(), 2)
+        if mins >= 60 then t = Int(mins / 60).toStr() + ":" + Right("0" + (mins mod 60).toStr(), 2) + ":" + Right("0" + secs.toStr(), 2)
+    end if
+    m.dur.text = t
+    w = Len(t) * 12 + 24
+    m.dur.width = w
+    m.durBg.width = w
+    m.dur.translation = [370 - w - 8, 164]
+    m.durBg.translation = [370 - w - 8, 164]
+    m.dur.visible = t <> ""
+    m.durBg.visible = t <> ""
+end sub
+
+sub onFocus()
+    f = m.top.focusPercent
+    if m.top.itemHasFocus then f = 1
+    s = 1 + 0.05 * f
+    m.top.scale = [s, s]
+    m.top.findNode("ring").visible = f > 0.5
+end sub

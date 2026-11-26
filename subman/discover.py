@@ -968,20 +968,27 @@ class Discover:
             def latin(t):
                 return all(ord(ch) < 0x250 or 0x2000 <= ord(ch) < 0x2070 for ch in t)
 
-            def fix(c):
-                if latin(c["title"]):
+            def fix(c):  # títulos raros y sinopsis que no están en español: se piden en inglés
+                if latin(c["title"]) and c["overview"]:
                     return
                 try:
                     d = self.api._get(f"/{c['kind']}/{c['tmdb']}", language="en-US")
-                    en = d.get("title") or d.get("name") or ""
                 except Exception:
-                    en = ""
-                for t in (en, c.get("original") or ""):
+                    d = {}
+                if not c["overview"] and d.get("overview"):
+                    c["overview"], c["overview_lang"] = d["overview"], "en"
+                if latin(c["title"]):
+                    return
+                for t in (d.get("title") or d.get("name") or "", c.get("original") or ""):
                     if t and latin(t):
                         c["title"] = t
                         return
             with ThreadPoolExecutor(8) as ex:
                 list(ex.map(fix, [c for r in rows for c in r["items"]]))
+            try:  # las de inglés, traducidas con Gemini (quedan guardadas)
+                self._spanish_overviews([c for r in rows for c in r["items"]])
+            except Exception as e:
+                log.info("sinopsis en español: %s", e)
             Discover._home_cache[self.language] = (time.time(), rows)
         idx = self.owned_index()
         keep = ("kind", "tmdb", "title", "year", "poster", "backdrop", "overview", "genres", "vote")

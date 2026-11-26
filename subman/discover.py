@@ -27,6 +27,15 @@ from .library import Library
 from .tmdb import TMDb
 
 log = logging.getLogger(__name__)
+
+_EN = {"the", "and", "of", "to", "a", "his", "her", "is", "with", "when", "their", "who", "but", "as", "he", "she", "an"}
+_ES = {"el", "la", "los", "las", "de", "y", "que", "en", "un", "una", "su", "con", "por", "del", "se"}
+
+
+def _looks_english(text: str) -> bool:
+    words = [w.strip(".,;:!?«»\"'()").lower() for w in text.split()]
+    en, es = sum(w in _EN for w in words), sum(w in _ES for w in words)
+    return en >= 3 and en > 2 * es
 IMG = "https://image.tmdb.org/t/p/w342"
 BACKDROP = "https://image.tmdb.org/t/p/w780"
 KINDS = ("movie", "tv")
@@ -207,7 +216,45 @@ class Discover:
                 return True
         return False
 
+    def _spanish_overviews(self, cards: list[dict]) -> None:
+        """Las sinopsis que TheMovieDB sólo tiene en inglés se traducen al español con Gemini (una vez:
+        quedan guardadas). Sin clave de Gemini se quedan en inglés."""
+        en = [c for c in cards if c.get("overview") and (c.get("overview_lang") == "en" or _looks_english(c["overview"]))]
+        if not en:
+            return
+        self.db.execute("CREATE TABLE IF NOT EXISTS overview_es (src TEXT PRIMARY KEY, es TEXT)")
+        todo = []
+        for c in en:
+            r = self.db.execute("SELECT es FROM overview_es WHERE src=?", (c["overview"],)).fetchone()
+            if r:
+                c["overview"], c["overview_lang"] = r[0], "es"
+            else:
+                todo.append(c)
+        key = (self.cfg.get("gemini") or {}).get("api_key")
+        if not todo or not key:
+            return
+        from . import gemini
+        todo = todo[:30]
+        try:
+            prompt = ("Traduce al español latinoamericano estas sinopsis de películas y series, con naturalidad. "
+                      "Responde sólo con un JSON: una lista de textos en el mismo orden.\n\n"
+                      + json.dumps([c["overview"] for c in todo], ensure_ascii=False))
+            out = gemini.Gemini(key, timeout=40).ask(prompt)
+            out = json.loads(out[out.index("["):out.rindex("]") + 1])
+        except Exception as e:
+            log.info("sinopsis en español: %s", e)
+            return
+        for c, t in zip(todo, out):
+            if isinstance(t, str) and t.strip():
+                self.db.execute("INSERT OR REPLACE INTO overview_es (src, es) VALUES (?, ?)", (c["overview"], t.strip()))
+                c["overview"], c["overview_lang"] = t.strip(), "es"
+        self.db.commit()
+
     def _decorate(self, cards: list[dict], idx: dict, marks: dict) -> list[dict]:
+        try:
+            self._spanish_overviews(cards)
+        except Exception as e:
+            log.info("sinopsis en español: %s", e)
         for c in cards:
             mk = marks.get((c["kind"], c["tmdb"]), {})
             c["rating"] = mk.get("rating")

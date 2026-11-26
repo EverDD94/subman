@@ -96,7 +96,7 @@ class Downloads:
     def seasons_in(self, tmdb: int) -> set[int]:
         """Temporadas de una serie que ya están en Descargas (sin contar las canceladas)."""
         return {r[0] for r in self.db.execute("SELECT season FROM downloads WHERE kind='tv' AND tmdb=? "
-                                              "AND state!='cancelado' AND season IS NOT NULL", (tmdb,))}
+                                              "AND state!='cancelado' AND season IS NOT NULL AND COALESCE(how,'')!='audio-es'", (tmdb,))}
 
     def add(self, kind: str, tmdb: int, title: str, year: int | None, how: str = "manual",
             season: int | None = None) -> int:
@@ -295,3 +295,50 @@ def cleanup(folder: Path) -> None:
                 os.unlink(p)
             except OSError:
                 pass
+
+
+# --- Audio en español: añadir la pista de otra versión al archivo que ya tienes ---------------
+def _spanish(s: dict) -> bool:
+    t = s.get("tags") or {}
+    txt = " ".join(str(t.get(k) or "") for k in ("language", "title", "handler_name")).lower()
+    return (t.get("language") or "").lower() in LANG_ALIASES["es"] or any(
+        w in txt for w in ("spanish", "español", "espanol", "latino", "castellano"))
+
+
+def has_spanish_audio(path: Path) -> bool:
+    try:
+        return any(_spanish(s) for s in audio.audio_streams(audio.probe(path)))
+    except Exception:
+        return False
+
+
+def add_spanish_audio(orig: Path, donor: Path, tolerance: float = 2.5) -> str:
+    """Mete la pista en español de ``donor`` en ``orig`` (sin tocar video ni subtítulos).
+    Devuelve "ok" o el motivo por el que no se hizo. Sólo si las duraciones cuadran."""
+    try:
+        a, b = audio.probe(orig), audio.probe(donor)
+    except Exception as e:
+        return f"no pude leer los archivos ({e})"
+    if any(_spanish(s) for s in audio.audio_streams(a)):
+        return "ya tenía audio en español"
+    tracks = audio.audio_streams(b)
+    es = [n for n, s in enumerate(tracks) if _spanish(s)]
+    if not es:
+        return "la versión bajada no trae audio en español"
+    da, db_ = float(a["format"].get("duration") or 0), float(b["format"].get("duration") or 0)
+    if not da or not db_ or abs(da - db_) > tolerance:
+        return f"no cuadra la duración ({da / 60:.1f} min frente a {db_ / 60:.1f} min)"
+    n_audio = len(audio.audio_streams(a))
+    tmp = orig.with_name(orig.stem + ".con-es" + (orig.suffix if orig.suffix.lower() == ".mkv" else ".mkv"))
+    cmd = ["ffmpeg", "-v", "error", "-y", "-i", str(orig), "-i", str(donor), "-map", "0", "-map", f"1:a:{es[0]}",
+           "-c", "copy", f"-metadata:s:a:{n_audio}", "language=spa", f"-metadata:s:a:{n_audio}", "title=Español",
+           "-disposition:a:" + str(n_audio), "0", str(tmp)]
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode != 0 or not tmp.exists() or tmp.stat().st_size < orig.stat().st_size:
+        tmp.unlink(missing_ok=True)
+        return "ffmpeg no pudo juntarlos: " + (r.stderr or "")[-200:]
+    final = orig.with_suffix(tmp.suffix)
+    os.replace(tmp, final)
+    if final != orig:
+        orig.unlink(missing_ok=True)
+    return "ok"

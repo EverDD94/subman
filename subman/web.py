@@ -1805,6 +1805,29 @@ class App:
         self.dl_wake.set()
         return {"ok": True}
 
+    def audio_es(self, b: dict) -> dict:
+        """«Buscar audio en español»: por cada temporada que tienes de la serie, se busca una versión doblada
+        y su audio se mete en tus capítulos (sólo si la duración cuadra)."""
+        cfg = self.cfg()
+        dl = downloads.Downloads(self.library(cfg), cfg)
+        tid, title, year = int(b["tmdb"]), b.get("title") or "", b.get("year")
+        db = tmdb.TMDb(cfg["tmdb"]["api_key"], cfg["tmdb"].get("language") or "es-MX")
+        row = {"kind": "tv", "tmdb": tid, "title": title, "year": year}
+        need = set()
+        for f in self._dl_owned_files(dl, row, db):
+            ep = downloads.episode_numbers(f)
+            if ep and not downloads.has_spanish_audio(f):
+                need.add(ep[0])
+        if not need:
+            return {"ok": False, "error": "no encuentro capítulos sin audio en español de esta serie"}
+        busy = {r[0] for r in dl.db.execute("SELECT season FROM downloads WHERE kind='tv' AND tmdb=? AND how='audio-es' "
+                                            "AND state IN ('cola','buscando','pidiendo','descargando','manual')", (tid,))}
+        new = sorted(need - busy)
+        for n in new:
+            dl.add("tv", tid, title, year, "audio-es", season=n)
+        self.dl_wake.set()
+        return {"ok": True, "seasons": new}
+
     def downloads_replace(self, b: dict) -> dict:
         """«Reemplazar por mejor calidad»: se pide otra versión (que no sea de cine) y, al llegar,
         la vieja va a la papelera de videos (se puede devolver)."""
@@ -2067,6 +2090,8 @@ class App:
                 dl.set(row["id"], season=seasons[0])
                 row["season"] = seasons[0]
             eps = channels.pick(list(msgs.values()), titles, year, "tv", row["season"])
+            if eps and row.get("how") == "audio-es":
+                eps = [m for m in eps if {"es", "lat", "dual"} & set(channels.media(m["name"], m["text"], c)["audio"])]
             if eps:
                 labels = {}
                 for m in eps:
@@ -2310,9 +2335,24 @@ class App:
                 except Exception as e:
                     log.info("descargas: no pude mirar los capítulos que ya tienes: %s", e)
 
+            dub = row.get("how") == "audio-es"  # «Buscar audio en español»: no se coloca, se le saca el audio
+            mine: dict = {}
+            if dub:
+                for f in self._dl_owned_files(dl, row, db):
+                    ep = downloads.episode_numbers(f)
+                    if ep:
+                        mine[(ep[0], ep[1])] = f
+                dub_out = json.loads(row.get("dest") or "[]")
+
             def skip(name, size):
                 if name in got_names:
                     return True
+                if dub:
+                    ep = downloads.episode_numbers(Path(name))
+                    if not ep or (ep[0], ep[1]) not in mine or downloads.has_spanish_audio(mine[(ep[0], ep[1])]):
+                        got_names.append(name)
+                        return True
+                    return False
                 ep = downloads.episode_numbers(Path(name)) if owned else None
                 if ep and (ep[0], ep[1]) in owned:
                     log.info("descargas: %s ya lo tienes; no se baja", name)
@@ -2322,6 +2362,19 @@ class App:
 
             def put(path: Path, _info=None):
                 """Cada video pasa a la biblioteca en cuanto termina, sin esperar al resto de la temporada."""
+                if dub:
+                    ep = downloads.episode_numbers(path)
+                    to = mine.get((ep[0], ep[1])) if ep else None
+                    why = downloads.add_spanish_audio(to, path) if to else "no tienes ese capítulo"
+                    path.unlink(missing_ok=True)
+                    got_names.append(path.name)
+                    if why == "ok":
+                        placed.append(str(to))
+                        self._jellyfin_refresh(cfg)
+                    dub_out.append(f"{path.name}: {'audio en español añadido' if why == 'ok' else why}")
+                    log.info("audio en español: %s: %s", path.name, why)
+                    note(got=json.dumps(got_names, ensure_ascii=False), dest=json.dumps(dub_out, ensure_ascii=False))
+                    return
                 lab = (src or {}).get("labels", {}).get(str((_info or {}).get("id")))
                 if lab and row["kind"] == "tv":  # reality de canal: «Capitulo 16», «Debate 7»…
                     to = dl.labeled_target(row, path, db, lab[0], lab[1])
@@ -2433,6 +2486,14 @@ class App:
                     p.unlink()
             if tmp.exists():
                 tmp.rmdir()
+            if dub:
+                bad = len(dub_out) - len(placed)
+                dl.set(rid, state="listo", detail=f"audio en español añadido a {len(placed)} capítulo(s)"
+                       + (f"; {bad} no cuadraban" if bad else "") if dub_out else "ningún capítulo nuevo que arreglar",
+                       dest=json.dumps(dub_out, ensure_ascii=False))
+                status.show(f"🔊 Audio en español\n\n{label}\n{len(placed)} capítulo(s) con audio en español", final=True)
+                self.dl.update(message=f"{row['title']}: audio listo", done=0, total=0, speed=0.0)
+                return
             if not placed and owned and got_names:  # sólo mandó capítulos que ya tenías
                 dl.set(rid, state="listo", detail="no hay capítulos nuevos todavía; ya tienes todos los que han salido")
                 status.show(f"✅ Sin capítulos nuevos\n\n{label}\nYa tienes todos los que han salido.", final=True)
@@ -2758,6 +2819,7 @@ def make_handler(app: App):
         "/api/requests/forget": lambda b: app._dsc(lambda d: (friends.Friends(d).forget(b["kind"], int(b["tmdb"])), {})[1]),
         "/api/downloads/add": lambda b: app.downloads_add(b),
         "/api/follow/set": lambda b: app.follow_set(b),
+        "/api/audio-es": lambda b: app.audio_es(b),
         "/api/downloads/options": lambda b: app.downloads_options(b),
         "/api/downloads/replace": lambda b: app.downloads_replace(b),
         "/api/downloads/cancel": lambda b: app.downloads_cancel(int(b["id"])),

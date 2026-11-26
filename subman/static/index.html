@@ -2103,6 +2103,24 @@ if (FRIEND) {
   loadBell();
   setInterval(() => { if (!document.hidden) loadBell(); }, 120000);
 }
+// Seguimiento: lo nuevo (capítulos, temporadas o partes de la saga) se pide solo
+let autoF = null;
+async function autoLoad() { if (FRIEND) return; try { const r = await api("/api/follow"); autoF = new Set(r.items.map(x => x.kind + x.tmdb)); } catch { autoF = new Set(); } }
+function autoBtn(c) {
+  if (FRIEND) return "";
+  const k = c.kind + c.tmdb, on = autoF && autoF.has(k);
+  return `<button class="havebtn ${on ? "yes" : ""}" onclick="autoToggle(this, '${k}')">${ico(on ? "check" : "bell")}${on ? "Siguiendo: lo nuevo se baja solo" : c.kind === "tv" ? "Seguir: bajar capítulos y temporadas nuevas" : "Seguir la saga: bajar partes nuevas"}</button>`;
+}
+async function autoToggle(b, k) {
+  const c = dscFind(k); if (!c) return;
+  if (!autoF) await autoLoad();
+  const on = !autoF.has(k);
+  try { const r = await api("/api/follow/set", {item: {kind: c.kind, tmdb: c.tmdb, title: c.title, year: c.year, poster: c.poster}, on}); if (r.ok === false) return toast(r.error); } catch (e) { return toast(e.message); }
+  on ? autoF.add(k) : autoF.delete(k);
+  b.outerHTML = autoBtn(c);
+  toast(on ? "Siguiendo. Miro ahora si hay algo nuevo y luego cada día." : "Ya no la sigues");
+}
+autoLoad();
 // en la ficha de una serie: el amigo la sigue él mismo; tú eliges a quién avisar
 function followBtn(c) {
   if (c.kind !== "tv") return "";
@@ -3572,7 +3590,7 @@ function renderDetail(partial) {
         <p class="ov">${esc(c.overview) || (partial ? "" : "<i>No hay resumen.</i>")}${c.overview_lang === "en" ? ` <span class="hint">(en inglés: no hay resumen en español)</span>` : ""}</p>
         ${facts.length ? `<dl class="facts">${facts.map(([a, b]) => `<dt>${a}</dt><dd>${esc(b)}</dd>`).join("")}</dl>` : ""}
         ${c.trailer ? `<a class="trailer" href="${esc(c.trailer)}" target="_blank" rel="noopener">${ico("play", "fill")}Ver el tráiler</a>` : ""}
-        <div class="dacts">${rateButtons(c, k)}${c.have && c.kind !== "tv" ? (FRIEND ? "" : swapButton(k)) : dlButton(k)}${followBtn(c)}</div>
+        <div class="dacts">${rateButtons(c, k)}${c.have && c.kind !== "tv" ? (FRIEND ? "" : swapButton(k)) : dlButton(k)}${followBtn(c)}${autoBtn(c)}</div>
       </div></div>
     ${saga ? `<div class="castwrap"><h3>Otras partes de la saga${c.saga.name ? ` <span class="muted">· ${esc(c.saga.name)}</span>` : ""}</h3><div class="cast">${saga}</div></div>` : ""}
     ${cast ? `<div class="castwrap"><h3>Reparto</h3><div class="cast">${cast}</div></div>` : partial ? `<p class="empty">Cargando la ficha…</p>` : ""}`;

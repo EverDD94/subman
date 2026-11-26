@@ -721,6 +721,8 @@ async function pageDetails(id, q) {
     det.rateRef = {kind: item.Type === "Series" ? "tv" : "movie", tmdb, title: item.Name, year: item.ProductionYear};
     const r = await vt(`/api/pedir/rating?kind=${det.rateRef.kind}&tmdb=${tmdb}`);
     det.rating = r.ok ? r.rating : undefined;
+    const f = await vt("/api/pedir/autofollow").catch(() => ({items: []}));
+    det.following = !!(f.items || []).find(x => x.kind === det.rateRef.kind && String(x.tmdb) === String(tmdb));
   }
   const sim = await jf(`/Items/${id}/Similar`, {UserId: U(), Limit: 20, Fields: FIELDS}).catch(() => ({Items: []}));
   main.innerHTML = `<section class="det" id="det"></section><div id="eps"></div><div class="rows" id="simRows">${rowHtml("Más como esto", sim.Items || [])}</div>`;
@@ -782,6 +784,7 @@ function paintDetails() {
       <button class="tile ${ud.Played ? "sel" : ""}" data-k="played" data-h="${ud.Played ? "Visto · pulsa para desmarcar" : "Marcar como visto"}">${ico("check")}Visto</button>
       <button class="tile ${ud.IsFavorite ? "sel" : ""}" data-k="favorite" data-h="${ud.IsFavorite ? "En mi lista · pulsa para quitar" : "Añadir a mi lista"}">${ico(ud.IsFavorite ? "heartFull" : "heart")}Mi lista</button>
       ${det.rateRef ? `<button class="tile ${rateText !== "Calificar" ? "sel" : ""}" data-k="rate" data-h="Califica para mejorar tus recomendaciones">${ico("star")}${esc(rateText)}</button>` : ""}
+      ${det.rateRef ? `<button class="tile ${det.following ? "sel" : ""}" data-k="follow" data-h="${det.following ? "Siguiendo: lo nuevo se baja solo · pulsa para dejar de seguir" : it.Type === "Series" ? "Bajar solos los capítulos y temporadas nuevas" : "Bajar sola la próxima parte de la saga"}">${ico(det.following ? "check" : "plus")}${det.following ? "Siguiendo" : "Seguir"}</button>` : ""}
       ${langText ? `<button class="tile" data-k="langs" data-h="Audio y subtítulos · ${esc(langText)}">${ico("globe")}Idioma</button>` : ""}
     </div><div class="hint" id="hint">${langText ? "Audio y subtítulos · " + esc(langText) : ""}</div>`;
   el.querySelectorAll(".tile").forEach(b => {
@@ -816,6 +819,12 @@ async function detailAction(k, target) {
     const r = await vt("/api/pedir/rate", {...det.rateRef, rating});
     if (!r.ok) return toast(r.error || "No se pudo guardar");
     det.rating = rating; toast(rating == null ? "Calificación quitada" : "Calificada"); return paintDetails();
+  }
+  if (k === "follow") {
+    const on = !det.following;
+    const r = await vt("/api/pedir/autofollow", {item: det.rateRef, on});
+    if (!r.ok) return toast(r.error || "No se pudo guardar");
+    det.following = on; toast(on ? "Siguiendo: lo nuevo se bajará solo" : "Ya no la sigues"); return paintDetails();
   }
   if (k === "langs") {
     const L = det.langs, opts = [];

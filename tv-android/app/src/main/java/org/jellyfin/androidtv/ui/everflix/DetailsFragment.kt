@@ -139,6 +139,7 @@ private fun DetailsScreen(id: UUID) {
 	val videotecario = remember { Videotecario(api.baseUrl, api.accessToken) }
 	var rating by remember { mutableStateOf<Int?>(null) }
 	var canRate by remember { mutableStateOf(false) }
+	var following by remember { mutableStateOf(false) }
 	val askedRating = remember { mutableSetOf<String>() }
 	var panel by remember { mutableStateOf<String?>(null) }
 
@@ -184,6 +185,7 @@ private fun DetailsScreen(id: UUID) {
 			runCatching { videotecario.rating(kind, tmdb) }
 				.onSuccess { rating = it; canRate = true }
 				.onFailure { canRate = false }
+			if (canRate) following = videotecario.following(kind, tmdb)
 			val key = "$kind$tmdb"
 			if (!firstLoad && canRate && (rating == null || rating == 0) && askedRating.add(key)) panel = "rate"
 		}
@@ -262,6 +264,22 @@ private fun DetailsScreen(id: UUID) {
 					}
 				}
 				if (canRate) GlassTile("★", RATINGS[rating] ?: "Calificar", selected = RATINGS.containsKey(rating), onFocus = { hint = "Califica para mejorar tus recomendaciones" }) { panel = "rate" }
+				if (canRate) GlassTile(if (following) "✓" else "+", if (following) "Siguiendo" else "Seguir", selected = following, onFocus = {
+					hint = when {
+						following -> "Siguiendo: lo nuevo se baja solo · pulsa para dejar de seguir"
+						rateSrc?.type == BaseItemKind.MOVIE -> "Bajar sola la próxima parte de la saga"
+						else -> "Bajar solos los capítulos y temporadas nuevas"
+					}
+				}) {
+					val src = rateSrc
+					val tmdb = src?.providerIds?.entries?.firstOrNull { it.key.equals("Tmdb", true) }?.value?.toIntOrNull()
+					if (src != null && tmdb != null) {
+						val kind = if (src.type == BaseItemKind.MOVIE) "movie" else "tv"
+						val on = !following
+						following = on
+						scope.launch { if (!videotecario.follow(kind, tmdb, on, src.name, src.productionYear)) following = !on }
+					}
+				}
 				if (audios.size > 1 || subs.isNotEmpty()) GlassTile("🌐", "Idioma", onFocus = {
 					hint = "Audio y subtítulos · " + listOfNotNull(
 						if (audios.size > 1) langName(audioLang ?: audios.first()) else null,

@@ -222,6 +222,37 @@ class Videotecario(jellyfinUrl: String?, private val token: String?) {
 		}.getOrDefault(false)
 	}
 
+	/** Whether the admin follows this title (its new episodes, seasons or saga parts download by themselves). */
+	suspend fun following(kind: String, tmdb: Int): Boolean = withContext(Dispatchers.IO) {
+		val base = base ?: return@withContext false
+		runCatching {
+			val body = request(URL("$base/api/pedir/autofollow"), null) ?: return@runCatching false
+			val items = Json.parseToJsonElement(body).jsonObject["items"]?.jsonArray ?: return@runCatching false
+			items.any {
+				val o = it.jsonObject
+				o["kind"]?.jsonPrimitive?.content == kind && o["tmdb"]?.jsonPrimitive?.content?.toIntOrNull() == tmdb
+			}
+		}.getOrDefault(false)
+	}
+
+	/** Follows or unfollows. Returns true when it worked. */
+	suspend fun follow(kind: String, tmdb: Int, on: Boolean, title: String?, year: Int?): Boolean = withContext(Dispatchers.IO) {
+		val base = base ?: return@withContext false
+		runCatching {
+			val payload = buildJsonObject {
+				put("item", buildJsonObject {
+					put("kind", kind)
+					put("tmdb", tmdb)
+					title?.let { put("title", it) }
+					year?.let { put("year", it) }
+				})
+				put("on", on)
+			}
+			val body = request(URL("$base/api/pedir/autofollow"), payload) ?: return@runCatching false
+			Json.parseToJsonElement(body).jsonObject["ok"]?.jsonPrimitive?.booleanOrNull == true
+		}.getOrDefault(false)
+	}
+
 	private fun request(url: URL, payload: JsonObject?, readTimeout: Int = 8000): String? {
 		val conn = url.openConnection() as HttpURLConnection
 		conn.connectTimeout = 4000

@@ -35,6 +35,9 @@ sub init()
     m.rateTask.observeField("result", "onRating")
     m.rating = invalid
     m.rateRef = invalid
+    m.followTask = CreateObject("roSGNode", "EfTask")
+    m.followTask.observeField("result", "onFollow")
+    m.following = false
     m.cameBack = false
     m.asked = {}
     m.userDataTask = CreateObject("roSGNode", "EfTask")
@@ -164,6 +167,9 @@ sub buildButtons()
         rateText = "Calificar"
         if isValid(m.rating) and names.DoesExist(m.rating.ToStr()) then rateText = names[m.rating.ToStr()]
         list.push({ key: "rate", icon: "star", text: rateText, selected: rateText <> "Calificar" })
+        followText = "Seguir"
+        if m.following then followText = "Siguiendo"
+        list.push({ key: "follow", icon: m.following ? "check" : "plus", text: followText, selected: m.following })
     end if
     lang = langText()
     if lang <> "" then list.push({ key: "langs", icon: "globe", text: "Idioma" })
@@ -195,6 +201,15 @@ sub updateHint()
     if key = "played" then m.hint.text = m.played ? "Visto · pulsa para desmarcar" : "Marcar como visto"
     if key = "favorite" then m.hint.text = m.favorite ? "En mi lista · pulsa para quitar" : "Añadir a mi lista"
     if key = "rate" then m.hint.text = "Califica para mejorar tus recomendaciones"
+    if key = "follow" and isValid(m.rateRef)
+        if m.following
+            m.hint.text = "Siguiendo: lo nuevo se baja solo · pulsa para dejar de seguir"
+        else if m.rateRef.kind = "tv"
+            m.hint.text = "Bajar solos los capítulos y temporadas nuevas"
+        else
+            m.hint.text = "Bajar sola la próxima parte de la saga"
+        end if
+    end if
     if key = "langs" then m.hint.text = "Audio y subtítulos · " + langText()
     if key = "season" and isValid(m.episodeList) then m.hint.text = `${m.episodeList.count()} episodios · elige temporada`
 end sub
@@ -371,6 +386,14 @@ sub onButton()
         openSeasonPicker()
     else if key = "rate"
         openRatePicker()
+    else if key = "follow"
+        if not isValid(m.rateRef) then return
+        m.following = not m.following
+        m.followTask.job = "vt"
+        m.followTask.args = { path: "/api/pedir/autofollow", body: { item: m.rateRef, on: m.following } }
+        m.followTask.control = "STOP"
+        m.followTask.control = "RUN"
+        buildButtons()
     else if key = "restart"
         play(playTarget(), true)
     else if key = "played" or key = "favorite"
@@ -576,6 +599,10 @@ sub onRating()
         m.rateRef = invalid
     else
         m.rating = r.data.rating
+        m.followTask.job = "vt"
+        m.followTask.args = { path: "/api/pedir/autofollow" }
+        m.followTask.control = "STOP"
+        m.followTask.control = "RUN"
     end if
     buildButtons()
     layout()
@@ -599,4 +626,22 @@ sub openRatePicker()
         { key: "-1", text: "No me gusta", selected: cur = "-1" },
         { key: "x", text: "Quitar calificación" }
     ])
+end sub
+
+' Seguimiento (sólo el administrador): lo nuevo de esta serie o saga se baja solo
+sub onFollow()
+    r = m.followTask.result
+    if not isValid(r) or not isValid(m.rateRef) then return
+    if not isValid(m.followTask.args.body)
+        m.following = false
+        if r.ok = true and isValid(r.data) and isValid(r.data.items)
+            for each x in r.data.items
+                if x.kind = m.rateRef.kind and x.tmdb = m.rateRef.tmdb then m.following = true
+            end for
+        end if
+    else if r.ok <> true or not isValid(r.data) or r.data.ok <> true
+        m.following = not m.following
+    end if
+    buildButtons()
+    layout()
 end sub

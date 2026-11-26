@@ -3342,15 +3342,18 @@ function renderPortada() {
 // El sorteo se hace una vez por visita (dsc.luck), así calificar o cambiar de ánimo no lo baraja de nuevo.
 function bbPick(lists) {
   const luck = dsc.luck ||= new Map(), roll = c => { const k = c.kind + c.tmdb; if (!luck.has(k)) luck.set(k, Math.random()); return luck.get(k); };
-  const drawn = lists.map(l => l.slice(0, 12).map((c, i) => [c, Math.pow(roll(c), i + 1)]).sort((x, y) => y[1] - x[1]).map(x => x[0]));
+  if (dsc.bbRecent == null) try { dsc.bbRecent = JSON.parse(localStorage.getItem("bbRecent") || "[]"); } catch { dsc.bbRecent = []; }
+  const recent = new Set(dsc.bbRecent);  // lo que ya salió en las últimas visitas va al final
+  const drawn = lists.map(l => l.slice(0, 40).map((c, i) => [c, Math.pow(roll(c), 1 + i / 15) * (recent.has(c.kind + c.tmdb) ? .15 : 1)]).sort((x, y) => y[1] - x[1]).map(x => x[0]));
   if ((dsc.bbFlip ??= Math.random() < .5)) drawn.reverse();  // unas veces abre «Para ti» y otras «Novedades»
   const out = [], seen = new Set();
-  for (let i = 0; out.length < 5 && drawn.some(d => d.length > i); i++)
-    for (const d of drawn) { const c = d[i]; if (c && !seen.has(c.kind + c.tmdb) && out.length < 5) { seen.add(c.kind + c.tmdb); out.push(c); } }
+  for (let i = 0; out.length < 8 && drawn.some(d => d.length > i); i++)
+    for (const d of drawn) { const c = d[i]; if (c && !seen.has(c.kind + c.tmdb) && out.length < 8) { seen.add(c.kind + c.tmdb); out.push(c); } }
   if (dsc.bbPrev == null) try { dsc.bbPrev = localStorage.getItem("bbLast") || ""; } catch { dsc.bbPrev = ""; }
   const last = dsc.bbPrev;
   if (out.length > 1 && out[0].kind + out[0].tmdb === last) out.push(out.shift());
-  if (out[0] && !dsc.bbSaved) { dsc.bbSaved = true; try { localStorage.setItem("bbLast", out[0].kind + out[0].tmdb); } catch {} }
+  if (out[0] && !dsc.bbSaved) { dsc.bbSaved = true; try { localStorage.setItem("bbLast", out[0].kind + out[0].tmdb);
+    localStorage.setItem("bbRecent", JSON.stringify([...out.map(c => c.kind + c.tmdb), ...dsc.bbRecent].slice(0, 40))); } catch {} }
   return out;
 }
 function renderShelves(pick) {
@@ -4017,5 +4020,9 @@ show("descubrir");
 </script>
 <script>document.addEventListener("pointerdown", e => { const b = e.target.closest("button"); if (!b || b.disabled) return;
   b.classList.remove("tapped"); void b.offsetWidth; b.classList.add("tapped"); setTimeout(() => b.classList.remove("tapped"), 500); }, true);</script>
+<script>{ let x0 = null, y0 = 0;  // cartel de Descubrir: deslizar con el dedo para pasar
+  document.addEventListener("touchstart", e => { const b = e.target.closest(".bb"); x0 = b ? e.touches[0].clientX : null; y0 = e.touches[0].clientY; }, {passive: true});
+  document.addEventListener("touchend", e => { if (x0 == null) return; const t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0; x0 = null;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > 1.5 * Math.abs(dy)) bbShow(dsc.bb + (dx < 0 ? 1 : -1)); }, {passive: true}); }</script>
 </body>
 </html>

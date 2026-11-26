@@ -1059,7 +1059,7 @@ function ytAccount(linked) {
   }
 }
 const ytLoading = () => `<div class="loading" style="padding-top:30px"><div class="spin"></div>Cargando…</div>`;
-const ytEmpty = (r, t) => `<p class="empty">${r && r.ok === false ? "YouTube no responde ahora mismo. Prueba otra vez en un rato." : esc(t)}</p>`;
+const ytEmpty = (r, t) => `<p class="empty">${r && r.ok === false ? (String(r.error || "").startsWith("sesión") ? "YouTube no aceptó tu sesión. Abre youtube.com en Chrome (con la extensión puesta) y vuelve en un minuto." : "YouTube no responde ahora mismo. Prueba otra vez en un rato.") : esc(t)}</p>`;
 async function ytGo(view, arg) {
   const body = $("#ytBody");
   if (!body) return;

@@ -71,6 +71,7 @@ class YouTube:
         self.cookies.write_text(text, encoding="utf-8")
         os.chmod(self.cookies, 0o600)
         self.state["pushed"] = time.time()
+        self.state.pop("bad", None)
         self._save()
         self.cache = {k: v for k, v in self.cache.items() if not k.startswith("f:")}
 
@@ -101,12 +102,28 @@ class YouTube:
         self.cache = {k: v for k, v in self.cache.items() if not k.startswith("f:")}
 
     def _ytdlp(self, args: list[str], timeout: int = 60, account: bool = False) -> dict:
-        acct = ["--cookies", str(self.cookies)] if account and self.linked() else []
+        # Cada llamada usa su propia copia: yt-dlp reescribe el archivo de cookies al terminar y,
+        # con varias filas cargando a la vez, se pisaban y la sesión quedaba rota.
+        tmp = None
+        if account and self.linked():
+            tmp = self.dir / f"yt-cookies-{secrets.token_hex(6)}.txt"
+            shutil.copyfile(self.cookies, tmp)
+            os.chmod(tmp, 0o600)
+        acct = ["--cookies", str(tmp)] if tmp else []
         cmd = [sys.executable, "-m", "yt_dlp", "--no-warnings", "--ignore-config", "-J", *acct, *args]
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=self._env())
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=self._env())
+        finally:
+            if tmp:
+                tmp.unlink(missing_ok=True)
         if r.returncode != 0 or not r.stdout.strip():
             err = (r.stderr or "").strip().splitlines()
-            raise RuntimeError(err[-1] if err else "yt-dlp no respondió")
+            msg = err[-1] if err else "yt-dlp no respondió"
+            if account and any(w in msg for w in ("--cookies", "Login", "Sign in", "401", "does not exist")):
+                self.state["bad"] = time.time()
+                self._save()
+                raise RuntimeError("sesión: " + msg)
+            raise RuntimeError(msg)
         return json.loads(r.stdout)
 
     def version(self) -> str:

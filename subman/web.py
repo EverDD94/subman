@@ -25,7 +25,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, auth, efweb, jfadmin, autoid, bot, channels, chsearch, config, convert, diagnose, discover, downloads, duplicates, friends, notices, formats, gemini, identify, jellyfin, manager, notify, peek, phono, providers, series, freno, tmdb, updater, vigia
+from . import __version__, auth, efweb, jfadmin, autoid, bot, channels, chsearch, config, convert, diagnose, discover, downloads, duplicates, friends, notices, formats, gemini, identify, jellyfin, manager, notify, peek, phono, providers, series, freno, tmdb, updater, vigia, follow
 from .library import Library
 
 log = logging.getLogger(__name__)
@@ -1787,6 +1787,12 @@ class App:
                 return {"ok": False, "error": "esas temporadas ya están en Descargas"}
             for n in new:
                 mark(dl.add("tv", tid, title, year, "manual", season=n))
+            try:  # series en emisión: quedan en seguimiento para que lo nuevo se baje solo
+                db = tmdb.TMDb(cfg["tmdb"]["api_key"], cfg["tmdb"].get("language") or "es-MX")
+                if db._get(f"/tv/{tid}").get("in_production"):
+                    follow.Follow(dl).set({"kind": "tv", "tmdb": tid, "title": title, "year": year}, True, min(new))
+            except Exception as e:
+                log.info("seguimiento: %s", e)
             self.dl_wake.set()
             return {"ok": True, "done": len(new)}
         if b["kind"] == "tv":  # sin elegir (desde la tele): se piden las temporadas que falten
@@ -2541,6 +2547,63 @@ class App:
     def _notices(self) -> notices.Notices:
         return notices.Notices(self.library().db, Path(self.config_path).parent / "push-key.pem")
 
+    # --- seguimiento: lo nuevo de lo que sigues se pide solo ------------------------------
+    def _follow(self, cfg=None):
+        cfg = cfg or self.cfg()
+        return follow.Follow(downloads.Downloads(self.library(cfg), cfg))
+
+    def follow_list(self) -> dict:
+        return {"ok": True, "items": self._follow().rows()}
+
+    def follow_set(self, b: dict) -> dict:
+        item = b.get("item") or b
+        if item.get("kind") not in ("tv", "movie"):
+            return {"ok": False, "error": "falta qué seguir"}
+        f = self._follow()
+        start = None
+        if item["kind"] == "tv" and b.get("on", True):  # desde la última temporada que tienes (no rellena las viejas)
+            try:
+                cfg = self.cfg()
+                db = tmdb.TMDb(cfg["tmdb"]["api_key"], cfg["tmdb"].get("language") or "es-MX")
+                have = f.owned_eps({"tmdb": int(item["tmdb"]), "title": item.get("title") or "", "year": item.get("year")}, db)
+                start = max(have) if have else None
+            except Exception as e:
+                log.info("seguimiento: %s", e)
+        f.set(item, bool(b.get("on", True)), start)
+        if b.get("on", True):
+            threading.Thread(target=self.follow_check, kwargs={"only": (item["kind"], int(item["tmdb"]))},
+                             name="seguimiento", daemon=True).start()
+        return {"ok": True, "on": bool(b.get("on", True))}
+
+    def follow_check(self, only=None) -> list[str]:
+        cfg = self.cfg()
+        if not cfg.get("tmdb", {}).get("api_key"):
+            return []
+        f = self._follow(cfg)
+        db = tmdb.TMDb(cfg["tmdb"]["api_key"], cfg["tmdb"].get("language") or "es-MX")
+        if only:
+            keep = f.rows
+            f.rows = lambda: [r for r in keep() if (r["kind"], r["tmdb"]) == only]
+        done = f.check(db)
+        if done:
+            log.info("seguimiento: pedido %s", ", ".join(done))
+            self.dl_wake.set()
+            try:
+                self._notify(cfg, "🔔 Seguimiento: hay cosas nuevas y ya están en la cola\n\n" + "\n".join("• " + x for x in done))
+            except Exception:
+                pass
+        return done
+
+    def follow_watch(self) -> None:
+        """Una vez al día revisa lo que sigues."""
+        time.sleep(300)
+        while True:
+            try:
+                self.follow_check()
+            except Exception as e:
+                log.warning("seguimiento: %s", e)
+            time.sleep(24 * 3600)
+
     def notice_watch(self) -> None:
         """Cada pocos minutos mira lo nuevo en Jellyfin (llegue por Phono o copiado a mano) y avisa a quien toque."""
         time.sleep(60)
@@ -2617,6 +2680,7 @@ def make_handler(app: App):
         "/api/discover/mood": lambda q: app._dsc(lambda d: {"rows": d.mood(q.get("m", [""])[0], q.get("kind", [""])[0])}),
         "/api/discover/deck": lambda q: app._dsc(lambda d: {"items": d.deck()}),
         "/api/downloads": lambda q: app.downloads_state(),
+        "/api/follow": lambda q: app.follow_list(),
         "/api/providers": lambda q: app.providers_state(),
         "/api/providers/search": lambda q: app.providers_search(q.get("q", [""])[0]),
         "/api/discover/platforms": lambda q: app._dsc(lambda d: {"platforms": d.platforms_summary()}),
@@ -2693,6 +2757,7 @@ def make_handler(app: App):
         "/api/avisos/followers": lambda b: (app._notices().set_followers(b["item"], list(b.get("users") or [])), {"ok": True})[1],
         "/api/requests/forget": lambda b: app._dsc(lambda d: (friends.Friends(d).forget(b["kind"], int(b["tmdb"])), {})[1]),
         "/api/downloads/add": lambda b: app.downloads_add(b),
+        "/api/follow/set": lambda b: app.follow_set(b),
         "/api/downloads/options": lambda b: app.downloads_options(b),
         "/api/downloads/replace": lambda b: app.downloads_replace(b),
         "/api/downloads/cancel": lambda b: app.downloads_cancel(int(b["id"])),
@@ -2717,6 +2782,7 @@ def make_handler(app: App):
         "/api/pedir/rating": lambda u, q: app.tv_rating(u, q.get("kind", [""])[0], q.get("tmdb", ["0"])[0]),
         "/api/pedir/mine": lambda u, q: app._dsc(lambda d: {"items": app._friends().mine(u)}),
         "/api/pedir/admin": lambda u, q: app.tv_admin(u),
+        "/api/pedir/autofollow": lambda u, q: app.follow_list() if u.get("admin") else {"ok": True, "items": []},
         "/api/pedir/home": lambda u, q: app._dsc(lambda d: {"rows": app._friends().tv_home(u)}),
         "/api/pedir/inbox": lambda u, q: {"ok": True, "items": jfadmin.inbox(u["id"], q.get("device", [""])[0])},
     }
@@ -2726,6 +2792,7 @@ def make_handler(app: App):
         "/api/pedir/push/off": lambda u, b: (app._notices().unsubscribe(u["id"], b.get("endpoint", "")), {"ok": True})[1],
         "/api/pedir/follow": lambda u, b: (app._notices().follow(u["id"], b["item"], bool(b.get("on", True))), {"ok": True})[1],
         "/api/pedir/rate": lambda u, b: app.tv_rate(u, b),
+        "/api/pedir/autofollow": lambda u, b: app.follow_set(b) if u.get("admin") else {"ok": False, "error": "sólo para el administrador"},
         "/api/pedir/ask": lambda u, b: app.friends_ask(u, b),
         "/api/pedir/decide": lambda u, b: app.friends_decide(b) if u.get("admin") else {"ok": False, "error": "sólo para el administrador"},
         "/api/pedir/cancel": lambda u, b: app._dsc(lambda d: (app._friends().cancel(u, b["kind"], int(b["tmdb"])), {})[1]),
@@ -3183,6 +3250,7 @@ def serve(config_path: str, port: int | None = None) -> None:
     threading.Thread(target=app.updates, name="actualizaciones", daemon=True).start()
     threading.Thread(target=app.downloader, name="descargas", daemon=True).start()
     threading.Thread(target=app.notice_watch, name="avisos", daemon=True).start()
+    threading.Thread(target=app.follow_watch, name="seguimiento", daemon=True).start()
     threading.Thread(target=bot.Bot(app).run, name="bot", daemon=True).start()
     def warm():  # la portada de la tele ya preparada para la primera vez que se abre
         time.sleep(30)  # sin prisa: que antes arranque lo demás (no todo de golpe)

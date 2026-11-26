@@ -2133,6 +2133,32 @@ async function dubAsk(b, k) {
     toast(r.seasons.length ? `Buscando versión doblada de la temporada ${r.seasons.join(", ")}. Lo verás en Descargas.` : "Ya se está buscando");
   } catch (e) { toast(e.message); }
 }
+// Intro y créditos: ver y corregir a mano dónde empiezan y acaban (para el botón «Saltar» de Everflix)
+function skipBtn(c) {
+  return FRIEND || c.kind !== "tv" || !c.have ? "" : `<button class="havebtn" onclick="skipEdit(${c.tmdb})">${ico("next")}Intro y créditos</button>`;
+}
+const mmss = x => x == null ? "" : `${Math.floor(x / 60)}:${String(Math.round(x % 60)).padStart(2, "0")}`;
+const secs = v => { v = (v || "").trim(); if (!v) return ""; const p = v.split(":").map(Number); return p.length > 1 ? p[0] * 60 + p[1] : p[0]; };
+async function skipEdit(tmdb) {
+  let r; try { r = await api(`/api/skip?tmdb=${tmdb}`); } catch (e) { return toast(e.message); }
+  if (!r.items.length) return toast("No encuentro capítulos de esta serie en la biblioteca");
+  const d = document.createElement("dialog"); d.className = "ask"; d.style.maxWidth = "760px";
+  d.innerHTML = `<p style="margin-top:0"><b>Intro y créditos</b><br><span class="muted">En minutos:segundos. Lo que cambies a mano no se vuelve a tocar.</span></p>
+    <div style="max-height:60vh;overflow:auto"><table class="tbl" style="width:100%;font-size:13px"><tr><th>Capítulo</th><th>Intro</th><th>Créditos desde</th><th></th></tr>
+    ${r.items.map((x, i) => `<tr data-i="${i}"><td>${esc(x.name.replace(/\.[^.]+$/, ""))}${x.manual ? ` <span class="muted">(a mano)</span>` : x.source ? ` <span class="muted">(${esc(x.source)})</span>` : ` <span class="muted">(sin mirar)</span>`}</td>
+      <td style="white-space:nowrap"><input size="4" data-k="intro_start" value="${mmss(x.intro_start)}"> – <input size="4" data-k="intro_end" value="${mmss(x.intro_end)}"></td>
+      <td><input size="4" data-k="credits_start" value="${mmss(x.credits_start)}"></td>
+      <td><button class="btn sec" data-save="${i}">Guardar</button></td></tr>`).join("")}</table></div>
+    <div class="row" style="justify-content:space-between;gap:8px;margin-top:14px"><button class="btn sec" value="redo">Volver a buscar</button><button class="btn" value="no">Cerrar</button></div>`;
+  d.querySelectorAll("[data-save]").forEach(b => b.onclick = async () => {
+    const x = r.items[+b.dataset.save], tr = b.closest("tr"), v = k => secs(tr.querySelector(`[data-k="${k}"]`).value);
+    try { await api("/api/skip/set", {path: x.path, intro_start: v("intro_start"), intro_end: v("intro_end"), credits_start: v("credits_start"), credits_end: x.duration || ""}); toast("Guardado"); } catch (e) { toast(e.message); }
+  });
+  d.querySelector('[value="redo"]').onclick = async () => { try { await api("/api/skip/set", {redo: tmdb}); toast("Buscando de nuevo. Tarda unos minutos por temporada."); } catch (e) { toast(e.message); } d.close(); };
+  d.querySelector('[value="no"]').onclick = () => d.close();
+  d.onclose = () => d.remove();
+  document.body.appendChild(d); d.showModal();
+}
 // en la ficha de una serie: el amigo la sigue él mismo; tú eliges a quién avisar
 function followBtn(c) {
   if (c.kind !== "tv") return "";
@@ -3602,7 +3628,7 @@ function renderDetail(partial) {
         <p class="ov">${esc(c.overview) || (partial ? "" : "<i>No hay resumen.</i>")}${c.overview_lang === "en" ? ` <span class="hint">(en inglés: no hay resumen en español)</span>` : ""}</p>
         ${facts.length ? `<dl class="facts">${facts.map(([a, b]) => `<dt>${a}</dt><dd>${esc(b)}</dd>`).join("")}</dl>` : ""}
         ${c.trailer ? `<a class="trailer" href="${esc(c.trailer)}" target="_blank" rel="noopener">${ico("play", "fill")}Ver el tráiler</a>` : ""}
-        <div class="dacts">${rateButtons(c, k)}${c.have && c.kind !== "tv" ? (FRIEND ? "" : swapButton(k)) : dlButton(k)}${followBtn(c)}${autoBtn(c)}${dubBtn(c)}</div>
+        <div class="dacts">${rateButtons(c, k)}${c.have && c.kind !== "tv" ? (FRIEND ? "" : swapButton(k)) : dlButton(k)}${followBtn(c)}${autoBtn(c)}${dubBtn(c)}${skipBtn(c)}</div>
       </div></div>
     ${saga ? `<div class="castwrap"><h3>Otras partes de la saga${c.saga.name ? ` <span class="muted">· ${esc(c.saga.name)}</span>` : ""}</h3><div class="cast">${saga}</div></div>` : ""}
     ${cast ? `<div class="castwrap"><h3>Reparto</h3><div class="cast">${cast}</div></div>` : partial ? `<p class="empty">Cargando la ficha…</p>` : ""}`;

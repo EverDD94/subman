@@ -23,9 +23,10 @@ import time
 import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+import requests
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, auth, efweb, jfadmin, autoid, bot, channels, chsearch, config, convert, diagnose, discover, downloads, duplicates, friends, notices, formats, gemini, identify, jellyfin, manager, notify, peek, phono, providers, series, freno, tmdb, updater, vigia, follow
+from . import __version__, auth, efweb, jfadmin, autoid, bot, channels, chsearch, config, convert, diagnose, discover, downloads, duplicates, friends, notices, formats, gemini, identify, jellyfin, manager, notify, peek, phono, providers, series, freno, tmdb, updater, vigia, follow, skipseg
 from .library import Library
 
 log = logging.getLogger(__name__)
@@ -1812,7 +1813,7 @@ class App:
         dl = downloads.Downloads(self.library(cfg), cfg)
         tid, title, year = int(b["tmdb"]), b.get("title") or "", b.get("year")
         db = tmdb.TMDb(cfg["tmdb"]["api_key"], cfg["tmdb"].get("language") or "es-MX")
-        row = {"kind": "tv", "tmdb": tid, "title": title, "year": year}
+        row = {"kind": "tv", "tmdb": tid, "title": title, "year": year, "season": None}
         need = set()
         for f in self._dl_owned_files(dl, row, db):
             ep = downloads.episode_numbers(f)
@@ -2665,6 +2666,99 @@ class App:
                 log.warning("seguimiento: %s", e)
             time.sleep(24 * 3600)
 
+    # --- saltar intro y créditos -----------------------------------------------------------
+    def _skips(self, cfg=None):
+        return skipseg.Skips(self.library(cfg or self.cfg()).db)
+
+    def skip_watch(self) -> None:
+        """Cada pocas horas busca intro y créditos en las temporadas nuevas (despacio, sin estorbar)."""
+        time.sleep(600)
+        while True:
+            try:
+                cfg = self.cfg()
+                sk = self._skips(cfg)
+                seasons: dict[str, list[Path]] = {}
+                for (path,) in sk.db.execute("SELECT path FROM media WHERE kind!='movie'").fetchall():
+                    if os.path.exists(path):
+                        seasons.setdefault(os.path.dirname(path), []).append(Path(path))
+                for folder, files in seasons.items():
+                    if len(files) < 2 or all(sk.get(str(f)) for f in files):
+                        continue
+                    n = sk.analyze_season(files)
+                    log.info("saltar intro: %s: %d capítulo(s) con intro o créditos", Path(folder).name, n)
+            except Exception as e:
+                log.warning("saltar intro: %s", e)
+            time.sleep(6 * 3600)
+
+    def skip_for(self, item_id: str) -> dict:
+        """Intro y créditos de un capítulo de Jellyfin: lo de Videotecario o, si no hay, lo de Intro Skipper."""
+        cfg = self.cfg()
+        jf = cfg.get("jellyfin", {})
+        if not (jf.get("url") and jf.get("api_key")):
+            return {"ok": False, "error": "falta Jellyfin en Ajustes"}
+        base, hdr = jf["url"].rstrip("/"), {"X-Emby-Token": jf["api_key"]}
+        out = {"ok": True, "intro": None, "credits": None}
+        try:
+            it = (jellyfin._items(base, jf["api_key"], {"Ids": item_id, "Fields": "Path"}) or [{}])[0]
+            name = os.path.basename(it.get("Path") or "")
+            row = None
+            if name:
+                row = self._skips(cfg).db.execute("SELECT * FROM skipseg WHERE path LIKE ? ORDER BY manual DESC LIMIT 1",
+                                                   ("%" + name,)).fetchone()
+            if row:
+                row = dict(row)
+                if row["intro_end"]:
+                    out["intro"] = [row["intro_start"] or 0, row["intro_end"]]
+                if row["credits_start"]:
+                    out["credits"] = [row["credits_start"], row["credits_end"] or row["duration"]]
+                out["source"] = "manual" if row["manual"] else row["source"]
+        except Exception as e:
+            log.info("saltar intro: %s", e)
+        if not out["intro"] or not out["credits"]:
+            try:  # lo que tenga Jellyfin (Intro Skipper)
+                r = requests.get(f"{base}/MediaSegments/{item_id}", headers=hdr, timeout=10).json()
+                for seg in r.get("Items") or []:
+                    k = {"Intro": "intro", "Outro": "credits"}.get(seg.get("Type"))
+                    if k and not out[k]:
+                        out[k] = [seg["StartTicks"] / 1e7, seg["EndTicks"] / 1e7]
+            except Exception:
+                pass
+        return out
+
+    def skip_list(self, tmdb: str) -> dict:
+        """Los capítulos de una serie (por su [tmdbid-N]) con su intro y créditos."""
+        sk = self._skips()
+        rows = sk.db.execute("SELECT m.path, s.* FROM media m LEFT JOIN skipseg s ON s.path=m.path "
+                             "WHERE m.kind!='movie' AND m.path LIKE ? ORDER BY m.path", (f"%tmdbid-{int(tmdb)}]%",)).fetchall()
+        items = []
+        for r in rows:
+            d = dict(r)
+            d["path"] = r[0]
+            d["name"] = os.path.basename(r[0])
+            items.append(d)
+        return {"ok": True, "items": items}
+
+    def skip_set(self, b: dict) -> dict:
+        sk = self._skips()
+        if b.get("redo"):  # vuelve a buscar en toda la serie (lo corregido a mano se respeta)
+            seasons: dict[str, list[Path]] = {}
+            for (p,) in sk.db.execute("SELECT path FROM media WHERE kind!='movie' AND path LIKE ?", (f"%tmdbid-{int(b['redo'])}]%",)):
+                seasons.setdefault(os.path.dirname(p), []).append(Path(p))
+
+            def go():
+                for files in seasons.values():
+                    try:
+                        sk2 = self._skips()
+                        sk2.analyze_season(files, True)
+                    except Exception as e:
+                        log.warning("saltar intro: %s", e)
+            threading.Thread(target=go, name="saltar-intro", daemon=True).start()
+            return {"ok": True, "seasons": len(seasons)}
+        f = lambda k: None if b.get(k) in (None, "") else float(b[k])
+        sk.put(b["path"], intro_start=f("intro_start"), intro_end=f("intro_end"), credits_start=f("credits_start"),
+               credits_end=f("credits_end"), source="manual", manual=1)
+        return {"ok": True}
+
     def notice_watch(self) -> None:
         """Cada pocos minutos mira lo nuevo en Jellyfin (llegue por Phono o copiado a mano) y avisa a quien toque."""
         time.sleep(60)
@@ -2742,6 +2836,7 @@ def make_handler(app: App):
         "/api/discover/deck": lambda q: app._dsc(lambda d: {"items": d.deck()}),
         "/api/downloads": lambda q: app.downloads_state(),
         "/api/follow": lambda q: app.follow_list(),
+        "/api/skip": lambda q: app.skip_list(q.get("tmdb", ["0"])[0]),
         "/api/providers": lambda q: app.providers_state(),
         "/api/providers/search": lambda q: app.providers_search(q.get("q", [""])[0]),
         "/api/discover/platforms": lambda q: app._dsc(lambda d: {"platforms": d.platforms_summary()}),
@@ -2820,6 +2915,7 @@ def make_handler(app: App):
         "/api/downloads/add": lambda b: app.downloads_add(b),
         "/api/follow/set": lambda b: app.follow_set(b),
         "/api/audio-es": lambda b: app.audio_es(b),
+        "/api/skip/set": lambda b: app.skip_set(b),
         "/api/downloads/options": lambda b: app.downloads_options(b),
         "/api/downloads/replace": lambda b: app.downloads_replace(b),
         "/api/downloads/cancel": lambda b: app.downloads_cancel(int(b["id"])),
@@ -2844,6 +2940,7 @@ def make_handler(app: App):
         "/api/pedir/rating": lambda u, q: app.tv_rating(u, q.get("kind", [""])[0], q.get("tmdb", ["0"])[0]),
         "/api/pedir/mine": lambda u, q: app._dsc(lambda d: {"items": app._friends().mine(u)}),
         "/api/pedir/admin": lambda u, q: app.tv_admin(u),
+        "/api/pedir/skip": lambda u, q: app.skip_for(q.get("id", [""])[0]),
         "/api/pedir/autofollow": lambda u, q: app.follow_list() if u.get("admin") else {"ok": True, "items": []},
         "/api/pedir/home": lambda u, q: app._dsc(lambda d: {"rows": app._friends().tv_home(u)}),
         "/api/pedir/inbox": lambda u, q: {"ok": True, "items": jfadmin.inbox(u["id"], q.get("device", [""])[0])},
@@ -3313,6 +3410,7 @@ def serve(config_path: str, port: int | None = None) -> None:
     threading.Thread(target=app.downloader, name="descargas", daemon=True).start()
     threading.Thread(target=app.notice_watch, name="avisos", daemon=True).start()
     threading.Thread(target=app.follow_watch, name="seguimiento", daemon=True).start()
+    threading.Thread(target=app.skip_watch, name="saltar-intro", daemon=True).start()
     threading.Thread(target=bot.Bot(app).run, name="bot", daemon=True).start()
     def warm():  # la portada de la tele ya preparada para la primera vez que se abre
         time.sleep(30)  # sin prisa: que antes arranque lo demás (no todo de golpe)

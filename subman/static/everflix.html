@@ -30,6 +30,7 @@ img{display:block}
 /* ---- intro y entrar ---- */
 #intro{position:fixed;inset:0;z-index:100;background:#000;display:grid;place-items:center;cursor:pointer}
 #intro video{width:100%;height:100%;object-fit:contain}
+.pl-skip{position:absolute;right:28px;bottom:120px;z-index:5;font-size:16px;padding:12px 20px}
 #intro .skip{position:absolute;right:24px;bottom:24px;background:var(--glass);border:0;border-radius:999px;padding:10px 18px;color:#fff;font-weight:600;backdrop-filter:blur(10px)}
 #login{min-height:100vh;display:grid;place-items:center;padding:24px;
   background:radial-gradient(1200px 600px at 20% 0%,rgba(61,99,224,.35),transparent 60%),radial-gradient(900px 500px at 100% 100%,rgba(157,180,255,.12),transparent 60%),var(--bg)}
@@ -979,6 +980,7 @@ async function startPlay(id, fromStart) {
   paintPlayer();
   await loadSource(pos);
   report("");
+  if (item.Type === "Episode") vt(`/api/pedir/skip?id=${item.Id}`).then(r => { if (P && P.item.Id === item.Id && r.ok) P.skips = r; });
   if (item.Type === "Episode") jf(`/Shows/${item.SeriesId}/Episodes`, {UserId: U(), StartItemId: item.Id, Limit: 2, Fields: "Overview"}).then(r => { if (P && P.item.Id === item.Id) P.next = ((r.Items || [])[1]) || null; }).catch(() => {});
 }
 function paintPlayer() {
@@ -1037,6 +1039,7 @@ function tick() {
   const now = Date.now();
   if (!P.lastReport || now - P.lastReport > 10000) report("Progress");
   // a falta de 30 s: siguiente capítulo (como en la tele)
+  skipPaint(v.currentTime);
   if (P.next && !P.nextShown && dur() && dur() - v.currentTime < 30 && v.currentTime > 60) showNext();
 }
 let pokeT;
@@ -1150,6 +1153,19 @@ function panel(title, opts) {  // panel de cristal dentro del reproductor
     $("#player").classList.add("ui");
     p._close = close;
   });
+}
+// «Saltar intro» / «Saltar créditos» (los marca Videotecario o Intro Skipper)
+function skipPaint(t) {
+  const k = P.skips && (["intro", "credits"].find(x => P.skips[x] && t >= P.skips[x][0] && t < P.skips[x][1] - 1));
+  let b = $("#plSkip");
+  if (!k) { if (b) b.remove(); return; }
+  if (b && b.dataset.k === k) return;
+  if (!b) { b = document.createElement("button"); b.id = "plSkip"; b.className = "btn pri pl-skip"; $("#player").appendChild(b); }
+  b.dataset.k = k;
+  b.innerHTML = `${ico("next")}${k === "intro" ? "Saltar intro" : P.next ? "Siguiente capítulo" : "Saltar créditos"}`;
+  b.onclick = e => { e.stopPropagation(); const seg = P.skips[k]; b.remove();
+    if (k === "credits" && P.next) return playNext();
+    seekTo(Math.min(seg[1], dur() - 1)); };
 }
 function showNext() {
   P.nextShown = true;

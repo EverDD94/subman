@@ -32,7 +32,7 @@ sub build(views as object)
         { key: "home", label: "Inicio", icon: "home" },
         { key: "movies", label: "Películas", icon: "movie" },
         { key: "series", label: "Series", icon: "tv" },
-        { key: "youtube", label: "YouTube", icon: "youtube" },
+        { key: "youtube", label: "4ETUBE", icon: "youtube" },
         { divider: true }
     ]
     ' Live TV goes last: it is hardly used

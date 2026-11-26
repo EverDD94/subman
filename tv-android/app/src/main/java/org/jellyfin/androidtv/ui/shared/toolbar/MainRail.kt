@@ -160,7 +160,7 @@ fun MainRail(
 
 		RailItem(
 			icon = R.drawable.ic_youtube,
-			label = "YouTube",
+			label = "4ETUBE",
 			open = open,
 			active = activeButton == MainToolbarActiveButton.YouTube,
 			modifier = target(MainToolbarActiveButton.YouTube),

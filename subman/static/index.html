@@ -2114,6 +2114,18 @@ function autoBtn(c) {
 async function autoToggle(b, k) {
   const c = dscFind(k); if (!c) return;
   if (!autoF) await autoLoad();
+function dubBtn(c) {
+  return FRIEND || c.kind !== "tv" || !c.have ? "" : `<button class="havebtn" onclick="dubAsk(this, '${c.kind + c.tmdb}')">${ico("subs")}Buscar audio en español</button>`;
+}
+async function dubAsk(b, k) {
+  const c = dscFind(k); if (!c) return;
+  toast("Mirando qué capítulos no tienen audio en español…");
+  try {
+    const r = await api("/api/audio-es", {tmdb: c.tmdb, title: c.title, year: c.year});
+    if (r.ok === false) return toast(r.error);
+    toast(r.seasons.length ? `Buscando versión doblada de la temporada ${r.seasons.join(", ")}. Lo verás en Descargas.` : "Ya se está buscando");
+  } catch (e) { toast(e.message); }
+}
   const on = !autoF.has(k);
   try { const r = await api("/api/follow/set", {item: {kind: c.kind, tmdb: c.tmdb, title: c.title, year: c.year, poster: c.poster}, on}); if (r.ok === false) return toast(r.error); } catch (e) { return toast(e.message); }
   on ? autoF.add(k) : autoF.delete(k);
@@ -3590,7 +3602,7 @@ function renderDetail(partial) {
         <p class="ov">${esc(c.overview) || (partial ? "" : "<i>No hay resumen.</i>")}${c.overview_lang === "en" ? ` <span class="hint">(en inglés: no hay resumen en español)</span>` : ""}</p>
         ${facts.length ? `<dl class="facts">${facts.map(([a, b]) => `<dt>${a}</dt><dd>${esc(b)}</dd>`).join("")}</dl>` : ""}
         ${c.trailer ? `<a class="trailer" href="${esc(c.trailer)}" target="_blank" rel="noopener">${ico("play", "fill")}Ver el tráiler</a>` : ""}
-        <div class="dacts">${rateButtons(c, k)}${c.have && c.kind !== "tv" ? (FRIEND ? "" : swapButton(k)) : dlButton(k)}${followBtn(c)}${autoBtn(c)}</div>
+        <div class="dacts">${rateButtons(c, k)}${c.have && c.kind !== "tv" ? (FRIEND ? "" : swapButton(k)) : dlButton(k)}${followBtn(c)}${autoBtn(c)}${dubBtn(c)}</div>
       </div></div>
     ${saga ? `<div class="castwrap"><h3>Otras partes de la saga${c.saga.name ? ` <span class="muted">· ${esc(c.saga.name)}</span>` : ""}</h3><div class="cast">${saga}</div></div>` : ""}
     ${cast ? `<div class="castwrap"><h3>Reparto</h3><div class="cast">${cast}</div></div>` : partial ? `<p class="empty">Cargando la ficha…</p>` : ""}`;

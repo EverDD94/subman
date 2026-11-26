@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Everflix: reproductor sencillo para los vídeos de YouTube. -->
+<component name="EfYtPlayer" extends="JFScreen">
+  <interface>
+    <field id="video" type="assocarray" onChange="onVideo" />
+  </interface>
+  <children>
+    <Rectangle width="1920" height="1080" color="0x000000FF" />
+    <Video id="player" width="1920" height="1080" enableUI="true" />
+  </children>
+</component>

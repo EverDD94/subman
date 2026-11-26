@@ -26,7 +26,7 @@ from pathlib import Path
 import requests
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__, auth, efweb, jfadmin, autoid, bot, channels, chsearch, config, convert, diagnose, discover, downloads, duplicates, friends, notices, formats, gemini, identify, jellyfin, manager, notify, peek, phono, providers, series, freno, tmdb, updater, vigia, follow, skipseg
+from . import __version__, auth, youtube, efweb, jfadmin, autoid, bot, channels, chsearch, config, convert, diagnose, discover, downloads, duplicates, friends, notices, formats, gemini, identify, jellyfin, manager, notify, peek, phono, providers, series, freno, tmdb, updater, vigia, follow, skipseg
 from .library import Library
 
 log = logging.getLogger(__name__)
@@ -2606,6 +2606,11 @@ class App:
         return {"ok": True}
 
     # --- Avisos para los amigos (campanita y notificaciones al móvil) -----------------------------
+    def yt(self) -> youtube.YouTube:
+        if not getattr(self, "_yt", None):
+            self._yt = youtube.YouTube(Path(self.config_path).parent)
+        return self._yt
+
     def _notices(self) -> notices.Notices:
         return notices.Notices(self.library().db, Path(self.config_path).parent / "push-key.pem")
 
@@ -2943,6 +2948,11 @@ def make_handler(app: App):
         "/api/pedir/skip": lambda u, q: app.skip_for(q.get("id", [""])[0]),
         "/api/pedir/autofollow": lambda u, q: app.follow_list() if u.get("admin") else {"ok": True, "items": []},
         "/api/pedir/home": lambda u, q: app._dsc(lambda d: {"rows": app._friends().tv_home(u)}),
+        "/api/yt/home": lambda u, q: {"ok": True, "rows": app.yt().home(u["id"])},
+        "/api/yt/search": lambda u, q: {"ok": True, "items": app.yt().search(q.get("q", [""])[0])},
+        "/api/yt/history": lambda u, q: {"ok": True, "items": app.yt().history(u["id"])},
+        "/api/yt/play": lambda u, q: {"ok": True, **app.yt().play(q.get("id", [""])[0], q.get("mode", [""])[0])},
+        "/api/yt/status": lambda u, q: {"ok": True, "version": app.yt().version()},
         "/api/pedir/inbox": lambda u, q: {"ok": True, "items": jfadmin.inbox(u["id"], q.get("device", [""])[0])},
     }
     friend_post = {
@@ -2950,6 +2960,8 @@ def make_handler(app: App):
         "/api/pedir/push": lambda u, b: (app._notices().subscribe(u["id"], b["sub"]), {"ok": True})[1],
         "/api/pedir/push/off": lambda u, b: (app._notices().unsubscribe(u["id"], b.get("endpoint", "")), {"ok": True})[1],
         "/api/pedir/follow": lambda u, b: (app._notices().follow(u["id"], b["item"], bool(b.get("on", True))), {"ok": True})[1],
+        "/api/yt/watched": lambda u, b: (app.yt().watched(u["id"], b), {"ok": True})[1],
+        "/api/yt/update": lambda u, b: (app.yt().update(), {"ok": True, "version": app.yt().version()})[1] if u.get("admin") else {"ok": False, "error": "sólo para el administrador"},
         "/api/pedir/rate": lambda u, b: app.tv_rate(u, b),
         "/api/pedir/autofollow": lambda u, b: app.follow_set(b) if u.get("admin") else {"ok": False, "error": "sólo para el administrador"},
         "/api/pedir/ask": lambda u, b: app.friends_ask(u, b),
@@ -3044,6 +3056,13 @@ def make_handler(app: App):
             if u.path.startswith("/everflix/") and re.fullmatch(r"[\w.-]+", u.path[10:]) and (STATIC / "everflix" / u.path[10:]).is_file():
                 ext = u.path.rsplit(".", 1)[-1]
                 return self._static("everflix/" + u.path[10:], {"mp4": "video/mp4", "png": "image/png", "jpg": "image/jpeg", "js": "text/javascript; charset=utf-8"}.get(ext, "application/octet-stream"), cache=True)
+            if u.path.startswith("/yt/"):  # vídeo de YouTube juntado en el NAS (la firma hace de llave)
+                parts = u.path.split("/")
+                if len(parts) == 5 and app.yt().signed(parts[2], parts[3]):
+                    got = app.yt().mux_file(parts[3], parts[4])
+                    if got:
+                        return self._send(200, got[0], got[1], {"Access-Control-Allow-Origin": "*"})
+                return self._send(404, b"", "text/plain")
             if u.path == "/ef/socket":
                 return self._ef_socket()
             if u.path.startswith("/ef/jf/"):
@@ -3410,6 +3429,7 @@ def serve(config_path: str, port: int | None = None) -> None:
     threading.Thread(target=app.downloader, name="descargas", daemon=True).start()
     threading.Thread(target=app.notice_watch, name="avisos", daemon=True).start()
     threading.Thread(target=app.follow_watch, name="seguimiento", daemon=True).start()
+    threading.Thread(target=app.yt().updates, name="youtube", daemon=True).start()
     threading.Thread(target=app.skip_watch, name="saltar-intro", daemon=True).start()
     threading.Thread(target=bot.Bot(app).run, name="bot", daemon=True).start()
     def warm():  # la portada de la tele ya preparada para la primera vez que se abre

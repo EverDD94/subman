@@ -30,6 +30,14 @@ data class DiscoverTitle(
 	val asked: Boolean,
 )
 
+/** A YouTube video as Videotecario returns it (found with yt-dlp, no ads). */
+data class YtVideo(val id: String, val title: String, val channel: String, val duration: Int, val thumb: String, val live: Boolean)
+
+data class YtRow(val title: String, val videos: List<YtVideo>)
+
+/** What the player has to open: a direct YouTube stream or one Videotecario joins on the NAS. */
+data class YtStream(val url: String, val title: String)
+
 /** A home screen row of titles from TheMovieDB. */
 data class DiscoverRow(val title: String, val titles: List<DiscoverTitle>)
 
@@ -266,6 +274,53 @@ class Videotecario(jellyfinUrl: String?, private val token: String?) {
 				k to (a to b)
 			}.toMap()
 		}.getOrDefault(emptyMap())
+	}
+
+	private fun ytVideo(o: JsonObject) = YtVideo(
+		id = o["id"]?.jsonPrimitive?.contentOrNull ?: "",
+		title = o["title"]?.jsonPrimitive?.contentOrNull ?: "",
+		channel = o["channel"]?.jsonPrimitive?.contentOrNull ?: "",
+		duration = o["duration"]?.jsonPrimitive?.intOrNull ?: 0,
+		thumb = o["thumb"]?.jsonPrimitive?.contentOrNull ?: "",
+		live = o["live"]?.jsonPrimitive?.booleanOrNull == true,
+	)
+
+	/** YouTube home rows (recently watched, more from those channels, trending). Null when it fails. */
+	suspend fun ytHome(): List<YtRow>? = withContext(Dispatchers.IO) {
+		val base = base ?: return@withContext null
+		runCatching {
+			val body = request(URL("$base/api/yt/home"), null, readTimeout = 60000) ?: return@runCatching null
+			Json.parseToJsonElement(body).jsonObject["rows"]?.jsonArray?.map { r ->
+				val o = r.jsonObject
+				YtRow(o["title"]?.jsonPrimitive?.contentOrNull ?: "", o["items"]?.jsonArray?.map { ytVideo(it.jsonObject) } ?: emptyList())
+			}
+		}.onFailure { Timber.w(it, "YouTube") }.getOrNull()
+	}
+
+	suspend fun ytSearch(query: String): List<YtVideo>? = withContext(Dispatchers.IO) {
+		val base = base ?: return@withContext null
+		runCatching {
+			val q = URLEncoder.encode(query, "UTF-8")
+			val body = request(URL("$base/api/yt/search?q=$q"), null, readTimeout = 45000) ?: return@runCatching null
+			Json.parseToJsonElement(body).jsonObject["items"]?.jsonArray?.map { ytVideo(it.jsonObject) }
+		}.onFailure { Timber.w(it, "YouTube") }.getOrNull()
+	}
+
+	/** The stream to play and, in passing, adds it to this person's YouTube history. */
+	suspend fun ytPlay(video: YtVideo): YtStream? = withContext(Dispatchers.IO) {
+		val base = base ?: return@withContext null
+		runCatching {
+			val body = request(URL("$base/api/yt/play?id=${video.id}"), null, readTimeout = 60000) ?: return@runCatching null
+			val o = Json.parseToJsonElement(body).jsonObject
+			val url = o["url"]?.jsonPrimitive?.contentOrNull ?: return@runCatching null
+			runCatching {
+				request(URL("$base/api/yt/watched"), buildJsonObject {
+					put("id", video.id); put("title", video.title); put("channel", video.channel)
+					put("duration", video.duration); put("thumb", video.thumb)
+				})
+			}
+			YtStream(if (url.startsWith("/")) base + url else url, video.title)
+		}.onFailure { Timber.w(it, "YouTube") }.getOrNull()
 	}
 
 	private fun request(url: URL, payload: JsonObject?, readTimeout: Int = 8000): String? {

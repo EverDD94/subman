@@ -181,6 +181,11 @@ dialog{border:0;border-radius:28px;background:var(--card);color:var(--text);max-
 dialog[open]{animation:pop .24s var(--ease-out)}
 @keyframes pop{from{opacity:0;transform:translateY(10px) scale(.985)}}
 dialog::backdrop{background:rgb(22 18 43/.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(3px)}
+#toast[popover]{top:auto;right:auto;margin:0;border:0;overflow:visible}
+#toast[popover]:not(:popover-open){display:block}
+button.tapped{animation:tapflash .45s var(--ease-out)}
+@keyframes tapflash{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent,#5b3df5) 70%,transparent);filter:brightness(1.5)}100%{box-shadow:0 0 0 10px transparent;filter:none}}
+button:active:not(:disabled){filter:brightness(1.35)}
 dialog.ask{max-width:420px}
 dialog.dl-src{max-width:560px}
 .dl-opts{display:grid;gap:10px;max-height:65vh;overflow:auto}
@@ -1255,7 +1260,7 @@ dialog.sheet .foot{display:none}
 </main>
 
 <dialog id="dlg" tabindex="-1"><button class="x" onclick="dlg.close()" aria-label="Cerrar"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button><div id="dlgBody"></div><div class="row foot" style="justify-content:flex-end;margin-top:16px"><button class="btn sec" onclick="dlg.close()">Cerrar</button></div></dialog>
-<div id="toast"></div>
+<div id="toast" popover="manual"></div>
 
 <script>
 const $ = s => document.querySelector(s);
@@ -1307,7 +1312,9 @@ function askOk(text, yes = "Sí, seguir") {
     document.body.appendChild(d); d.showModal(); d.querySelector('[value="yes"]').focus();
   });
 }
-function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 3500); }
+function toast(msg) { const t = $("#toast"); t.textContent = msg;
+  try { if (t.showPopover) { if (t.matches(":popover-open")) t.hidePopover(); t.showPopover(); } } catch (e) {} // encima de las fichas y diálogos abiertos
+  t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 3500); }
 function when(ts) { if (!ts) return "—"; const d = new Date(ts * 1000); return d.toLocaleString("es", {day:"numeric", month:"short", hour:"2-digit", minute:"2-digit"}); }
 function pill(s) { return `<span class="pill ${esc(s)}">${esc(LABEL[s] || s)}</span>`; }
 function pct(x) { return Math.round((x || 0) * 100) + "%"; }
@@ -4008,5 +4015,7 @@ document.addEventListener("keydown", e => {
 
 show("descubrir");
 </script>
+<script>document.addEventListener("pointerdown", e => { const b = e.target.closest("button"); if (!b || b.disabled) return;
+  b.classList.remove("tapped"); void b.offsetWidth; b.classList.add("tapped"); setTimeout(() => b.classList.remove("tapped"), 500); }, true);</script>
 </body>
 </html>

@@ -281,7 +281,7 @@ end function
 
 sub showQuery()
     if m.text = ""
-        m.query.text = "Buscar en YouTube…"
+        m.query.text = "Buscar en 4ETUBE…"
         m.query.color = ef.MUTED
     else
         m.query.text = m.text + "_"

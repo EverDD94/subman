@@ -170,6 +170,9 @@ class YouTube:
             "duration": int(e.get("duration") or 0),
             "views": int(e.get("view_count") or 0),
             "live": e.get("live_status") == "is_live",
+            "when": int(e.get("timestamp") or e.get("release_timestamp") or 0) or _date(e.get("upload_date")),
+            "avatar": YouTube._img(((e.get("channel_thumbnails") or [{}])[-1] or {}).get("url") or ""),
+            "short": "/shorts/" in (e.get("url") or "") or (0 < int(e.get("duration") or 0) <= 60),
             "thumb": f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg",
         }
 
@@ -182,7 +185,56 @@ class YouTube:
             return [i for i in map(self._item, data.get("entries") or []) if i]
         return self._cached("s:" + q.lower(), 1800, go)
 
-    FEEDS = {"inicio": ":ytrec", "suscripciones": ":ytsubs", "historial": ":ythis", "tarde": ":ytwatchlater"}
+    FEEDS = {"inicio": ":ytrec", "suscripciones": ":ytsubs", "historial": ":ythis", "tarde": ":ytwatchlater",
+             "megusta": "https://www.youtube.com/playlist?list=LL"}
+
+    def shorts(self, uid: str) -> list[dict]:
+        """Shorts: los de tus suscripciones si tienes cuenta; si no, populares."""
+        out = []
+        if self.mine(uid):
+            try:
+                out = [i for i in self.feed("suscripciones", True, uid) if i.get("short")]
+            except Exception as e:
+                log.info("YouTube shorts: %s", e)
+        if len(out) < 8:
+            out += [dict(i, short=True) for i in self.search("#shorts", 30) if i["duration"] <= 60]
+        return out[:40]
+
+    def playlists(self, uid: str) -> list[dict]:
+        if not self.mine(uid):
+            return []
+        def go():
+            data = self._ytdlp(["--flat-playlist", "https://www.youtube.com/feed/playlists"], timeout=120, account=True)
+            return [{"id": e.get("id"), "title": e.get("title") or "", "count": e.get("playlist_count") or 0,
+                     "thumb": self._img(((e.get("thumbnails") or [{}])[-1] or {}).get("url") or "")}
+                    for e in data.get("entries") or [] if (e.get("id") or "").startswith(("PL", "OL", "FL"))]
+        return self._cached("f:listas", 1800, go)
+
+    def playlist(self, pid: str, uid: str, n: int = 100) -> dict:
+        if not pid or len(pid) > 64 or not all(c.isalnum() or c in "-_" for c in pid):
+            raise ValueError("lista no válida")
+        def go():
+            data = self._ytdlp(["--flat-playlist", "--playlist-end", str(n), f"https://www.youtube.com/playlist?list={pid}"],
+                               timeout=120, account=self.mine(uid))
+            return {"title": data.get("title") or "", "items": [i for i in map(self._item, data.get("entries") or []) if i]}
+        return self._cached(f"f:pl:{pid}" if self.mine(uid) else f"pl:{pid}", 1800, go)
+
+    def related(self, vid: str) -> list[dict]:
+        """«A continuación»: más del mismo canal y vídeos parecidos por el título."""
+        info = self.info(vid)
+        title = " ".join((info.get("title") or "").split()[:6])
+        out, seen = [], {vid}
+        for q in (title, info.get("channel") or ""):
+            if not q:
+                continue
+            try:
+                for i in self.search(q, 15):
+                    if i["id"] not in seen:
+                        seen.add(i["id"])
+                        out.append(i)
+            except Exception as e:
+                log.info("YouTube: %s", e)
+        return out[:24]
 
     def feed(self, tab: str, account: bool, uid: str = "", n: int = 48) -> list[dict]:
         """Una pestaña de tu cuenta. Sin cuenta ligada, Inicio son las tendencias e Historial lo visto en Everflix."""
@@ -271,7 +323,10 @@ class YouTube:
         info = self.info(vid)
         fmts = info.get("formats") or []
         item = self._item(info) or {"id": vid}
-        item["description"] = (info.get("description") or "")[:600]
+        item["description"] = (info.get("description") or "")[:5000]
+        item["likes"] = int(info.get("like_count") or 0)
+        item["followers"] = int(info.get("channel_follower_count") or 0)
+        item["avatar"] = item.get("avatar") or ""
         hls = [f for f in fmts if "m3u8" in (f.get("protocol") or "") and f.get("vcodec") not in (None, "none")
                and f.get("acodec") not in (None, "none") and (f.get("height") or 0) <= MAX_H
                and (f.get("vcodec") or "").startswith("avc")]
@@ -413,6 +468,13 @@ class YouTube:
             except Exception as e:
                 log.warning("YouTube: %s", e)
         return [r for r in rows if r["items"]]
+
+
+def _date(d) -> int:
+    try:
+        return int(time.mktime(time.strptime(str(d), "%Y%m%d"))) if d else 0
+    except ValueError:
+        return 0
 
 
 def _check(vid: str) -> None:

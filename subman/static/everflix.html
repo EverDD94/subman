@@ -127,21 +127,69 @@ main{margin-left:var(--rail);min-height:100vh;position:relative}
 .ytplay{position:fixed;inset:0;z-index:90;background:#000;display:flex;align-items:center;justify-content:center}
 .ytplay video{width:100%;height:100%;background:#000}
 .ytplay .btn{position:absolute;top:20px;right:20px}
-.yttabs{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 56px 22px}
-.yttabs .ytq{margin:0 0 0 auto;flex:1;min-width:240px;max-width:420px}.yttabs .ytq input{padding:12px 16px 12px 48px;font-size:16px}
-.ythead{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-right:56px}
-.ytok i{width:10px;height:10px;border-radius:50%;background:#2e9e5b;display:inline-block}
-.card span.ytch{cursor:pointer}.card span.ytch:hover{color:var(--ink);text-decoration:underline}
-.ytchans{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:24px 16px;padding:0 56px}
-.ytchan{background:none;border:0;color:var(--ink);cursor:pointer;text-align:center;font:600 14px var(--font)}
-.ytchan img,.ytchan .noimg{width:110px;height:110px;border-radius:50%;object-fit:cover;display:block;margin:0 auto 10px;background:var(--card);transition:transform .15s}
-.ytchan:hover img,.ytchan:focus img{transform:scale(1.06);box-shadow:0 0 0 3px var(--ink)}
-.ytchead{margin:0 56px 24px}.ytchead .ban{height:170px;border-radius:14px;background:center/cover;margin-bottom:18px}
-.ytchead .who{display:flex;gap:18px;align-items:center}.ytchead .who img{width:84px;height:84px;border-radius:50%;object-fit:cover}
-.ytchead h2{margin:0;font:800 28px var(--font)}.ytchead span{color:var(--muted)}
+
 .ytlink{margin:0 56px 24px;background:var(--card);border-radius:14px;padding:18px 22px;max-width:760px}
 .ytlink ol{padding-left:20px;line-height:1.7}.ytlink code.big{font-size:20px;letter-spacing:2px}
 .grid.yt{grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
+.ytapp{display:flex;min-height:100vh}
+.ytside{width:230px;flex:none;padding:22px 12px;position:sticky;top:0;height:100vh;overflow:auto}
+.ytside nav button,.ytside #ytSubs button{display:flex;align-items:center;gap:16px;width:100%;background:none;border:0;color:var(--ink);padding:10px 14px;border-radius:10px;font:500 15px var(--font);cursor:pointer;text-align:left}
+.ytside nav button:hover,.ytside #ytSubs button:hover{background:rgba(255,255,255,.08)}.ytside nav button.on{background:rgba(61,99,224,.25);font-weight:700}
+.ytside hr{border:0;border-top:1px solid rgba(255,255,255,.1);margin:12px 6px}.ytside h4{margin:4px 14px 6px;font:700 15px var(--font)}
+.ytside #ytSubs img,.ytside #ytSubs .av{width:26px;height:26px;border-radius:50%;object-fit:cover;flex:none}
+.ytside #ytSubs span:last-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ytlogo{display:flex;align-items:center;gap:8px;font:900 24px var(--font);letter-spacing:-.5px;padding:0 14px 18px}
+.ytlogo span{background:var(--accent);border-radius:9px;width:40px;height:28px;display:grid;place-items:center}.ytlogo span .i{width:16px;height:16px;fill:#fff;stroke:none}
+.ytmain{flex:1;min-width:0;padding:18px 32px 60px 12px}
+.yttop{display:flex;gap:16px;align-items:center;justify-content:center;margin-bottom:16px;position:relative}
+.ytsearch{flex:1;max-width:640px;position:relative}.ytsearch .i{position:absolute;left:18px;top:50%;transform:translateY(-50%);color:var(--muted)}
+.ytsearch input{width:100%;background:rgba(255,255,255,.06);border:2px solid rgba(61,99,224,.5);border-radius:40px;padding:12px 20px 12px 52px;color:var(--ink);font:500 17px var(--font);outline:none}
+.ytsearch input:focus{border-color:var(--accent);box-shadow:0 0 18px rgba(61,99,224,.45)}
+.ytacct{position:absolute;right:0}.ytacct.on i{width:10px;height:10px;border-radius:50%;background:#2e9e5b;display:inline-block}
+.ytlink{margin:0 0 18px;background:var(--card);border-radius:14px;padding:18px 22px;max-width:760px}.ytlink ol{padding-left:20px;line-height:1.7}.ytlink code.big{font-size:20px;letter-spacing:2px}
+.ytchips{display:flex;gap:10px;overflow-x:auto;padding:2px 0 16px;scrollbar-width:none}
+.ytchips button{flex:none;background:rgba(255,255,255,.08);border:0;color:var(--ink);padding:8px 16px;border-radius:10px;font:600 14px var(--font);cursor:pointer}
+.ytchips button.on{background:var(--ink);color:#0b0d12}
+.ythero{display:flex;gap:26px;align-items:center;background:linear-gradient(135deg,rgba(61,99,224,.18),rgba(255,255,255,.03));border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:16px;margin-bottom:26px}
+.ythero .pic{width:min(46%,520px);flex:none}.ythero small{color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:1px}
+.ythero h2{font:800 26px/1.2 var(--font);margin:6px 0 12px}.ythero .c{display:flex;align-items:center;gap:10px}.ythero .acts{margin-top:18px}
+.ytgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:30px 18px}
+.ytv .pic,.ythero .pic,.ytpl .pic{position:relative;display:block;width:100%;aspect-ratio:16/9;border:0;padding:0;border-radius:14px;overflow:hidden;background:var(--card);cursor:pointer}
+.ytv .pic img,.ythero .pic img,.ytpl .pic img{width:100%;height:100%;object-fit:cover;transition:transform .25s}.ytv:hover .pic img{transform:scale(1.04)}
+.ytv .pic i,.ythero .pic i,.ytpl .pic i{position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.8);color:#fff;font:700 12px var(--font);padding:2px 6px;border-radius:5px;font-style:normal}
+.ytv .pic i.live{background:#d33}
+.ytv .info{display:flex;gap:12px;margin-top:12px}.ytv .info>div{min-width:0}
+.ytv .av,.ythero .av,.ytwch .av{width:36px;height:36px;border-radius:50%;object-fit:cover;flex:none;background:#2a3350;display:grid;place-items:center;font-weight:800}
+.avb{background:none;border:0;padding:0;cursor:pointer;height:36px}
+.ytv .t{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;background:none;border:0;padding:0;color:var(--ink);font:700 15px/1.35 var(--font);text-align:left;cursor:pointer}
+.ytv .c,.ythero .c,.ytwch .c{background:none;border:0;padding:0;color:var(--muted);font:500 14px var(--font);cursor:pointer;display:block;margin-top:4px;text-align:left}
+.ytv .c:hover,.ythero .c:hover,.ytwch .c:hover{color:var(--ink)}.ytv span{display:block;color:var(--muted);font-size:13px;margin-top:2px}
+.ytsec{display:flex;align-items:center;gap:10px;font:800 22px var(--font);margin:34px 0 16px}.ytsec .i{color:var(--accent)}
+.ytshorts{display:flex;gap:14px;overflow-x:auto;padding-bottom:6px}.ytshorts.wrap{flex-wrap:wrap}
+.yts{flex:none;width:180px;background:none;border:0;padding:0;color:var(--ink);text-align:left;cursor:pointer}
+.yts img{width:180px;aspect-ratio:9/16;object-fit:cover;border-radius:14px;background:var(--card)}
+.yts b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font:700 14px var(--font);margin-top:8px}.yts span{color:var(--muted);font-size:13px}
+.ytpl{background:none;border:0;padding:0;color:var(--ink);text-align:left;cursor:pointer}.ytpl b{display:block;margin-top:10px;font:700 15px var(--font)}
+.ytchans{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:24px 16px}
+.ytchan{background:none;border:0;color:var(--ink);cursor:pointer;text-align:center;font:600 14px var(--font)}
+.ytchan img,.ytchan .noimg{width:110px;height:110px;border-radius:50%;object-fit:cover;display:block;margin:0 auto 10px;background:var(--card);transition:transform .15s}
+.ytchan:hover img{transform:scale(1.06);box-shadow:0 0 0 3px var(--ink)}
+.ytchead{margin-bottom:20px}.ytchead .ban{height:180px;border-radius:16px;background:center/cover;margin-bottom:20px}
+.ytchead .who{display:flex;gap:22px;align-items:center;margin-bottom:16px}.ytchead .who img{width:110px;height:110px;border-radius:50%;object-fit:cover}
+.ytchead h2{margin:0;font:800 32px var(--font)}.ytchead span{color:var(--muted)}.ytchead p{color:var(--muted);max-width:700px;margin:8px 0 0;font-size:14px}
+.ytwatch{position:fixed;inset:0;z-index:80;background:var(--bg,#0b0d12);overflow:auto;padding:14px 28px 50px}
+.ytwbar{display:flex;align-items:center;gap:20px;margin-bottom:14px}.ytwbar .ytlogo{padding:0}
+.ytwgrid{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:26px}
+@media (max-width:1100px){.ytwgrid{grid-template-columns:1fr}.ytside{display:none}}
+.ytplayer{position:relative;aspect-ratio:16/9;background:#000;border-radius:16px;overflow:hidden}.ytplayer video{width:100%;height:100%}
+.ytplayer .spin{position:absolute;left:50%;top:50%;margin:-20px}.ytplayer .err{position:absolute;inset:0;display:grid;place-items:center;color:#fff;padding:20px;text-align:center}
+.ytwatch h1{font:800 22px/1.3 var(--font);margin:16px 0 12px;text-transform:none}
+.ytwch{display:flex;align-items:center;gap:12px}.ytwch .c{color:var(--ink);font-weight:700;font-size:16px;margin:0}.ytwch span{color:var(--muted);font-size:13px}.ytwch .grow{flex:1}
+.ytdesc{margin-top:16px;background:rgba(255,255,255,.06);border-radius:12px;padding:14px 16px;white-space:pre-wrap;font-size:14px;line-height:1.5;max-height:5.5em;overflow:hidden;cursor:pointer}
+.ytdesc.open{max-height:none}
+.ytwatch aside h4{margin:0 0 12px;font:800 17px var(--font)}
+.ythero>.pic{width:min(46%,520px);flex:none}.ythero .c{display:flex!important;align-items:center;gap:10px}
+.ytv.row{display:flex;gap:10px;margin-bottom:12px}.ytv.row .pic{width:168px;flex:none;border-radius:10px}.ytv.row .t{font-size:14px}
 .search{margin:0 56px 26px;position:relative;max-width:760px}
 .search input{width:100%;background:rgba(255,255,255,.08);border:2px solid transparent;border-radius:16px;padding:18px 20px 18px 54px;color:var(--ink);font:600 20px var(--font);outline:none}
 .search input:focus{border-color:var(--accent)}
@@ -307,6 +355,10 @@ const ICO = {
   search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
   home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
   movie: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 3v18M17 3v18M3 12h18M3 7.5h4M3 16.5h4M17 7.5h4M17 16.5h4"/>',
+  stack: '<rect x="3" y="7" width="14" height="12" rx="2"/><path d="M7 4h12a2 2 0 0 1 2 2v10"/>',
+  bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  heart: '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>',
   yt: '<rect x="2" y="5" width="20" height="14" rx="4"/><path d="m10 9 5 3-5 3z"/>',
   tv: '<rect x="2" y="7" width="20" height="14" rx="2"/><path d="m17 2-5 5-5-5"/>',
   folder: '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9l-.8-1.2A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/>',
@@ -496,7 +548,7 @@ function paintRail() {
     <a href="#/" data-r="">${ico("home")}<span>Inicio</span></a>
     <a href="#/peliculas" data-r="peliculas">${ico("movie")}<span>Películas</span></a>
     <a href="#/series" data-r="series">${ico("tv")}<span>Series</span></a>
-    <a href="#/youtube" data-r="youtube">${ico("yt")}<span>YouTube</span></a>
+    <a href="#/youtube" data-r="youtube">${ico("yt")}<span>4ETUBE</span></a>
     ${libs.length ? "<hr class='lib'>" : ""}
     ${libs.map(v => `<a class="lib" href="#/lib/${v.Id}" data-r="lib/${v.Id}">${ico(libIcon(v))}<span>${esc(v.Name)}</span></a>`).join("")}
     <hr>
@@ -518,6 +570,7 @@ async function route() {
   const q = new URLSearchParams(query || "");
   const parts = path.split("/");
   if (parts[0] !== "ver") closePlayer(true);
+  closeWatch();
   if (parts[0] === "ver") return startPlay(parts[1], q.get("t") === "0");
   markRail(parts[0] === "lib" ? path : parts[0]);
   const main = $("#main");
@@ -917,134 +970,246 @@ async function openSuggestion(s) {
 }
 
 // ---------- YouTube (sin anuncios: Videotecario lo saca con yt-dlp) ----------
-function ytCard(v) {
-  const d = v.duration || 0, t = d >= 3600 ? `${Math.floor(d / 3600)}:${String(Math.floor(d % 3600 / 60)).padStart(2, "0")}:${String(d % 60).padStart(2, "0")}` : `${Math.floor(d / 60)}:${String(d % 60).padStart(2, "0")}`;
-  return {Id: "yt-" + v.id, Name: v.title, Type: "YouTube", efThumb: v.thumb, efNote: [v.live ? "EN DIRECTO" : d ? t : "", v.channel].filter(Boolean).join(" · "), yt: v};
+// ---------- 4ETUBE (YouTube sin anuncios: Videotecario lo saca con yt-dlp) ----------
+const ytDur = d => !d ? "" : d >= 3600 ? `${Math.floor(d / 3600)}:${String(Math.floor(d % 3600 / 60)).padStart(2, "0")}:${String(d % 60).padStart(2, "0")}` : `${Math.floor(d / 60)}:${String(d % 60).padStart(2, "0")}`;
+const ytNum = n => n >= 1e9 ? (n / 1e9).toFixed(1).replace(".0", "") + " mil M" : n >= 1e6 ? (n / 1e6).toFixed(1).replace(".0", "") + " M" : n >= 1e3 ? Math.round(n / 1e3) + " K" : String(n || 0);
+const fmtSubs = n => n ? ytNum(n) + " suscriptores" : "";
+function ytAgo(t) {
+  if (!t) return "";
+  const s = Date.now() / 1000 - t, u = [[31536000, "año", "años"], [2592000, "mes", "meses"], [604800, "semana", "semanas"], [86400, "día", "días"], [3600, "hora", "horas"], [60, "minuto", "minutos"]];
+  for (const [n, a, b] of u) if (s >= n) { const k = Math.floor(s / n); return `hace ${k} ${k === 1 ? a : b}`; }
+  return "ahora mismo";
 }
-const YT_TABS = [["inicio", "Inicio"], ["suscripciones", "Suscripciones"], ["canales", "Canales"], ["tarde", "Ver más tarde"], ["historial", "Historial"]];
-const fmtSubs = n => n >= 1e6 ? (n / 1e6).toFixed(1).replace(".0", "") + " M de suscriptores" : n >= 1e3 ? Math.round(n / 1e3) + " K suscriptores" : n ? n + " suscriptores" : "";
+const YT = {chans: {}, st: {}, list: [], seq: 0};
+const YT_NAV = [["inicio", "home", "Inicio"], ["shorts", "bolt", "Shorts"], ["suscripciones", "tv", "Suscripciones", 1], ["-"], ["canales", "user", "Canales", 1],
+  ["listas", "stack", "Listas", 1], ["historial", "clock", "Historial"], ["tarde", "clock", "Ver más tarde", 1], ["megusta", "heart", "Vídeos que me gustan", 1]];
+const YT_CHIPS = ["Todo", "Música", "Videojuegos", "En directo", "Noticias", "Deportes", "Películas", "Comedia", "Ciencia", "Cocina", "Podcasts", "Tecnología"];
+function ytAv(v) {
+  const src = v.avatar || (YT.chans[v.channel_id] || {}).avatar;
+  return src ? `<img class="av" src="${esc(src)}" alt="" loading="lazy">` : `<span class="av">${esc((v.channel || "?").slice(0, 1).toUpperCase())}</span>`;
+}
+function ytTile(v, n) {
+  const badge = v.live ? `<i class="live">EN DIRECTO</i>` : v.duration ? `<i>${ytDur(v.duration)}</i>` : "";
+  const meta = [v.views ? ytNum(v.views) + " vistas" : "", ytAgo(v.when)].filter(Boolean).join(" · ");
+  return `<div class="ytv" data-n="${n}"><button class="pic" type="button"><img src="${esc(v.thumb)}" alt="" loading="lazy">${badge}</button>
+    <div class="info">${v.channel_id ? `<button class="avb" data-ch="${esc(v.channel_id)}" type="button">${ytAv(v)}</button>` : ytAv(v)}
+    <div><button class="t" type="button">${esc(v.title)}</button><button class="c" ${v.channel_id ? `data-ch="${esc(v.channel_id)}"` : ""} type="button">${esc(v.channel)}</button>${meta ? `<span>${esc(meta)}</span>` : ""}</div></div></div>`;
+}
+function ytShort(v, n) {
+  return `<button class="yts" data-n="${n}" type="button"><img src="https://i.ytimg.com/vi/${esc(v.id)}/oar2.jpg" onerror="this.src='${esc(v.thumb)}'" alt="" loading="lazy"><b>${esc(v.title)}</b>${v.views ? `<span>${ytNum(v.views)} vistas</span>` : ""}</button>`;
+}
+// pinta vídeos y deja guardada la lista para «siguiente»
+function ytWire(root, list) {
+  root.querySelectorAll("[data-n]").forEach(el => {
+    const v = list[+el.dataset.n];
+    const open = () => ytWatch(v, list);
+    if (el.matches(".yts")) el.onclick = open;
+    el.querySelectorAll(".pic,.t").forEach(b => b.onclick = open);
+  });
+  root.querySelectorAll("[data-ch]").forEach(b => b.onclick = e => { e.stopPropagation(); ytGo("canal", b.dataset.ch); });
+}
 async function pageYouTube(main) {
   setStage("");
-  const st = await vt("/api/yt/status");
+  closeWatch();
+  const st = YT.st = await vt("/api/yt/status");
   const linked = st.ok && st.linked;
-  const tabs = linked ? YT_TABS : YT_TABS.filter(t => t[0] === "inicio" || t[0] === "historial");
-  main.innerHTML = `<div class="page"><div class="ythead"><h1>YouTube</h1>
-      ${st.admin ? (linked ? `<button class="btn ytok" id="ytLink"><i></i>Conectado</button>` : `<button class="btn" id="ytLink">${ico("user")}Conectar tu cuenta</button>`) : ""}</div>
-    <div id="ytPanel" hidden></div>
-    <div class="yttabs">${tabs.map(([k, t]) => `<button class="btn" data-t="${k}">${t}</button>`).join("")}
-      <div class="search ytq">${ico("search")}<input id="q" type="search" placeholder="Buscar en YouTube" autocomplete="off"></div></div>
-    <div id="res"></div></div>`;
-  const input = $("#q"), res = $("#res");
-  let h, seq = 0;
-  const wire = (root, lists) => {
-    wireCards(root);
-    root.querySelectorAll(".card").forEach(c => {
-      const it = store.get(c.dataset.k);
-      if (!it || !it.yt) return;
-      const list = lists[c.closest("[data-l]")?.dataset.l || 0] || [];
-      const i = list.indexOf(it.yt);
-      c.onclick = () => playYouTube(list, i);
-      const sub = c.querySelector("span");
-      if (sub && it.yt.channel_id) { sub.classList.add("ytch"); sub.onclick = e => { e.stopPropagation(); openChannel(it.yt.channel_id); }; }
-    });
-  };
-  const grid = (items, empty) => items.length ? `<div class="grid yt" data-l="0">${items.map(v => card(ytCard(v))).join("")}</div>` : `<p class="empty">${esc(empty)}</p>`;
-  const loading = () => { res.innerHTML = `<div class="loading" style="padding-top:20px"><div class="spin"></div>Cargando…</div>`; };
-  const mark = t => main.querySelectorAll("[data-t]").forEach(b => b.classList.toggle("pri", b.dataset.t === t));
-  async function showTab(t) {
-    const my = ++seq; mark(t); loading();
-    if (t === "inicio") {
-      const r = await vt("/api/yt/home");
-      if (my !== seq) return;
-      const rows = (r.ok && r.rows) || [];
-      res.innerHTML = rows.map((row, n) => `<div data-l="${n}">${rowHtml(row.title, row.items.map(ytCard))}</div>`).join("") || `<p class="empty">YouTube no responde ahora mismo.</p>`;
-      wire(res, rows.map(r => r.items));
-    } else if (t === "canales") {
-      const r = await vt("/api/yt/channels");
-      if (my !== seq) return;
-      const chs = (r.ok && r.items) || [];
-      res.innerHTML = chs.length ? `<div class="ytchans">${chs.map(c => `<button class="ytchan" data-c="${esc(c.id)}" type="button">${c.avatar ? `<img src="${esc(c.avatar)}" alt="" loading="lazy">` : `<div class="noimg"></div>`}<b>${esc(c.title)}</b></button>`).join("")}</div>`
-        : `<p class="empty">${r.ok ? "No encontré tus canales." : "YouTube no responde ahora mismo."}</p>`;
-      res.querySelectorAll("[data-c]").forEach(b => b.onclick = () => openChannel(b.dataset.c));
-    } else {
-      const r = await vt("/api/yt/feed?tab=" + t);
-      if (my !== seq) return;
-      res.innerHTML = grid((r.ok && r.items) || [], r.ok ? "Aquí no hay nada todavía." : "YouTube no responde ahora mismo.");
-      wire(res, [(r.ok && r.items) || []]);
-    }
-  }
-  async function openChannel(cid, tab = "videos") {
-    const my = ++seq; mark(""); loading(); window.scrollTo({top: 0});
-    const r = await vt(`/api/yt/channel?id=${encodeURIComponent(cid)}&tab=${tab}`);
-    if (my !== seq) return;
-    if (!r.ok) { res.innerHTML = `<p class="empty">No se pudo abrir el canal.</p>`; return; }
-    res.innerHTML = `<div class="ytchead">${r.banner ? `<div class="ban" style="background-image:url('${esc(r.banner)}')"></div>` : ""}
-      <div class="who">${r.avatar ? `<img src="${esc(r.avatar)}" alt="">` : ""}<div><h2>${esc(r.title)}</h2><span>${esc(fmtSubs(r.followers))}</span></div></div>
-      <div class="yttabs" style="margin:14px 0 0"><button class="btn ${tab === "videos" ? "pri" : ""}" data-ct="videos">Vídeos</button><button class="btn ${tab === "streams" ? "pri" : ""}" data-ct="streams">Directos</button></div></div>
-      ${grid(r.items || [], "Este canal no tiene nada aquí.")}`;
-    res.querySelectorAll("[data-ct]").forEach(b => b.onclick = () => openChannel(cid, b.dataset.ct));
-    wire(res, [r.items || []]);
-  }
-  main.querySelectorAll("[data-t]").forEach(b => b.onclick = () => { input.value = ""; showTab(b.dataset.t); });
-  input.oninput = () => {
-    clearTimeout(h);
-    h = setTimeout(async () => {
-      const q = input.value.trim();
-      if (q.length < 2) return showTab("inicio");
-      const my = ++seq; mark(""); loading();
-      const r = await vt("/api/yt/search?q=" + encodeURIComponent(q));
-      if (my !== seq) return;
-      res.innerHTML = grid((r.ok && r.items) || [], r.ok ? `Nada con «${q}».` : "YouTube no responde ahora mismo.");
-      wire(res, [(r.ok && r.items) || []]);
-    }, 500);
-  };
-  if ($("#ytLink")) $("#ytLink").onclick = () => {
-    const p = $("#ytPanel");
-    p.hidden = !p.hidden;
-    if (p.hidden) return;
-    p.innerHTML = linked
-      ? `<div class="ytlink"><b>Tu cuenta de YouTube está conectada.</b> Solo la ves tú.
-          ${st.pushed ? `<p class="sub" style="margin:6px 0 0">Última vez que llegó tu sesión: ${new Date(st.pushed * 1000).toLocaleString()}</p>` : ""}
-          <p class="sub" style="margin:6px 0 12px">Código de la extensión: <code>${esc(st.code || "")}</code></p><button class="btn" id="ytUnlink">Desconectar</button></div>`
-      : `<div class="ytlink"><b>Conecta tu cuenta de YouTube</b>
-          <ol><li><a href="/everflix/youtube-extension.zip">Descarga la extensión</a> y descomprímela.</li>
-          <li>En Chrome o Edge abre <code>chrome://extensions</code>, activa «Modo de desarrollador» y pulsa «Cargar descomprimida» con esa carpeta.</li>
-          <li>Abre la extensión y pon este código: <code class="big">${esc(st.code || "")}</code></li>
-          <li>Entra en youtube.com con tu cuenta en ese navegador. Esta página se actualiza sola cuando llegue.</li></ol></div>`;
-    if ($("#ytUnlink")) $("#ytUnlink").onclick = async () => { await vt("/api/yt/unlink", {}); toast("Cuenta desconectada"); pageYouTube(main); };
-    if (!linked) {
-      const poll = setInterval(async () => {
-        if (!document.body.contains(p) || p.hidden) return clearInterval(poll);
-        const s2 = await vt("/api/yt/status");
-        if (s2.ok && s2.linked) { clearInterval(poll); toast("¡Cuenta conectada!"); pageYouTube(main); }
-      }, 4000);
-    }
-  };
-  input.blur();
-  showTab("inicio");
+  main.innerHTML = `<div class="ytapp">
+    <aside class="ytside"><div class="ytlogo"><span>${ico("play")}</span>4ETUBE</div>
+      <nav>${YT_NAV.filter(n => n[0] === "-" || !n[3] || linked).map(n => n[0] === "-" ? "<hr>" : `<button data-v="${n[0]}" type="button">${ico(n[1])}<span>${n[2]}</span></button>`).join("")}</nav>
+      <div id="ytSubs"></div></aside>
+    <section class="ytmain">
+      <div class="yttop"><div class="ytsearch">${ico("search")}<input id="q" type="search" placeholder="Buscar" autocomplete="off"></div>
+        ${st.admin ? `<button class="btn ytacct ${linked ? "on" : ""}" id="ytLink">${linked ? "<i></i>Conectado" : ico("user") + "Conectar tu cuenta"}</button>` : ""}</div>
+      <div id="ytPanel" hidden></div>
+      <div id="ytBody"></div></section></div>`;
+  main.querySelectorAll("[data-v]").forEach(b => b.onclick = () => { $("#q").value = ""; ytGo(b.dataset.v); });
+  let h;
+  $("#q").oninput = () => { clearTimeout(h); h = setTimeout(() => { const q = $("#q").value.trim(); q.length < 2 ? ytGo("inicio") : ytGo("buscar", q); }, 450); };
+  $("#q").onkeydown = e => { if (e.key === "Enter") { clearTimeout(h); const q = $("#q").value.trim(); if (q) ytGo("buscar", q); } };
+  if ($("#ytLink")) $("#ytLink").onclick = () => ytAccount(linked);
+  if (linked) vt("/api/yt/channels").then(r => {
+    const chs = (r.ok && r.items) || [];
+    chs.forEach(c => YT.chans[c.id] = c);
+    $("#ytSubs").innerHTML = chs.length ? `<hr><h4>Suscripciones</h4>${chs.slice(0, 40).map(c => `<button data-ch="${esc(c.id)}" type="button">${c.avatar ? `<img src="${esc(c.avatar)}" alt="" loading="lazy">` : `<span class="av">${esc(c.title.slice(0, 1))}</span>`}<span>${esc(c.title)}</span></button>`).join("")}` : "";
+    $("#ytSubs").querySelectorAll("[data-ch]").forEach(b => b.onclick = () => ytGo("canal", b.dataset.ch));
+    document.querySelectorAll(".ytv .av").forEach(() => {});
+  });
+  ytGo("inicio");
 }
-async function playYouTube(list, i) {
-  const v = list[i];
-  toast("Abriendo: " + v.title);
-  const r = await vt("/api/yt/play?mode=nas&id=" + encodeURIComponent(v.id));
-  if (!r.ok || !r.url) { toast("No se pudo abrir: " + (r.error || "YouTube no respondió")); return; }
-  vt("/api/yt/watched", {id: v.id, title: v.title, channel: v.channel, channel_id: v.channel_id, duration: v.duration, thumb: v.thumb});
+function ytAccount(linked) {
+  const p = $("#ytPanel"), st = YT.st;
+  p.hidden = !p.hidden;
+  if (p.hidden) return;
+  p.innerHTML = linked
+    ? `<div class="ytlink"><b>Tu cuenta de YouTube está conectada.</b> Solo la ves tú.
+        ${st.pushed ? `<p class="sub" style="margin:6px 0 0">Última vez que llegó tu sesión: ${new Date(st.pushed * 1000).toLocaleString()}</p>` : ""}
+        <p class="sub" style="margin:6px 0 12px">Código de la extensión: <code>${esc(st.code || "")}</code></p><button class="btn" id="ytUnlink">Desconectar</button></div>`
+    : `<div class="ytlink"><b>Conecta tu cuenta de YouTube</b>
+        <ol><li><a href="/everflix/youtube-extension.zip">Descarga la extensión</a> y descomprímela.</li>
+        <li>En Chrome o Edge abre <code>chrome://extensions</code>, activa «Modo de desarrollador» y pulsa «Cargar descomprimida» con esa carpeta.</li>
+        <li>Abre la extensión y pon este código: <code class="big">${esc(st.code || "")}</code></li>
+        <li>Entra en youtube.com con tu cuenta en ese navegador. Esta página se actualiza sola cuando llegue.</li></ol></div>`;
+  if ($("#ytUnlink")) $("#ytUnlink").onclick = async () => { await vt("/api/yt/unlink", {}); toast("Cuenta desconectada"); pageYouTube($("#main")); };
+  if (!linked) {
+    const poll = setInterval(async () => {
+      if (!document.body.contains(p) || p.hidden) return clearInterval(poll);
+      const s2 = await vt("/api/yt/status");
+      if (s2.ok && s2.linked) { clearInterval(poll); toast("¡Cuenta conectada!"); pageYouTube($("#main")); }
+    }, 4000);
+  }
+}
+const ytLoading = () => `<div class="loading" style="padding-top:30px"><div class="spin"></div>Cargando…</div>`;
+const ytEmpty = (r, t) => `<p class="empty">${r && r.ok === false ? "YouTube no responde ahora mismo. Prueba otra vez en un rato." : esc(t)}</p>`;
+async function ytGo(view, arg) {
+  const body = $("#ytBody");
+  if (!body) return;
+  closeWatch();
+  const my = ++YT.seq;
+  document.querySelectorAll(".ytside [data-v]").forEach(b => b.classList.toggle("on", b.dataset.v === view));
+  body.innerHTML = ytLoading();
+  const done = () => my === YT.seq;
+  const grid = (items, empty, r) => { YT.list = items; body.innerHTML = items.length ? `<div class="ytgrid">${items.map(ytTile).join("")}</div>` : ytEmpty(r, empty); ytWire(body, items); };
+  if (view === "inicio" || view === "chip") {
+    const chip = view === "chip" ? arg : "Todo";
+    const chips = `<div class="ytchips">${YT_CHIPS.map(c => `<button class="${c === chip ? "on" : ""}" type="button">${c}</button>`).join("")}</div>`;
+    if (view === "chip") {
+      const r = await vt("/api/yt/search?q=" + encodeURIComponent(chip === "En directo" ? "en directo ahora" : chip));
+      if (!done()) return;
+      const items = (r.ok && r.items) || [];
+      body.innerHTML = chips + `<div class="ytgrid">${items.map(ytTile).join("")}</div>`;
+      ytWire(body, items);
+    } else {
+      const [r, sh] = await Promise.all([vt("/api/yt/home"), vt("/api/yt/shorts")]);
+      if (!done()) return;
+      const rows = (r.ok && r.rows) || [], shorts = ((sh.ok && sh.items) || []).slice(0, 12);
+      const main = rows.find(x => x.tab === "inicio") || rows.find(x => x.title === "Tendencias") || rows[0];
+      if (!main) { body.innerHTML = chips + ytEmpty(r, "Nada por aquí."); }
+      else {
+        const hero = main.items[0], rest = main.items.slice(1, 13), lists = [main.items, shorts];
+        let html = chips + `<div class="ythero" data-n="0"><button class="pic" type="button"><img src="https://i.ytimg.com/vi/${esc(hero.id)}/maxresdefault.jpg" onerror="this.src='${esc(hero.thumb)}'" alt="">${hero.duration ? `<i>${ytDur(hero.duration)}</i>` : ""}</button>
+          <div><small>${esc(main.title)}</small><h2>${esc(hero.title)}</h2><button class="c" ${hero.channel_id ? `data-ch="${esc(hero.channel_id)}"` : ""} type="button">${ytAv(hero)}${esc(hero.channel)}</button>
+          <div class="acts"><button class="btn pri" id="heroPlay" type="button">${ico("play")}Reproducir</button></div></div></div>
+          <div class="ytgrid" data-l="0">${rest.map((v, i) => ytTile(v, i + 1)).join("")}</div>`;
+        if (shorts.length) html += `<h3 class="ytsec">${ico("bolt")}Shorts</h3><div class="ytshorts" data-l="1">${shorts.map(ytShort).join("")}</div>`;
+        rows.filter(x => x !== main).forEach((x, k) => { lists.push(x.items); html += `<h3 class="ytsec">${esc(x.title)}</h3><div class="ytgrid" data-l="${k + 2}">${x.items.slice(0, 8).map(ytTile).join("")}</div>`; });
+        body.innerHTML = html;
+        $("#heroPlay").onclick = () => ytWatch(hero, main.items);
+        $(".ythero .pic").onclick = () => ytWatch(hero, main.items);
+        body.querySelectorAll("[data-l]").forEach(el => ytWire(el, lists[+el.dataset.l]));
+        ytWire($(".ythero"), [hero]);
+      }
+    }
+    body.querySelectorAll(".ytchips button").forEach(b => b.onclick = () => b.textContent === "Todo" ? ytGo("inicio") : ytGo("chip", b.textContent));
+  } else if (view === "shorts") {
+    const r = await vt("/api/yt/shorts");
+    if (!done()) return;
+    const items = (r.ok && r.items) || [];
+    body.innerHTML = items.length ? `<h3 class="ytsec">${ico("bolt")}Shorts</h3><div class="ytshorts wrap">${items.map(ytShort).join("")}</div>` : ytEmpty(r, "No hay Shorts.");
+    ytWire(body, items);
+  } else if (view === "buscar") {
+    const r = await vt("/api/yt/search?q=" + encodeURIComponent(arg));
+    if (!done()) return;
+    grid((r.ok && r.items) || [], `Nada con «${arg}».`, r);
+  } else if (view === "canales") {
+    const r = await vt("/api/yt/channels");
+    if (!done()) return;
+    const chs = (r.ok && r.items) || [];
+    body.innerHTML = chs.length ? `<h3 class="ytsec">Tus canales</h3><div class="ytchans">${chs.map(c => `<button class="ytchan" data-ch="${esc(c.id)}" type="button">${c.avatar ? `<img src="${esc(c.avatar)}" alt="" loading="lazy">` : `<div class="noimg"></div>`}<b>${esc(c.title)}</b></button>`).join("")}</div>` : ytEmpty(r, "No encontré tus canales.");
+    ytWire(body, []);
+  } else if (view === "listas") {
+    const r = await vt("/api/yt/playlists");
+    if (!done()) return;
+    const pls = (r.ok && r.items) || [];
+    body.innerHTML = pls.length ? `<h3 class="ytsec">Tus listas</h3><div class="ytgrid">${pls.map(p => `<button class="ytpl" data-pl="${esc(p.id)}" type="button"><div class="pic"><img src="${esc(p.thumb)}" alt="" loading="lazy"><i>${p.count || ""} vídeos</i></div><b>${esc(p.title)}</b></button>`).join("")}</div>` : ytEmpty(r, "No tienes listas.");
+    body.querySelectorAll("[data-pl]").forEach(b => b.onclick = () => ytGo("lista", b.dataset.pl));
+  } else if (view === "lista") {
+    const r = await vt("/api/yt/playlist?id=" + encodeURIComponent(arg));
+    if (!done()) return;
+    const items = (r.ok && r.items) || [];
+    body.innerHTML = `<h3 class="ytsec">${esc(r.title || "Lista")}</h3>`;
+    const g = document.createElement("div"); g.className = "ytgrid"; g.innerHTML = items.map(ytTile).join(""); body.appendChild(g);
+    ytWire(body, items);
+  } else if (view === "canal") {
+    const tab = (arg || "").split(":")[1] || "videos", cid = (arg || "").split(":")[0];
+    const r = await vt(`/api/yt/channel?id=${encodeURIComponent(cid)}&tab=${tab}`);
+    if (!done()) return;
+    if (!r.ok) { body.innerHTML = ytEmpty(r, "No se pudo abrir el canal."); return; }
+    const items = r.items || [];
+    body.innerHTML = `<div class="ytchead">${r.banner ? `<div class="ban" style="background-image:url('${esc(r.banner)}')"></div>` : ""}
+      <div class="who">${r.avatar ? `<img src="${esc(r.avatar)}" alt="">` : ""}<div><h2>${esc(r.title)}</h2><span>${esc([fmtSubs(r.followers), items.length ? items.length + "+ vídeos" : ""].filter(Boolean).join(" · "))}</span>
+      ${r.description ? `<p>${esc(r.description)}</p>` : ""}</div></div>
+      <div class="ytchips"><button class="${tab === "videos" ? "on" : ""}" data-ct="videos" type="button">Vídeos</button><button class="${tab === "streams" ? "on" : ""}" data-ct="streams" type="button">Directos</button></div></div>
+      <div class="ytgrid">${items.map(ytTile).join("")}</div>`;
+    body.querySelectorAll("[data-ct]").forEach(b => b.onclick = () => ytGo("canal", cid + ":" + b.dataset.ct));
+    ytWire(body, items);
+  } else {
+    const r = await vt("/api/yt/feed?tab=" + view);
+    if (!done()) return;
+    const titles = {suscripciones: "Lo último de tus suscripciones", historial: "Historial", tarde: "Ver más tarde", megusta: "Vídeos que me gustan"};
+    const items = (r.ok && r.items) || [];
+    body.innerHTML = `<h3 class="ytsec">${titles[view] || ""}</h3>`;
+    const g = document.createElement("div"); g.className = "ytgrid"; g.innerHTML = items.map(ytTile).join("") || ytEmpty(r, "Aquí no hay nada todavía."); body.appendChild(g);
+    ytWire(body, items);
+  }
+}
+// ---------- página del vídeo ----------
+var YW = null;
+function closeWatch() {
+  if (!YW) return;
+  if (YW.hls) YW.hls.destroy();
+  YW.video.pause();
+  YW.box.remove();
+  document.removeEventListener("keydown", YW.key);
+  YW = null;
+}
+async function ytWatch(v, list) {
+  closeWatch();
   const box = document.createElement("div");
-  box.className = "ytplay";
-  box.innerHTML = `<video controls autoplay playsinline></video><button class="btn" type="button">${ico("close")}Cerrar</button>`;
+  box.className = "ytwatch";
+  box.innerHTML = `<div class="ytwbar"><button class="btn" id="ywBack" type="button">${ico("left")}Volver</button><div class="ytlogo"><span>${ico("play")}</span>4ETUBE</div></div>
+    <div class="ytwgrid"><div><div class="ytplayer"><video controls autoplay playsinline></video><div class="spin"></div></div>
+      <h1>${esc(v.title)}</h1>
+      <div class="ytwch">${ytAv(v)}<div><button class="c" ${v.channel_id ? `data-ch="${esc(v.channel_id)}"` : ""} type="button">${esc(v.channel)}</button><span id="ywSubs"></span></div><span class="grow"></span><span id="ywStats"></span></div>
+      <div class="ytdesc" id="ywDesc" hidden></div></div>
+      <aside><h4>A continuación</h4><div id="ywNext">${ytLoading()}</div></aside></div>`;
   document.body.appendChild(box);
   const video = $("video", box);
-  let hls = null;
-  const close = () => { if (hls) hls.destroy(); video.pause(); box.remove(); document.removeEventListener("keydown", esc_); };
-  const esc_ = e => { if (e.key === "Escape" || e.key === "Backspace") close(); };
-  document.addEventListener("keydown", esc_);
-  $("button", box).onclick = close;
-  video.onended = () => { close(); if (i + 1 < list.length) playYouTube(list, i + 1); };
+  YW = {box, video, hls: null, key: e => { if (e.key === "Escape") closeWatch(); }};
+  document.addEventListener("keydown", YW.key);
+  window.scrollTo({top: 0});
+  $("#ywBack").onclick = closeWatch;
+  box.querySelectorAll("[data-ch]").forEach(b => b.onclick = () => { closeWatch(); ytGo("canal", b.dataset.ch); });
+  const i = list.findIndex(x => x.id === v.id);
+  let next = list.slice(i + 1, i + 13);
+  const paintNext = items => {
+    $("#ywNext", box).innerHTML = items.map((x, n) => `<div class="ytv row" data-n="${n}"><button class="pic" type="button"><img src="${esc(x.thumb)}" alt="" loading="lazy">${x.duration ? `<i>${ytDur(x.duration)}</i>` : ""}</button>
+      <div><button class="t" type="button">${esc(x.title)}</button><button class="c" type="button">${esc(x.channel)}</button><span>${esc([x.views ? ytNum(x.views) + " vistas" : "", ytAgo(x.when)].filter(Boolean).join(" · "))}</span></div></div>`).join("") || `<p class="sub">Nada más.</p>`;
+    $("#ywNext", box).querySelectorAll("[data-n]").forEach(el => el.querySelectorAll(".pic,.t").forEach(b => b.onclick = () => ytWatch(items[+el.dataset.n], items)));
+  };
+  if (next.length >= 4) paintNext(next);
+  vt("/api/yt/related?id=" + encodeURIComponent(v.id)).then(r => {
+    if (!YW || YW.box !== box) return;
+    const rel = ((r.ok && r.items) || []).filter(x => !next.some(y => y.id === x.id));
+    next = next.concat(rel).slice(0, 20);
+    paintNext(next);
+  });
+  vt("/api/yt/watched", {id: v.id, title: v.title, channel: v.channel, channel_id: v.channel_id, duration: v.duration, thumb: v.thumb});
+  const r = await vt("/api/yt/play?mode=nas&id=" + encodeURIComponent(v.id));
+  if (!YW || YW.box !== box) return;
+  $(".ytplayer .spin", box).remove();
+  if (!r.ok || !r.url) { $(".ytplayer", box).insertAdjacentHTML("beforeend", `<p class="err">No se pudo abrir: ${esc(r.error || "YouTube no respondió")}</p>`); return; }
+  $("#ywSubs", box).textContent = fmtSubs(r.followers);
+  $("#ywStats", box).textContent = [r.views ? ytNum(r.views) + " vistas" : "", r.likes ? ytNum(r.likes) + " me gusta" : "", ytAgo(r.when)].filter(Boolean).join(" · ");
+  const d = $("#ywDesc", box);
+  d.textContent = r.description || "";
+  d.hidden = !r.description;
+  d.onclick = () => d.classList.toggle("open");
+  video.onended = () => { if (next[0]) ytWatch(next[0], next); };
   if (r.format === "hls" && !video.canPlayType("application/vnd.apple.mpegurl")) {
     await loadHls();
-    hls = new Hls({maxBufferLength: 40});
-    hls.loadSource(r.url); hls.attachMedia(video);
-    hls.on(Hls.Events.ERROR, (e, d) => { if (d.fatal) toast("No se pudo reproducir"); });
+    YW.hls = new Hls({maxBufferLength: 40});
+    YW.hls.loadSource(r.url); YW.hls.attachMedia(video);
+    YW.hls.on(Hls.Events.ERROR, (e, dd) => { if (dd.fatal) toast("No se pudo reproducir"); });
   } else video.src = r.url;
   video.play().catch(() => {});
 }
